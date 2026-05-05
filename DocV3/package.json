@@ -1,0 +1,8 @@
+{
+  "name": "doc-v3-generator",
+  "version": "1.0.0",
+  "description": "Generador de documentacion Bantotal V3",
+  "dependencies": {
+    "mssql": "^11.0.1"
+  }
+}
