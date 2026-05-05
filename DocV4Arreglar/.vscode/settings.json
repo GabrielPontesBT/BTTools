@@ -1,0 +1,22 @@
+{
+    "sqltools.useNodeRuntime": true,
+    "sqltools.connections": [
+        {
+            "oracleOptions": {
+                "privilege": "Normal",
+                "thickMode": false,
+                "autoCommit": false,
+                "lowerCase": false,
+                "limitPrefetchRows": false
+            },
+            "previewLimit": 50,
+            "server": "10.0.0.4",
+            "port": 1521,
+            "driver": "Oracle",
+            "database": "btv4db",
+            "username": "btdesav23",
+            "password": "Bantotal$2020",
+            "name": "V4"
+        }
+    ]
+}
