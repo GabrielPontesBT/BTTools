@@ -49,6 +49,15 @@ function validarArchivo(filePath) {
     problemas.push('⚠️  Ejemplo de respuesta con datos genéricos');
   }
 
+  // 8. Estado en Btoutreq distinto de "OK"
+  const btoutreqMatch = contenido.match(/"Btoutreq"\s*:\s*\{([^}]+)\}/);
+  if (btoutreqMatch) {
+    const estadoMatch = btoutreqMatch[1].match(/"Estado"\s*:\s*"([^"]+)"/);
+    if (estadoMatch && estadoMatch[1] !== 'OK') {
+      problemas.push(`❌ Estado en Btoutreq es "${estadoMatch[1]}" (se esperaba "OK")`);
+    }
+  }
+
   return { nombre, problemas };
 }
 
