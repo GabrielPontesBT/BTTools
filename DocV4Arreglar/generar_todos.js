@@ -4,19 +4,18 @@
 // Ejemplo: node generar_todos.js PublicGeneral "PUBLIC GENERAL V4"
 // ============================================================
 
+require('dotenv').config();
 const oracledb = require('oracledb');
 const fs = require('fs');
-const path = require('path');
 const { generarMd } = require('./generar_md.js');
 
 const DB_CONFIG = {
-  user: 'btdesav23',
-  password: 'Bantotal$2020',
-  connectString: '10.0.0.4:1521/btv4db'
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  connectString: process.env.DB_CONNECT_STRING
 };
 
 async function generarTodos(servicio, carpeta) {
-  // Crear carpeta si no existe
   if (!fs.existsSync(carpeta)) {
     fs.mkdirSync(carpeta, { recursive: true });
   }
@@ -71,10 +70,11 @@ async function generarTodos(servicio, carpeta) {
 }
 
 const [,, servicio, carpeta] = process.argv;
-if (!servicio || !carpeta) {
-  console.log('Uso: node generar_todos.js <Servicio> <Carpeta>');
-  console.log('Ejemplo: node generar_todos.js PublicGeneral "PUBLIC GENERAL V4"');
+if (!servicio) {
+  console.log('Uso: node generar_todos.js <Servicio> [Carpeta]');
+  console.log('Ejemplo: node generar_todos.js PublicSavingAccounts');
   process.exit(1);
 }
 
-generarTodos(servicio, carpeta);
+const dir = carpeta || servicio;
+generarTodos(servicio, dir);

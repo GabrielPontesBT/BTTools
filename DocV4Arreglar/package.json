@@ -1,6 +1,9 @@
 {
+  "name": "doc-v4-generator",
+  "version": "1.0.0",
+  "description": "Generador de documentacion Bantotal V4",
   "dependencies": {
-    "@vitalets/google-translate-api": "^9.2.1",
+    "dotenv": "^16.4.5",
     "oracledb": "^6.10.0"
   }
 }
