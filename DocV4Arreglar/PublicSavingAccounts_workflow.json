@@ -3,59 +3,54 @@
   "folder": "PublicSavingAccounts",
   "steps": [
     {
-      "method": "create",
+      "method": "getProducts"
+    },
+    {
+      "method": "getPersonProducts",
+      "params": {
+        "personGUID": "183f5194-f5a9-4590-9aff-b43de58c263d"
+      },
       "extract": [
-        "savingAccountGUID"
+        { "path": "products.product[5].ProductGUID", "as": "productGUID" }
       ]
+    },
+    {
+      "method": "create",
+      "params": {
+        "counterpartyGUID": "394e48fc-b99c-4546-aeaf-862f9699ec03",
+        "subAccountName": "Cuenta de Ahorro",
+        "branchId": 1,
+        "signatureType": "A"
+      },
+      "extract": ["savingAccountGUID"]
+    },
+    {
+      "method": "getDetailedData"
     },
     {
       "method": "block"
     },
     {
-      "method": "cancel",
-      "extract": [
-        "movementGUID"
-      ]
-    },
-    {
-      "method": "getCancellationOrigins"
-    },
-    {
-      "method": "getCancellationReasons"
-    },
-    {
-      "method": "getDetailedData",
-      "extract": [
-        {
-          "path": "savingAccountData.ProductChanges[0].MovementGUID",
-          "as": "MovementGUID"
-        },
-        {
-          "path": "savingAccountData.SavingAccountGUID",
-          "as": "SavingAccountGUID"
-        }
-      ]
-    },
-    {
-      "method": "getPersonProducts",
-      "extract": [
-        {
-          "path": "products.ProductGUID",
-          "as": "ProductGUID"
-        }
-      ]
-    },
-    {
-      "method": "getProducts",
-      "extract": [
-        {
-          "path": "products.ProductGUID",
-          "as": "ProductGUID"
-        }
-      ]
-    },
-    {
       "method": "unblock"
+    },
+    {
+      "method": "getCancellationOrigins",
+      "extract": [
+        { "path": "cancellationOrigins.cancellationOrigin[0].id", "as": "cancellationOriginId" }
+      ]
+    },
+    {
+      "method": "getCancellationReasons",
+      "extract": [
+        { "path": "cancellationReasons.cancellationReason[0].id", "as": "cancellationReasonId" }
+      ]
+    },
+    {
+      "method": "cancel",
+      "params": {
+        "counterpartyGUID": "394e48fc-b99c-4546-aeaf-862f9699ec03",
+        "paymentOrChargeAccountGUID": "d4c55780-98c1-43ab-bc6d-ccaab69807c3"
+      }
     }
   ]
 }
