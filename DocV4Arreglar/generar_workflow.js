@@ -18,10 +18,13 @@ function esGuid(nombre) {
   return nombre && nombre.toLowerCase().includes('guid');
 }
 
-// Deriva el nombre del ítem desde el nombre del SDT.
-// Ej: "SdtBTCountry" → "country", "SdtBTCancellationOrigin" → "cancellationOrigin"
-function derivarNombreItem(sdtTipo) {
-  return sdtTipo.replace(/^SdtBT/i, '').replace(/^[A-Z]/, c => c.toLowerCase());
+// Singulariza el nombre del param para obtener el nombre del ítem en el JSON.
+// Ej: "countries" → "country", "branches" → "branch", "documentTypes" → "documentType"
+function singularizar(nombre) {
+  if (nombre.endsWith('ies')) return nombre.slice(0, -3) + 'y';
+  if (/(?:ch|sh|x|z)es$/.test(nombre)) return nombre.slice(0, -2);
+  if (nombre.endsWith('s') && !nombre.endsWith('ss')) return nombre.slice(0, -1);
+  return nombre;
 }
 
 // Para un param de salida, busca en BTI026 los campos id/GUID extraíbles.
@@ -189,9 +192,23 @@ async function generarWorkflow(servicio, archivoSalida) {
         const sdtTipo = esColeccionDirecta
           ? row.BTISRVPARITTIPO.trim()
           : (row.BTISRVVARTIPO && row.BTISRVVARTIPO.trim().startsWith('Sdt') ? row.BTISRVVARTIPO.trim() : null);
-        const itemNombre = esColeccionDirecta ? derivarNombreItem(row.BTISRVPARITTIPO.trim()) : null;
+        const itemNombre = esColeccionDirecta ? singularizar(nombre) : null;
         entry.outputs.push({ nombre, sdtTipo, esColeccionDirecta, itemNombre });
       }
+    }
+
+    // DEBUG: mostrar outputs de getCountries e inputs de getAdministrativeLevels
+    if (process.argv.includes('--debug')) {
+      for (const [m, p] of paramsPorMetodo) {
+        if (p.outputs.length > 0 || p.inputs.length > 0) {
+          console.log(`\n🔎 ${m}`);
+          if (p.inputs.length) console.log(`   inputs:  ${p.inputs.join(', ')}`);
+          if (p.outputs.length) p.outputs.forEach(o =>
+            console.log(`   output:  ${o.nombre}  cat=${o.esColeccionDirecta ? 'S(directo)' : 'B/SDT'}  sdtTipo=${o.sdtTipo}  itemNombre=${o.itemNombre}`)
+          );
+        }
+      }
+      console.log('');
     }
 
     // Set de todos los inputs del servicio (para matching de id fields)

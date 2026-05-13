@@ -3,23 +3,25 @@
   "folder": "PublicGeneral",
   "steps": [
     {
-      "method": "getAdministrativeLevels",
-      "extract": [
-        {
-          "path": "administrativeLevels.sdtsBTCNWAdministrativeLevel[0].Id",
-          "as": "sdtsBTCNWAdministrativeLevelId"
-        }
-      ]
-    },
-    {
       "method": "getBranches"
     },
     {
       "method": "getCountries",
       "extract": [
         {
-          "path": "countries.sdtsBTCNWCountry[0].Id",
-          "as": "sdtsBTCNWCountryId"
+          "path": "countries.country",
+          "where": { "Name": "México" },
+          "field": "Id",
+          "as": "countryId"
+        }
+      ]
+    },
+    {
+      "method": "getAdministrativeLevels",
+      "extract": [
+        {
+          "path": "administrativeLevels.administrativeLevel[0].Id",
+          "as": "administrativeLevelId"
         }
       ]
     },
@@ -27,8 +29,8 @@
       "method": "getDocumentTypes",
       "extract": [
         {
-          "path": "documentTypes.sdtsBTDTWDocumentType[0].Id",
-          "as": "sdtsBTDTWDocumentTypeId"
+          "path": "documentTypes.documentType[0].Id",
+          "as": "documentTypeId"
         }
       ]
     },
