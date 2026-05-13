@@ -9,7 +9,9 @@
       "method": "getCountries",
       "extract": [
         {
-          "path": "countries.country[0].Id",
+          "path": "countries.country",
+          "where": { "Name": "México" },
+          "field": "Id",
           "as": "countryId"
         }
       ]

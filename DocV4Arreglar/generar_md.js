@@ -644,6 +644,22 @@ async function ejecutarWorkflow(workflowFile) {
           } else {
             console.log(`  ⚠️  Campo "${entry}" no encontrado en la respuesta`);
           }
+        } else if (typeof entry === 'object' && entry.path && entry.where && entry.field && entry.as) {
+          // Formato con filtro: busca el ítem del array que matchea "where" y extrae "field"
+          const arr = resolvePath(response, entry.path);
+          if (Array.isArray(arr)) {
+            const item = arr.find(i =>
+              Object.entries(entry.where).every(([k, v]) => String(i[k]) === String(v))
+            );
+            if (item !== undefined && item[entry.field] !== undefined) {
+              context[entry.as] = item[entry.field];
+              console.log(`  📎 Extraído: ${entry.as} = ${JSON.stringify(item[entry.field])} (donde ${JSON.stringify(entry.where)})`);
+            } else {
+              console.log(`  ⚠️  No se encontró ítem con ${JSON.stringify(entry.where)} en "${entry.path}"`);
+            }
+          } else {
+            console.log(`  ⚠️  "${entry.path}" no es un array`);
+          }
         } else if (typeof entry === 'object' && entry.path && entry.as) {
           const value = resolvePath(response, entry.path);
           if (value !== undefined) {
