@@ -1,0 +1,39 @@
+{
+  "service": "PublicGeneral",
+  "folder": "PublicGeneral",
+  "steps": [
+    {
+      "method": "getAdministrativeLevels",
+      "extract": [
+        {
+          "path": "administrativeLevels.sdtsBTCNWAdministrativeLevel[0].Id",
+          "as": "sdtsBTCNWAdministrativeLevelId"
+        }
+      ]
+    },
+    {
+      "method": "getBranches"
+    },
+    {
+      "method": "getCountries",
+      "extract": [
+        {
+          "path": "countries.sdtsBTCNWCountry[0].Id",
+          "as": "sdtsBTCNWCountryId"
+        }
+      ]
+    },
+    {
+      "method": "getDocumentTypes",
+      "extract": [
+        {
+          "path": "documentTypes.sdtsBTDTWDocumentType[0].Id",
+          "as": "sdtsBTDTWDocumentTypeId"
+        }
+      ]
+    },
+    {
+      "method": "getSystemDate"
+    }
+  ]
+}

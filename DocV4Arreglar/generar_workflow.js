@@ -1,0 +1,328 @@
+// ============================================================
+// Generador automático de workflow.json para servicios Bantotal V4
+// Analiza BTI019/BTI026 y detecta dependencias entre métodos
+// Uso: node generar_workflow.js <Servicio> [archivo-salida.json]
+// ============================================================
+
+require('dotenv').config();
+const oracledb = require('oracledb');
+const fs = require('fs');
+
+const DB_CONFIG = {
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  connectString: process.env.DB_CONNECT_STRING
+};
+
+function esGuid(nombre) {
+  return nombre && nombre.toLowerCase().includes('guid');
+}
+
+// Deriva el nombre del ítem desde el nombre del SDT.
+// Ej: "SdtBTCountry" → "country", "SdtBTCancellationOrigin" → "cancellationOrigin"
+function derivarNombreItem(sdtTipo) {
+  return sdtTipo.replace(/^SdtBT/i, '').replace(/^[A-Z]/, c => c.toLowerCase());
+}
+
+// Para un param de salida, busca en BTI026 los campos id/GUID extraíbles.
+//
+// Hay dos modos según cómo viene el param en BTI019:
+//
+// A) BTISRVCATIT='S' con BTISRVPARITTIPO = SDT del ítem (colección directa)
+//    → JSON: paramNom.itemNombre[0].Field
+//    → Solo mirar campos básicos del ítem, NO recursar en colecciones anidadas
+//    → itemNombre se deriva del SDT: SdtBTCountry → country
+//
+// B) BTISRVVARTIPO.startsWith('Sdt') (SDT wrapper)
+//    → JSON: paramNom.coleccion[0].Field
+//    → Buscar campos colección en el wrapper, ir a sus ítems
+async function resolverExtracts(conn, paramNom, sdtTipo, todosInputs, esColeccionDirecta, itemNombre) {
+  if (!sdtTipo) return [];
+
+  const r26 = await conn.execute(
+    `SELECT BTISDTELEMNOM, BTISDTELEMTIPO, BTISDTELEMCAT, BTISDTELEMSDT
+     FROM BTI026 WHERE BTISDTNOM = :1 ORDER BY BTISDTELEMNOM`,
+    [sdtTipo],
+    { outFormat: oracledb.OUT_FORMAT_OBJECT }
+  );
+
+  const extracts = [];
+
+  if (esColeccionDirecta && itemNombre) {
+    // Modo A: BTI026 describe al ítem directamente.
+    // El path en JSON es paramNom.itemNombre[0].Field
+    // NO recursar en colecciones anidadas dentro del ítem (ej: EconomicBlocs)
+    for (const campo of r26.rows) {
+      const fieldName = campo.BTISDTELEMNOM;
+      if (campo.BTISDTELEMCAT === 'C' || campo.BTISDTELEMCAT === 'S') continue;
+      if (fieldName.toLowerCase() === 'id') {
+        const asName = `${itemNombre}Id`;
+        extracts.push({ path: `${paramNom}.${itemNombre}[0].${fieldName}`, as: asName });
+      } else if (esGuid(fieldName) && todosInputs.has(fieldName)) {
+        extracts.push({ path: `${paramNom}.${itemNombre}[0].${fieldName}`, as: fieldName });
+      }
+    }
+  } else {
+    // Modo B: BTI026 describe un SDT wrapper que contiene colecciones.
+    for (const campo of r26.rows) {
+      const fieldName = campo.BTISDTELEMNOM;
+      const itemSdt = (campo.BTISDTELEMSDT && campo.BTISDTELEMSDT.trim()) ||
+                      (campo.BTISDTELEMTIPO && campo.BTISDTELEMTIPO.trim().startsWith('Sdt')
+                        ? campo.BTISDTELEMTIPO.trim() : null);
+
+      if ((campo.BTISDTELEMCAT === 'C' || campo.BTISDTELEMCAT === 'S') && itemSdt) {
+        // Colección dentro del wrapper: buscar id/GUID en los ítems (sin recursar más)
+        const inner = await conn.execute(
+          `SELECT BTISDTELEMNOM, BTISDTELEMCAT FROM BTI026 WHERE BTISDTNOM = :1 ORDER BY BTISDTELEMNOM`,
+          [itemSdt],
+          { outFormat: oracledb.OUT_FORMAT_OBJECT }
+        );
+        for (const item of inner.rows) {
+          if (item.BTISDTELEMCAT === 'C' || item.BTISDTELEMCAT === 'S') continue;
+          const itemField = item.BTISDTELEMNOM;
+          if (itemField.toLowerCase() === 'id') {
+            const asName = `${fieldName}Id`;
+            extracts.push({ path: `${paramNom}.${fieldName}[0].${itemField}`, as: asName });
+          } else if (esGuid(itemField) && todosInputs.has(itemField)) {
+            extracts.push({ path: `${paramNom}.${fieldName}[0].${itemField}`, as: itemField });
+          }
+        }
+      } else if (esGuid(fieldName) && todosInputs.has(fieldName)) {
+        extracts.push({ path: `${paramNom}.${fieldName}`, as: fieldName });
+      } else if (fieldName.toLowerCase() === 'id' && todosInputs.has(`${paramNom}Id`)) {
+        extracts.push({ path: `${paramNom}.${fieldName}`, as: `${paramNom}Id` });
+      }
+    }
+  }
+
+  return extracts;
+}
+
+function ordenTopologico(metodos, dependencias) {
+  const inDegree = new Map();
+  const adyacentes = new Map();
+
+  for (const m of metodos) {
+    inDegree.set(m, 0);
+    adyacentes.set(m, []);
+  }
+
+  for (const [metodo, deps] of dependencias) {
+    for (const dep of deps) {
+      adyacentes.get(dep).push(metodo);
+      inDegree.set(metodo, inDegree.get(metodo) + 1);
+    }
+  }
+
+  const disponibles = metodos.filter(m => inDegree.get(m) === 0).sort();
+  const resultado = [];
+
+  while (disponibles.length > 0) {
+    disponibles.sort();
+    const m = disponibles.shift();
+    resultado.push(m);
+    for (const siguiente of adyacentes.get(m).sort()) {
+      inDegree.set(siguiente, inDegree.get(siguiente) - 1);
+      if (inDegree.get(siguiente) === 0) disponibles.push(siguiente);
+    }
+  }
+
+  const restantes = metodos.filter(m => !resultado.includes(m)).sort();
+  if (restantes.length > 0) {
+    console.log(`  ⚠️  Dependencias circulares en: ${restantes.join(', ')} — agregados al final`);
+  }
+
+  return [...resultado, ...restantes];
+}
+
+async function generarWorkflow(servicio, archivoSalida) {
+  console.log(`🔍 Analizando servicio: ${servicio}`);
+  console.log('─'.repeat(50));
+
+  let conn;
+  try {
+    conn = await oracledb.getConnection(DB_CONFIG);
+    console.log('✅ Conectado a Oracle');
+  } catch (e) {
+    console.error('❌ Error de conexión:', e.message);
+    return;
+  }
+
+  try {
+    // ── BTI014: métodos del servicio ──────────────────────────
+    const r14 = await conn.execute(
+      `SELECT BTIMTDNOM FROM BTI014 WHERE BTISRVNOM = :1 ORDER BY BTIMTDNOM`,
+      [servicio],
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+
+    if (r14.rows.length === 0) {
+      console.error(`❌ No se encontró el servicio '${servicio}' en BTI014`);
+      return;
+    }
+
+    const metodos = r14.rows.map(r => r.BTIMTDNOM);
+    console.log(`📋 ${metodos.length} métodos encontrados en ${servicio}`);
+
+    // ── BTI019: todos los parámetros del servicio ─────────────
+    const r19 = await conn.execute(
+      `SELECT BTIMTDNOM, BTISRVPARNOM, BTISRVPARDIR, BTISRVCATIT, BTISRVVARTIPO, BTISRVPARITTIPO
+       FROM BTI019
+       WHERE BTISRVNOM = :1
+       ORDER BY BTIMTDNOM, BTISRVPARPOSI`,
+      [servicio],
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+
+    // Agrupar por método
+    const paramsPorMetodo = new Map();
+    for (const m of metodos) paramsPorMetodo.set(m, { inputs: [], outputs: [] });
+
+    for (const row of r19.rows) {
+      const entry = paramsPorMetodo.get(row.BTIMTDNOM);
+      if (!entry) continue;
+      const nombre = row.BTISRVPARNOM;
+      if (row.BTISRVPARDIR === 'I') {
+        entry.inputs.push(nombre);
+      } else if (row.BTISRVPARDIR === 'O' && nombre !== 'businessErrors') {
+        const esColeccionDirecta = row.BTISRVCATIT === 'S' && !!row.BTISRVPARITTIPO;
+        const sdtTipo = esColeccionDirecta
+          ? row.BTISRVPARITTIPO.trim()
+          : (row.BTISRVVARTIPO && row.BTISRVVARTIPO.trim().startsWith('Sdt') ? row.BTISRVVARTIPO.trim() : null);
+        const itemNombre = esColeccionDirecta ? derivarNombreItem(row.BTISRVPARITTIPO.trim()) : null;
+        entry.outputs.push({ nombre, sdtTipo, esColeccionDirecta, itemNombre });
+      }
+    }
+
+    // Set de todos los inputs del servicio (para matching de id fields)
+    const todosInputs = new Set(
+      [...paramsPorMetodo.values()].flatMap(p => p.inputs)
+    );
+
+    // ── Construir extracts por método (BTI019 + BTI026) ───────
+    console.log('\n⚙️  Consultando BTI026 para detectar extracts anidados...');
+    const extractsPorMetodo = new Map();
+
+    for (const metodo of metodos) {
+      const extracts = [];
+      for (const output of paramsPorMetodo.get(metodo).outputs) {
+        if (esGuid(output.nombre)) {
+          // GUID top-level: siempre incluir
+          extracts.push(output.nombre);
+        } else if (output.sdtTipo) {
+          // SDT/Collection: buscar id/GUID en BTI026
+          const nested = await resolverExtracts(conn, output.nombre, output.sdtTipo, todosInputs, output.esColeccionDirecta, output.itemNombre);
+          extracts.push(...nested);
+        }
+      }
+      extractsPorMetodo.set(metodo, extracts);
+    }
+
+    // ── Mapa: asName/nombre → [métodos productores] ───────────
+    const productores = new Map();
+    for (const [metodo, extracts] of extractsPorMetodo) {
+      for (const e of extracts) {
+        const key = typeof e === 'string' ? e : e.as;
+        if (!productores.has(key)) productores.set(key, []);
+        productores.get(key).push(metodo);
+      }
+    }
+
+    // ── Dependencias: B depende de A si B consume lo que A extrae ──
+    const dependencias = new Map();
+    const requeridosPor = new Map();
+
+    for (const metodo of metodos) {
+      dependencias.set(metodo, new Set());
+      requeridosPor.set(metodo, []);
+      for (const input of paramsPorMetodo.get(metodo).inputs) {
+        if (productores.has(input)) {
+          requeridosPor.get(metodo).push(input);
+          for (const prod of productores.get(input)) {
+            if (prod !== metodo) dependencias.get(metodo).add(prod);
+          }
+        }
+      }
+    }
+
+    // ── Resumen ───────────────────────────────────────────────
+    const metodosConDeps = [...requeridosPor.entries()].filter(([, v]) => v.length > 0);
+
+    console.log('\n📊 Resultado del análisis:');
+
+    if (productores.size > 0) {
+      console.log(`  🔑 Campos extraíbles detectados (${productores.size}):`);
+      for (const [key, prods] of productores) {
+        console.log(`     ${key}  ←  ${prods.join(', ')}`);
+      }
+    } else {
+      console.log('  ℹ️  Ningún método produce campos encadenables');
+    }
+
+    if (metodosConDeps.length > 0) {
+      console.log(`  🔗 Métodos con dependencias (${metodosConDeps.length}):`);
+      for (const [m, campos] of metodosConDeps) {
+        const prods = campos.flatMap(g => productores.get(g) || []);
+        console.log(`     ${m}  necesita ${campos.join(', ')}  ←  ${[...new Set(prods)].join(', ')}`);
+      }
+    } else {
+      console.log('  ℹ️  No se detectaron dependencias entre métodos');
+    }
+
+    // ── Orden topológico y construcción del workflow ──────────
+    const ordenado = ordenTopologico(metodos, dependencias);
+
+    const steps = ordenado.map(metodo => {
+      const extracts = extractsPorMetodo.get(metodo);
+      const step = { method: metodo };
+      if (extracts && extracts.length > 0) step.extract = extracts;
+      return step;
+    });
+
+    const workflow = { service: servicio, folder: servicio, steps };
+    const outputFile = archivoSalida || `${servicio}_workflow.json`;
+    fs.writeFileSync(outputFile, JSON.stringify(workflow, null, 2), 'utf8');
+
+    console.log(`\n✅ Workflow generado: ${outputFile}`);
+    console.log(`📝 ${steps.length} pasos:`);
+
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+      const deps = [...(dependencias.get(step.method) || [])];
+      const partes = [];
+      if (step.extract && step.extract.length > 0) {
+        const names = step.extract.map(e => typeof e === 'string' ? e : e.as);
+        partes.push(`extrae: ${names.join(', ')}`);
+      }
+      if (deps.length > 0) partes.push(`depende de: ${deps.join(', ')}`);
+      const extra = partes.length > 0 ? `  [${partes.join(' | ')}]` : '';
+      console.log(`  ${String(i + 1).padStart(2)}. ${step.method}${extra}`);
+    }
+
+    console.log('\n💡 Revisá y ajustá el archivo antes de ejecutarlo con --workflow');
+
+  } catch (e) {
+    console.error('❌ Error:', e.message);
+  } finally {
+    await conn.close();
+  }
+}
+
+// ── ENTRY POINT ───────────────────────────────────────────────
+if (require.main === module) {
+  const [,, servicio, archivoSalida] = process.argv;
+
+  if (!servicio) {
+    console.log('Uso:');
+    console.log('  node generar_workflow.js <Servicio> [archivo-salida.json]');
+    console.log('');
+    console.log('Ejemplos:');
+    console.log('  node generar_workflow.js PublicSavingAccounts');
+    console.log('  node generar_workflow.js PublicSavingAccounts mi_workflow.json');
+    process.exit(1);
+  }
+
+  generarWorkflow(servicio, archivoSalida);
+}
+
+module.exports = { generarWorkflow };

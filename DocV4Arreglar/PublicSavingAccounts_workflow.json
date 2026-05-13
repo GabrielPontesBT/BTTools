@@ -1,0 +1,61 @@
+{
+  "service": "PublicSavingAccounts",
+  "folder": "PublicSavingAccounts",
+  "steps": [
+    {
+      "method": "create",
+      "extract": [
+        "savingAccountGUID"
+      ]
+    },
+    {
+      "method": "block"
+    },
+    {
+      "method": "cancel",
+      "extract": [
+        "movementGUID"
+      ]
+    },
+    {
+      "method": "getCancellationOrigins"
+    },
+    {
+      "method": "getCancellationReasons"
+    },
+    {
+      "method": "getDetailedData",
+      "extract": [
+        {
+          "path": "savingAccountData.ProductChanges[0].MovementGUID",
+          "as": "MovementGUID"
+        },
+        {
+          "path": "savingAccountData.SavingAccountGUID",
+          "as": "SavingAccountGUID"
+        }
+      ]
+    },
+    {
+      "method": "getPersonProducts",
+      "extract": [
+        {
+          "path": "products.ProductGUID",
+          "as": "ProductGUID"
+        }
+      ]
+    },
+    {
+      "method": "getProducts",
+      "extract": [
+        {
+          "path": "products.ProductGUID",
+          "as": "ProductGUID"
+        }
+      ]
+    },
+    {
+      "method": "unblock"
+    }
+  ]
+}
