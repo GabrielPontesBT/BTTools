@@ -25,11 +25,6 @@ Nombre | Tipo | Comentarios
 offset | Long $<(length: 10)>$ | Número de registros a omitir desde el inicio del resultado.
 limit | Long $<(length: 10)>$ | Cantidad máxima de registros a retornar en una sola respuesta.
 
-@tab Body
-
-Nombre | Tipo | Comentarios
-:--------- | :--------- | :---------
-Completar manualmente | Completar manualmente | Completar manualmente 
 
 @tab Datos de Salida
 
@@ -42,7 +37,9 @@ branches | [SdtsBTBRBranch](#sdtsbtbrbranch) | Listado de sucursales.
 
 Código | Descripción
 :--------- | :-----------
-Completar manualmente | Completar manualmente
+50050003 | No se encuentra la empresa
+99990010006 | No se pudo resolver el usuario
+99990010007 | No se pudo resolver la empresa
 
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -60,10 +57,10 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "907FDCD8173D3FB297F702B1"
+    "Token": "3985F17F736C68B94646C7E6"
   },
-  "offset": 0,
-  "limit": 0
+  "offset": "0",
+  "limit": "10"
 }'
 ```
 :::
@@ -80,7 +77,7 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "907FDCD8173D3FB297F702B1"
+    "Token": "3985F17F736C68B94646C7E6"
   },
   "hasNext": true,
   "branches": {
@@ -108,6 +105,246 @@ Completar manualmente | Completar manualmente
         "longitude": "0",
         "zipCode": "",
         "email": "sp1@mail.com"
+      },
+      {
+        "companyCode": 1,
+        "code": 90,
+        "name": "TESORERIA",
+        "reducedName": "90",
+        "street": "CARRRERA 11 5 56",
+        "doorNumber": 5,
+        "departmentId": 19,
+        "departmentName": "Pasco",
+        "cityId": 1079,
+        "cityName": "",
+        "phone": "57 (2) 839 99 00",
+        "calendarId": 2,
+        "calendarName": "Calendario 2",
+        "branchType": 1,
+        "dependencyId": 0,
+        "dependencyName": "TESORERIA",
+        "stateId": 1,
+        "timeZone": "0",
+        "latitude": "0",
+        "longitude": "0",
+        "zipCode": "",
+        "email": ""
+      },
+      {
+        "companyCode": 1,
+        "code": 91,
+        "name": "TESORERIA BONOS",
+        "reducedName": "TESBO",
+        "street": "CARRERA 11 5 56",
+        "doorNumber": 5,
+        "departmentId": 5,
+        "departmentName": "Ayacucho",
+        "cityId": 1814,
+        "cityName": "",
+        "phone": "57 (2) 8399900",
+        "calendarId": 2,
+        "calendarName": "Calendario 2",
+        "branchType": 1,
+        "dependencyId": 0,
+        "dependencyName": "TESORERIA BONOS",
+        "stateId": 1,
+        "timeZone": "-11",
+        "latitude": "0",
+        "longitude": "0",
+        "zipCode": "",
+        "email": ""
+      },
+      {
+        "companyCode": 1,
+        "code": 100,
+        "name": "Direccion General",
+        "reducedName": "DG",
+        "street": "CR 11 No 5-56",
+        "doorNumber": 12,
+        "departmentId": 1,
+        "departmentName": "Amazonas",
+        "cityId": 1022,
+        "cityName": "",
+        "phone": "11111",
+        "calendarId": 1,
+        "calendarName": "Calendario 1",
+        "branchType": 1,
+        "dependencyId": 0,
+        "dependencyName": "Direccion General",
+        "stateId": 1,
+        "timeZone": "0",
+        "latitude": "0",
+        "longitude": "0",
+        "zipCode": "",
+        "email": "DG1@mail.com.uy"
+      },
+      {
+        "companyCode": 1,
+        "code": 110,
+        "name": "Barranquilla Centro",
+        "reducedName": "110",
+        "street": "Cll 39 No 41-108",
+        "doorNumber": 30,
+        "departmentId": 8,
+        "departmentName": "Cusco",
+        "cityId": 1,
+        "cityName": "",
+        "phone": "57 (5) 385 12 28",
+        "calendarId": 1,
+        "calendarName": "Calendario 1",
+        "branchType": 0,
+        "dependencyId": 0,
+        "dependencyName": "Barranquilla Centro",
+        "stateId": 0,
+        "timeZone": "0",
+        "latitude": "0",
+        "longitude": "0",
+        "zipCode": "",
+        "email": ""
+      },
+      {
+        "companyCode": 1,
+        "code": 120,
+        "name": "Barranquilla Soledad",
+        "reducedName": "Barra",
+        "street": "CARRERA 19 No 25A - 05",
+        "doorNumber": 30,
+        "departmentId": 1,
+        "departmentName": "Amazonas",
+        "cityId": 1022,
+        "cityName": "",
+        "phone": "57 (5) 309 18 40",
+        "calendarId": 1,
+        "calendarName": "Calendario 1",
+        "branchType": 3,
+        "dependencyId": 0,
+        "dependencyName": "Barranquilla Soledad",
+        "stateId": 3,
+        "timeZone": "0",
+        "latitude": "0",
+        "longitude": "0",
+        "zipCode": "",
+        "email": ""
+      },
+      {
+        "companyCode": 1,
+        "code": 121,
+        "name": "PDA Santo Tomas",
+        "reducedName": "120",
+        "street": "CALLE 9 No 8A - 82",
+        "doorNumber": 30,
+        "departmentId": 1,
+        "departmentName": "Amazonas",
+        "cityId": 1,
+        "cityName": "",
+        "phone": "57 (5) 879 04 81",
+        "calendarId": 1,
+        "calendarName": "Calendario 1",
+        "branchType": 2,
+        "dependencyId": 0,
+        "dependencyName": "PDA Santo Tomas",
+        "stateId": 2,
+        "timeZone": "0",
+        "latitude": "0",
+        "longitude": "0",
+        "zipCode": "",
+        "email": ""
+      },
+      {
+        "companyCode": 1,
+        "code": 122,
+        "name": "PDA Malambo",
+        "reducedName": "120",
+        "street": "CALLE 10 No 16-23",
+        "doorNumber": 30,
+        "departmentId": 1,
+        "departmentName": "Amazonas",
+        "cityId": 1,
+        "cityName": "",
+        "phone": "57 (5) 376 09 98",
+        "calendarId": 1,
+        "calendarName": "Calendario 1",
+        "branchType": 3,
+        "dependencyId": 0,
+        "dependencyName": "PDA Malambo",
+        "stateId": 3,
+        "timeZone": "0",
+        "latitude": "0",
+        "longitude": "0",
+        "zipCode": "",
+        "email": ""
+      },
+      {
+        "companyCode": 1,
+        "code": 130,
+        "name": "Barranquilla Cordialidad",
+        "reducedName": "130",
+        "street": "Calle  47 Nro  20 - 06",
+        "doorNumber": 30,
+        "departmentId": 1,
+        "departmentName": "Amazonas",
+        "cityId": 1,
+        "cityName": "",
+        "phone": "57 (5) 385 12 28",
+        "calendarId": 2,
+        "calendarName": "Calendario 2",
+        "branchType": 2,
+        "dependencyId": 0,
+        "dependencyName": "Barranquilla Cordialidad",
+        "stateId": 2,
+        "timeZone": "0",
+        "latitude": "0",
+        "longitude": "0",
+        "zipCode": "123456",
+        "email": "mail@mail.com"
+      },
+      {
+        "companyCode": 1,
+        "code": 140,
+        "name": "Barranquilla Metrocentro",
+        "reducedName": "140",
+        "street": "CALLE 45 No 5B-56",
+        "doorNumber": 30,
+        "departmentId": 1,
+        "departmentName": "Amazonas",
+        "cityId": 1,
+        "cityName": "",
+        "phone": "57 (5) 385 12 28",
+        "calendarId": 2,
+        "calendarName": "Calendario 2",
+        "branchType": 1,
+        "dependencyId": 0,
+        "dependencyName": "Barranquilla Metrocentro",
+        "stateId": 2,
+        "timeZone": "0",
+        "latitude": "0",
+        "longitude": "0",
+        "zipCode": "66666",
+        "email": "mail2@mail.com"
+      },
+      {
+        "companyCode": 1,
+        "code": 141,
+        "name": "PDA Central de Abastos",
+        "reducedName": "142",
+        "street": "CL 63 lNo 3-75",
+        "doorNumber": 30,
+        "departmentId": 8,
+        "departmentName": "Cusco",
+        "cityId": 72,
+        "cityName": "",
+        "phone": "18000910666",
+        "calendarId": 1,
+        "calendarName": "Calendario 1",
+        "branchType": 0,
+        "dependencyId": 0,
+        "dependencyName": "PDA Central de Abastos",
+        "stateId": 0,
+        "timeZone": "0",
+        "latitude": "0",
+        "longitude": "0",
+        "zipCode": "",
+        "email": ""
       }
     ]
   },
@@ -117,8 +354,8 @@ Completar manualmente | Completar manualmente
   "Btoutreq": {
     "Estado": "OK",
     "Fecha": "2026-05-13",
-    "Hora": "20:19:04",
-    "Numero": 13466217,
+    "Hora": "20:42:49",
+    "Numero": 13466263,
     "Servicio": "PublicGeneral.getBranches",
     "Requerimiento": "1",
     "Canal": "BTDIGITAL"
@@ -129,6 +366,7 @@ Completar manualmente | Completar manualmente
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
 
 ## **Tipos de Dato Estructurado**
+
 <!-- ABRE SDT -->
 ::: details SdtsBTBRBranch
 

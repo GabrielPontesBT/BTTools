@@ -24,15 +24,14 @@ Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
 counterpartyGUID | String $<(length: 36)>$ | GUID (identificador único global) de la contraparte.
 productGUID | String $<(length: 36)>$ | GUID (identificador único global) del producto.
-subAccountName | String $<(length: 255)>$ | Nombre de la subcuenta.
-branchId | Int $<(length: 5)>$ | Identificador de sucursal.
-signatureType | String $<(length: 1)>$ | Tipo de integración.
 
 @tab Body
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-Completar manualmente | Completar manualmente | Completar manualmente 
+subAccountName | String $<(length: 255)>$ | Nombre de la subcuenta.
+branchId | Int $<(length: 5)>$ | Identificador de sucursal.
+signatureType | String $<(length: 1)>$ | Tipo de integración.
 
 @tab Datos de Salida
 
@@ -44,7 +43,23 @@ savingAccountGUID | String $<(length: 36)>$ | GUID (identificador único global)
 
 Código | Descripción
 :--------- | :-----------
-Completar manualmente | Completar manualmente
+40010004 | La persona no existe
+40020006 | Contraparte no existe
+40020012 | El número de contraparte no existe
+50050003 | No se encuentra la empresa
+140010005 | Debe ingresar la contraparte
+140010006 | La contraparte debe estar activa
+140010007 | La contraparte no puede tener integrantes fallecidos
+140010008 | No se ha indicado el tipo de firma
+140010011 | Debe ingresar el subproducto
+140010012 | Debe ingresar el nombre para el producto
+140010013 | Debe ingresar la sucursal para el producto
+140010033 | El importe ingresado es menor al mínimo requerido para el producto
+14001010001 | Debe ingresar el GUID de la cuenta de ahorro.
+14001010002 | Debe ingresar el GUID de la contraparte.
+14001010003 | Debe ingresar el GUID del producto.
+99990010006 | No se pudo resolver el usuario
+99990010007 | No se pudo resolver la empresa
 
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -62,13 +77,18 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "B2C4370CAA727E6B96067AB0"
+    "Token": "8EE696AD86E93556C39DD2CC"
   },
   "counterpartyGUID": "394e48fc-b99c-4546-aeaf-862f9699ec03",
   "productGUID": "28169aa2-61c3-43ca-9fa9-e12ff30d4b71",
   "subAccountName": "Cuenta de Ahorro",
   "branchId": 1,
-  "signatureType": "A"
+  "signatureType": "A",
+  "geolocalization": {
+      "latitude": -34.9058916,
+      "longitude": -56.1913095,
+      "timestamp":"2024-12-13T11:59:27.904674-03:00",
+  }
 }'
 ```
 :::
@@ -85,17 +105,17 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "B2C4370CAA727E6B96067AB0"
+    "Token": "8EE696AD86E93556C39DD2CC"
   },
-  "savingAccountGUID": "44a8b232-9376-451e-9553-2cb037254a3e",
+  "savingAccountGUID": "92b2ce1f-34e7-4606-bdd4-e62bde656979",
   "BusinessErrors": {
     "BusinessError": []
   },
   "Btoutreq": {
     "Estado": "OK",
-    "Fecha": "2026-05-11",
-    "Hora": "22:48:10",
-    "Numero": 13459142,
+    "Fecha": "2026-05-13",
+    "Hora": "20:53:55",
+    "Numero": 13466298,
     "Servicio": "PublicSavingAccounts.create",
     "Requerimiento": "1",
     "Canal": "BTDIGITAL"
@@ -104,5 +124,3 @@ Completar manualmente | Completar manualmente
 ```
 :::
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
-
-

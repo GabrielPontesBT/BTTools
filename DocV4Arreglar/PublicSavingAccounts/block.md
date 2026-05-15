@@ -24,11 +24,6 @@ Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
 savingAccountGUID | String $<(length: 36)>$ | GUID (identificador único global) de la cuenta de ahorro.
 
-@tab Body
-
-Nombre | Tipo | Comentarios
-:--------- | :--------- | :---------
-Completar manualmente | Completar manualmente | Completar manualmente 
 
 @tab Datos de Salida
 
@@ -38,7 +33,13 @@ No aplica.
 
 Código | Descripción
 :--------- | :-----------
-Completar manualmente | Completar manualmente
+90031 | El código contable no existe
+90120 | Cuenta contable no tiene tipo
+90121 | Cuenta contable no puede ser 0
+50050003 | No se encuentra la empresa
+14001010001 | Debe ingresar el GUID de la cuenta de ahorro.
+99990010006 | No se pudo resolver el usuario
+99990010007 | No se pudo resolver la empresa
 
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -56,9 +57,9 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "B2C4370CAA727E6B96067AB0"
+    "Token": "8EE696AD86E93556C39DD2CC"
   },
-  "savingAccountGUID": "44a8b232-9376-451e-9553-2cb037254a3e"
+  "savingAccountGUID": "92b2ce1f-34e7-4606-bdd4-e62bde656979"
 }'
 ```
 :::
@@ -75,16 +76,16 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "B2C4370CAA727E6B96067AB0"
+    "Token": "8EE696AD86E93556C39DD2CC"
   },
   "BusinessErrors": {
     "BusinessError": []
   },
   "Btoutreq": {
     "Estado": "OK",
-    "Fecha": "2026-05-11",
-    "Hora": "22:48:15",
-    "Numero": 13459144,
+    "Fecha": "2026-05-13",
+    "Hora": "20:54:01",
+    "Numero": 13466300,
     "Servicio": "PublicSavingAccounts.block",
     "Requerimiento": "1",
     "Canal": "BTDIGITAL"

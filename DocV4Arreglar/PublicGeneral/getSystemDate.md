@@ -22,12 +22,6 @@ title: Obtener System Fecha [REVISAR]
 
 No aplica.
 
-@tab Body
-
-Nombre | Tipo | Comentarios
-:--------- | :--------- | :---------
-Completar manualmente | Completar manualmente | Completar manualmente 
-
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
@@ -38,7 +32,9 @@ systemDate | Date | Fecha del sistema.
 
 Código | Descripción
 :--------- | :-----------
-Completar manualmente | Completar manualmente
+50050003 | No se encuentra la empresa
+99990010006 | No se pudo resolver el usuario
+99990010007 | No se pudo resolver la empresa
 
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -56,7 +52,7 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "907FDCD8173D3FB297F702B1"
+    "Token": "3985F17F736C68B94646C7E6"
   }
 }'
 ```
@@ -74,7 +70,7 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "907FDCD8173D3FB297F702B1"
+    "Token": "3985F17F736C68B94646C7E6"
   },
   "systemDate": "2027-04-30",
   "BusinessErrors": {
@@ -83,8 +79,8 @@ Completar manualmente | Completar manualmente
   "Btoutreq": {
     "Estado": "OK",
     "Fecha": "2026-05-13",
-    "Hora": "20:19:16",
-    "Numero": 13466221,
+    "Hora": "20:43:01",
+    "Numero": 13466267,
     "Servicio": "PublicGeneral.getSystemDate",
     "Requerimiento": "1",
     "Canal": "BTDIGITAL"

@@ -24,23 +24,20 @@ Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
 savingAccountGUID | String $<(length: 36)>$ | GUID (identificador único global) de la cuenta de ahorro.
 
-@tab Body
-
-Nombre | Tipo | Comentarios
-:--------- | :--------- | :---------
-Completar manualmente | Completar manualmente | Completar manualmente 
-
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-savingAccountData | [SdtsBTSAWSavingAccountData](#sdtsbtsawsavingaccountdata) | Información detallada de la cuenta de ahorro.
+savingAccountData | [SdtsBTSAWSavingAccountData](#sdtsbtsawsavingaccountdata) | Datos de la cuenta de ahorro.
 
 @tab Errores
 
 Código | Descripción
 :--------- | :-----------
-Completar manualmente | Completar manualmente
+50050003 | No se encuentra la empresa
+14001010001 | Debe ingresar el GUID de la cuenta de ahorro.
+99990010006 | No se pudo resolver el usuario
+99990010007 | No se pudo resolver la empresa
 
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -58,9 +55,9 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "B2C4370CAA727E6B96067AB0"
+    "Token": "8EE696AD86E93556C39DD2CC"
   },
-  "savingAccountGUID": "44a8b232-9376-451e-9553-2cb037254a3e"
+  "savingAccountGUID": "92b2ce1f-34e7-4606-bdd4-e62bde656979"
 }'
 ```
 :::
@@ -77,10 +74,10 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "B2C4370CAA727E6B96067AB0"
+    "Token": "8EE696AD86E93556C39DD2CC"
   },
   "savingAccountData": {
-    "SavingAccountGUID": "44a8b232-9376-451e-9553-2cb037254a3e",
+    "SavingAccountGUID": "92b2ce1f-34e7-4606-bdd4-e62bde656979",
     "AccountStatementPreferences": {
       "RegulatorResumeFrequency": 0,
       "RegulatorResumeFrequencyDescription": "",
@@ -98,7 +95,7 @@ Completar manualmente | Completar manualmente
     },
     "Amount": 0,
     "AvailableAmount": "0.00",
-    "BankCode": "36500101000002060473",
+    "BankCode": "36500101000002060678",
     "BoardTypeId": 44,
     "BoardTypeDescription": "Cuenta a mi favor",
     "BranchId": 1,
@@ -117,7 +114,7 @@ Completar manualmente | Completar manualmente
     "CounterpartyDescription": "CRAMPET GUTIERREZ PEDRO PABLO",
     "CreationUser": "INSTALADOR",
     "CreationUserDescription": "INSTALADOR",
-    "CreationDate": "2026-04-30",
+    "CreationDate": "2027-04-30",
     "GrouperId": 0,
     "GrouperDescription": "",
     "LowAverageFee": false,
@@ -156,9 +153,9 @@ Completar manualmente | Completar manualmente
   },
   "Btoutreq": {
     "Estado": "OK",
-    "Fecha": "2026-05-11",
-    "Hora": "22:48:13",
-    "Numero": 13459143,
+    "Fecha": "2026-05-13",
+    "Hora": "20:53:59",
+    "Numero": 13466299,
     "Servicio": "PublicSavingAccounts.getDetailedData",
     "Requerimiento": "1",
     "Canal": "BTDIGITAL"
@@ -169,6 +166,7 @@ Completar manualmente | Completar manualmente
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
 
 ## **Tipos de Dato Estructurado**
+
 <!-- ABRE SDT -->
 ::: details SdtsBTSAWSavingAccountData
 

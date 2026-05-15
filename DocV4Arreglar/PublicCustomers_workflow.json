@@ -1,0 +1,232 @@
+{
+  "service": "PublicCustomers",
+  "folder": "PublicCustomers",
+  "steps": [
+    {
+      "method": "getStatuses",
+      "extract": [
+        { "path": "statuses.status[0].Id", "as": "statusId" }
+      ]
+    },
+    {
+      "method": "getStatusUpdateReasons",
+      "extract": [
+        { "path": "reasonsForStatusChange.reasonForStatusChange[0].Id", "as": "reasonForStatusChangeId" }
+      ]
+    },
+    {
+      "method": "getIntegrationTypes"
+    },
+    {
+      "method": "getInternalClassifications"
+    },
+    {
+      "method": "getSectors"
+    },
+    {
+      "method": "getSegments"
+    },
+    {
+      "method": "getExecutives",
+      "params": {
+        "offset": "0",
+        "limit": "10",
+        "executiveDescriptionFilter": ""
+      }
+    },
+    {
+      "method": "createWithExistingPerson",
+      "params": {
+        "personGUID": "f43a3946-4ae1-4a27-861d-c1c2d9cee87d",
+        "counterpartyData": {
+          "BranchId": 1,
+          "CompanyId": 1,
+          "EconomicActivityId": 1113,
+          "ExecutiveId": 1957,
+          "InternalClassificationId": 1,
+          "Resident": true,
+          "SectorId": 1,
+          "SegmentId": 1
+        }
+      },
+      "extract": ["counterpartyGUID"]
+    },
+    {
+      "method": "get"
+    },
+    {
+      "method": "update",
+      "params": {
+        "counterpartyData": {
+          "BranchId": 1,
+          "CompanyId": 1,
+          "EconomicActivityId": 1111,
+          "ExecutiveId": 20,
+          "InternalClassificationId": 1,
+          "Resident": true,
+          "SectorId": 1,
+          "SegmentId": 1
+        }
+      }
+    },
+    {
+      "method": "getContactData"
+    },
+    {
+      "method": "updateContactData",
+      "params": {
+        "contacts": {
+          "contact": [
+            {
+              "ContactTypeId": 1,
+              "Correlative": 1,
+              "Text": "094999888",
+              "Enabled": true,
+              "Priority": 1,
+              "ReceivesMails": false,
+              "Validated": false,
+              "AssociatedToAnAddress": false,
+              "AddressCorrelative": 0,
+              "AddressId": "",
+              "Comment": "CELULAR",
+              "StartTimeRange1": "08:00",
+              "EndTimeRange1": "12:00",
+              "StartTimeRange2": "14:00",
+              "EndTimeRange2": "18:00",
+              "TelephoneCompanyId": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "deleteContactData",
+      "params": {
+        "contactTypeId": 1,
+        "correlative": 1
+      }
+    },
+    {
+      "method": "getAdditionalInformation"
+    },
+    {
+      "method": "addAdditionalInformation",
+      "params": {
+        "customFields": {
+          "customField": [
+            {
+              "Correlative": 1,
+              "Id": "CAMPO1",
+              "Description": "DATO PRUEBA",
+              "Value": "VALOR PRUEBA"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "updateAdditionalInformation",
+      "params": {
+        "customFields": {
+          "customField": [
+            {
+              "Correlative": 1,
+              "Id": "CAMPO1",
+              "Description": "DATO PRUEBA 2",
+              "Value": "VALOR PRUEBA 2"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "deleteAdditionalInformation",
+      "params": {
+        "customFields": {
+          "customField": [
+            {
+              "Correlative": 1,
+              "Id": "CAMPO1",
+              "Description": "",
+              "Value": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "getTexts"
+    },
+    {
+      "method": "updateTexts",
+      "params": {
+        "texts": {
+          "text": [
+            {
+              "Id": 1,
+              "Description": "TEXTO DE EJEMPLO",
+              "Text": "CONTENIDO DEL TEXTO"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "deleteText",
+      "params": {
+        "id": 1
+      }
+    },
+    {
+      "method": "getMembers"
+    },
+    {
+      "method": "updateMembers",
+      "params": {
+        "members": {
+          "member": [
+            {
+              "PersonGUID": "f43a3946-4ae1-4a27-861d-c1c2d9cee87d",
+              "PersonName": "PEDRO CRAMPET",
+              "PersonType": "F",
+              "OwnershipTypeId": 1,
+              "DocumentTypeId": 0,
+              "DocumentNumber": "",
+              "CountryId": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "deleteMember",
+      "params": {
+        "personGUID": "f43a3946-4ae1-4a27-861d-c1c2d9cee87d"
+      }
+    },
+    {
+      "method": "getLoans",
+      "params": {
+        "cancelledLoans": false
+      }
+    },
+    {
+      "method": "getRepresentativeHolder"
+    },
+    {
+      "method": "verifyEmployee"
+    },
+    {
+      "method": "updateStatus",
+      "params": {
+        "comment": "ACTUALIZACIÓN DE ESTADO"
+      }
+    },
+    {
+      "method": "verifyExistence",
+      "params": {
+        "counterpartyId": 5090
+      }
+    }
+  ]
+}

@@ -3,7 +3,7 @@ title: Obtener Productos [REVISAR]
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para obtener una lista de productos de préstamo.
+::: note Método para obtener un listado de productos.
 
 **Nombre publicación:** PublicSavingAccounts.getProducts
 
@@ -22,11 +22,6 @@ title: Obtener Productos [REVISAR]
 
 No aplica.
 
-@tab Body
-
-Nombre | Tipo | Comentarios
-:--------- | :--------- | :---------
-Completar manualmente | Completar manualmente | Completar manualmente 
 
 @tab Datos de Salida
 
@@ -38,7 +33,7 @@ products | [SdtsBTPHWProduct](#sdtsbtphwproduct) | Listado de productos.
 
 Código | Descripción
 :--------- | :-----------
-Completar manualmente | Completar manualmente
+No aplica.
 
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -56,7 +51,7 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "B2C4370CAA727E6B96067AB0"
+    "Token": "8EE696AD86E93556C39DD2CC"
   }
 }'
 ```
@@ -74,7 +69,7 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "B2C4370CAA727E6B96067AB0"
+    "Token": "8EE696AD86E93556C39DD2CC"
   },
   "products": {
     "product": [
@@ -220,9 +215,9 @@ Completar manualmente | Completar manualmente
   },
   "Btoutreq": {
     "Estado": "OK",
-    "Fecha": "2026-05-11",
-    "Hora": "22:48:05",
-    "Numero": 13459140,
+    "Fecha": "2026-05-13",
+    "Hora": "20:53:48",
+    "Numero": 13466296,
     "Servicio": "PublicSavingAccounts.getProducts",
     "Requerimiento": "1",
     "Canal": "BTDIGITAL"
@@ -233,6 +228,7 @@ Completar manualmente | Completar manualmente
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
 
 ## **Tipos de Dato Estructurado**
+
 <!-- ABRE SDT -->
 ::: details SdtsBTPHWProduct
 

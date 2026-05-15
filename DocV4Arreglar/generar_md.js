@@ -7,6 +7,7 @@ require('dotenv').config();
 const oracledb = require('oracledb');
 const fs = require('fs');
 const http = require('http');
+const xml2js = require('xml2js');
 
 // ── CONFIGURACION ─────────────────────────────────────────────
 const DB_CONFIG = {
@@ -193,6 +194,48 @@ const API_AUTH_URL  = process.env.API_AUTH_URL  || 'http://10.0.0.5:8445/btv4cor
 const API_USER      = process.env.API_USER      || 'INSTALADOR';
 const API_PASSWORD  = process.env.API_PASSWORD  || 'Bantotal2015';
 
+async function parsearRespuestaSoap(xmlString) {
+  try {
+    const result = await xml2js.parseStringPromise(xmlString, {
+      explicitArray: false,
+      ignoreAttrs: true,
+      tagNameProcessors: [xml2js.processors.stripPrefix]
+    });
+
+    const body = result?.Envelope?.Body;
+    if (!body) return null;
+
+    const responseKey = Object.keys(body)[0];
+    if (!responseKey) return null;
+
+    const content = body[responseKey];
+
+    // Normalizar BusinessErrors siempre como { BusinessError: [] }
+    if (content.BusinessErrors?.BusinessError) {
+      const be = content.BusinessErrors.BusinessError;
+      content.BusinessErrors = {
+        BusinessError: (Array.isArray(be) ? be : [be]).map(e => ({
+          Code: parseInt(e.Code) || e.Code,
+          Severity: e.Severity || '',
+          Target: e.Target || '',
+          Description: e.Description || ''
+        }))
+      };
+    } else {
+      content.BusinessErrors = { BusinessError: [] };
+    }
+
+    // Normalizar Btoutreq.Numero a número
+    if (content.Btoutreq?.Numero) {
+      content.Btoutreq.Numero = parseInt(content.Btoutreq.Numero) || content.Btoutreq.Numero;
+    }
+
+    return content;
+  } catch {
+    return null;
+  }
+}
+
 function httpPost(url, body, headers = {}) {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
@@ -246,7 +289,13 @@ async function llamarServicio(url, payload, token) {
     'Content-Type': 'application/json',
     'cache-control': 'no-cache'
   });
-  if (!response.trimStart().startsWith('{')) {
+  const trimmed = response.trim();
+  if (trimmed === '') return null;
+  if (!trimmed.startsWith('{')) {
+    if (trimmed.startsWith('<')) {
+      const convertido = await parsearRespuestaSoap(trimmed);
+      if (convertido) return convertido;
+    }
     throw new Error(`Respuesta inesperada del servidor: ${response.slice(0, 300)}`);
   }
   return JSON.parse(response);
@@ -263,7 +312,7 @@ function esSessionInvalida(resultado) {
 async function ejecutarServicio(url, payload) {
   if (!cachedToken) cachedToken = await obtenerToken();
   const resultado = await llamarServicio(url, payload, cachedToken);
-  if (esSessionInvalida(resultado)) {
+  if (resultado !== null && esSessionInvalida(resultado)) {
     process.stdout.write('🔄 ');
     cachedToken = await obtenerToken();
     return llamarServicio(url, payload, cachedToken);
@@ -332,7 +381,16 @@ function construirJsonParams(params, sdtCache) {
   for (const r of params) {
     if (r.BTISRVCATIT === 'S' && r.BTISRVPARITTIPO) {
       const sdtNom = r.BTISRVPARITTIPO.trim();
-      obj[r.BTISRVPARNOM] = sdtCache.has(sdtNom) ? [construirObjeto(sdtNom, sdtCache)] : [{}];
+      const itemNom = r.BTISRVPARITNOM ? r.BTISRVPARITNOM.trim() : null;
+      if (sdtCache.has(sdtNom)) {
+        const itemObj = construirObjeto(sdtNom, sdtCache);
+        obj[r.BTISRVPARNOM] = itemNom ? { [itemNom]: [itemObj] } : [itemObj];
+      } else if (sdtNom.startsWith('Sdt')) {
+        obj[r.BTISRVPARNOM] = itemNom ? { [itemNom]: [{}] } : [{}];
+      } else {
+        // BTISRVPARITTIPO contiene un tipo primitivo, no un SDT real
+        obj[r.BTISRVPARNOM] = valorEjemplo(r.BTISRVVARTIPO);
+      }
     } else if (r.BTISRVVARTIPO && r.BTISRVVARTIPO.startsWith('Sdt')) {
       const sdtNom = r.BTISRVVARTIPO.trim();
       obj[r.BTISRVPARNOM] = sdtCache.has(sdtNom) ? construirObjeto(sdtNom, sdtCache) : {};
@@ -394,7 +452,7 @@ async function generarMd(servicio, metodo, carpeta, ejecutar = false, inputParam
 
     // ── BTI019 - Parametros ──
     const r19 = await conn.execute(
-      `SELECT BTISRVPARNOM, BTISRVVARTIPO, BTISRVPARDIR, BTISRVPARDSC, BTISRVPARLARGO, BTISRVCATIT, BTISRVPARITTIPO
+      `SELECT BTISRVPARNOM, BTISRVVARTIPO, BTISRVPARDIR, BTISRVPARDSC, BTISRVPARLARGO, BTISRVCATIT, BTISRVPARITTIPO, BTISRVPARITNOM
        FROM BTI019 WHERE BTISRVNOM = :1 AND BTIMTDNOM = :2 ORDER BY BTISRVPARPOSI`,
       [servicio, metodo],
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
@@ -480,13 +538,13 @@ ${tabla}
       Btinreq: btinreq,
       ...construirJsonParams(salida, sdtCache),
       BusinessErrors: '',
-      Btoutreq: { Estado: 'OK', Fecha: '2026-01-01', Hora: '00:00:00', Numero: '00000000', Servicio: `${servicio}.${metodo}`, Requerimiento: '1', Canal: 'BTDIGITAL' },
-      _xmlns: 'http://uy.com.dlya.bantotal/BTSOA/'
+      Btoutreq: { Estado: 'OK', Fecha: '2026-01-01', Hora: '00:00:00', Numero: '00000000', Servicio: `${servicio}.${metodo}`, Requerimiento: '1', Canal: 'BTDIGITAL' }
     };
     let curlEjemplo  = formatCurl(url, requestPayload);
     let responseJson = JSON.stringify(responsePayload, null, 2);
 
     let realResponse = null;
+    let bodyVacio = false;
     if (ejecutar) {
       try {
         process.stdout.write(`  🌐 Ejecutando ${servicio}.${metodo}... `);
@@ -494,12 +552,43 @@ ${tabla}
           `${API_BASE_URL}/servlet/com.dlya.bantotal.ardwsbt_${servicio}_v1?${metodo}`,
           requestPayload
         );
-        responseJson  = JSON.stringify(respuestaReal, null, 2);
-        curlEjemplo   = formatCurl(url, { ...requestPayload, Btinreq: { ...requestPayload.Btinreq, Token: cachedToken } });
-        realResponse  = respuestaReal;
+        if (respuestaReal !== null) {
+          responseJson = JSON.stringify(respuestaReal, null, 2);
+        } else {
+          bodyVacio = true;
+        }
+        realResponse = respuestaReal ?? {};
         console.log('✅');
       } catch (e) {
         console.log(`⚠️  ${e.message} — usando valores de ejemplo`);
+      }
+      if (cachedToken) {
+        curlEjemplo = formatCurl(url, { ...requestPayload, Btinreq: { ...requestPayload.Btinreq, Token: cachedToken } });
+        if (bodyVacio) {
+          // Operación de escritura exitosa sin body: generar respuesta limpia
+          responseJson = JSON.stringify({
+            Btinreq: { ...btinreq, Token: cachedToken },
+            BusinessErrors: { BusinessError: [] },
+            Btoutreq: {
+              Estado: 'OK',
+              Fecha: '',
+              Hora: '',
+              Numero: 0,
+              Servicio: `${servicio}.${metodo}`,
+              Requerimiento: '1',
+              Canal: 'BTDIGITAL'
+            }
+          }, null, 2);
+        } else {
+          // Actualizar token en la respuesta real o en el template de fallback
+          try {
+            const respObj = JSON.parse(responseJson);
+            if (respObj.Btinreq) {
+              respObj.Btinreq.Token = cachedToken;
+              responseJson = JSON.stringify(respObj, null, 2);
+            }
+          } catch {}
+        }
       }
     }
 
@@ -573,7 +662,7 @@ ${responseJson}
 :::
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
 
-${sdtSection ? `## **Tipos de Dato Estructurado**\n<!-- ABRE SDT -->\n${sdtSection.trim()}\n<!-- CIERRA SDT -->` : ''}
+${sdtSection ? `## **Tipos de Dato Estructurado**\n\n<!-- ABRE SDT -->\n${sdtSection.trim()}\n<!-- CIERRA SDT -->` : ''}
 `;
 
     const nombreArchivo = `${carpeta}\\${metodo}.md`;
@@ -617,6 +706,21 @@ async function ejecutarWorkflow(workflowFile) {
   const dir = folder || servicio;
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
+  function deepMerge(target, source) {
+    const result = { ...target };
+    for (const key of Object.keys(source)) {
+      if (
+        source[key] !== null && typeof source[key] === 'object' && !Array.isArray(source[key]) &&
+        target[key] !== null && typeof target[key] === 'object' && !Array.isArray(target[key])
+      ) {
+        result[key] = deepMerge(target[key], source[key]);
+      } else {
+        result[key] = source[key];
+      }
+    }
+    return result;
+  }
+
   let context = {}; // campos acumulados de pasos anteriores
   let ok = 0, errores = 0;
 
@@ -627,7 +731,7 @@ async function ejecutarWorkflow(workflowFile) {
     const { method, params: stepParams = {}, extract = [] } = step;
     if (!method) { console.error('❌ Paso sin "method", saltando'); errores++; continue; }
 
-    const mergedParams = { ...context, ...stepParams };
+    const mergedParams = deepMerge(context, stepParams);
     console.log(`\n▶ ${servicio}.${method}`);
     if (Object.keys(mergedParams).length > 0) {
       console.log(`  📋 Params: ${JSON.stringify(mergedParams)}`);

@@ -22,12 +22,6 @@ title: Obtener Countries [REVISAR]
 
 No aplica.
 
-@tab Body
-
-Nombre | Tipo | Comentarios
-:--------- | :--------- | :---------
-Completar manualmente | Completar manualmente | Completar manualmente 
-
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
@@ -38,7 +32,8 @@ countries | [SdtsBTCNWCountry](#sdtsbtcnwcountry) | Listado de países.
 
 Código | Descripción
 :--------- | :-----------
-Completar manualmente | Completar manualmente
+50020001 | Debe ingresar un código país válido
+50020018 | El país no se encuentra registrado
 
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -56,7 +51,7 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "907FDCD8173D3FB297F702B1"
+    "Token": "3985F17F736C68B94646C7E6"
   }
 }'
 ```
@@ -74,7 +69,7 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "907FDCD8173D3FB297F702B1"
+    "Token": "3985F17F736C68B94646C7E6"
   },
   "countries": {
     "country": [
@@ -2836,8 +2831,8 @@ Completar manualmente | Completar manualmente
   "Btoutreq": {
     "Estado": "OK",
     "Fecha": "2026-05-13",
-    "Hora": "20:19:07",
-    "Numero": 13466218,
+    "Hora": "20:42:52",
+    "Numero": 13466264,
     "Servicio": "PublicGeneral.getCountries",
     "Requerimiento": "1",
     "Canal": "BTDIGITAL"
@@ -2848,6 +2843,7 @@ Completar manualmente | Completar manualmente
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
 
 ## **Tipos de Dato Estructurado**
+
 <!-- ABRE SDT -->
 ::: details SdtsBTCNWCountry
 

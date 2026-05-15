@@ -24,12 +24,6 @@ Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
 cancellationOriginId | Short $<(length: 4)>$ | Identificador del origen de cancelación.
 
-@tab Body
-
-Nombre | Tipo | Comentarios
-:--------- | :--------- | :---------
-Completar manualmente | Completar manualmente | Completar manualmente 
-
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
@@ -38,9 +32,7 @@ cancellationReasons | [SdtsBTLICancellationReason](#sdtsbtlicancellationreason) 
 
 @tab Errores
 
-Código | Descripción
-:--------- | :-----------
-Completar manualmente | Completar manualmente
+No aplica.
 
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -58,7 +50,7 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "B2C4370CAA727E6B96067AB0"
+    "Token": "8EE696AD86E93556C39DD2CC"
   },
   "cancellationOriginId": 1
 }'
@@ -77,7 +69,7 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "B2C4370CAA727E6B96067AB0"
+    "Token": "8EE696AD86E93556C39DD2CC"
   },
   "cancellationReasons": {
     "cancellationReason": [
@@ -100,9 +92,9 @@ Completar manualmente | Completar manualmente
   },
   "Btoutreq": {
     "Estado": "OK",
-    "Fecha": "2026-05-11",
-    "Hora": "22:48:25",
-    "Numero": 13459147,
+    "Fecha": "2026-05-13",
+    "Hora": "20:54:09",
+    "Numero": 13466303,
     "Servicio": "PublicSavingAccounts.getCancellationReasons",
     "Requerimiento": "1",
     "Canal": "BTDIGITAL"
@@ -113,6 +105,7 @@ Completar manualmente | Completar manualmente
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
 
 ## **Tipos de Dato Estructurado**
+
 <!-- ABRE SDT -->
 ::: details SdtsBTLICancellationReason
 

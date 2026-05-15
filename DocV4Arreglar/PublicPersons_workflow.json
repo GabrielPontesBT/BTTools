@@ -1,0 +1,348 @@
+{
+  "service": "PublicPersons",
+  "folder": "PublicPersons",
+  "steps": [
+    {
+      "method": "getActivityTypes",
+      "extract": [
+        { "path": "activityTypes.activityType[0].ActivityTypeId", "as": "activityTypeId" }
+      ]
+    },
+    {
+      "method": "getContactTypes"
+    },
+    {
+      "method": "getEstablishmentTypes"
+    },
+    {
+      "method": "getHousingTypes"
+    },
+    {
+      "method": "getLinkTypes"
+    },
+    {
+      "method": "getMaritalStatuses"
+    },
+    {
+      "method": "getOccupationList"
+    },
+    {
+      "method": "getPositions"
+    },
+    {
+      "method": "getTelephoneCompanies"
+    },
+    {
+      "method": "validateExistence",
+      "params": {
+        "countryId": 1,
+        "documentTypeId": 1,
+        "documentNumber": "12345678"
+      }
+    },
+    {
+      "method": "get",
+      "params": {
+        "personGUID": "f43a3946-4ae1-4a27-861d-c1c2d9cee87d"
+      },
+      "extract": ["naturalPerson"]
+    },
+    {
+      "method": "create",
+      "params": {
+        "naturalPerson": {
+          "DocumentNumber": "12345679"
+        }
+      },
+      "extract": ["personGUID"]
+    },
+    {
+      "method": "getGUID",
+      "params": {
+        "countryId": 1,
+        "documentTypeId": 1,
+        "documentNumber": "12345678"
+      }
+    },
+    {
+      "method": "get"
+    },
+    {
+      "method": "getAddresses"
+    },
+    {
+      "method": "getContactData"
+    },
+    {
+      "method": "getOccupations"
+    },
+    {
+      "method": "getReferences"
+    },
+    {
+      "method": "getRelationships"
+    },
+    {
+      "method": "getTexts"
+    },
+    {
+      "method": "getAdditionalInformation"
+    },
+    {
+      "method": "getActivities"
+    },
+    {
+      "method": "getCustomerAccounts"
+    },
+    {
+      "method": "update",
+      "params": {
+        "naturalPerson": {
+          "FirstName": "JUAN",
+          "SecondName": "",
+          "FirstLastname": "PEREZ",
+          "SecondLastname": "GARCIA",
+          "DocumentTypeId": 1,
+          "DocumentNumber": "12345678",
+          "BirthDate": "1990-01-01",
+          "Gender": "M",
+          "CountryId": 1,
+          "MaritalStatusId": 1,
+          "Deceased": false,
+          "PEP": false
+        }
+      }
+    },
+    {
+      "method": "updateReduced",
+      "params": {
+        "naturalPerson": {
+          "FirstName": "JUAN",
+          "SecondName": "",
+          "FirstLastname": "PEREZ",
+          "SecondLastname": "GARCIA",
+          "DocumentTypeId": 1,
+          "DocumentNumber": "12345678",
+          "BirthDate": "1990-01-01",
+          "Gender": "M",
+          "CountryId": 1,
+          "MaritalStatusId": 1,
+          "Deceased": false,
+          "PEP": false
+        }
+      }
+    },
+    {
+      "method": "createReduced",
+      "params": {
+        "naturalPerson": {
+          "FirstName": "JUAN",
+          "SecondName": "",
+          "FirstLastname": "PEREZ",
+          "SecondLastname": "GARCIA",
+          "DocumentTypeId": 1,
+          "DocumentNumber": "12345678",
+          "BirthDate": "1990-01-01",
+          "Gender": "M",
+          "CountryId": 1,
+          "MaritalStatusId": 1,
+          "Deceased": false,
+          "PEP": false
+        }
+      }
+    },
+    {
+      "method": "updateContactData",
+      "params": {
+        "contacts": {
+          "contact": [
+            {
+              "ContactTypeId": 1,
+              "Correlative": 1,
+              "Text": "094999888",
+              "Enabled": true,
+              "Priority": 1,
+              "ReceivesMails": false,
+              "Validated": false,
+              "AssociatedToAnAddress": false,
+              "AddressCorrelative": 0,
+              "AddressId": "",
+              "Comment": "CELULAR",
+              "StartTimeRange1": "08:00",
+              "EndTimeRange1": "12:00",
+              "StartTimeRange2": "14:00",
+              "EndTimeRange2": "18:00",
+              "TelephoneCompanyId": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "updateAddress",
+      "params": {
+        "address": {
+          "AddressCorrelative": 1,
+          "AddressTypeId": 1,
+          "Address": "CALLE EJEMPLO 123",
+          "CountryId": 1,
+          "MainAddress": true,
+          "SinceDate": "2020-01-01"
+        }
+      }
+    },
+    {
+      "method": "updateOccupations",
+      "params": {
+        "occupations": {
+          "occupation": [
+            {
+              "Correlative": 1,
+              "OccupationId": 1,
+              "OccupationTypeId": 1,
+              "EconomicActivityId": 1113,
+              "JobTitleId": 1,
+              "MainOccupation": true,
+              "StartDate": "2020-01-01",
+              "Income": 50000,
+              "Exports": false,
+              "Imports": false,
+              "Multilateral": false
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "updateReference",
+      "params": {
+        "references": {
+          "reference": [
+            {
+              "Correlative": 1,
+              "Name": "REFERENCIA DE PRUEBA",
+              "ReferenceTypeId": 1,
+              "Telephone": "094111222",
+              "PersonType": "F",
+              "BondOrJobTitle": "J",
+              "RelationshipId": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "updateRelationships",
+      "params": {
+        "relationships": {
+          "relationship": [
+            {
+              "BondId": 1,
+              "PersonGUID": "f43a3946-4ae1-4a27-861d-c1c2d9cee87d",
+              "Bidirectional": false,
+              "Percentage": 0,
+              "JobTitleId": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "updateTexts",
+      "params": {
+        "texts": {
+          "text": [
+            {
+              "Id": 1,
+              "Description": "TEXTO DE EJEMPLO",
+              "Text": "CONTENIDO DEL TEXTO"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "updateAdditionalInformation",
+      "params": {
+        "customFields": {
+          "customField": [
+            {
+              "Correlative": 1,
+              "Id": "CAMPO1",
+              "Description": "DATO PRUEBA 2",
+              "Value": "VALOR PRUEBA 2"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "addAdditionalInformation",
+      "params": {
+        "customFields": {
+          "customField": [
+            {
+              "Correlative": 1,
+              "Id": "CAMPO1",
+              "Description": "DATO PRUEBA",
+              "Value": "VALOR PRUEBA"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "deleteAdditionalInformation",
+      "params": {
+        "customFields": {
+          "customField": [
+            {
+              "Correlative": 1,
+              "Id": "CAMPO1",
+              "Description": "",
+              "Value": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "method": "deleteAddress",
+      "params": {
+        "correlative": 1
+      }
+    },
+    {
+      "method": "deleteContactData",
+      "params": {
+        "contactTypeId": 1,
+        "correlative": 1
+      }
+    },
+    {
+      "method": "deleteOccupation",
+      "params": {
+        "correlative": 1
+      }
+    },
+    {
+      "method": "deleteReference",
+      "params": {
+        "correlative": 1
+      }
+    },
+    {
+      "method": "deleteRelationship",
+      "params": {
+        "bondId": 1,
+        "vinculatedPersonGUID": "f43a3946-4ae1-4a27-861d-c1c2d9cee87d"
+      }
+    },
+    {
+      "method": "deleteText",
+      "params": {
+        "id": 1
+      }
+    }
+  ]
+}

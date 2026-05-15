@@ -3,7 +3,11 @@
   "folder": "PublicGeneral",
   "steps": [
     {
-      "method": "getBranches"
+      "method": "getBranches",
+      "params": {
+        "offset": "0",
+        "limit": "10"
+      }
     },
     {
       "method": "getCountries",
@@ -18,6 +22,9 @@
     },
     {
       "method": "getAdministrativeLevels",
+      "params": {
+        "firstLevel": "1"
+      },
       "extract": [
         {
           "path": "administrativeLevels.administrativeLevel[0].Id",

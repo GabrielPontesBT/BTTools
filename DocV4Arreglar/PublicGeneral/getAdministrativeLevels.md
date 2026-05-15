@@ -26,11 +26,6 @@ countryId | Short $<(length: 3)>$ | Identificador de país.
 firstLevel | Int $<(length: 5)>$ | Identificador de primer nivel administrativo.
 secondLevel | Int $<(length: 5)>$ | Identificador de segundo nivel administrativo.
 
-@tab Body
-
-Nombre | Tipo | Comentarios
-:--------- | :--------- | :---------
-Completar manualmente | Completar manualmente | Completar manualmente 
 
 @tab Datos de Salida
 
@@ -42,7 +37,9 @@ administrativeLevels | [SdtsBTCNWAdministrativeLevel](#sdtsbtcnwadministrativele
 
 Código | Descripción
 :--------- | :-----------
-Completar manualmente | Completar manualmente
+50020021 | No existe el Id de primer nivel ingresado
+50020028 | No existe el Id de segundo nivel ingresado
+50020034 | No existe el Id de tercer nivel ingresado
 
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -60,10 +57,10 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "907FDCD8173D3FB297F702B1"
+    "Token": "3985F17F736C68B94646C7E6"
   },
   "countryId": 484,
-  "firstLevel": 0,
+  "firstLevel": "1",
   "secondLevel": 0
 }'
 ```
@@ -81,141 +78,53 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "907FDCD8173D3FB297F702B1"
+    "Token": "3985F17F736C68B94646C7E6"
   },
   "administrativeLevels": {
     "administrativeLevel": [
       {
         "Id": 1,
-        "Description": "AGUASCALIENTES"
+        "Description": "Aguascalientes"
       },
       {
         "Id": 2,
-        "Description": "BAJA CALIFORNIA"
+        "Description": "Asientos"
       },
       {
         "Id": 3,
-        "Description": "BAJA CALIFORNIA SUR"
+        "Description": "Calvillo"
       },
       {
         "Id": 4,
-        "Description": "CAMPECHE"
+        "Description": "Cosio"
       },
       {
         "Id": 5,
-        "Description": "COAHUILA DE ZARAGOZA"
+        "Description": "Jesus Maria"
       },
       {
         "Id": 6,
-        "Description": "COLIMA"
+        "Description": "Pabellon de Arteaga"
       },
       {
         "Id": 7,
-        "Description": "CHIAPAS"
+        "Description": "Rincon de Romo"
       },
       {
         "Id": 8,
-        "Description": "CHIHUAHUA"
+        "Description": "San Jose de Gracia"
       },
       {
         "Id": 9,
-        "Description": "CIUDAD DE MÉXICO"
+        "Description": "Tepezala"
       },
       {
         "Id": 10,
-        "Description": "DURANGO"
+        "Description": "El Llano"
       },
       {
         "Id": 11,
-        "Description": "GUANAJUATO"
-      },
-      {
-        "Id": 12,
-        "Description": "GUERRERO"
-      },
-      {
-        "Id": 13,
-        "Description": "HIDALGO"
-      },
-      {
-        "Id": 14,
-        "Description": "JALISCO"
-      },
-      {
-        "Id": 15,
-        "Description": "ESTADO DE MÉXICO"
-      },
-      {
-        "Id": 16,
-        "Description": "MICHOACAN DE OCAMPO"
-      },
-      {
-        "Id": 17,
-        "Description": "MORELOS"
-      },
-      {
-        "Id": 18,
-        "Description": "NAYARIT"
-      },
-      {
-        "Id": 19,
-        "Description": "NUEVO LEON"
-      },
-      {
-        "Id": 20,
-        "Description": "OAXACA"
-      },
-      {
-        "Id": 21,
-        "Description": "PUEBLA"
-      },
-      {
-        "Id": 22,
-        "Description": "QUERETARO"
-      },
-      {
-        "Id": 23,
-        "Description": "QUINTANA ROO"
-      },
-      {
-        "Id": 24,
-        "Description": "SAN LUIS POTOSI"
-      },
-      {
-        "Id": 25,
-        "Description": "SINALOA"
-      },
-      {
-        "Id": 26,
-        "Description": "SONORA"
-      },
-      {
-        "Id": 27,
-        "Description": "TABASCO"
-      },
-      {
-        "Id": 28,
-        "Description": "TAMAULIPAS"
-      },
-      {
-        "Id": 29,
-        "Description": "TLAXCALA"
-      },
-      {
-        "Id": 30,
-        "Description": "VERACRUZ"
-      },
-      {
-        "Id": 31,
-        "Description": "YUCATAN"
-      },
-      {
-        "Id": 32,
-        "Description": "ZACATECAS"
-      },
-      {
-        "Id": 33,
-        "Description": "EXTRANJERO"
+        "Description": "San Francisco de los Romo"
       }
     ]
   },
@@ -225,8 +134,8 @@ Completar manualmente | Completar manualmente
   "Btoutreq": {
     "Estado": "OK",
     "Fecha": "2026-05-13",
-    "Hora": "20:19:10",
-    "Numero": 13466219,
+    "Hora": "20:42:55",
+    "Numero": 13466265,
     "Servicio": "PublicGeneral.getAdministrativeLevels",
     "Requerimiento": "1",
     "Canal": "BTDIGITAL"
@@ -237,6 +146,7 @@ Completar manualmente | Completar manualmente
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
 
 ## **Tipos de Dato Estructurado**
+
 <!-- ABRE SDT -->
 ::: details SdtsBTCNWAdministrativeLevel
 

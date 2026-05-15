@@ -1,0 +1,24 @@
+{
+  "service": "PublicTermDeposit",
+  "folder": "TermDeposit",
+  "steps": [
+    {
+      "method": "getProducts"
+    },
+    {
+      "method": "getPersonProducts",
+      "params": {
+        "personGUID": "f43a3946-4ae1-4a27-861d-c1c2d9cee87d"
+      }
+    },
+    {
+      "method": "getData",
+      "params": {
+        "termDepositGUID": "6d865a97-7cde-4b25-935d-a02bdeba9844"
+      }
+    },
+    {
+      "method": "getInstructions"
+    }
+  ]
+}

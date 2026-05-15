@@ -22,11 +22,6 @@ title: Obtener Cancellation Origins [REVISAR]
 
 No aplica.
 
-@tab Body
-
-Nombre | Tipo | Comentarios
-:--------- | :--------- | :---------
-Completar manualmente | Completar manualmente | Completar manualmente 
 
 @tab Datos de Salida
 
@@ -36,9 +31,7 @@ cancellationOrigins | [SdtsBTLICancellationOrigin](#sdtsbtlicancellationorigin) 
 
 @tab Errores
 
-Código | Descripción
-:--------- | :-----------
-Completar manualmente | Completar manualmente
+No aplica.
 
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -56,7 +49,7 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "B2C4370CAA727E6B96067AB0"
+    "Token": "8EE696AD86E93556C39DD2CC"
   }
 }'
 ```
@@ -74,7 +67,7 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "B2C4370CAA727E6B96067AB0"
+    "Token": "8EE696AD86E93556C39DD2CC"
   },
   "cancellationOrigins": {
     "cancellationOrigin": [
@@ -93,9 +86,9 @@ Completar manualmente | Completar manualmente
   },
   "Btoutreq": {
     "Estado": "OK",
-    "Fecha": "2026-05-11",
-    "Hora": "22:48:21",
-    "Numero": 13459146,
+    "Fecha": "2026-05-13",
+    "Hora": "20:54:06",
+    "Numero": 13466302,
     "Servicio": "PublicSavingAccounts.getCancellationOrigins",
     "Requerimiento": "1",
     "Canal": "BTDIGITAL"
@@ -106,6 +99,7 @@ Completar manualmente | Completar manualmente
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
 
 ## **Tipos de Dato Estructurado**
+
 <!-- ABRE SDT -->
 ::: details SdtsBTLICancellationOrigin
 

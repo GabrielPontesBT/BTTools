@@ -3,7 +3,7 @@ title: Obtener Persona Productos [REVISAR]
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para obtener una lista de productos de préstamo que una persona puede contratar.
+::: note Método para obtener un listado de los productos que una persona puede contratar.
 
 **Nombre publicación:** PublicSavingAccounts.getPersonProducts
 
@@ -24,12 +24,6 @@ Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
 personGUID | String $<(length: 36)>$ | GUID (identificador único global) de la persona.
 
-@tab Body
-
-Nombre | Tipo | Comentarios
-:--------- | :--------- | :---------
-Completar manualmente | Completar manualmente | Completar manualmente 
-
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
@@ -40,7 +34,8 @@ products | [SdtsBTPHWProduct](#sdtsbtphwproduct) | Listado de productos.
 
 Código | Descripción
 :--------- | :-----------
-Completar manualmente | Completar manualmente
+40050001 | Debe ingresar el GUID de la persona.
+40010004 | La persona no existe.
 
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -58,7 +53,7 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "B2C4370CAA727E6B96067AB0"
+    "Token": "8EE696AD86E93556C39DD2CC"
   },
   "personGUID": "183f5194-f5a9-4590-9aff-b43de58c263d"
 }'
@@ -77,7 +72,7 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "B2C4370CAA727E6B96067AB0"
+    "Token": "8EE696AD86E93556C39DD2CC"
   },
   "products": {
     "product": [
@@ -178,9 +173,9 @@ Completar manualmente | Completar manualmente
   },
   "Btoutreq": {
     "Estado": "OK",
-    "Fecha": "2026-05-11",
-    "Hora": "22:48:07",
-    "Numero": 13459141,
+    "Fecha": "2026-05-13",
+    "Hora": "20:53:52",
+    "Numero": 13466297,
     "Servicio": "PublicSavingAccounts.getPersonProducts",
     "Requerimiento": "1",
     "Canal": "BTDIGITAL"
@@ -191,6 +186,7 @@ Completar manualmente | Completar manualmente
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
 
 ## **Tipos de Dato Estructurado**
+
 <!-- ABRE SDT -->
 ::: details SdtsBTPHWProduct
 

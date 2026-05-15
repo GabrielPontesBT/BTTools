@@ -58,6 +58,17 @@ function validarArchivo(filePath) {
     }
   }
 
+  // 9. Tiene parámetros de tipo SDT pero falta la sección de Tipos de Dato Estructurado
+  const tieneTipoSdt = /\|\s*\[?Sdt[A-Za-z]/.test(contenido);
+  if (tieneTipoSdt) {
+    const tieneSdtSection =
+      contenido.includes('## **Tipos de Dato Estructurado**') &&
+      contenido.includes('<!-- ABRE SDT -->');
+    if (!tieneSdtSection) {
+      problemas.push('❌ Tiene parámetros de tipo SDT pero falta la sección "Tipos de Dato Estructurado"');
+    }
+  }
+
   return { nombre, problemas };
 }
 

@@ -22,11 +22,6 @@ title: Obtener Documento Tipos [REVISAR]
 
 No aplica.
 
-@tab Body
-
-Nombre | Tipo | Comentarios
-:--------- | :--------- | :---------
-Completar manualmente | Completar manualmente | Completar manualmente 
 
 @tab Datos de Salida
 
@@ -38,7 +33,7 @@ documentTypes | [SdtsBTDTWDocumentType](#sdtsbtdtwdocumenttype) | Listado de tip
 
 Código | Descripción
 :--------- | :-----------
-Completar manualmente | Completar manualmente
+50030001 | Debe ingresar un tipo de documento válido
 
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -56,7 +51,7 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "907FDCD8173D3FB297F702B1"
+    "Token": "3985F17F736C68B94646C7E6"
   }
 }'
 ```
@@ -74,7 +69,7 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "907FDCD8173D3FB297F702B1"
+    "Token": "3985F17F736C68B94646C7E6"
   },
   "documentTypes": {
     "documentType": [
@@ -471,8 +466,8 @@ Completar manualmente | Completar manualmente
   "Btoutreq": {
     "Estado": "OK",
     "Fecha": "2026-05-13",
-    "Hora": "20:19:13",
-    "Numero": 13466220,
+    "Hora": "20:42:58",
+    "Numero": 13466266,
     "Servicio": "PublicGeneral.getDocumentTypes",
     "Requerimiento": "1",
     "Canal": "BTDIGITAL"
@@ -483,6 +478,7 @@ Completar manualmente | Completar manualmente
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
 
 ## **Tipos de Dato Estructurado**
+
 <!-- ABRE SDT -->
 ::: details SdtsBTDTWDocumentType
 

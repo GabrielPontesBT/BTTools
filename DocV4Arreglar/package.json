@@ -4,6 +4,7 @@
   "description": "Generador de documentacion Bantotal V4",
   "dependencies": {
     "dotenv": "^16.4.5",
-    "oracledb": "^6.10.0"
+    "oracledb": "^6.10.0",
+    "xml2js": "^0.6.2"
   }
 }
