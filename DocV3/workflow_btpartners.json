@@ -1,0 +1,175 @@
+{
+  "service": "BTPartners",
+  "folder": "BTPartners",
+
+  "steps": [
+
+    {
+      "method": "ObtenerTiposDePartner",
+      "params": {},
+      "extract": [
+        { "path": "sdtTiposDePartner[0].TipoUId", "as": "tipoUId" }
+      ]
+    },
+
+    {
+      "method": "ObtenerNiveles",
+      "params": { "tipoUId": 1 },
+      "extract": [
+        { "path": "sdtNiveles[0].NivelUId", "as": "nivelUId" }
+      ]
+    },
+
+    {
+      "method": "CrearPartner",
+      "params": {
+        "sdtPartner": {
+          "partnerUId": 0,
+          "nombre": "Partner de Prueba",
+          "tipo": "Concesionario",
+          "tipoUId": 1,
+          "nivel": "Nivel 1A - Venta",
+          "nivelUId": 1,
+          "clienteUId": 21,
+          "canal": "BTDIGITAL",
+          "sucursal": 1,
+          "habilitado": "S",
+          "manejaVendedores": "S",
+          "codigoComision": 0,
+          "tipoRegistroVendedor": ""
+        }
+      },
+      "extract": [
+        { "path": "partnerUId", "as": "partnerUId" }
+      ]
+    },
+
+    {
+      "method": "CrearPuntoVenta",
+      "params": {
+        "sdtPuntoVenta": {
+          "puntoVentaUId": 0,
+          "partnerUId": 0,
+          "nombre": "Punto de Venta Prueba",
+          "sucursal": 1,
+          "habilitado": "S",
+          "codigoComision": 0
+        }
+      },
+      "extract": [
+        { "path": "puntoVentaUId", "as": "puntoVentaUId" }
+      ]
+    },
+
+    {
+      "method": "CrearVendedor",
+      "params": {
+        "sdtVendedor": {
+          "vendedorUId": 0,
+          "partnerUId": 0,
+          "puntoVentaUId": 0,
+          "personaUId": 0,
+          "clienteUId": 0,
+          "nombre": "Vendedor Prueba",
+          "email": "vendedor@prueba.com",
+          "telefono": "",
+          "habilitado": "S",
+          "codigoComision": 0,
+          "registradoEnBantotal": "N",
+          "usuarioBantotal": "",
+          "nombrePuntoVenta": ""
+        }
+      },
+      "extract": [
+        { "path": "vendedorUId", "as": "vendedorUId" }
+      ]
+    },
+
+    {
+      "method": "ActualizarPartner",
+      "params": {
+        "sdtPartner": {
+          "partnerUId": 0,
+          "nombre": "Partner Actualizado",
+          "tipo": "Concesionario",
+          "tipoUId": 1,
+          "nivel": "Nivel 1A - Venta",
+          "nivelUId": 1,
+          "clienteUId": 0,
+          "canal": "BTDIGITAL",
+          "sucursal": 1,
+          "habilitado": "S",
+          "manejaVendedores": "S",
+          "codigoComision": 0,
+          "tipoRegistroVendedor": ""
+        }
+      }
+    },
+
+    {
+      "method": "ActualizarPuntoVenta",
+      "params": {
+        "sdtPuntoVenta": {
+          "puntoVentaUId": 0,
+          "partnerUId": 0,
+          "nombre": "Punto de Venta Actualizado",
+          "sucursal": 1,
+          "habilitado": "S",
+          "codigoComision": 0
+        }
+      }
+    },
+
+    {
+      "method": "ActualizarVendedor",
+      "params": {
+        "sdtVendedor": {
+          "vendedorUId": 0,
+          "partnerUId": 0,
+          "puntoVentaUId": 0,
+          "personaUId": 0,
+          "clienteUId": 0,
+          "nombre": "Vendedor Actualizado",
+          "email": "vendedor@prueba.com",
+          "telefono": "",
+          "habilitado": "S",
+          "codigoComision": 0,
+          "registradoEnBantotal": "N",
+          "usuarioBantotal": "",
+          "nombrePuntoVenta": ""
+        }
+      }
+    },
+
+    {
+      "method": "EliminarVendedor",
+      "params": {
+        "sdtVendedor": {
+          "vendedorUId": 0,
+          "partnerUId": 0,
+          "puntoVentaUId": 0
+        }
+      }
+    },
+
+    {
+      "method": "EliminarPuntoVenta",
+      "params": {
+        "sdtPuntoVenta": {
+          "puntoVentaUId": 0,
+          "partnerUId": 0
+        }
+      }
+    },
+
+    {
+      "method": "EliminarPartner",
+      "params": {
+        "sdtPartner": {
+          "partnerUId": 0
+        }
+      }
+    }
+
+  ]
+}

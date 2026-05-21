@@ -1,0 +1,99 @@
+{
+  "service": "BTPartners",
+  "folder": "BTPartners",
+  "steps": [
+    {
+      "method": "ActualizarPartner"
+    },
+    {
+      "method": "ActualizarPuntoVenta"
+    },
+    {
+      "method": "ActualizarVendedor"
+    },
+    {
+      "method": "ContratarPrestamo"
+    },
+    {
+      "method": "ContratarVehicular"
+    },
+    {
+      "method": "CrearCliente"
+    },
+    {
+      "method": "CrearPartner"
+    },
+    {
+      "method": "CrearPersonaCliente"
+    },
+    {
+      "method": "CrearPuntoVenta"
+    },
+    {
+      "method": "CrearVendedor"
+    },
+    {
+      "method": "EliminarPartner"
+    },
+    {
+      "method": "EliminarPuntoVenta"
+    },
+    {
+      "method": "EliminarVendedor"
+    },
+    {
+      "method": "ObtenerDatosUsuario"
+    },
+    {
+      "method": "ObtenerDetalleOfertaAmortizable"
+    },
+    {
+      "method": "ObtenerDetalleOfertaVehicular"
+    },
+    {
+      "method": "ObtenerMarcas"
+    },
+    {
+      "method": "ObtenerModelos"
+    },
+    {
+      "method": "ObtenerNiveles"
+    },
+    {
+      "method": "ObtenerPartners"
+    },
+    {
+      "method": "ObtenerPrestamosCliente"
+    },
+    {
+      "method": "ObtenerProductos"
+    },
+    {
+      "method": "ObtenerProductosPartner"
+    },
+    {
+      "method": "ObtenerPuntosDeVenta"
+    },
+    {
+      "method": "ObtenerTiposDePartner"
+    },
+    {
+      "method": "ObtenerVendedores"
+    },
+    {
+      "method": "ObtenerVersiones"
+    },
+    {
+      "method": "SimularOfertas"
+    },
+    {
+      "method": "SimularOfertasVehicular"
+    },
+    {
+      "method": "SimularPrestamo"
+    },
+    {
+      "method": "SimularVehicular"
+    }
+  ]
+}
