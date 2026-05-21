@@ -66,15 +66,15 @@ esac
 # ── 4. Instalar V3 ────────────────────────────────────────
 if [ "$instalar_v3" = true ]; then
     step "Instalando dependencias de V3 (SQL Server)..."
-    cd DocV3
+    cd V3
     npm install --silent
     ok "Dependencias de V3 instaladas."
 
     if [ ! -f ".env" ]; then
         cp .env.example .env
-        warn "Se creo DocV3/.env a partir del template. Editalo con tus datos antes de usar."
+        warn "Se creo V3/.env a partir del template. Editalo con tus datos antes de usar."
     else
-        ok "DocV3/.env ya existe, no se sobreescribio."
+        ok "V3/.env ya existe, no se sobreescribio."
     fi
     cd ..
 fi
@@ -89,17 +89,17 @@ if [ "$instalar_v4" = true ]; then
     echo ""
     read -rp "   Continuar con npm install de V4? (s/n): " continuar
     if [ "$continuar" != "s" ]; then
-        warn "Instalacion de V4 omitida. Podes ejecutar 'cd DocV4Arreglar && npm install' cuando estes listo."
+        warn "Instalacion de V4 omitida. Podes ejecutar 'cd V4 && npm install' cuando estes listo."
     else
-        cd DocV4Arreglar
+        cd V4
         npm install --silent
         ok "Dependencias de V4 instaladas."
 
         if [ ! -f ".env" ]; then
             cp .env.example .env
-            warn "Se creo DocV4Arreglar/.env a partir del template. Editalo con tus datos antes de usar."
+            warn "Se creo V4/.env a partir del template. Editalo con tus datos antes de usar."
         else
-            ok "DocV4Arreglar/.env ya existe, no se sobreescribio."
+            ok "V4/.env ya existe, no se sobreescribio."
         fi
         cd ..
     fi
@@ -114,12 +114,12 @@ echo ""
 echo "Proximos pasos:"
 
 if [ "$instalar_v3" = true ]; then
-    echo "  1. Edita DocV3/.env con los datos de tu base de datos SQL Server y tu API."
-    echo "  2. Ejecuta: cd DocV3 && node generar_md.js <Servicio> <Metodo>"
+    echo "  1. Edita V3/.env con los datos de tu base de datos SQL Server y tu API."
+    echo "  2. Ejecuta: cd V3 && node generar_md.js <Servicio> <Metodo>"
 fi
 if [ "$instalar_v4" = true ]; then
-    echo "  1. Edita DocV4Arreglar/.env con los datos de tu base de datos Oracle y tu API."
-    echo "  2. Ejecuta: cd DocV4Arreglar && node generar_md.js <Servicio> <Metodo>"
+    echo "  1. Edita V4/.env con los datos de tu base de datos Oracle y tu API."
+    echo "  2. Ejecuta: cd V4 && node generar_md.js <Servicio> <Metodo>"
 fi
 
 echo ""

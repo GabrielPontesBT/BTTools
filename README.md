@@ -51,14 +51,14 @@ cd DOCUMENTACION-V3-V4
 
 **Para V3 (SQL Server):**
 ```bash
-cd DocV3
+cd V3
 npm install
 cd ..
 ```
 
 **Para V4 (Oracle):**
 ```bash
-cd DocV4Arreglar
+cd V4
 npm install
 cd ..
 ```
@@ -69,9 +69,9 @@ Cada versión tiene su propio archivo `.env`. Copiá el template y editalo con t
 
 **Para V3:**
 ```bash
-cp DocV3/.env.example DocV3/.env
+cp V3/.env.example V3/.env
 ```
-Editá `DocV3/.env` con los datos de tu entorno:
+Editá `V3/.env` con los datos de tu entorno:
 ```env
 DB_SERVER=tu-servidor-sql
 DB_PORT=1433
@@ -88,9 +88,9 @@ API_PASSWORD=tu-contraseña-api
 
 **Para V4:**
 ```bash
-cp DocV4Arreglar/.env.example DocV4Arreglar/.env
+cp V4/.env.example V4/.env
 ```
-Editá `DocV4Arreglar/.env` con los datos de tu entorno:
+Editá `V4/.env` con los datos de tu entorno:
 ```env
 DB_USER=usuario-oracle
 DB_PASSWORD=contraseña-oracle
@@ -106,10 +106,10 @@ API_PASSWORD=tu-contraseña-api
 
 ```bash
 # V3
-cd DocV3 && node -e "require('./generar_md.js')" 2>&1 | head -5
+cd V3 && node -e "require('./generar_md.js')" 2>&1 | head -5
 
 # V4
-cd DocV4Arreglar && node -e "require('./generar_md.js')" 2>&1 | head -5
+cd V4 && node -e "require('./generar_md.js')" 2>&1 | head -5
 ```
 
 ---
@@ -120,7 +120,7 @@ cd DocV4Arreglar && node -e "require('./generar_md.js')" 2>&1 | head -5
 
 ```bash
 # V3
-cd DocV3
+cd V3
 node generar_md.js <Servicio> <Metodo>
 
 # Ejemplo
@@ -129,7 +129,7 @@ node generar_md.js BTPartners ObtenerMarcas
 
 ```bash
 # V4
-cd DocV4Arreglar
+cd V4
 node generar_md.js <Servicio> <Metodo>
 
 # Ejemplo
@@ -154,8 +154,8 @@ Los archivos se generan en una carpeta con el nombre del servicio (`BTPartners/O
 
 ## Documentación detallada
 
-- [Guía completa V3 (SQL Server)](DocV3/README.md) — workflows, parámetros, scripts Python
-- [Guía completa V4 (Oracle)](DocV4Arreglar/README.md) — workflows, parámetros, scripts Python
+- [Guía completa V3 (SQL Server)](V3/README.md) — workflows, parámetros, scripts Python
+- [Guía completa V4 (Oracle)](V4/README.md) — workflows, parámetros, scripts Python
 
 ---
 
@@ -163,7 +163,7 @@ Los archivos se generan en una carpeta con el nombre del servicio (`BTPartners/O
 
 ```
 DOCUMENTACION-V3-V4/
-├── DocV3/                     # Generador para Bantotal V3 (SQL Server)
+├── V3/                     # Generador para Bantotal V3 (SQL Server)
 │   ├── generar_md.js          # Generador principal
 │   ├── generar_todos.js       # Genera todos los métodos de un servicio
 │   ├── generar_workflow.js    # Ejecución en modo workflow
@@ -172,7 +172,7 @@ DOCUMENTACION-V3-V4/
 │   ├── .env.example           # Template de configuración
 │   └── README.md              # Documentación detallada V3
 │
-├── DocV4Arreglar/             # Generador para Bantotal V4 (Oracle)
+├── V4/             # Generador para Bantotal V4 (Oracle)
 │   ├── generar_md.js
 │   ├── generar_todos.js
 │   ├── generar_workflow.js
@@ -204,4 +204,4 @@ Verificá que:
 Oracle Instant Client no está instalado o no está en el PATH del sistema. Seguí las instrucciones en [oracle.com/instant-client](https://www.oracle.com/database/technologies/instant-client.html).
 
 ### El archivo `.env` no se carga
-Asegurate de estar ejecutando el comando **desde la carpeta del generador** (`DocV3/` o `DocV4Arreglar/`), no desde la raíz del repo.
+Asegurate de estar ejecutando el comando **desde la carpeta del generador** (`V3/` o `V4/`), no desde la raíz del repo.

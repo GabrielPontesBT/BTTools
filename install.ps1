@@ -61,16 +61,16 @@ if (-not $instalarV3 -and -not $instalarV4) {
 # ── 4. Instalar V3 ────────────────────────────────────────
 if ($instalarV3) {
     Write-Step "Instalando dependencias de V3 (SQL Server)..."
-    Push-Location DocV3
+    Push-Location V3
     npm install --silent
-    if ($LASTEXITCODE -ne 0) { Write-Fail "npm install fallo en DocV3."; Pop-Location; exit 1 }
+    if ($LASTEXITCODE -ne 0) { Write-Fail "npm install fallo en V3."; Pop-Location; exit 1 }
     Write-Ok "Dependencias de V3 instaladas."
 
     if (-not (Test-Path ".env")) {
         Copy-Item ".env.example" ".env"
-        Write-Warn "Se creo DocV3\.env a partir del template. Editalo con tus datos antes de usar."
+        Write-Warn "Se creo V3\.env a partir del template. Editalo con tus datos antes de usar."
     } else {
-        Write-Ok "DocV3\.env ya existe, no se sobreescribio."
+        Write-Ok "V3\.env ya existe, no se sobreescribio."
     }
     Pop-Location
 }
@@ -85,18 +85,18 @@ if ($instalarV4) {
     Write-Host ""
     $continuar = Read-Host "   Continuar con npm install de V4? (s/n)"
     if ($continuar -ne "s") {
-        Write-Warn "Instalacion de V4 omitida. Podes ejecutar 'cd DocV4Arreglar && npm install' cuando estes listo."
+        Write-Warn "Instalacion de V4 omitida. Podes ejecutar 'cd V4 && npm install' cuando estes listo."
     } else {
-        Push-Location DocV4Arreglar
+        Push-Location V4
         npm install --silent
-        if ($LASTEXITCODE -ne 0) { Write-Fail "npm install fallo en DocV4Arreglar."; Pop-Location; exit 1 }
+        if ($LASTEXITCODE -ne 0) { Write-Fail "npm install fallo en V4."; Pop-Location; exit 1 }
         Write-Ok "Dependencias de V4 instaladas."
 
         if (-not (Test-Path ".env")) {
             Copy-Item ".env.example" ".env"
-            Write-Warn "Se creo DocV4Arreglar\.env a partir del template. Editalo con tus datos antes de usar."
+            Write-Warn "Se creo V4\.env a partir del template. Editalo con tus datos antes de usar."
         } else {
-            Write-Ok "DocV4Arreglar\.env ya existe, no se sobreescribio."
+            Write-Ok "V4\.env ya existe, no se sobreescribio."
         }
         Pop-Location
     }
@@ -111,12 +111,12 @@ Write-Host ""
 Write-Host "Proximos pasos:" -ForegroundColor White
 
 if ($instalarV3) {
-    Write-Host "  1. Edita DocV3\.env con los datos de tu base de datos SQL Server y tu API."
-    Write-Host "  2. Ejecuta: cd DocV3 && node generar_md.js <Servicio> <Metodo>"
+    Write-Host "  1. Edita V3\.env con los datos de tu base de datos SQL Server y tu API."
+    Write-Host "  2. Ejecuta: cd V3 && node generar_md.js <Servicio> <Metodo>"
 }
 if ($instalarV4) {
-    Write-Host "  1. Edita DocV4Arreglar\.env con los datos de tu base de datos Oracle y tu API."
-    Write-Host "  2. Ejecuta: cd DocV4Arreglar && node generar_md.js <Servicio> <Metodo>"
+    Write-Host "  1. Edita V4\.env con los datos de tu base de datos Oracle y tu API."
+    Write-Host "  2. Ejecuta: cd V4 && node generar_md.js <Servicio> <Metodo>"
 }
 
 Write-Host ""
