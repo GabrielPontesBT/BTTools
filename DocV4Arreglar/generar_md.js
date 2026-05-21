@@ -464,7 +464,7 @@ async function generarMd(servicio, metodo, carpeta, ejecutar = false, inputParam
     // ── BTI026 - SDTs (con soporte de anidados) ──
     let sdtSection = '';
     const sdtCache = new Map();
-    const sdtsConTipo = salida.filter(r =>
+    const sdtsConTipo = [...entrada, ...salida].filter(r =>
       r.BTISRVPARNOM !== 'businessErrors' &&
       ((r.BTISRVCATIT === 'S' && r.BTISRVPARITTIPO) ||
        (r.BTISRVVARTIPO && r.BTISRVVARTIPO.startsWith('Sdt')))
@@ -511,12 +511,6 @@ ${tabla}
                           (campo.BTISDTELEMTIPO && campo.BTISDTELEMTIPO.startsWith('Sdt') ? campo.BTISDTELEMTIPO.trim() : null);
         if (nestedSdt) await procesarSdt(campo.BTISDTELEMNOM, nestedSdt, procesados);
       }
-    }
-
-    for (const param of entrada) {
-      const sdtNomDB = (param.BTISRVPARITTIPO && param.BTISRVPARITTIPO.trim()) ||
-                       (param.BTISRVVARTIPO && param.BTISRVVARTIPO.startsWith('Sdt') ? param.BTISRVVARTIPO.trim() : null);
-      if (sdtNomDB) await fetchSdtCache(sdtNomDB);
     }
 
     for (const param of sdtsConTipo) {
