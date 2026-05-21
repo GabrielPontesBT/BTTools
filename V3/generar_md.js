@@ -9,6 +9,46 @@ const fs = require('fs');
 const https = require('https');
 const http = require('http');
 
+// ── VALIDACION DE ENTORNO ─────────────────────────────────────
+(function validarEntorno() {
+  if (!fs.existsSync(__dirname + '/.env')) {
+    console.error('\n❌  Falta el archivo .env en esta carpeta.');
+    console.error('   Ejecuta "node setup.js" desde la raiz del proyecto para configurarlo,');
+    console.error('   o copia .env.example y editalo con tus datos.\n');
+    process.exit(1);
+  }
+  const BD  = ['DB_SERVER', 'DB_DATABASE', 'DB_USER', 'DB_PASSWORD'];
+  const API = ['API_BASE_URL', 'API_AUTH_URL', 'API_USER', 'API_PASSWORD'];
+  const usaEjecutar = process.argv.includes('--ejecutar');
+  const faltantes = [
+    ...BD.filter(k => !process.env[k]),
+    ...(usaEjecutar ? API.filter(k => !process.env[k]) : [])
+  ];
+  if (faltantes.length) {
+    console.error('\n❌  Faltan las siguientes variables en el archivo .env:\n');
+    faltantes.forEach(k => console.error('   · ' + k));
+    console.error('\n   Ejecuta "node setup.js" desde la raiz del proyecto o edita .env manualmente.\n');
+    process.exit(1);
+  }
+})();
+
+// ── INTERPRETACION DE ERRORES DE BD ──────────────────────────
+function interpretarErrorBD(e) {
+  const msg  = (e.message || '').toLowerCase();
+  const code = e.code || '';
+  if (code === 'ENOTFOUND' || msg.includes('getaddrinfo'))
+    return `No se encontro el servidor "${process.env.DB_SERVER}". Verifica que DB_SERVER sea correcto en el archivo .env.`;
+  if (code === 'ECONNREFUSED')
+    return `Conexion rechazada en el puerto ${process.env.DB_PORT || 1433}. Verifica que SQL Server este activo y DB_PORT sea correcto.`;
+  if (code === 'ETIMEDOUT' || code === 'ESOCKETTIMEDOUT' || msg.includes('timeout'))
+    return `Timeout al conectar. El servidor no responde o un firewall bloquea el puerto ${process.env.DB_PORT || 1433}.`;
+  if (code === 'ELOGIN' || msg.includes('login failed') || msg.includes('logon failed'))
+    return `Credenciales incorrectas para "${process.env.DB_USER}". Verifica DB_USER y DB_PASSWORD en el archivo .env.`;
+  if (msg.includes('cannot open database') || (msg.includes('database') && msg.includes('does not exist')))
+    return `La base de datos "${process.env.DB_DATABASE}" no existe o el usuario no tiene acceso. Verifica DB_DATABASE en el archivo .env.`;
+  return e.message;
+}
+
 // ── CONFIGURACION ─────────────────────────────────────────────
 const DB_CONFIG = {
   server: process.env.DB_SERVER,
@@ -725,7 +765,7 @@ if (require.main === module) {
       try {
         pool = await new sql.ConnectionPool(DB_CONFIG).connect();
       } catch (e) {
-        console.error('❌ Error de conexión:', e.message);
+        console.error('\n❌  Error de conexion a SQL Server:\n   ' + interpretarErrorBD(e) + '\n');
         process.exit(1);
       }
       let metodos = [];
