@@ -175,13 +175,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   <div class="wiz-hd">
     <h1>Generador de Documentacion Bantotal</h1>
     <div class="steps-bar">
-      <div class="sdot active" id="d1">1<span class="sdot-lb">Version</span></div>
+      <div class="sdot active" id="d1"><span id="dn1">1</span><span class="sdot-lb">Version</span></div>
       <div class="sline" id="l1"></div>
-      <div class="sdot" id="d2">2<span class="sdot-lb">Plataforma</span></div>
+      <div class="sdot" id="d2"><span id="dn2">2</span><span class="sdot-lb">Plataforma</span></div>
       <div class="sline" id="l2"></div>
-      <div class="sdot" id="d3">3<span class="sdot-lb">Base de datos</span></div>
+      <div class="sdot" id="d3"><span id="dn3">3</span><span class="sdot-lb">Base de datos</span></div>
       <div class="sline" id="l3"></div>
-      <div class="sdot" id="d4">4<span class="sdot-lb">API</span></div>
+      <div class="sdot" id="d4"><span id="dn4">4</span><span class="sdot-lb">API</span></div>
     </div>
   </div>
 
@@ -349,7 +349,7 @@ function dots(step) {
     d.classList.remove('active', 'done');
     if (i < step) d.classList.add('done');
     else if (i === step) d.classList.add('active');
-    d.childNodes[0].nodeValue = i < step ? '✓' : String(i);
+    document.getElementById('dn' + i).innerHTML = i < step ? '&#10003;' : String(i);
     if (i < 4) document.getElementById('l' + i).classList.toggle('done', i < step);
   });
 }
@@ -435,10 +435,10 @@ async function testConn() {
     });
     var d = await r.json();
     res.className = 'cres show ' + (d.ok ? 'ok' : 'err');
-    res.textContent = d.ok ? '✓  Conexion exitosa' : '✗  ' + d.message;
+    res.textContent = d.ok ? 'Conexion exitosa' : d.message;
   } catch (e) {
     res.className = 'cres show err';
-    res.textContent = '✗  Error al conectar con el servidor';
+    res.textContent = 'Error al conectar con el servidor';
   }
   btn.innerHTML = 'Probar conexion';
   btn.disabled = false;
@@ -464,12 +464,12 @@ async function saveEnv() {
       show(5);
     } else {
       alert('Error al guardar: ' + d.message);
-      btn.innerHTML = 'Guardar y finalizar ✓';
+      btn.innerHTML = 'Guardar y finalizar &#10003;';
       btn.disabled = false;
     }
   } catch (e) {
     alert('Error inesperado: ' + e.message);
-    btn.innerHTML = 'Guardar y finalizar ✓';
+    btn.innerHTML = 'Guardar y finalizar &#10003;';
     btn.disabled = false;
   }
 }
