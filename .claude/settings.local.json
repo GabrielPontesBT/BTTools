@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sqlcmd -S SQLSERVER1,1433 -d ProductoGx16 -U productogx16 -P prodGx16 -Q \"SELECT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME LIKE '%BTIM%' OR TABLE_NAME LIKE '%BTI%' OR TABLE_NAME LIKE '%BT%' ORDER BY TABLE_NAME;\" -W)"
+    ]
+  }
+}
