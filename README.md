@@ -17,7 +17,25 @@ Antes de instalar, asegurate de tener lo siguiente:
 
 ---
 
-## Instalación rápida
+## Configuración inicial (recomendado)
+
+Ejecutá el asistente de configuración. Se abre automáticamente en el navegador y te guía paso a paso:
+
+```bash
+node setup.js
+```
+
+El wizard te pregunta:
+1. **Versión** — V3 o V4
+2. **Plataforma** — SQL Server (JavaSQL) u Oracle
+3. **Datos de la base de datos** — con botón para probar la conexión
+4. **Datos de la API** — URLs y credenciales del ambiente Bantotal
+
+Al finalizar genera el `.env` listo para usar.
+
+---
+
+## Instalación de dependencias
 
 ### Windows
 
@@ -32,7 +50,7 @@ chmod +x install.sh
 ./install.sh
 ```
 
-Los scripts te guían paso a paso y te preguntan qué versión vas a usar (V3, V4 o ambas).
+Los scripts instalan las dependencias npm y crean el `.env` a partir del template.
 
 ---
 
