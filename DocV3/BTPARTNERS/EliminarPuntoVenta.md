@@ -14,7 +14,7 @@ backtotop: false
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método Eliminar Punto Venta de Partner.
+::: note Método para eliminar un punto de venta de Partner.
 
 **Nombre publicación:** BTPartners.EliminarPuntoVenta
 
@@ -35,8 +35,7 @@ sdtPuntoVenta | [sBTPuntoVenta](#sbtpuntoventa) | Listado de datos del punto de 
 
 @tab Datos de Salida
 
-Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+No aplica.
 
 @tab Errores
 

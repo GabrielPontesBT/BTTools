@@ -14,7 +14,7 @@ backtotop: false
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método Eliminar Partner de Partner.
+::: note Método para eliminar un Partner.
 
 **Nombre publicación:** BTPartners.EliminarPartner
 
@@ -35,8 +35,7 @@ sdtPartner | [sBTPartner](#sbtpartner) | Listado de datos del partner.
 
 @tab Datos de Salida
 
-Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+No aplica.
 
 @tab Errores
 

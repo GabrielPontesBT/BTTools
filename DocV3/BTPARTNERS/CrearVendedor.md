@@ -14,7 +14,7 @@ backtotop: false
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método Crear Vendedor de Partner.
+::: note Método para crear un vendedor de Partner.
 
 **Nombre publicación:** BTPartners.CrearVendedor
 
@@ -35,8 +35,7 @@ sdtVendedor | [sBTVendedor](#sbtvendedor) | Listado de datos del vendedor.
 
 @tab Datos de Salida
 
-Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+No aplica.
 
 @tab Errores
 

@@ -14,7 +14,7 @@ backtotop: false
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método Crear Partner de Partner.
+::: note Método para crear un Partner.
 
 **Nombre publicación:** BTPartners.CrearPartner
 
@@ -35,8 +35,7 @@ sdtPartner | [sBTPartner](#sbtpartner) | Listado de datos del partner.
 
 @tab Datos de Salida
 
-Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+No aplica.
 
 @tab Errores
 

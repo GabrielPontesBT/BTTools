@@ -14,7 +14,7 @@ backtotop: false
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método Obtener Tipos De Partner de Partner.
+::: note Método para obtener los tipos de Partner.
 
 **Nombre publicación:** BTPartners.ObtenerTiposDePartner
 
@@ -29,8 +29,7 @@ backtotop: false
 
 @tab Datos de Entrada
 
-Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+No aplica.
 
 @tab Datos de Salida
 

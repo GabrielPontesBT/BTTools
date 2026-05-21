@@ -14,7 +14,7 @@ backtotop: false
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método Obtener Niveles de Partner.
+::: note Método para obtener los niveles de Partner.
 
 **Nombre publicación:** BTPartners.ObtenerNiveles
 
