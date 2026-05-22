@@ -543,6 +543,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
           </div>
         </div>
       </div>
+      <div id="ares" class="cres" style="margin-bottom:0"></div>
+      <button class="btn btn-outline" id="btn-test-api" onclick="testAuth()" style="margin-top:2px;width:100%">Probar autenticacion</button>
     </div>
 
     <!-- Paso 5: Seleccion de servicios -->
@@ -758,6 +760,29 @@ function getDb() {
 function getApi() {
   return { BASE_URL: v('a-base'), API_BASE_URL: v('a-api'),
            API_AUTH_URL: v('a-auth'), API_USER: v('a-user'), API_PASSWORD: vp('a-pass') };
+}
+
+async function testAuth() {
+  var btn = document.getElementById('btn-test-api');
+  var res = document.getElementById('ares');
+  btn.innerHTML = '<span class="spin dk"></span>&nbsp;Probando...';
+  btn.disabled = true;
+  res.className = 'cres';
+  try {
+    var r = await fetch('/api/test-auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ version: S.version, api: getApi() })
+    });
+    var d = await r.json();
+    res.className = 'cres show ' + (d.ok ? 'ok' : 'err');
+    res.textContent = d.ok ? 'Autenticacion exitosa — token obtenido correctamente' : ('Error: ' + d.message);
+  } catch(e) {
+    res.className = 'cres show err';
+    res.textContent = 'Error al conectar con el servidor de setup';
+  }
+  btn.innerHTML = 'Probar autenticacion';
+  btn.disabled = false;
 }
 
 async function testConn() {
@@ -1415,6 +1440,44 @@ http.createServer(async (req, res) => {
       else await testOracle(db);
       json(200, { ok: true });
     } catch (e) {
+      json(200, { ok: false, message: e.message });
+    }
+    return;
+  }
+
+  if (req.method === 'POST' && req.url === '/api/test-auth') {
+    try {
+      const { version, api } = await readBody(req);
+      const https = require('https');
+      const authUrl = version === 'V3'
+        ? `${api.API_AUTH_URL}?Execute`
+        : `${api.API_BASE_URL}/servlet/com.dlya.bantotal.ardwsbt_Authenticate?Execute`;
+      const body = JSON.stringify({
+        Btinreq: { Canal: 'BTDIGITAL', Usuario: api.API_USER, Device: 'INSTALADOR', Requerimiento: '1', Token: '' },
+        UserId: api.API_USER,
+        UserPassword: api.API_PASSWORD
+      });
+      const parsed = new URL(authUrl);
+      const mod = parsed.protocol === 'https:' ? require('https') : require('http');
+      const raw = await new Promise((resolve, reject) => {
+        const options = {
+          hostname: parsed.hostname, port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+          path: parsed.pathname + parsed.search, method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+          rejectUnauthorized: false
+        };
+        const r = mod.request(options, res => {
+          let s = ''; res.on('data', c => s += c); res.on('end', () => resolve(s));
+        });
+        r.on('error', reject);
+        r.write(body); r.end();
+      });
+      let parsed2;
+      try { parsed2 = JSON.parse(raw); } catch { throw new Error('Respuesta inesperada: ' + raw.slice(0, 200)); }
+      const token = parsed2.SessionToken;
+      if (!token) throw new Error(parsed2.Btoutreq?.Mensaje || parsed2.Mensaje || JSON.stringify(parsed2).slice(0, 200));
+      json(200, { ok: true });
+    } catch(e) {
       json(200, { ok: false, message: e.message });
     }
     return;
