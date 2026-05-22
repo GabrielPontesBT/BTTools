@@ -9,6 +9,47 @@ const fs = require('fs');
 const http = require('http');
 const xml2js = require('xml2js');
 
+// ── VALIDACION DE ENTORNO ─────────────────────────────────────
+(function validarEntorno() {
+  if (!fs.existsSync(__dirname + '/.env')) {
+    console.error('\n❌  Falta el archivo .env en esta carpeta.');
+    console.error('   Ejecuta "node setup.js" desde la raiz del proyecto para configurarlo,');
+    console.error('   o copia .env.example y editalo con tus datos.\n');
+    process.exit(1);
+  }
+  const BD  = ['DB_USER', 'DB_PASSWORD', 'DB_CONNECT_STRING'];
+  const API = ['API_BASE_URL', 'API_USER', 'API_PASSWORD'];
+  const usaEjecutar = process.argv.includes('--ejecutar');
+  const faltantes = [
+    ...BD.filter(k => !process.env[k]),
+    ...(usaEjecutar ? API.filter(k => !process.env[k]) : [])
+  ];
+  if (faltantes.length) {
+    console.error('\n❌  Faltan las siguientes variables en el archivo .env:\n');
+    faltantes.forEach(k => console.error('   · ' + k));
+    console.error('\n   Ejecuta "node setup.js" desde la raiz del proyecto o edita .env manualmente.\n');
+    process.exit(1);
+  }
+})();
+
+// ── INTERPRETACION DE ERRORES DE BD ──────────────────────────
+function interpretarErrorBD(e) {
+  const msg = e.message || '';
+  if (msg.includes('ORA-01017'))
+    return `Credenciales incorrectas para "${process.env.DB_USER}". Verifica DB_USER y DB_PASSWORD en el archivo .env.`;
+  if (msg.includes('ORA-12541'))
+    return `No hay listener en el servidor Oracle. Verifica que el servicio este activo en DB_CONNECT_STRING: "${process.env.DB_CONNECT_STRING}".`;
+  if (msg.includes('ORA-12154'))
+    return `No se pudo resolver el connect string "${process.env.DB_CONNECT_STRING}". Verifica el formato host:puerto/servicio en el archivo .env.`;
+  if (msg.includes('ORA-12170') || msg.includes('ORA-12535'))
+    return `Timeout al conectar con Oracle. El servidor no responde o un firewall bloquea el puerto.`;
+  if (msg.includes('ORA-12514'))
+    return `El servicio Oracle no existe. Verifica el nombre del servicio en DB_CONNECT_STRING: "${process.env.DB_CONNECT_STRING}".`;
+  if (msg.includes('DPI-1047'))
+    return `Oracle Instant Client no esta instalado o no se encuentra en el PATH del sistema.\n   Descargalo en: https://www.oracle.com/database/technologies/instant-client.html`;
+  return msg;
+}
+
 // ── CONFIGURACION ─────────────────────────────────────────────
 const DB_CONFIG = {
   user: process.env.DB_USER,
@@ -437,7 +478,7 @@ async function generarMd(servicio, metodo, carpeta, ejecutar = false, inputParam
 
     const descripcionRaw = r14.rows[0].BTIMTDDSC ? r14.rows[0].BTIMTDDSC.trim() : '';
 
-    const titulo = generarTitulo(metodo);
+    const titulo = metodo.replace(/([A-Z])/g, ' $1').trim().replace(/^[a-z]/, c => c.toUpperCase());
     const descripcion = descripcionRaw || '[Pendiente de completar]';
     const programa = r14.rows[0].BTIMTDPGMNOM || '';
     const progParts = programa.split('.');
@@ -592,7 +633,7 @@ ${tabla}
 
     // ── Template MD ──
     const md = `---
-title: ${titulo} [REVISAR]
+title: ${titulo}
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
@@ -770,6 +811,11 @@ async function ejecutarWorkflow(workflowFile) {
       }
     }
 
+    // Propagar stepParams al contexto para que fluyan a los pasos siguientes
+    for (const [k, v] of Object.entries(stepParams)) {
+      if (context[k] === undefined) context[k] = v;
+    }
+
     response !== null ? ok++ : errores++;
   }
 
@@ -844,7 +890,7 @@ if (require.main === module) {
       try {
         conn = await oracledb.getConnection(DB_CONFIG);
       } catch (e) {
-        console.error('❌ Error de conexión:', e.message);
+        console.error('\n❌  Error de conexion a Oracle:\n   ' + interpretarErrorBD(e) + '\n');
         process.exit(1);
       }
       let metodos = [];
