@@ -2,70 +2,57 @@
 
 Herramienta que genera archivos `.md` de documentación para servicios Bantotal consultando directamente la base de datos (SQL Server para V3, Oracle para V4).
 
-## Requisitos previos
+---
 
-Antes de instalar, asegurate de tener lo siguiente:
+## Inicio rápido
+
+La forma más sencilla de usar la herramienta es con el acceso directo incluido:
+
+1. Hacé doble clic en **`iniciar.bat`**
+2. La primera vez instala automáticamente Node.js y las dependencias npm si no las tenés
+3. Se abre el navegador con el asistente de configuración
+
+> **Excepción para V4 (Oracle):** el driver `oracledb` requiere **Oracle Instant Client** instalado en el sistema, lo cual no puede automatizarse desde el `.bat`. Descargalo desde [oracle.com/instant-client](https://www.oracle.com/database/technologies/instant-client.html) e instalalo antes de usar la herramienta con Oracle.
+
+Para crear el acceso directo en el escritorio: click derecho sobre `iniciar.bat` → **Enviar a** → **Escritorio (crear acceso directo)**.
+
+---
+
+## Requisitos previos
 
 | Requisito | Versión mínima | Cómo verificar |
 |---|---|---|
 | [Node.js](https://nodejs.org) | 18 o superior | `node --version` |
-| [Python](https://www.python.org/downloads/) | 3.8 o superior | `python --version` |
 | Acceso a BD SQL Server | — | Solo para V3 |
 | Acceso a BD Oracle + [Oracle Instant Client](https://www.oracle.com/database/technologies/instant-client.html) | — | Solo para V4 |
 
-> **Nota para V4 (Oracle):** El driver `oracledb` requiere Oracle Instant Client instalado en el sistema. Descargalo desde el link de arriba y seguí las instrucciones de tu sistema operativo.
-
 ---
 
-## Configuración inicial (recomendado)
+## El asistente de configuración (wizard)
 
-Ejecutá el asistente de configuración. Se abre automáticamente en el navegador y te guía paso a paso:
+Al abrir la herramienta aparece un asistente en el navegador que guía la configuración en 6 pasos:
 
-```bash
-node setup.js
-```
+1. **Versión** — V3 (Bantotal SQL Server) o V4 (Bantotal Oracle)
+2. **Plataforma** — motor de base de datos del ambiente
+3. **Base de datos** — credenciales, con botón para probar la conexión
+4. **API** — URLs y credenciales del ambiente Bantotal
+5. **Servicios** — selección de los servicios y métodos a documentar
+6. **Generación** — ejecuta el proceso y muestra el resultado en tiempo real
 
-El wizard te pregunta:
-1. **Versión** — V3 o V4
-2. **Plataforma** — SQL Server (JavaSQL) u Oracle
-3. **Datos de la base de datos** — con botón para probar la conexión
-4. **Datos de la API** — URLs y credenciales del ambiente Bantotal
+### Funcionalidades del wizard
 
-Al finalizar genera el `.env` listo para usar.
-
----
-
-## Instalación de dependencias
-
-### Windows
-
-```powershell
-.\install.ps1
-```
-
-### Linux / macOS
-
-```bash
-chmod +x install.sh
-./install.sh
-```
-
-Los scripts instalan las dependencias npm y crean el `.env` a partir del template.
+- **Modo workflow** — cuando se selecciona "Todos los métodos" de un servicio, el wizard analiza las dependencias entre métodos y propone un orden de ejecución. Se puede reordenar arrastrando, y al confirmar el orden aparecen los parámetros que no se pueden resolver automáticamente de la cadena de llamados.
+- **Parámetros SDT** — los parámetros de tipo complejo (SDT) muestran un textarea con la estructura JSON de ejemplo pre-cargada desde la base de datos.
+- **Advertencia antes de generar** — si hay campos SDT con el valor de ejemplo sin modificar, el wizard avisa antes de proceder.
+- **Estado de archivos** — la lista de servicios muestra si el `.md` ya fue generado anteriormente, con fecha y hora de la última generación.
 
 ---
 
 ## Instalación manual
 
-Si preferís instalar manualmente, seguí estos pasos:
+Si preferís no usar `iniciar.bat`, podés instalar y arrancar manualmente:
 
-### 1. Clonar el repositorio
-
-```bash
-git clone https://github.com/facupais/DOCUMENTACION-V3-V4.git
-cd DOCUMENTACION-V3-V4
-```
-
-### 2. Instalar dependencias de Node.js
+### 1. Instalar dependencias npm
 
 **Para V3 (SQL Server):**
 ```bash
@@ -81,15 +68,21 @@ npm install
 cd ..
 ```
 
-### 3. Configurar variables de entorno
+### 2. Arrancar el servidor
 
-Cada versión tiene su propio archivo `.env`. Copiá el template y editalo con tus datos:
+```bash
+node setup.js
+```
+
+Luego abrí el navegador en `http://localhost:3777`.
+
+---
+
+## Instalación de variables de entorno (manual)
+
+Si necesitás configurar el `.env` a mano sin pasar por el wizard:
 
 **Para V3:**
-```bash
-cp V3/.env.example V3/.env
-```
-Editá `V3/.env` con los datos de tu entorno:
 ```env
 DB_SERVER=tu-servidor-sql
 DB_PORT=1433
@@ -105,10 +98,6 @@ API_PASSWORD=tu-contraseña-api
 ```
 
 **Para V4:**
-```bash
-cp V4/.env.example V4/.env
-```
-Editá `V4/.env` con los datos de tu entorno:
 ```env
 DB_USER=usuario-oracle
 DB_PASSWORD=contraseña-oracle
@@ -120,60 +109,27 @@ API_USER=INSTALADOR
 API_PASSWORD=tu-contraseña-api
 ```
 
-### 4. Verificar la conexión
-
-```bash
-# V3
-cd V3 && node -e "require('./generar_md.js')" 2>&1 | head -5
-
-# V4
-cd V4 && node -e "require('./generar_md.js')" 2>&1 | head -5
-```
-
 ---
 
-## Uso básico
+## Uso por línea de comandos
 
-### Generar documentación de un método
+El wizard genera los `.md` automáticamente, pero también podés correr los generadores directamente:
 
 ```bash
-# V3
-cd V3
+# Un método específico
 node generar_md.js <Servicio> <Metodo>
 
-# Ejemplo
-node generar_md.js BTPartners ObtenerMarcas
-```
-
-```bash
-# V4
-cd V4
-node generar_md.js <Servicio> <Metodo>
-
-# Ejemplo
-node generar_md.js PublicSavingAccounts getDetailedData
-```
-
-### Generar todos los métodos de un servicio
-
-```bash
+# Todos los métodos de un servicio
 node generar_md.js <Servicio>
-```
 
-### Generar con ejemplos reales (llama a la API)
-
-```bash
+# Con ejemplos reales (llama a la API Bantotal)
 node generar_md.js <Servicio> <Metodo> --ejecutar
+
+# Modo workflow (ejecuta la cadena de dependencias completa)
+node generar_md.js <Servicio> --workflow <Servicio>_workflow.json --ejecutar
 ```
 
-Los archivos se generan en una carpeta con el nombre del servicio (`BTPartners/ObtenerMarcas.md`).
-
----
-
-## Documentación detallada
-
-- [Guía completa V3 (SQL Server)](V3/README.md) — workflows, parámetros, scripts Python
-- [Guía completa V4 (Oracle)](V4/README.md) — workflows, parámetros, scripts Python
+Los archivos se generan en `V3/<Servicio>/<Metodo>.md` o `V4/<Servicio>/<Metodo>.md`.
 
 ---
 
@@ -181,27 +137,22 @@ Los archivos se generan en una carpeta con el nombre del servicio (`BTPartners/O
 
 ```
 DOCUMENTACION-V3-V4/
-├── V3/                     # Generador para Bantotal V3 (SQL Server)
+├── V3/                        # Generador para Bantotal V3 (SQL Server)
 │   ├── generar_md.js          # Generador principal
-│   ├── generar_todos.js       # Genera todos los métodos de un servicio
-│   ├── generar_workflow.js    # Ejecución en modo workflow
-│   ├── validar_md.js          # Validador de calidad del MD generado
-│   ├── *.py                   # Scripts de post-procesamiento
+│   ├── generar_workflow.js    # Análisis y ejecución de workflows
+│   ├── .env                   # Configuración del ambiente (generado por wizard)
 │   ├── .env.example           # Template de configuración
-│   └── README.md              # Documentación detallada V3
+│   └── <Servicio>/            # Carpeta por servicio con los .md generados
 │
-├── V4/             # Generador para Bantotal V4 (Oracle)
+├── V4/                        # Generador para Bantotal V4 (Oracle)
 │   ├── generar_md.js
-│   ├── generar_todos.js
 │   ├── generar_workflow.js
-│   ├── generar_sdt.js
-│   ├── validar_md.js
-│   ├── *.py
+│   ├── .env
 │   ├── .env.example
-│   └── README.md              # Documentación detallada V4
+│   └── <Servicio>/
 │
-├── install.ps1                # Script de instalación para Windows
-├── install.sh                 # Script de instalación para Linux/macOS
+├── setup.js                   # Servidor del asistente de configuración
+├── iniciar.bat                # Acceso directo con instalación automática
 └── README.md                  # Este archivo
 ```
 
@@ -210,7 +161,10 @@ DOCUMENTACION-V3-V4/
 ## Problemas frecuentes
 
 ### `Cannot find module 'mssql'` o `Cannot find module 'oracledb'`
-Faltó ejecutar `npm install` en la carpeta correspondiente. Corré el script de instalación o seguí la instalación manual.
+Faltó ejecutar `npm install` en la carpeta correspondiente. Usá `iniciar.bat` o corré `npm install` manualmente en `V3/` o `V4/`.
+
+### `DPI-1047: Cannot locate a 64-bit Oracle Client library` (V4)
+Oracle Instant Client no está instalado o no está en el PATH del sistema. Este es el único requisito que **no se puede instalar automáticamente** con `iniciar.bat`. Seguí las instrucciones en [oracle.com/instant-client](https://www.oracle.com/database/technologies/instant-client.html).
 
 ### Error de conexión a la base de datos
 Verificá que:
@@ -218,8 +172,5 @@ Verificá que:
 - Las credenciales en `.env` son correctas
 - El puerto no está bloqueado por firewall
 
-### `DPI-1047: Cannot locate a 64-bit Oracle Client library` (V4)
-Oracle Instant Client no está instalado o no está en el PATH del sistema. Seguí las instrucciones en [oracle.com/instant-client](https://www.oracle.com/database/technologies/instant-client.html).
-
-### El archivo `.env` no se carga
-Asegurate de estar ejecutando el comando **desde la carpeta del generador** (`V3/` o `V4/`), no desde la raíz del repo.
+### El servidor ya está corriendo (al abrir `iniciar.bat` dos veces)
+No es un problema — el `.bat` detecta si el servidor ya responde y simplemente abre el navegador sin arrancar una segunda instancia.
