@@ -3,34 +3,29 @@
   "folder": "PublicGeneral",
   "steps": [
     {
-      "method": "getBranches",
-      "params": {
-        "offset": "0",
-        "limit": "10"
-      }
-    },
-    {
       "method": "getCountries",
       "extract": [
         {
-          "path": "countries.country",
-          "where": { "Name": "México" },
-          "field": "Id",
+          "path": "countries.country[0].Id",
           "as": "countryId"
         }
       ]
     },
     {
       "method": "getAdministrativeLevels",
-      "params": {
-        "firstLevel": "1"
-      },
       "extract": [
         {
           "path": "administrativeLevels.administrativeLevel[0].Id",
           "as": "administrativeLevelId"
         }
       ]
+    },
+    {
+      "method": "getBranches",
+      "params": {
+        "offset": "0",
+        "limit": "10"
+      }
     },
     {
       "method": "getDocumentTypes",

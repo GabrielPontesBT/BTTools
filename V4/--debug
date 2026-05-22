@@ -21,6 +21,9 @@
       ]
     },
     {
+      "method": "getCustomerSavingsAccounts"
+    },
+    {
       "method": "getPersonProducts",
       "extract": [
         {
@@ -48,16 +51,13 @@
       "method": "block"
     },
     {
+      "method": "cancel",
+      "extract": [
+        "movementGUID"
+      ]
+    },
+    {
       "method": "getDetailedData"
-    },
-    {
-      "method": "unblock"
-    },
-    {
-      "method": "updateProduct"
-    },
-    {
-      "method": "getCustomerSavingsAccounts"
     },
     {
       "method": "transfer",
@@ -66,10 +66,10 @@
       ]
     },
     {
-      "method": "cancel",
-      "extract": [
-        "movementGUID"
-      ]
+      "method": "unblock"
+    },
+    {
+      "method": "updateProduct"
     }
   ]
 }

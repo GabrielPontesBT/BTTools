@@ -478,7 +478,7 @@ async function generarMd(servicio, metodo, carpeta, ejecutar = false, inputParam
 
     const descripcionRaw = r14.rows[0].BTIMTDDSC ? r14.rows[0].BTIMTDDSC.trim() : '';
 
-    const titulo = generarTitulo(metodo);
+    const titulo = metodo.replace(/([A-Z])/g, ' $1').trim().replace(/^[a-z]/, c => c.toUpperCase());
     const descripcion = descripcionRaw || '[Pendiente de completar]';
     const programa = r14.rows[0].BTIMTDPGMNOM || '';
     const progParts = programa.split('.');
@@ -633,7 +633,7 @@ ${tabla}
 
     // ── Template MD ──
     const md = `---
-title: ${titulo} [REVISAR]
+title: ${titulo}
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
@@ -809,6 +809,11 @@ async function ejecutarWorkflow(workflowFile) {
           }
         }
       }
+    }
+
+    // Propagar stepParams al contexto para que fluyan a los pasos siguientes
+    for (const [k, v] of Object.entries(stepParams)) {
+      if (context[k] === undefined) context[k] = v;
     }
 
     response !== null ? ok++ : errores++;

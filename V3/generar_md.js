@@ -77,8 +77,9 @@ function mapearTipo(tipo, largo, esColeccion) {
   return t;
 }
 
-// ── MAPEO DE VERBOS EN ESPAÑOL ────────────────────────────────
-const TITULO_MAP = { 'get': 'Obtener', 'create': 'Crear', 'add': 'Agregar', 'update': 'Actualizar', 'delete': 'Eliminar', 'load': 'Cargar', 'process': 'Procesar', 'authorize': 'Autorizar', 'reject': 'Rechazar', 'stop': 'Detener', 'view': 'Ver', 'upload': 'Subir', 'enter': 'Ingresar', 'work': 'Trabajar', 'send': 'Enviar', 'set': 'Establecer', 'check': 'Verificar', 'validate': 'Validar', 'generate': 'Generar', 'calculate': 'Calcular', 'search': 'Buscar', 'list': 'Listar' };
+function tituloDesdeMetodo(metodo) {
+  return metodo.replace(/([A-Z])/g, ' $1').trim().replace(/^[a-z]/, c => c.toUpperCase());
+}
 
 // ── EJECUCION DE SERVICIOS ────────────────────────────────────
 
@@ -404,10 +405,7 @@ async function generarMd(servicio, metodo, carpeta, ejecutar = false, inputParam
 
     const descripcionRaw = r14.recordset[0].BTIMTDDSC ? r14.recordset[0].BTIMTDDSC.trim() : '';
 
-    const primeraPalabra = metodo.match(/^[a-z]+/)?.[0] || '';
-    const resto = metodo.replace(/^[a-z]+/, '').replace(/([A-Z])/g, ' $1').trim();
-    const verbEs = TITULO_MAP[primeraPalabra] || primeraPalabra.charAt(0).toUpperCase() + primeraPalabra.slice(1);
-    const titulo = `${verbEs} ${resto}`;
+    const titulo = tituloDesdeMetodo(metodo);
     const descripcion = descripcionRaw || '[Pendiente de completar]';
     const programa = r14.recordset[0].BTIMTDPGMNOM || '';
     const progFinal = programa ? programa.toUpperCase() : 'Completar manualmente';
@@ -692,6 +690,11 @@ async function ejecutarWorkflow(workflowFile) {
           }
         }
       }
+    }
+
+    // Propagar stepParams al contexto para que fluyan a los pasos siguientes
+    for (const [k, v] of Object.entries(stepParams)) {
+      if (context[k] === undefined) context[k] = v;
     }
 
     response !== null ? ok++ : errores++;

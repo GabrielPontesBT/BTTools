@@ -52,8 +52,14 @@ async function resolverExtracts(pool, paramNom, sdtTipo, todosInputs, esColeccio
       if (campo.BTISDTELEMCAT === 'C' || campo.BTISDTELEMCAT === 'S') continue;
       if (fieldName.toLowerCase() === 'id') {
         extracts.push({ path: `${paramNom}.${itemNombre}[0].${fieldName}`, as: `${itemNombre}Id` });
-      } else if (esGuid(fieldName) && todosInputs.has(fieldName)) {
+      } else if (/Id$/i.test(fieldName) && todosInputs.has(fieldName)) {
         extracts.push({ path: `${paramNom}.${itemNombre}[0].${fieldName}`, as: fieldName });
+      } else if (esGuid(fieldName)) {
+        const asName = todosInputs.has(fieldName)                   ? fieldName
+                     : todosInputs.has(`${itemNombre}GUID`)         ? `${itemNombre}GUID`
+                     : todosInputs.has(`${itemNombre}${fieldName}`) ? `${itemNombre}${fieldName}`
+                     : null;
+        if (asName) extracts.push({ path: `${paramNom}.${itemNombre}[0].${fieldName}`, as: asName });
       }
     }
   } else {
@@ -67,19 +73,28 @@ async function resolverExtracts(pool, paramNom, sdtTipo, todosInputs, esColeccio
         const inner = await pool.request()
           .input('sdt', sql.VarChar(100), itemSdt)
           .query(`SELECT BTISDTELEMNOM, BTISDTELEMCAT FROM BTI026 WHERE BTISDTNOM = @sdt ORDER BY BTISDTELEMNOM`);
+        const itemNombreB = singularizar(fieldName);
         for (const item of inner.recordset) {
           if (item.BTISDTELEMCAT === 'C' || item.BTISDTELEMCAT === 'S') continue;
           const itemField = item.BTISDTELEMNOM;
           if (itemField.toLowerCase() === 'id') {
-            extracts.push({ path: `${paramNom}.${fieldName}[0].${itemField}`, as: `${fieldName}Id` });
-          } else if (esGuid(itemField) && todosInputs.has(itemField)) {
+            extracts.push({ path: `${paramNom}.${fieldName}[0].${itemField}`, as: `${itemNombreB}Id` });
+          } else if (/Id$/i.test(itemField) && todosInputs.has(itemField)) {
             extracts.push({ path: `${paramNom}.${fieldName}[0].${itemField}`, as: itemField });
+          } else if (esGuid(itemField)) {
+            const asName = todosInputs.has(itemField)                     ? itemField
+                         : todosInputs.has(`${itemNombreB}GUID`)          ? `${itemNombreB}GUID`
+                         : todosInputs.has(`${itemNombreB}${itemField}`)  ? `${itemNombreB}${itemField}`
+                         : null;
+            if (asName) extracts.push({ path: `${paramNom}.${fieldName}[0].${itemField}`, as: asName });
           }
         }
       } else if (esGuid(fieldName) && todosInputs.has(fieldName)) {
         extracts.push({ path: `${paramNom}.${fieldName}`, as: fieldName });
       } else if (fieldName.toLowerCase() === 'id' && todosInputs.has(`${paramNom}Id`)) {
         extracts.push({ path: `${paramNom}.${fieldName}`, as: `${paramNom}Id` });
+      } else if (/Id$/i.test(fieldName) && todosInputs.has(fieldName)) {
+        extracts.push({ path: `${paramNom}.${fieldName}`, as: fieldName });
       }
     }
   }
@@ -207,6 +222,8 @@ async function generarWorkflow(servicio, archivoSalida) {
         } else if (output.sdtTipo) {
           const nested = await resolverExtracts(pool, output.nombre, output.sdtTipo, todosInputs, output.esColeccionDirecta, output.itemNombre);
           extracts.push(...nested);
+        } else if (todosInputs.has(output.nombre)) {
+          extracts.push(output.nombre);
         }
       }
       extractsPorMetodo.set(metodo, extracts);
@@ -264,7 +281,23 @@ async function generarWorkflow(servicio, archivoSalida) {
     }
 
     // ── Orden topológico y construcción del workflow ──────────
-    const ordenado = ordenTopologico(metodos, dependencias);
+    // Clasificacion de métodos:
+    //   terminal  → cancel/close/delete/remove: cierra la entidad, siempre al final
+    //   flotante  → sin deps entrantes ni salientes: no bloquea ni desbloquea nada
+    //   core      → el resto (con dependencias reales)
+    // Orden: [core] → [flotantes] → [terminales]
+    const dependidosPor = new Set();
+    for (const [, deps] of dependencias) for (const d of deps) dependidosPor.add(d);
+
+    const esTerminal = m => /^(cancel|close|delete|remove)/i.test(m);
+    const esFlotante  = m => !esTerminal(m) && dependencias.get(m).size === 0 && !dependidosPor.has(m);
+
+    const crudo = ordenTopologico(metodos, dependencias);
+    const ordenado = [
+      ...crudo.filter(m => !esFlotante(m) && !esTerminal(m)),
+      ...crudo.filter(m => esFlotante(m)),
+      ...crudo.filter(m => esTerminal(m)),
+    ];
 
     const steps = ordenado.map(metodo => {
       const extracts = extractsPorMetodo.get(metodo);
