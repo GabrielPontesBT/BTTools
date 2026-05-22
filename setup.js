@@ -278,12 +278,12 @@ const HTML = `<!DOCTYPE html>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --blue:#1D4ED8;--blue-h:#1E40AF;--blue-l:#EFF6FF;
+  --blue:#c42e2c;--blue-h:#9e2423;--blue-l:#fdf3f3;
   --green:#059669;--green-l:#ECFDF5;
-  --red:#DC2626;--red-l:#FEF2F2;
+  --red:#c42e2c;--red-l:#fdf3f3;
   --warn:#D97706;--warn-l:#FFFBEB;
-  --text:#0F172A;--muted:#64748B;--border:#E2E8F0;--bg:#F1F5F9;
-  --r:12px;--shadow:0 8px 40px rgba(0,0,0,.12)
+  --text:#121418;--muted:#636768;--border:#c6c7c7;--bg:#f2f2f2;
+  --r:12px;--shadow:0 8px 40px rgba(18,20,24,.14)
 }
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;color:var(--text)}
 .wizard{background:#fff;border-radius:var(--r);box-shadow:var(--shadow);width:100%;max-width:600px;overflow:hidden}
@@ -347,11 +347,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .add-btn:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-l)}
 
 /* footer */
-.wiz-ft{display:flex;justify-content:space-between;align-items:center;padding:16px 32px;border-top:1px solid var(--border);background:#FAFAFA;min-height:64px}
+.wiz-ft{display:flex;justify-content:space-between;align-items:center;padding:16px 32px;border-top:1px solid var(--border);background:#f5f5f5;min-height:64px}
 .btn{padding:9px 18px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .17s;font-family:inherit;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
 .btn:disabled{opacity:.45;cursor:not-allowed;pointer-events:none}
 .btn-ghost{background:none;color:var(--muted);border:1.5px solid var(--border)}
-.btn-ghost:hover{border-color:#94A3B8;color:var(--text)}
+.btn-ghost:hover{border-color:#9a9a9a;color:var(--text)}
 .btn-primary{background:var(--blue);color:#fff}
 .btn-primary:hover{background:var(--blue-h)}
 .btn-outline{background:none;color:var(--blue);border:1.5px solid var(--blue)}
@@ -385,7 +385,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .exec-lbl{display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text)}
 .exec-sub{font-size:11px;color:var(--muted);margin-top:4px;margin-left:26px;line-height:1.5}
 .param-card{margin-bottom:10px;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;text-align:left}
-.param-card-hd{padding:8px 12px;background:#F8FAFC;border-bottom:1px solid var(--border);font-size:12px;font-weight:600}
+.param-card-hd{padding:8px 12px;background:#f5f5f5;border-bottom:1px solid var(--border);font-size:12px;font-weight:600}
 .param-card-bd{padding:10px 12px}
 .param-f{margin-bottom:8px}
 .param-f label{display:block;font-size:11px;font-weight:500;margin-bottom:3px}
@@ -399,7 +399,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .wf-step.wf-dragging{opacity:.35}
 .wf-step.wf-over{border-top:2px solid var(--blue) !important}
 .wf-step-hd{display:flex;align-items:center;gap:8px;padding:7px 12px}
-.wf-global-params{padding:10px 14px;background:var(--blue-l);border-bottom:1px solid #BFDBFE}
+.wf-global-params{padding:10px 14px;background:var(--blue-l);border-bottom:1px solid #f0bcbc}
 .wf-handle{color:var(--border);font-size:13px;flex-shrink:0;line-height:1}
 </style>
 </head>
