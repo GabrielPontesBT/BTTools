@@ -29,6 +29,17 @@ if %errorlevel% neq 0 (
 )
 set "PATH=%PATH%;C:\Program Files\nodejs"
 
+:: Verificar que node sea accesible tras la instalacion
+where node >nul 2>&1
+if %errorlevel% neq 0 (
+    echo.
+    echo  Node.js se instalo correctamente.
+    echo  Cierra y volvé a abrir este archivo para continuar.
+    echo.
+    pause
+    exit /b 0
+)
+
 :: ============================================================
 :: 2. INSTALAR DEPENDENCIAS NPM SI FALTAN
 :: ============================================================
@@ -36,17 +47,35 @@ set "PATH=%PATH%;C:\Program Files\nodejs"
 if not exist "V3\node_modules" (
     echo.
     echo  Instalando dependencias V3 ^(SQL Server^)...
+    echo  ^(esto puede tardar unos minutos la primera vez^)
     cd V3
-    npm install
+    call npm install
+    if %errorlevel% neq 0 (
+        echo.
+        echo  ERROR: Fallo la instalacion de dependencias V3.
+        cd ..
+        pause
+        exit /b 1
+    )
     cd ..
+    echo  Dependencias V3 instaladas correctamente.
 )
 
 if not exist "V4\node_modules" (
     echo.
     echo  Instalando dependencias V4 ^(Oracle^)...
+    echo  ^(esto puede tardar unos minutos la primera vez^)
     cd V4
-    npm install
+    call npm install
+    if %errorlevel% neq 0 (
+        echo.
+        echo  ERROR: Fallo la instalacion de dependencias V4.
+        cd ..
+        pause
+        exit /b 1
+    )
     cd ..
+    echo  Dependencias V4 instaladas correctamente.
 )
 
 :: ============================================================
