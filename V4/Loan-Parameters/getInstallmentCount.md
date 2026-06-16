@@ -1,15 +1,15 @@
 ---
-title: Get System Date
+title: Get Installment Count
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para obtener la fecha del sistema.
+::: note Método para obtener la cantidad de cuotas parametrizadas de un producto de préstamos.
 
-**Nombre publicación:** PublicGeneral.getSystemDate
+**Nombre publicación:** PublicLoanParameters.getInstallmentCount
 
-**Módulo:** General
+**Módulo:** Loans
 
-**Programa:** PublicAPI.BTCYPA0001
+**Programa:** PublicAPI.BTLOPA0021
 
 **Alcance:** Global
 :::
@@ -20,26 +20,23 @@ title: Get System Date
 
 @tab Datos de Entrada
 
-No aplica.
-
-@tab Body
-
 Nombre | Tipo | Comentarios
-:--------- | :--------- | :---------
-Completar manualmente | Completar manualmente | Completar manualmente 
+:--------- | :----------- | :-----------
+productGUID | String $<(length: 36)>$ | GUID (identificador único global) del producto.
 
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-systemDate | Date | Fecha del sistema.
+minimum | Long $<(length: 10)>$ | Mínimo.
+maximum | Long $<(length: 10)>$ | Máximo.
+defaultValue | Long $<(length: 10)>$ | Valor por defecto.
 
 @tab Errores
 
-Código | Descripción
-:--------- | :-----------
-Completar manualmente | Completar manualmente
-
+Código | Descripción 
+:--------- | :----------- 
+120050009 | Debe ingresar el GUID de producto.
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -56,8 +53,9 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "E7227F065D421A5B5267C8DB"
-  }
+    "Token": "15A37FA9852954F6770E9868"
+  },
+  "productGUID": "bf0d7e10-dce6-4bd4-b866-9984556613ec"
 }'
 ```
 :::
@@ -74,18 +72,20 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "E7227F065D421A5B5267C8DB"
+    "Token": "15A37FA9852954F6770E9868"
   },
-  "systemDate": "2027-11-10",
+  "minimum": 1,
+  "maximum": 120,
+  "defaultValue": 12,
   "BusinessErrors": {
     "BusinessError": []
   },
   "Btoutreq": {
     "Estado": "OK",
-    "Fecha": "2026-05-22",
-    "Hora": "17:19:25",
-    "Numero": 13506051,
-    "Servicio": "PublicGeneral.getSystemDate",
+    "Fecha": "2026-06-03",
+    "Hora": "17:35:39",
+    "Numero": 13568707,
+    "Servicio": "PublicLoanParameters.getInstallmentCount",
     "Requerimiento": "1",
     "Canal": "BTDIGITAL"
   }
@@ -93,5 +93,3 @@ Completar manualmente | Completar manualmente
 ```
 :::
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
-
-

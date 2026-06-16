@@ -8,6 +8,13 @@ const oracledb = require('oracledb');
 const fs = require('fs');
 const http = require('http');
 const xml2js = require('xml2js');
+const { spawnSync } = require('child_process');
+const os = require('os');
+
+const toFolderName = s => s
+  .replace(/^Public/, '')
+  .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
+  .replace(/([a-z\d])([A-Z])/g, '$1-$2');
 
 // ── VALIDACION DE ENTORNO ─────────────────────────────────────
 (function validarEntorno() {
@@ -65,10 +72,13 @@ function capitalizarTipo(tipo) {
   return tipo.charAt(0).toUpperCase() + tipo.slice(1);
 }
 
-function mapearTipo(tipo, largo, esColeccion) {
+function mapearTipo(tipo, largo, esColeccion, deci) {
   if (esColeccion === 'C') return 'Collection';
   const t = TIPO_MAP[tipo] || capitalizarTipo(tipo);
-  if (largo && largo !== '0' && largo !== 0) return `${t} $<(length: ${largo})>$`;
+  if (largo && largo !== '0' && largo !== 0) {
+    const lenStr = (deci && deci !== '0' && deci !== 0) ? `${largo}.${deci}` : `${largo}`;
+    return `${t} $<(length: ${lenStr})>$`;
+  }
   return t;
 }
 
@@ -203,7 +213,7 @@ function generarTabla(rows) {
       : (r.BTISRVVARTIPO && r.BTISRVVARTIPO.startsWith('Sdt') ? r.BTISRVVARTIPO.trim() : null);
     const tipo = sdtNombre
       ? `[${sdtNombre}](#${sdtNombre.toLowerCase()})`
-      : mapearTipo(r.BTISRVVARTIPO, r.BTISRVPARLARGO, r.BTISRVCATIT);
+      : mapearTipo(r.BTISRVVARTIPO, r.BTISRVPARLARGO, r.BTISRVCATIT, r.BTISRVPARDECI);
     lines.push(`${r.BTISRVPARNOM} | ${tipo} | ${r.BTISRVPARDSC ? r.BTISRVPARDSC.trim() : ''}`);
   }
   return lines.join('\n');
@@ -221,7 +231,7 @@ function generarTablaSdt(rows) {
       const sdtName = r.BTISDTELEMTIPO.trim();
       tipo = `[${sdtName}](#${sdtName.toLowerCase()})`;
     } else {
-      tipo = mapearTipo(r.BTISDTELEMTIPO, r.BTISDTELEMLARGO, r.BTISDTELEMCAT);
+      tipo = mapearTipo(r.BTISDTELEMTIPO, r.BTISDTELEMLARGO, r.BTISDTELEMCAT, r.BTISDTELEMDECI);
     }
     lines.push(`${r.BTISDTELEMNOM} | ${tipo} | ${r.BTISDTELEMDSC ? r.BTISDTELEMDSC.trim() : ''}`);
   }
@@ -485,15 +495,17 @@ async function generarMd(servicio, metodo, carpeta, ejecutar = false, inputParam
     const progFinal = progParts.length >= 2
       ? (() => {
           const penultima = progParts[progParts.length - 2];
-          const ultima = progParts[progParts.length - 1].toUpperCase();
+          const ultimaRaw = progParts[progParts.length - 1].toUpperCase();
+          const ultima = ultimaRaw.startsWith('A') ? ultimaRaw.slice(1) : ultimaRaw;
           const penultimaFmt = penultima.toUpperCase().replace('PUBLICAPI', 'PublicAPI');
           return `${penultimaFmt}.${ultima}`;
         })()
       : 'Completar manualmente';
+    const progNombreKB = progParts.length > 0 ? progParts[progParts.length - 1].toUpperCase() : '';
 
     // ── BTI019 - Parametros ──
     const r19 = await conn.execute(
-      `SELECT BTISRVPARNOM, BTISRVVARTIPO, BTISRVPARDIR, BTISRVPARDSC, BTISRVPARLARGO, BTISRVCATIT, BTISRVPARITTIPO, BTISRVPARITNOM
+      `SELECT BTISRVPARNOM, BTISRVVARTIPO, BTISRVPARDIR, BTISRVPARDSC, BTISRVPARLARGO, BTISRVPARDECI, BTISRVCATIT, BTISRVPARITTIPO, BTISRVPARITNOM
        FROM BTI019 WHERE BTISRVNOM = :1 AND BTIMTDNOM = :2 ORDER BY BTISRVPARPOSI`,
       [servicio, metodo],
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
@@ -515,7 +527,7 @@ async function generarMd(servicio, metodo, carpeta, ejecutar = false, inputParam
       if (visitados.has(sdtNomDB) || sdtCache.has(sdtNomDB)) return;
       visitados.add(sdtNomDB);
       const r26 = await conn.execute(
-        `SELECT BTISDTELEMNOM, BTISDTELEMTIPO, BTISDTELEMLARGO, BTISDTELEMCAT, BTISDTELEMDSC, BTISDTELEMSDT
+        `SELECT BTISDTELEMNOM, BTISDTELEMTIPO, BTISDTELEMLARGO, BTISDTELEMDECI, BTISDTELEMCAT, BTISDTELEMDSC, BTISDTELEMSDT
          FROM BTI026 WHERE BTISDTNOM = :1 ORDER BY BTISDTELEMNOM`,
         [sdtNomDB],
         { outFormat: oracledb.OUT_FORMAT_OBJECT }
@@ -631,6 +643,42 @@ ${tabla}
     const tablaEntrada = generarTabla(entrada);
     const tablaSalida  = generarTabla(salida);
 
+    // ── Errores posibles (Documentador de Errores) ──
+    let tablaErrores = `Código | Descripción\n:--------- | :-----------\nCompletar manualmente | Completar manualmente`;
+    const _docScripts = process.env.DOC_ERRORES_SCRIPTS;
+    const _docModelos = process.env.DOC_ERRORES_MODELOS;
+    if (_docScripts && _docModelos && progNombreKB) {
+      const scriptFile = `${_docScripts}\\simulate_program_flow.py`;
+      if (fs.existsSync(scriptFile)) {
+        const progNombreScript = progNombreKB.startsWith('A') ? progNombreKB.slice(1) : progNombreKB;
+        console.log(`⏳ Documentando errores para ${progNombreScript}...`);
+        const tmpFile = `${os.tmpdir()}\\errores_${progNombreScript}_${Date.now()}.md`;
+        const result = spawnSync('python', [scriptFile, progNombreScript, '--models', _docModelos, '--errors-md', tmpFile], {
+          encoding: 'utf8',
+          timeout: 180000,
+        });
+        if (result.status === 0 && fs.existsSync(tmpFile)) {
+          const raw = fs.readFileSync(tmpFile, 'utf8').replace(/^﻿/, '').trim();
+          const dataLines = raw.split('\n').filter(l => l.trim()).slice(2);
+          if (dataLines.length > 0) {
+            tablaErrores = raw
+              .replace('| cod_err | err_msg | programas |', 'Código | Descripción | Programas')
+              .replace('|---:|---|---|', ':--------- | :----------- | :-----------')
+              .replace(/^\| (.*) \|$/gm, '$1')
+              .trim();
+            console.log(`✅ Errores documentados: ${dataLines.length} error(es) para ${progNombreScript}`);
+          } else {
+            tablaErrores = 'No aplica.';
+            console.log(`ℹ️  Sin errores detectados para ${progNombreScript}`);
+          }
+          try { fs.unlinkSync(tmpFile); } catch {}
+        } else {
+          const errMsg = (result.stderr || '').slice(0, 200);
+          console.warn(`⚠️  No se pudo documentar errores para ${progNombreScript}: ${errMsg}`);
+        }
+      }
+    }
+
     // ── Template MD ──
     const md = `---
 title: ${titulo}
@@ -668,9 +716,7 @@ ${tablaSalida}
 
 @tab Errores
 
-Código | Descripción
-:--------- | :-----------
-Completar manualmente | Completar manualmente
+${tablaErrores}
 
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -738,7 +784,7 @@ async function ejecutarWorkflow(workflowFile) {
     process.exit(1);
   }
 
-  const dir = folder || servicio;
+  const dir = folder || toFolderName(servicio);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
   function deepMerge(target, source) {
@@ -879,7 +925,7 @@ if (require.main === module) {
     }
   }
 
-  const dir = carpeta || servicio;
+  const dir = carpeta || toFolderName(servicio);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
   if (metodo) {

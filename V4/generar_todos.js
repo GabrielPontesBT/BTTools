@@ -9,6 +9,11 @@ const oracledb = require('oracledb');
 const fs = require('fs');
 const { generarMd } = require('./generar_md.js');
 
+const toFolderName = s => s
+  .replace(/^Public/, '')
+  .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
+  .replace(/([a-z\d])([A-Z])/g, '$1-$2');
+
 const DB_CONFIG = {
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
@@ -76,5 +81,5 @@ if (!servicio) {
   process.exit(1);
 }
 
-const dir = carpeta || servicio;
+const dir = carpeta || toFolderName(servicio);
 generarTodos(servicio, dir);

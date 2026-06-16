@@ -1,15 +1,15 @@
 ---
-title: Unblock
+title: Get Capital Range
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para desbloquear una cuenta de ahorro.
+::: note Método para obtener el rango de capital de un producto de préstamos, incluyendo su valor por defecto.
 
-**Nombre publicación:** PublicSavingAccounts.unblock
+**Nombre publicación:** PublicLoanParameters.getCapitalRange
 
-**Módulo:** Liabilities.SavingsAccounts
+**Módulo:** Loans
 
-**Programa:** PublicAPI.BTSAPA0003
+**Programa:** PublicAPI.BTLOPA0022
 
 **Alcance:** Global
 :::
@@ -22,24 +22,21 @@ title: Unblock
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-savingAccountGUID | String $<(length: 36)>$ | GUID (identificador único global) de la cuenta de ahorro.
-
-@tab Body
-
-Nombre | Tipo | Comentarios
-:--------- | :--------- | :---------
-Completar manualmente | Completar manualmente | Completar manualmente 
+productGUID | String $<(length: 36)>$ | GUID (identificador único global) del producto.
 
 @tab Datos de Salida
 
-No aplica.
+Nombre | Tipo | Comentarios
+:--------- | :----------- | :-----------
+minimum | Double $<(length: 10)>$ | Mínimo.
+maximum | Double $<(length: 10)>$ | Máximo.
+defaultValue | Double $<(length: 10)>$ | Valor por defecto.
 
 @tab Errores
 
 Código | Descripción
 :--------- | :-----------
-Completar manualmente | Completar manualmente
-
+120050009 | Debe ingresar el GUID de producto.
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -56,9 +53,9 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "6DE1A63E925E05BB399BAC77"
+    "Token": "15A37FA9852954F6770E9868"
   },
-  "savingAccountGUID": "00000000-0000-0000-0000-000000000000"
+  "productGUID": "bf0d7e10-dce6-4bd4-b866-9984556613ec"
 }'
 ```
 :::
@@ -75,24 +72,20 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "6DE1A63E925E05BB399BAC77"
+    "Token": "15A37FA9852954F6770E9868"
   },
+  "minimum": 2000,
+  "maximum": 200000,
+  "defaultValue": 2000,
   "BusinessErrors": {
-    "BusinessError": [
-      {
-        "Code": 500,
-        "Severity": "",
-        "Target": "",
-        "Description": "API internal error"
-      }
-    ]
+    "BusinessError": []
   },
   "Btoutreq": {
-    "Estado": "NEG_INFO",
-    "Fecha": "2026-05-22",
-    "Hora": "15:56:44",
-    "Numero": 13505895,
-    "Servicio": "PublicSavingAccounts.unblock",
+    "Estado": "OK",
+    "Fecha": "2026-06-03",
+    "Hora": "17:34:40",
+    "Numero": 13568691,
+    "Servicio": "PublicLoanParameters.getCapitalRange",
     "Requerimiento": "1",
     "Canal": "BTDIGITAL"
   }
@@ -100,5 +93,3 @@ Completar manualmente | Completar manualmente
 ```
 :::
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
-
-

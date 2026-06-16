@@ -264,6 +264,12 @@ function buildEnv(version, platform, db, api) {
   if (version === 'V3' && api.API_AUTH_URL) L.push('API_AUTH_URL=' + api.API_AUTH_URL);
   L.push('API_USER=' + api.API_USER);
   L.push('API_PASSWORD=' + api.API_PASSWORD);
+  if (api.DOC_ERRORES_SCRIPTS || api.DOC_ERRORES_MODELOS) {
+    L.push('');
+    L.push('# Documentador de Errores');
+    L.push('DOC_ERRORES_SCRIPTS=' + (api.DOC_ERRORES_SCRIPTS || ''));
+    L.push('DOC_ERRORES_MODELOS=' + (api.DOC_ERRORES_MODELOS || ''));
+  }
   return L.join('\n');
 }
 
@@ -545,6 +551,29 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
       </div>
       <div id="ares" class="cres" style="margin-bottom:0"></div>
       <button class="btn btn-outline" id="btn-test-api" onclick="testAuth()" style="margin-top:2px;width:100%">Probar autenticacion</button>
+
+      <div style="border-top:1px solid var(--border);margin-top:18px;padding-top:14px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:13px">
+          <input type="checkbox" id="cb-doc-errores" onchange="toggleDocErrores()" style="width:15px;height:15px;cursor:pointer">
+          Documentar errores posibles
+        </label>
+        <p style="margin-top:3px;margin-left:23px;font-size:11px;color:var(--muted)">
+          Llama al Documentador de Errores para incluir la tabla de errores en cada .md generado.
+          Requiere Python y los archivos KB del modelo GeneXus.
+        </p>
+        <div id="doc-errores-fields" style="display:none;margin-top:10px">
+          <div class="field">
+            <label>Ruta a los scripts del Documentador de Errores</label>
+            <input type="text" id="doc-errores-scripts" placeholder="ej: C:\\V4\\Documentador de Errores\\scripts">
+            <div class="hint">Carpeta que contiene <code>simulate_program_flow.py</code></div>
+          </div>
+          <div class="field">
+            <label>Ruta a los modelos KB</label>
+            <input type="text" id="doc-errores-modelos" placeholder="ej: C:\\1 - MODELOS\\V4">
+            <div class="hint">Carpeta raiz con los modelos GeneXus (contiene subcarpetas con kb.data)</div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Paso 5: Seleccion de servicios -->
@@ -596,6 +625,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
         <button class="btn btn-primary" id="btn-generate" onclick="generateDocs()" style="margin-bottom:16px">Generar documentacion ahora</button>
         <div id="gen-log" class="gen-log" style="display:none"></div>
         <p class="close-hint" id="gen-hint">Podes cerrar esta pestana. Para cambiar la configuracion, volve a ejecutar <strong>node setup.js</strong>.</p>
+        <div id="post-gen-actions" style="display:none;margin-top:12px">
+          <button class="btn btn-outline" onclick="resetParaOtroServicio()" style="width:100%">&#8592; Documentar otro servicio</button>
+        </div>
       </div>
     </div>
 
@@ -618,6 +650,13 @@ var allServices = [];
 var paramFields = {};
 var workflowData = {};
 var wfConfirmed = false;
+
+function toFolderName(s) {
+  return s
+    .replace(/^Public/, '')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
+    .replace(/([a-z\d])([A-Z])/g, '$1-$2');
+}
 
 async function tryLoadEnv(version) {
   loadedEnv = null;
@@ -662,6 +701,12 @@ function fillApiFields() {
   setVal('a-auth', loadedEnv.API_AUTH_URL);
   setVal('a-user', loadedEnv.API_USER);
   setVal('a-pass', loadedEnv.API_PASSWORD);
+  if (loadedEnv.DOC_ERRORES_SCRIPTS) {
+    var cbDocErr = document.getElementById('cb-doc-errores');
+    if (cbDocErr) { cbDocErr.checked = true; toggleDocErrores(); }
+    setVal('doc-errores-scripts', loadedEnv.DOC_ERRORES_SCRIPTS);
+    setVal('doc-errores-modelos', loadedEnv.DOC_ERRORES_MODELOS);
+  }
 }
 
 function pick(key, val, el) {
@@ -759,7 +804,14 @@ function getDb() {
 
 function getApi() {
   return { BASE_URL: v('a-base'), API_BASE_URL: v('a-api'),
-           API_AUTH_URL: v('a-auth'), API_USER: v('a-user'), API_PASSWORD: vp('a-pass') };
+           API_AUTH_URL: v('a-auth'), API_USER: v('a-user'), API_PASSWORD: vp('a-pass'),
+           DOC_ERRORES_SCRIPTS: v('doc-errores-scripts'), DOC_ERRORES_MODELOS: v('doc-errores-modelos') };
+}
+
+function toggleDocErrores() {
+  var cb = document.getElementById('cb-doc-errores');
+  var fields = document.getElementById('doc-errores-fields');
+  if (fields) fields.style.display = cb && cb.checked ? 'block' : 'none';
 }
 
 async function testAuth() {
@@ -1359,7 +1411,28 @@ async function generateDocs() {
   btn.innerHTML = 'Generar documentacion';
   btn.disabled = false;
   document.getElementById('gen-hint').style.display = 'block';
+  document.getElementById('post-gen-actions').style.display = 'block';
   renderList();
+}
+
+function resetParaOtroServicio() {
+  items = [];
+  paramFields = {};
+  workflowData = {};
+  wfConfirmed = false;
+  var genLog = document.getElementById('gen-log');
+  if (genLog) { genLog.style.display = 'none'; genLog.innerHTML = ''; }
+  var postActs = document.getElementById('post-gen-actions');
+  if (postActs) postActs.style.display = 'none';
+  var cbEj = document.getElementById('cb-ejecutar');
+  if (cbEj) cbEj.checked = false;
+  var ps = document.getElementById('params-section');
+  if (ps) { ps.style.display = 'none'; ps.innerHTML = ''; }
+  var hint = document.getElementById('gen-hint');
+  if (hint) hint.style.display = 'none';
+  var btn = document.getElementById('btn-generate');
+  if (btn) { btn.style.display = 'block'; btn.disabled = false; btn.innerHTML = 'Generar documentacion ahora'; }
+  show(5);
 }
 
 function handleGenEvent(ev) {
@@ -1374,12 +1447,12 @@ function handleGenEvent(ev) {
       ic.innerHTML = '<span style="color:var(--green)">&#10003;</span>';
       if (lbl && item) {
         if (item.method !== '__all__') {
-          var fp = S.version + '/' + item.service + '/' + item.method + '.md';
+          var fp = S.version + '/' + toFolderName(item.service) + '/' + item.method + '.md';
           lbl.insertAdjacentHTML('beforeend',
             '<br><a href="/files/' + encodeURIComponent(fp) + '" download' +
             ' style="font-size:10px;color:var(--blue);text-decoration:none">&#8595; Descargar .md</a>');
         } else {
-          var folder = S.version + '/' + item.service;
+          var folder = S.version + '/' + toFolderName(item.service);
           lbl.insertAdjacentHTML('beforeend',
             '<br><button data-folder="' + folder + '" onclick="openFolder(this.dataset.folder)"' +
             ' style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--blue);padding:0">&#128193; Abrir carpeta</button>');
@@ -1624,8 +1697,9 @@ http.createServer(async (req, res) => {
   if (req.method === 'POST' && req.url === '/api/check-files') {
     try {
       const { version, items: fileItems } = await readBody(req);
+      const toFolderNameSrv = s => s.replace(/^Public/, '').replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2').replace(/([a-z\d])([A-Z])/g, '$1-$2');
       const results = (fileItems || []).map(function(item) {
-        const relPath = version + '/' + item.service + '/' + item.method + '.md';
+        const relPath = version + '/' + toFolderNameSrv(item.service) + '/' + item.method + '.md';
         const fullPath = path.resolve(ROOT, relPath);
         try {
           const stat = fs.statSync(fullPath);

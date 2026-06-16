@@ -17,16 +17,47 @@ echo.
 echo  Node.js no encontrado. Instalando...
 echo  (puede tardar unos minutos la primera vez)
 echo.
-winget install --id OpenJS.NodeJS.LTS -e --silent --accept-source-agreements --accept-package-agreements
+
+:: Intentar con winget (solo origen winget, no msstore)
+winget install --id OpenJS.NodeJS.LTS -e --silent --accept-source-agreements --accept-package-agreements --source winget >nul 2>&1
+if %errorlevel% == 0 goto node_installed
+
+:: Fallback: descargar instalador directamente desde nodejs.org
+echo  winget no disponible, descargando Node.js desde nodejs.org...
+echo.
+
+:: Obtener la version LTS mas reciente
+powershell -noprofile -command "try{(Invoke-RestMethod 'https://nodejs.org/dist/index.json'|Where-Object{$_.lts}|Select-Object -First 1).version}catch{}" > "%TEMP%\_nodever.txt" 2>nul
+set /p NODE_VER=<"%TEMP%\_nodever.txt"
+del "%TEMP%\_nodever.txt" >nul 2>&1
+if "%NODE_VER%"=="" set "NODE_VER=v22.15.0"
+
+echo  Descargando Node.js %NODE_VER%...
+set "NODE_INSTALLER=%TEMP%\node-installer.msi"
+curl -L --progress-bar -o "%NODE_INSTALLER%" "https://nodejs.org/dist/%NODE_VER%/node-%NODE_VER%-x64.msi"
 if %errorlevel% neq 0 (
     echo.
-    echo  ERROR: No se pudo instalar Node.js automaticamente.
+    echo  ERROR: No se pudo descargar Node.js.
     echo  Instalalo manualmente desde https://nodejs.org
     echo  y volvé a ejecutar este archivo.
     echo.
     pause
     exit /b 1
 )
+echo  Instalando Node.js %NODE_VER%...
+msiexec /i "%NODE_INSTALLER%" /quiet /norestart
+if %errorlevel% neq 0 (
+    echo.
+    echo  ERROR: Fallo la instalacion de Node.js.
+    echo  Instalalo manualmente desde https://nodejs.org
+    echo  y volvé a ejecutar este archivo.
+    echo.
+    pause
+    exit /b 1
+)
+del "%NODE_INSTALLER%" >nul 2>&1
+
+:node_installed
 set "PATH=%PATH%;C:\Program Files\nodejs"
 
 :: Verificar que node sea accesible tras la instalacion
