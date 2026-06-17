@@ -10,6 +10,7 @@ const http = require('http');
 const xml2js = require('xml2js');
 const { spawnSync } = require('child_process');
 const os = require('os');
+const path = require('path');
 
 const toFolderName = s => s
   .replace(/^Public/, '')
@@ -645,37 +646,34 @@ ${tabla}
 
     // ── Errores posibles (Documentador de Errores) ──
     let tablaErrores = `Código | Descripción\n:--------- | :-----------\nCompletar manualmente | Completar manualmente`;
-    const _docScripts = process.env.DOC_ERRORES_SCRIPTS;
     const _docModelos = process.env.DOC_ERRORES_MODELOS;
-    if (_docScripts && _docModelos && progNombreKB) {
-      const scriptFile = `${_docScripts}\\simulate_program_flow.py`;
-      if (fs.existsSync(scriptFile)) {
-        const progNombreScript = progNombreKB.startsWith('A') ? progNombreKB.slice(1) : progNombreKB;
-        console.log(`⏳ Documentando errores para ${progNombreScript}...`);
-        const tmpFile = `${os.tmpdir()}\\errores_${progNombreScript}_${Date.now()}.md`;
-        const result = spawnSync('python', [scriptFile, progNombreScript, '--models', _docModelos, '--errors-md', tmpFile], {
-          encoding: 'utf8',
-          timeout: 180000,
-        });
-        if (result.status === 0 && fs.existsSync(tmpFile)) {
-          const raw = fs.readFileSync(tmpFile, 'utf8').replace(/^﻿/, '').trim();
-          const dataLines = raw.split('\n').filter(l => l.trim()).slice(2);
-          if (dataLines.length > 0) {
-            tablaErrores = raw
-              .replace('| cod_err | err_msg | programas |', 'Código | Descripción | Programas')
-              .replace('|---:|---|---|', ':--------- | :----------- | :-----------')
-              .replace(/^\| (.*) \|$/gm, '$1')
-              .trim();
-            console.log(`✅ Errores documentados: ${dataLines.length} error(es) para ${progNombreScript}`);
-          } else {
-            tablaErrores = 'No aplica.';
-            console.log(`ℹ️  Sin errores detectados para ${progNombreScript}`);
-          }
-          try { fs.unlinkSync(tmpFile); } catch {}
+    const scriptFile = path.join(__dirname, '..', 'error-docs', 'scripts', 'simulate_program_flow.py');
+    if (_docModelos && progNombreKB && fs.existsSync(scriptFile)) {
+      const progNombreScript = progNombreKB.startsWith('A') ? progNombreKB.slice(1) : progNombreKB;
+      console.log(`⏳ Documentando errores para ${progNombreScript}...`);
+      const tmpFile = `${os.tmpdir()}\\errores_${progNombreScript}_${Date.now()}.md`;
+      const result = spawnSync('python', [scriptFile, progNombreScript, '--models', _docModelos, '--errors-md', tmpFile], {
+        encoding: 'utf8',
+        timeout: 180000,
+      });
+      if (result.status === 0 && fs.existsSync(tmpFile)) {
+        const raw = fs.readFileSync(tmpFile, 'utf8').replace(/^﻿/, '').trim();
+        const dataLines = raw.split('\n').filter(l => l.trim()).slice(2);
+        if (dataLines.length > 0) {
+          tablaErrores = raw
+            .replace('| cod_err | err_msg | programas |', 'Código | Descripción | Programas')
+            .replace('|---:|---|---|', ':--------- | :----------- | :-----------')
+            .replace(/^\| (.*) \|$/gm, '$1')
+            .trim();
+          console.log(`✅ Errores documentados: ${dataLines.length} error(es) para ${progNombreScript}`);
         } else {
-          const errMsg = (result.stderr || '').slice(0, 200);
-          console.warn(`⚠️  No se pudo documentar errores para ${progNombreScript}: ${errMsg}`);
+          tablaErrores = 'No aplica.';
+          console.log(`ℹ️  Sin errores detectados para ${progNombreScript}`);
         }
+        try { fs.unlinkSync(tmpFile); } catch {}
+      } else {
+        const errMsg = (result.stderr || '').slice(0, 200);
+        console.warn(`⚠️  No se pudo documentar errores para ${progNombreScript}: ${errMsg}`);
       }
     }
 

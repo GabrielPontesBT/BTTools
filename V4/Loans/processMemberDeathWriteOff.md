@@ -1,15 +1,15 @@
 ---
-title: Get Group Capital Range
+title: Process Member Death Write Off
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para obtener el rango de capital de un producto de préstamos, incluyendo su valor por defecto.
+::: note Método para quebranto por fallecimiento
 
-**Nombre publicación:** PublicLoanParameters.getGroupCapitalRange
+**Nombre publicación:** PublicLoans.processMemberDeathWriteOff
 
 **Módulo:** Loans
 
-**Programa:** PublicAPI.BTLOPA0027
+**Programa:** PublicAPI.BTLOPA0050
 
 **Alcance:** Global
 :::
@@ -22,21 +22,28 @@ title: Get Group Capital Range
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-cycleId | Int $<(length: 9)>$ | Identificador del ciclo.
-productGUID | String $<(length: 36)>$ | GUID (identificador único global) del producto.
+groupId | Int $<(length: 9)>$ | Identificador de grupo.
+loanGuid | String $<(length: 36)>$ | Identificador único (GUID) de préstamo.
+deceasedDate | Date | Fecha de fallecimiento.
+
+@tab Body
+
+Nombre | Tipo | Comentarios
+:--------- | :--------- | :---------
+Completar manualmente | Completar manualmente | Completar manualmente 
 
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-minimumCapital | Double $<(length: 18)>$ | Capital mínimo.
-maximumCapital | Double $<(length: 18)>$ | Capital máximo.
+movementGuid | String $<(length: 36)>$ | Identificador único (GUID) de movimiento.
 
 @tab Errores
 
 Código | Descripción
 :--------- | :-----------
-120050009 | Debe ingresar el GUID de producto.
+Completar manualmente | Completar manualmente
+
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -53,10 +60,11 @@ Código | Descripción
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "15A37FA9852954F6770E9868"
+    "Token": "E3ADC97E57DC5FDE4F408A70"
   },
-  "cycleId": "1",
-  "productGUID": "bf0d7e10-dce6-4bd4-b866-9984556613ec"
+  "groupId": "70",
+  "loanGuid": "7de60dc6-b377-4683-9a8d-95ce6c69df74",
+  "deceasedDate": "2027-07-30"
 }'
 ```
 :::
@@ -73,19 +81,18 @@ Código | Descripción
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "15A37FA9852954F6770E9868"
+    "Token": "E3ADC97E57DC5FDE4F408A70"
   },
-  "minimumCapital": 10000,
-  "maximumCapital": 100000000,
+  "movementGuid": "58cfb0f0-4922-4d38-8d76-3a72ba3aa9d0",
   "BusinessErrors": {
     "BusinessError": []
   },
   "Btoutreq": {
     "Estado": "OK",
-    "Fecha": "2026-06-03",
-    "Hora": "17:35:14",
-    "Numero": 13568699,
-    "Servicio": "PublicLoanParameters.getGroupCapitalRange",
+    "Fecha": "2026-06-16",
+    "Hora": "18:50:57",
+    "Numero": 13584292,
+    "Servicio": "PublicLoans.processMemberDeathWriteOff",
     "Requerimiento": "1",
     "Canal": "BTDIGITAL"
   }
@@ -93,3 +100,5 @@ Código | Descripción
 ```
 :::
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
+
+

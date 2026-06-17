@@ -3,7 +3,7 @@ title: Get Group Loan Cycle Info
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para obtener la información de un ciclo de préstamo grupal.
+::: note Método para obtener la información de un ciclo de crédito grupal
 
 **Nombre publicación:** PublicLoans.getGroupLoanCycleInfo
 
@@ -22,24 +22,31 @@ title: Get Group Loan Cycle Info
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-offset | Long $<(length: 10)>$ | Número de registros a omitir desde el inicio del resultado.
-limit | Long $<(length: 10)>$ | Cantidad máxima de registros a retornar en una sola respuesta.
-groupId | Int $<(length: 9)>$ | Identificador de grupo.
+offset | Long $<(length: 10)>$ | Registro desde
+limit | Long $<(length: 10)>$ | Límite de registros
+groupId | Int $<(length: 9)>$ | Identificador de grupo
 cycleId | Int $<(length: 9)>$ | Identificador del ciclo.
+
+@tab Body
+
+Nombre | Tipo | Comentarios
+:--------- | :--------- | :---------
+Completar manualmente | Completar manualmente | Completar manualmente 
 
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-hasNext | Boolean | ¿Existen más páginas disponibles en la paginación?
-cycleInfo | [SdtsBTMGLoanGroupCycleOut](#sdtsbtmgloangroupcycleout) | Información de ciclo de crédito grupal.
-groupLoanCycleMembers | [SdtsBTMGGroupLoanCycleMemberOut](#sdtsbtmggrouploancyclememberout) | Listado de integrantes del ciclo.
+hasNext | Boolean | ¿Hay un registro siguiente?
+cycleInfo | [SdtsBTMGLoanGroupCycleOut](#sdtsbtmgloangroupcycleout) | Información de ciclo de crédito grupal
+groupLoanCycleMembers | [SdtsBTMGGroupLoanCycleMemberOut](#sdtsbtmggrouploancyclememberout) | Lista de integrantes del ciclo
 
 @tab Errores
 
 Código | Descripción
 :--------- | :-----------
-120050010 | Debe ingresar el GUID de grupo.
+Completar manualmente | Completar manualmente
+
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -52,17 +59,17 @@ Código | Descripción
 ```json
 {
   "Btinreq": {
-    "Canal": "BTMOBILE",
+    "Canal": "BTDIGITAL",
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
-    "Requerimiento": 1,
-    "Token": "229E7557863E8FC9C64DFECC"
+    "Requerimiento": "1",
+    "Token": "FEA6099887C1B4D7C79A7DE0"
   },
-  "offset": 0,
-  "limit": 20,
-  "groupId": 1,
-  "cycleId": 3
-}
+  "offset": "0",
+  "limit": "15",
+  "groupId": "33",
+  "cycleId": "1"
+}'
 ```
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
@@ -74,73 +81,84 @@ Código | Descripción
 ```json
 {
   "Btinreq": {
-    "Canal": "BTMOBILE",
+    "Canal": "BTDIGITAL",
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
-    "Requerimiento": 1,
-    "Token": "229E7557863E8FC9C64DFECC"
+    "Requerimiento": "1",
+    "Token": "FEA6099887C1B4D7C79A7DE0"
   },
   "hasNext": false,
   "cycleInfo": {
-    "groupId": 1,
-    "cycleId": 3,
-    "totalOfCapital": 48000.0,
+    "groupId": 33,
+    "cycleId": 1,
+    "totalOfCapital": "21000.00000",
     "memberCount": 3,
-    "expirationDate": "2027-10-30",
-    "term": 110,
-    "installmentAmount": 4582.0,
-    "totalFinancialCost": 0.0
+    "expirationDate": "2027-11-09",
+    "term": 109,
+    "installmentAmount": "1410.00000",
+    "totalFinancialCost": "56.16",
+    "rate": "20.00"
   },
-  "groupLoanCycleMembers": [
-    {
-      "counterpartyGUID": "a0f1dc41-1624-49dd-91a5-f28bf91e5d2c",
-      "counterpartyName": "BENAVENTE GARCIA YADIRA",
-      "memberTypeId": 3,
-      "memberTypeDescription": "Integrante",
-      "capital": 12600.0,
-      "installmentAmount": 1309.0,
-      "rate": 18.5,
-      "intercycle": false,
-      "simulationGUID": "7dd0aeb8-ef82-4cb7-a2e6-ced58aa3c30e",
-      "movementGUID": "0103a9df-dfd3-4a7b-8068-4b23bf332d46",
-      "totalFinancialCost": 0.0
-    },
-    {
-      "counterpartyGUID": "6a8b903d-cfaa-4984-b906-573f8d35c960",
-      "counterpartyName": "FRANCELLA JUAN",
-      "memberTypeId": 1,
-      "memberTypeDescription": "Presidente",
-      "capital": 14400.0,
-      "installmentAmount": 1422.0,
-      "rate": 16.6,
-      "intercycle": false,
-      "simulationGUID": "8b84a39e-0fd9-43ef-8b44-2143002097bf",
-      "movementGUID": "e4c53f2c-f82b-4b9c-b6df-3ff3cf980dc3",
-      "totalFinancialCost": 0.0
-    },
-    {
-      "counterpartyGUID": "4b1a2036-c91f-444f-b8ba-ec047793b28f",
-      "counterpartyName": "RADA RUBEN",
-      "memberTypeId": 3,
-      "memberTypeDescription": "Integrante",
-      "capital": 21000.0,
-      "installmentAmount": 1851.0,
-      "rate": 20.0,
-      "intercycle": false,
-      "simulationGUID": "73828175-269f-4340-8b08-37ed53019a0e",
-      "movementGUID": "5adbaf0e-6b7e-4669-ba6f-bbec07edd656",
-      "totalFinancialCost": 0.0
-    }
-  ],
-  "BusinessErrors": [],
+  "groupLoanCycleMembers": {
+    "groupLoanCycleMember": [
+      {
+        "counterpartyGUID": "6a8b903d-cfaa-4984-b906-573f8d35c960",
+        "counterpartyName": "FRANCELLA  JUAN",
+        "memberTypeId": 1,
+        "memberTypeDescription": "Presidente",
+        "capital": "7000.00000",
+        "installmentAmount": "470.00000",
+        "rate": "20.000000",
+        "intercycle": false,
+        "simulationGUID": "ec26be68-2364-4686-95cf-4919210c2d80",
+        "movementGUID": "bb325d6e-e5dc-456b-ba19-1e6d263b781b",
+        "totalFinancialCost": "56.160000",
+        "disbursementAmount": "0.00",
+        "loanGUID": "c3681d33-10e9-4f4e-b4fc-026975b8822f"
+      },
+      {
+        "counterpartyGUID": "4b1a2036-c91f-444f-b8ba-ec047793b28f",
+        "counterpartyName": "RADA  RUBEN",
+        "memberTypeId": 1,
+        "memberTypeDescription": "Presidente",
+        "capital": "7000.00000",
+        "installmentAmount": "470.00000",
+        "rate": "20.000000",
+        "intercycle": false,
+        "simulationGUID": "7c499851-502f-43ff-8c32-0e7bc20150c6",
+        "movementGUID": "4a1877a0-4141-474d-bd5a-d45f22749a62",
+        "totalFinancialCost": "56.160000",
+        "disbursementAmount": "0.00",
+        "loanGUID": "9a7ffde0-71e7-4409-8c20-b5db01504254"
+      },
+      {
+        "counterpartyGUID": "b37c32b0-d455-4c91-9ff0-ce00638906d3",
+        "counterpartyName": "BENAVIDES JUAREZ ROXANA",
+        "memberTypeId": 3,
+        "memberTypeDescription": "Integrante",
+        "capital": "7000.00000",
+        "installmentAmount": "470.00000",
+        "rate": "20.000000",
+        "intercycle": false,
+        "simulationGUID": "8ee44f5f-60af-4b60-9493-37364705065a",
+        "movementGUID": "73de4f6f-5b17-4337-9092-8f529b77b887",
+        "totalFinancialCost": "56.160000",
+        "disbursementAmount": "0.00",
+        "loanGUID": "bfcf4446-d73a-4edd-a94b-ed3d152be591"
+      }
+    ]
+  },
+  "BusinessErrors": {
+    "BusinessError": []
+  },
   "Btoutreq": {
     "Estado": "OK",
-    "Fecha": "2026-06-09",
-    "Hora": "13:37:47",
-    "Numero": 13542359,
+    "Fecha": "2026-06-16",
+    "Hora": "19:38:50",
+    "Numero": 13584972,
     "Servicio": "PublicLoans.getGroupLoanCycleInfo",
-    "Requerimiento": 1,
-    "Canal": "BTMOBILE"
+    "Requerimiento": "1",
+    "Canal": "BTDIGITAL"
   }
 }
 ```
@@ -164,6 +182,7 @@ expirationDate | Date | Fecha de vencimiento.
 groupId | Int $<(length: 9)>$ | Identificador del grupo.
 installmentAmount | Double $<(length: 18.5)>$ | Valor cuota.
 memberCount | Short $<(length: 3)>$ | Cantidad de miembros.
+rate | Double $<(length: 11.2)>$ | Tasa.
 term | Int $<(length: 5)>$ | Plazo.
 totalFinancialCost | Double $<(length: 11.2)>$ | Costo Financiero Total.
 totalOfCapital | Double $<(length: 18.5)>$ | Total de capital.
@@ -181,8 +200,10 @@ Nombre | Tipo | Comentarios
 capital | Double $<(length: 18.5)>$ | Capital.
 counterpartyGUID | String | GUID de contraparte.
 counterpartyName | String $<(length: 30)>$ | Nombre de contraparte.
+disbursementAmount | Double $<(length: 18.2)>$ | Monto de desembolso
 installmentAmount | Double $<(length: 18.5)>$ | Monto de cuota.
 intercycle | Boolean | Interciclo.
+loanGUID | String $<(length: 36)>$ | Identificador único (GUID) del préstamo.
 memberTypeId | Byte $<(length: 2)>$ | Identificador del tipo de miembro.
 memberTypeDescription | String $<(length: 30)>$ | Descripción del tipo de miembro.
 movementGUID | String | GUID del asiento de desembolso.

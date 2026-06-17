@@ -1,6 +1,6 @@
 @echo off
 cd /d "%~dp0"
-title Generador MD
+title Herramienta Bantotal
 
 :: ============================================================
 :: 1. VERIFICAR NODE.JS
@@ -112,7 +112,7 @@ if not exist "V4\node_modules" (
 :: ============================================================
 :: 3. CREAR ACCESO DIRECTO EN EL ESCRITORIO (solo la primera vez)
 :: ============================================================
-set "SHORTCUT=%USERPROFILE%\Desktop\Generador MD.lnk"
+set "SHORTCUT=%USERPROFILE%\Desktop\Herramienta Bantotal.lnk"
 if not exist "%SHORTCUT%" (
     powershell -noprofile -command ^
         "$s = (New-Object -COM WScript.Shell).CreateShortcut('%SHORTCUT%');" ^
@@ -121,17 +121,17 @@ if not exist "%SHORTCUT%" (
         "$s.WorkingDirectory = '%~dp0';" ^
         "$s.IconLocation = '%~dp0icon.ico';" ^
         "$s.WindowStyle = 7;" ^
-        "$s.Description = 'Generador de documentacion Bantotal';" ^
+        "$s.Description = 'Herramienta Bantotal';" ^
         "$s.Save()"
 )
 
 :: ============================================================
-:: 4. ARRANCAR SERVIDOR Y ABRIR NAVEGADOR
+:: 4. INICIAR HERRAMIENTA BANTOTAL (puerto 3777)
 :: ============================================================
 curl -sf http://localhost:3777 >nul 2>&1
 if %errorlevel% == 0 goto abrir
 
-start "Generador MD" /min node setup.js
+start "Herramienta Bantotal" /min node setup.js
 
 set /a intentos=0
 :esperar
@@ -143,3 +143,4 @@ if %intentos% lss 15 goto esperar
 
 :abrir
 start "" http://localhost:3777
+exit /b 0
