@@ -22,30 +22,22 @@ title: Get Group Loan Cycle Info
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-offset | Long $<(length: 10)>$ | Registro desde
-limit | Long $<(length: 10)>$ | Límite de registros
-groupId | Int $<(length: 9)>$ | Identificador de grupo
-cycleId | Int $<(length: 9)>$ | Identificador del ciclo.
-
-@tab Body
-
-Nombre | Tipo | Comentarios
-:--------- | :--------- | :---------
-Completar manualmente | Completar manualmente | Completar manualmente 
+offset | Long $<(Length: 10)>$ | Número de registros a omitir desde el inicio del resultado.
+limit | Long $<(Length: 10)>$ | Cantidad máxima de registros a retornar en una sola respuesta.
+groupId | Int $<(Length: 9)>$ | Identificador de grupo.
+cycleId | Int $<(Length: 9)>$ | Identificador del ciclo.
 
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-hasNext | Boolean | ¿Hay un registro siguiente?
-cycleInfo | [SdtsBTMGLoanGroupCycleOut](#sdtsbtmgloangroupcycleout) | Información de ciclo de crédito grupal
-groupLoanCycleMembers | [SdtsBTMGGroupLoanCycleMemberOut](#sdtsbtmggrouploancyclememberout) | Lista de integrantes del ciclo
+hasNext | Boolean | Indica si existen más páginas disponibles.
+cycleInfo | [SdtsBTMGLoanGroupCycleOut](#sdtsbtmgloangroupcycleout) | Información del ciclo de crédito grupal.
+groupLoanCycleMembers | [SdtsBTMGGroupLoanCycleMemberOut](#sdtsbtmggrouploancyclememberout) | Listado de integrantes del ciclo.
 
 @tab Errores
 
-Código | Descripción
-:--------- | :-----------
-Completar manualmente | Completar manualmente
+No aplica.
 
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -177,15 +169,15 @@ Los campos del tipo de dato estructurado SdtsBTMGLoanGroupCycleOut son los sigui
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-cycleId | Int $<(length: 9)>$ | Identificador de ciclo.
+cycleId | Int $<(Length: 9)>$ | Identificador de ciclo.
 expirationDate | Date | Fecha de vencimiento.
-groupId | Int $<(length: 9)>$ | Identificador del grupo.
-installmentAmount | Double $<(length: 18.5)>$ | Valor cuota.
-memberCount | Short $<(length: 3)>$ | Cantidad de miembros.
-rate | Double $<(length: 11.2)>$ | Tasa.
-term | Int $<(length: 5)>$ | Plazo.
-totalFinancialCost | Double $<(length: 11.2)>$ | Costo Financiero Total.
-totalOfCapital | Double $<(length: 18.5)>$ | Total de capital.
+groupId | Int $<(Length: 9)>$ | Identificador del grupo.
+installmentAmount | Double $<(Length: 18.5)>$ | Monto de cuota.
+memberCount | Short $<(Length: 3)>$ | Cantidad de miembros.
+rate | Double $<(Length: 11.2)>$ | Tasa.
+term | Int $<(Length: 5)>$ | Plazo.
+totalFinancialCost | Double $<(Length: 11.2)>$ | Costo financiero total.
+totalOfCapital | Double $<(Length: 18.5)>$ | Total de capital.
 :::
 
 ::: details SdtsBTMGGroupLoanCycleMemberOut
@@ -197,18 +189,18 @@ Los campos del tipo de dato estructurado SdtsBTMGGroupLoanCycleMemberOut son los
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-capital | Double $<(length: 18.5)>$ | Capital.
-counterpartyGUID | String | GUID de contraparte.
-counterpartyName | String $<(length: 30)>$ | Nombre de contraparte.
-disbursementAmount | Double $<(length: 18.2)>$ | Monto de desembolso
-installmentAmount | Double $<(length: 18.5)>$ | Monto de cuota.
+capital | Double $<(Length: 18.5)>$ | Capital.
+counterpartyGUID | String | GUID (identificador único global) de la contraparte.
+counterpartyName | String $<(Length: 30)>$ | Nombre de contraparte.
+disbursementAmount | Double $<(Length: 18.2)>$ | Monto de desembolso.
+installmentAmount | Double $<(Length: 18.5)>$ | Monto de cuota.
 intercycle | Boolean | Interciclo.
-loanGUID | String $<(length: 36)>$ | Identificador único (GUID) del préstamo.
-memberTypeId | Byte $<(length: 2)>$ | Identificador del tipo de miembro.
-memberTypeDescription | String $<(length: 30)>$ | Descripción del tipo de miembro.
-movementGUID | String | GUID del asiento de desembolso.
-rate | Double $<(length: 11.6)>$ | Tasa.
-simulationGUID | String | GUID de simulación.
-totalFinancialCost | Double $<(length: 11.6)>$ | GUID de simulación.
+loanGUID | String $<(Length: 36)>$ | GUID (identificador único global) del préstamo.
+memberTypeId | Byte $<(Length: 2)>$ | Identificador del tipo de miembro.
+memberTypeDescription | String $<(Length: 30)>$ | Descripción del tipo de miembro.
+movementGUID | String | GUID (identificador único global) del movimiento.
+rate | Double $<(Length: 11.6)>$ | Tasa.
+simulationGUID | String | GUID (identificador único global) de la simulación.
+totalFinancialCost | Double $<(Length: 11.6)>$ | Costo financiero total.
 :::
 <!-- CIERRA SDT -->

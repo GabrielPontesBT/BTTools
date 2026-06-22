@@ -1,15 +1,15 @@
 ---
-title: Process Member Death Write Off
+title: Block Member
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para quebranto por fallecimiento
+::: note Método para bloquear integrante de crédito grupal.
 
-**Nombre publicación:** PublicLoans.processMemberDeathWriteOff
+**Nombre publicación:** PublicLoans.blockMember
 
 **Módulo:** Loans
 
-**Programa:** PublicAPI.BTLOPA0050
+**Programa:** PublicAPI.BTLOPA0053
 
 **Alcance:** Global
 :::
@@ -25,17 +25,9 @@ Nombre | Tipo | Comentarios
 groupId | Int $<(Length: 9)>$ | Identificador de grupo.
 loanGUID | String $<(Length: 36)>$ | GUID (identificador único global) del préstamo.
 
-@tab Body
-
-Nombre | Tipo | Comentarios
-:--------- | :--------- | :---------
-deceasedDate | Date | Fecha de fallecimiento.
-
 @tab Datos de Salida
 
-Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-movementGUID | String $<(Length: 36)>$ | GUID (identificador único global) del movimiento.
+No aplica.
 
 @tab Errores
 
@@ -57,11 +49,10 @@ No aplica.
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "E3ADC97E57DC5FDE4F408A70"
+    "Token": "23B342928917607ECECF65BD"
   },
-  "groupId": "70",
-  "loanGUID": "7de60dc6-b377-4683-9a8d-95ce6c69df74",
-  "deceasedDate": "2027-07-30"
+  "groupId": 121,
+  "loanGUID": "244cc130-366c-4efe-b290-5c6296fb970b"
 }'
 ```
 :::
@@ -78,18 +69,15 @@ No aplica.
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "E3ADC97E57DC5FDE4F408A70"
+    "Token": "23B342928917607ECECF65BD"
   },
-  "movementGUID": "58cfb0f0-4922-4d38-8d76-3a72ba3aa9d0",
-  "BusinessErrors": {
-    "BusinessError": []
-  },
+  "BusinessErrors": "",
   "Btoutreq": {
     "Estado": "OK",
-    "Fecha": "2026-06-16",
-    "Hora": "18:50:57",
-    "Numero": 13584292,
-    "Servicio": "PublicLoans.processMemberDeathWriteOff",
+    "Fecha": "2026-01-01",
+    "Hora": "00:00:00",
+    "Numero": "00000000",
+    "Servicio": "PublicLoans.blockMember",
     "Requerimiento": "1",
     "Canal": "BTDIGITAL"
   }

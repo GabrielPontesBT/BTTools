@@ -22,17 +22,14 @@ title: Pay Group Installment
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-groupId | Int $<(length: 9)>$ | Identificador de grupo.
-amount | Double $<(length: 18.2)>$ | Monto del pago.
-date | Date | Fecha de pago.
-payOffDate | Date | Fecha de la cuota hasta que hará el pago.
-paymentOption | [SdtsBTLOWDisbursementOption](#sdtsbtlowdisbursementoption) | Forma de cobro.
+groupId | Int $<(Length: 9)>$ | Identificador de grupo.
 
 @tab Body
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-Completar manualmente | Completar manualmente | Completar manualmente 
+date | Date | Fecha de pago.
+paymentOption | [SdtsBTLOWPaymentOption](#sdtsbtlowpaymentoption) | Forma de cobro.
 
 @tab Datos de Salida
 
@@ -42,9 +39,7 @@ members | [SdtsBTMGMemberAccountingEntry](#sdtsbtmgmemberaccountingentry) | List
 
 @tab Errores
 
-Código | Descripción
-:--------- | :-----------
-Completar manualmente | Completar manualmente
+No aplica.
 
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -62,19 +57,17 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "C715B1A526B84ACC1C5CC8BB"
+    "Token": "23B342928917607ECECF65BD"
   },
-  "groupId": "32",
-  "amount": "7190.36",
   "date": "",
-  "payOffDate": "",
+  "groupId": 12,
   "paymentOption": {
-    "amount": "7190.36",
-    "branchId": "1",
-    "counterpartyGUID": "",
-    "currencyId": "0",
-    "disbursementId": "15",
-    "savingAccountGUID": "95f6c6fb-6028-4ec5-b6c5-41612225ae15"
+    "branchId": 1,
+    "amount": 4608.02,
+    "savingAccountGUID": "95f6c6fb-6028-4ec5-b6c5-41612225ae15",
+    "paymentId": 15,
+    "counterpartyGUID": "a0f1dc41-1624-49dd-91a5-f28bf91e5d2c",
+    "currencyId": 0
   }
 }'
 ```
@@ -92,37 +85,39 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "C715B1A526B84ACC1C5CC8BB"
+    "Token": "23B342928917607ECECF65BD"
   },
-   "members": [
-          {
-            "counterpartyGUID": "6a8b903d-cfaa-4984-b906-573f8d35c960",
-            "movementGUID": "213f56ca-bab8-4fd6-bde4-66faa1b603e9",
-            "loanGUID": "bf40755b-0868-4340-9397-a73f2e8e8627"
-          },
-          {
-            "counterpartyGUID": "b37c32b0-d455-4c91-9ff0-ce00638906d3",
-            "movementGUID": "64bc21f2-ffd5-4604-b5c0-f00fa662b32a",
-            "loanGUID": "13e8ffc3-ce2a-43ca-a2ed-f47c67f7553c"
-          },
-          {
-            "counterpartyGUID": "4b1a2036-c91f-444f-b8ba-ec047793b28f",
-            "movementGUID": "454d7ec9-b45d-46f3-91f8-c35158c92de2",
-            "loanGUID": "4568dbf1-4bbd-429b-9bdc-65ae7412ddd3"
-          }
-        ],
+  "members": {
+    "member": [
+      {
+        "loanGUID": "798cd979-1763-4113-a58a-0eb8e467f4fb",
+        "counterpartyGUID": "a6e25e76-c448-4b28-9231-978611764c27",
+        "movementGUID": "d7be1959-df05-4cce-804e-9e3e75530142"
+      },
+      {
+        "loanGUID": "d058c6a1-259e-4c5b-84cd-8ac26b7b3b4a",
+        "counterpartyGUID": "c5d5ac06-dae6-445f-8d4e-0c6d9cd86a61",
+        "movementGUID": "7fbd19b2-610c-454c-ab52-5bcbef9cc1a4"
+      },
+      {
+        "loanGUID": "cac2a75d-3261-49f6-ad8a-81c949cab573",
+        "counterpartyGUID": "13bbff6b-2a97-4463-bcd9-68c427f60237",
+        "movementGUID": "badb7b6b-1d47-4947-a936-80bb9b15dfad"
+      }
+    ]
+  },
   "BusinessErrors": {
     "BusinessError": []
   },
-   "Btoutreq": {
-          "Estado": "OK",
-          "Fecha": "2026-06-16",
-          "Hora": "19:57:33",
-          "Numero": 13585252,
-          "Servicio": "PublicLoans.payGroupInstallment",
-          "Requerimiento": 1,
-          "Canal": "BTDIGITAL"
-        }
+  "Btoutreq": {
+    "Estado": "OK",
+    "Fecha": "2026-06-16",
+    "Hora": "19:57:33",
+    "Numero": 13585252,
+    "Servicio": "PublicLoans.payGroupInstallment",
+    "Requerimiento": 1,
+    "Canal": "BTDIGITAL"
+  }
 }
 ```
 :::
@@ -131,21 +126,21 @@ Completar manualmente | Completar manualmente
 ## **Tipos de Dato Estructurado**
 
 <!-- ABRE SDT -->
-::: details SdtsBTLOWDisbursementOption
+::: details SdtsBTLOWPaymentOption
 
-### SdtsBTLOWDisbursementOption
+### SdtsBTLOWPaymentOption
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTLOWDisbursementOption son los siguientes:
+Los campos del tipo de dato estructurado SdtsBTLOWPaymentOption son los siguientes:
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-amount | Double $<(length: 18.2)>$ | amount
-branchId | Int $<(length: 5)>$ | branchId
-counterpartyGUID | String $<(length: 36)>$ | counterpartyGUID
-currencyId | Short $<(length: 4)>$ | currencyId
-disbursementId | Short $<(length: 3)>$ | disbursementId
-savingAccountGUID | String $<(length: 36)>$ | savingAccountGUID
+amount | Double $<(Length: 18.2)>$ | Monto de la opción de pago.
+branchId | Int $<(Length: 5)>$ | Identificador de sucursal.
+counterpartyGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la contraparte.
+currencyId | Short $<(Length: 4)>$ | Identificador de moneda.
+paymentId | Short $<(Length: 3)>$ | Forma de cobro.
+savingAccountGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la cuenta de ahorros.
 :::
 
 ::: details SdtsBTMGMemberAccountingEntry
@@ -157,8 +152,8 @@ Los campos del tipo de dato estructurado SdtsBTMGMemberAccountingEntry son los s
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-counterpartyGUID | String $<(length: 36)>$ | GUID de contraparte.
-loanGUID | String $<(length: 36)>$ | Identificador único (GUID) del préstamo.
-movementGUID | String $<(length: 36)>$ | GUID del asiento contable.
+counterpartyGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la contraparte.
+loanGUID | String $<(Length: 36)>$ | GUID (identificador único global) del préstamo.
+movementGUID | String $<(Length: 36)>$ | GUID (identificador único global) del movimiento.
 :::
 <!-- CIERRA SDT -->

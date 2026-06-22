@@ -1,0 +1,63 @@
+﻿root_program,program,model,part,line,code,message,catalog_program,catalog_model,reason,condition,source_line,returning_programs
+BTSAPA0012,BTSAPA0012,BTV4Liabilities2,Procedure,56,500,,,,root_program,root program,&errorCode = 500,"BTBRM00011, BTGCL00200, BTSAPA0012, BTSAW00016, BTTEA00013"
+BTSAPA0012,BTCUA00001,BTV4Core3,ProcedureSource,55,60001,No existe la moneda ingresada,BTERACUES,BTV4Core3,when_none,when none,&errId = 60001,"BTCUA00001, BTRTA00017"
+BTSAPA0012,BTCUA00000,BTV4Core3,ProcedureSource,130,60101,No se puedo resolver cotizacion/arbitraje para la moneda indicada,BTERACUES,BTV4Core3,"invalid_params:&cyopendate,&exchangerate.codigopizarra,&exchangerate.fecha",&exchangeRate.CodigoPizarra = &CUExchRtId and &exchangeRate.Fecha <= &CYOpenDate,&errId = 60101,BTCUA00000
+BTSAPA0012,BTCUA00000,BTV4Core3,ProcedureSource,404,60102,No existe la moneda a consultar la pizarra,BTERACUES,BTV4Core3,when_none,when none,&errId = 60102,BTCUA00000
+BTSAPA0012,BTACA00022,BTV4Core3,ProcedureSource,15,90002,No existe el registro,BTERAACES,BTV4Core3,when_none,when none,&errId = 90002,BTACA00022
+BTSAPA0012,BTACA00006,BTV4Core3,ProcedureSource,76,90031,El código contable no existe,BTERAACES,BTV4Core3,when_none,when none,&errId = 90031,BTACA00006
+BTSAPA0012,BTACA00005,BTV4Core3,ProcedureSource,38,90050,No existe el concepto ingresado,BTERAACES,BTV4Core3,when_none,when none,&errId = 90050,BTACA00005
+BTSAPA0012,BTACA00007,BTV4Core3,ProcedureSource,48,90072,No existe la relación para el código contable,BTERAACES,BTV4Core3,when_none,when none,&errId = 90072,BTACA00007
+BTSAPA0012,BTACA00009,BTV4Core3,ProcedureSource,50,90101,El módulo ingresado no existe,BTERAACES,BTV4Core3,when_none,when none,&errId = 90101,BTACA00009
+BTSAPA0012,BTTE000000,BTV4Core3,ProcedureSource,74,100001,Debe ingresar la empresa,BTERATEEES,BTV4Core3,invalid_params:&cycmpyid,&CYCmpyId <= 0,&errId = 100001,BTTE000000
+BTSAPA0012,BTTE000000,BTV4Core3,ProcedureSource,80,100002,Empresa incorrecta,BTERATEEES,BTV4Core3,invalid_params:&cycmpyid,&CYCmpyId <= 0 AND &CYCmpyId <> &defaultParams.Empresa.Codigo,&errId = 100002,BTTE000000
+BTSAPA0012,BTTE000000,BTV4Core3,ProcedureSource,110,100003,Debe ingresar la sucursal,BTERATEEES,BTV4Core3,invalid_params:&brbranchid,&BRBranchId <= 0,&errId = 100003,BTTE000000
+BTSAPA0012,BTTE000000,BTV4Core3,ProcedureSource,127,100005,Debe ingresar el módulo,BTERATEDES,BTV4Core3,invalid_params:&tetrnmodid,&TETrnModId <= 0,&errId = 100005,BTTE000000
+BTSAPA0012,BTTEA00002,BTV4Core3,ProcedureSource,40,100006,No existe el módulo ingresado,BTERATEDES,BTV4Core3,when_none,when none,&errId  	 = 100006,BTTEA00002
+BTSAPA0012,BTTE000000,BTV4Core3,ProcedureSource,139,100007,Debe ingresar la transacción,BTERATEDES,BTV4Core3,invalid_params:&tetrnid,&TETrnId <= 0,&errId = 100007,BTTE000000
+BTSAPA0012,BTTEA00001,BTV4Core3,ProcedureSource,53,100008,No existe la transacción ingresada,BTERATEDES,BTV4Core3,when_none,when none,&errId  	 = 100008,BTTEA00001
+BTSAPA0012,BTTE000000,BTV4Core3,ProcedureSource,231,100010,Debe ingresar la fecha valor contable,BTERATEEES,BTV4Core3,invalid_params:&itfvc,&Itfvc = nullvalue(&Itfvc),&errId = 100010,BTTE000000
+BTSAPA0012,BTTE000000,BTV4Core3,ProcedureSource,257,100011,La fecha valor contable no puede ser mayor que la fecha de apertura,BTERATEEES,BTV4Core3,invalid_params:&itfvc,&Itfvc = nullvalue(&Itfvc) AND &Itfvc = &CYOpenDate AND &Itfvc > &CYOpenDate,&errId = 100011,BTTE000000
+BTSAPA0012,BTTE000000,BTV4Core3,ProcedureSource,170,100012,Debe ingresar el usuario,BTERATEEES,BTV4Core3,invalid_params:&scuserid,&SCUserId = '',&errId = 100012,BTTE000000
+BTSAPA0012,BTTE000000,BTV4Core3,ProcedureSource,177,100013,No existe el usuario ingresado,BTERATEEES,BTV4Core3,invalid_params:&scuserid,&SCUserId = '',&errId = 100013,BTTE000000
+BTSAPA0012,BTTE000000,BTV4Core3,ProcedureSource,158,100016,Transacción inhabilitada,BTERATEEES,BTV4Core3,invalid_params:&tetrnid,&TETrnId <= 0 AND &sBTACTransaccion.TransactionId = &TETrnId,&errId = 100016,BTTE000000
+BTSAPA0012,BTTE000000,BTV4Core3,ProcedureSource,250,100017,La fecha valor contable debe ser una fecha hábil,BTERATEEES,BTV4Core3,invalid_params:&itfvc,&Itfvc = nullvalue(&Itfvc) AND &Itfvc = &CYOpenDate,&errId = 100017,BTTE000000
+BTSAPA0012,BTTE000000,BTV4Core3,ProcedureSource,47,100020,Debe ingresar el código de transacción,BTERATEDES,BTV4Core3,invalid_params:&itcont,&Itcont = '' or (&Itcont <> 'B' and &Itcont <> 'N' and &Itcont <> 'L'),&errId = 100020,BTTE000000
+BTSAPA0012,BTTE000000,BTV4Core3,ProcedureSource,91,100021,Ya existe el registro,BTERATEDES,BTV4Core3,invalid_params:&itfcon,&Itfcon = Nullvalue(&Itfcon),&errId = 100021,BTTE000000
+BTSAPA0012,BTTE000000,BTV4Core3,ProcedureSource,297,100022,No existe el registro,BTERATEDES,BTV4Core3,invalid_params:&itfvc,&Itfvc = nullvalue(&Itfvc) AND &Itfvc <= &fechaCierreMes,&errId = 100022,BTTE000000
+BTSAPA0012,BTTE000000,BTV4Core3,ProcedureSource,30,100026,El módulo ingresado no participa en el transaccional,BTERATEDES,BTV4Core3,invalid_params:&asiento.ordinales.count,&Asiento.Ordinales.Count <= 1,&errId = 100026,BTTE000000
+BTSAPA0012,BTTE000000,BTV4Core3,ProcedureSource,272,100069,No tiene permisos para cambiar la fecha valor contable,BTERATEEES,BTV4Core3,invalid_params:&itfvc,&Itfvc = nullvalue(&Itfvc) AND &Itfvc = &CYOpenDate AND &Itfvc > &CYOpenDate,&errId = 100069,BTTE000000
+BTSAPA0012,BTTE000000,BTV4Core3,ProcedureSource,164,100070,La transacción no puede ejecutarse en este tipo de ejecución,BTERATEEES,BTV4Core3,invalid_params:&tetrnid,&TETrnId <= 0,&errId = 100070,BTTE000000
+BTSAPA0012,BTTE000104,BTV4Core3,ProcedureSource,700,101999,Movimiento a ser confirmado,BTERATEEES,BTV4Core3,invalid_params:&contab,&Contab = false,if &apiErrId = 101999,BTTE000104
+BTSAPA0012,BTTE000200,BTV4Core3,ProcedureSource,330,106003,Asiento sin ordinales validos,BTERATEEES,BTV4Core3,invalid_params:&asiento.ordinales.count,&asiento.Ordinales.Count <> 0,&ErrId  = 106003,BTTE000200
+BTSAPA0012,BTTE000200,BTV4Core3,ProcedureSource,656,106006,Usuario no autorizado a confirmar el movimiento,BTERATEEES,BTV4Core3,invalid_params:&asiento.itcont,&Asiento.Itcont = 'N',&ErrId    = 106006,BTTE000200
+BTSAPA0012,BTTE000200,BTV4Core3,ProcedureSource,649,106007,Usuario de confirmacion no puede ser el mismo de ingreso del movimiento,BTERATEEES,BTV4Core3,"invalid_params:&asiento.itcont,&asiento.ituing",&Asiento.Itcont = 'N' AND &TETakeConf = true and &Asiento.Ituing.Trim() = &SCUserId.Trim(),&ErrId    = 106007,BTTE000200
+BTSAPA0012,BTBRMA0100,BTV4Core3,ProcedureSource,62,130009,La regla de negocio no se encuentra registrada,BTERABMES,BTV4Core3,when_none,when none,&errId = 130009,BTBRMA0100
+BTSAPA0012,BTBRM00011,BTV4Core3,ProcedureSource,23,130011,La versión de regla de negocio no se encuentra registrada,BTERABMES,BTV4Core3,when_none,when none,&errId = 130011,BTBRM00011
+BTSAPA0012,BTBRMA0001,BTV4Core3,ProcedureSource,38,130020,El nombre de la regla de negocio es inválido o la misma no tiene una versión activa,BTERABMES,BTV4Core3,when_none,when none,&errId = 130020,BTBRMA0001
+BTSAPA0012,BTBRMA0100,BTV4Core3,ProcedureSource,116,130023,Hubo un error al verificar el código fuente de la regla de negocio,BTERABMES,BTV4Core3,when_none,when none,if &errId = 130023,BTBRMA0100
+BTSAPA0012,BTLIA00003,BTV4Liabilities2,DataProviderSource,87,170015,La tabla auxiliar ya esta siendo utilizada en otro grupo.,BTERAADES,BTV4Core3,when_none,when none,&errId     = 170015,BTLIA00003
+BTSAPA0012,BTLIA00031,BTV4Liabilities2,Procedure,76,170071,,,,when_none,when none,&errId = 170071,BTLIA00031
+BTSAPA0012,BTEVA00005,BTV4Core3,ProcedureSource,8,210007,Debe ingresar un nombre de evento,BTERAEVES,BTV4Core3,when_none,when none,&errId = 210007,BTEVA00005
+BTSAPA0012,BTEVA00005,BTV4Core3,ProcedureSource,22,210038,El evento no encuentra un servidor asignado,BTERAEVES,BTV4Core3,when_none,when none,&errId = 210038,BTEVA00005
+BTSAPA0012,BTPHA00003,BTV4Core3,ProcedureSource,22,980003,No existe el producto ingresado,BTERAPHES,BTV4Core3,when_none,when none,&errId = 980003,BTPHA00003
+BTSAPA0012,BTPHA00003,BTV4Core3,ProcedureSource,54,980083,La moneda y/o papel no está asociada al producto,BTERAPHES,BTV4Core3,when_none,when none,&errId = 980083,BTPHA00003
+BTSAPA0012,BTPHA00008,BTV4Core3,ProcedureSource,89,980164,Evento contable incorrecto,BTERAPHES,BTV4Core3,when_none,when none,&errId 	= 980164,BTPHA00008
+BTSAPA0012,BTCFA02000,BTV4Core3,ProcedureSource,85,990070,El sistema no se encuentra definido,BTERACFES,BTV4Core3,when_none,when none,&errId  = 990070,"BTCFA01000, BTCFA02000"
+BTSAPA0012,BTCFA02000,BTV4Core3,ProcedureSource,321,990071,El parámetro no se encuentra definido,BTERACFES,BTV4Core3,when_none,when none,if &errId = 990071 or &errId = 990070,"BTCFA01000, BTCFA02000"
+BTSAPA0012,BTNMA00003,BTV4Core3,ProcedureSource,16,5015010,El tipo de numerador no existe,BTERANMES,BTV4Core3,when_none,when none,&errId  	 = 5015010,BTNMA00003
+BTSAPA0012,BTRTA00016,BTV4Core3,ProcedureSource,50,20010014,No existe el tipo de tasa ingresado,BTERARTES,BTV4Core3,when_none,when none,&errId = 20010014,BTRTA00016
+BTSAPA0012,BTRTA00017,BTV4Core3,ProcedureSource,34,20010027,No existe la pizarra de tasa ingresada,BTERARTES,BTV4Core3,when_none,when none,&errId     = 20010027,"BTRTA00015, BTRTA00017"
+BTSAPA0012,BTRTA00017,BTV4Core3,ProcedureSource,71,20010071,"Debe ingresar una pizarra genérica primero, para obtener el tipo de tasa",BTERARTES,BTV4Core3,when_none,when none,&errId     = 20010071,BTRTA00017
+BTSAPA0012,BTRTA00007,BTV4Core3,ProcedureSource,221,20010200,No existe pizarra para los datos ingresados,BTERARTES,BTV4Core3,when_none,when none,&errId = 20010200,BTRTA00007
+BTSAPA0012,BTFEA00005,BTV4Core3,ProcedureSource,49,20020004,No existe el código de comisión ingresado,BTERAFEES,BTV4Core3,when_none,when none,&errId = 20020004,"BTFEA00005, BTFEA00007"
+BTSAPA0012,BTCPA00001,BTV4Customers2,ProcedureSource,48,40020012,El número de contraparte no existe,BTERACPES,BTV4Customers2,invalid_params:&cycmpyid,where CYCmpyId = &CYCmpyId,&errId 	 = 40020012,"BTCPA00000, BTCPA00001"
+BTSAPA0012,BTGCL00200,BTV4Core3,ProcedureSource,20,50010003,No existe el código de calendario,BTERACLES,BTV4Core3,when_none,when none,&errId = 50010003,BTGCL00200
+BTSAPA0012,BTBRA00000,BTV4Core3,ProcedureSource,89,50040005,No existe la sucursal ingresada,BTERABRES,BTV4Core3,when_none,when none,&errId  	= 50040005,BTBRA00000
+BTSAPA0012,BTA0000017,BTV4Core3,ProcedureSource,36,50050003,No existe la empresa ingresada,BTERACYES,BTV4Core3,when_none,when none,&ErrId = 50050003,BTA0000017
+BTSAPA0012,BTMDA00000,BTV4Core3,ProcedureSource,60,50060003,No existe el módulo ingresado,BTERAMDES,BTV4Core3,when_none,when none,&errId  	 = 50060003,"BTMDA00000, BTMDA00001"
+BTSAPA0012,BTKNA00000,BTV4Core3,ProcedureSource,54,50080004,No existe el código de especie ingresado,BTERAKNES,BTV4Core3,when_none,when none,&errId     = 50080004,"BTKNA00000, BTRTA00017"
+BTSAPA0012,BTSTA00001,BTV4Core3,ProcedureSource,65,50120009,No existe el estado ingresado,BTERASTES,BTV4Core3,when_none,when none,&errId     = 50120009,BTSTA00001
+BTSAPA0012,BTLO001005,BTV4Loans3,DataProviderSource,267,120020061,No existen datos de simulación,BTERALOHES,BTV4Loans3,when_none,when none,&errId = 120020061,BTLO001005
+BTSAPA0012,BTSAW00016,BTV4Liabilities2,Procedure,53,140012007,,,,invalid_params:&importe,&importe <= 0,&errId     = 140012007,BTSAW00016
+BTSAPA0012,BTSAPA0012,BTV4Liabilities2,Procedure,13,14001010001,Debe ingresar el GUID de la cuenta de ahorro.,BTERAPACAES,BTV4Liabilities2,root_program,root program,&errorCode = 14001010001,BTSAPA0012
+BTSAPA0012,BTSCA00006,BTV4Core3,ProcedureSource,34,99990010006,No se pudo resolver el usuario,BTERAPAES,BTV4Core3,when_none,when none,&ErrId = 99990010006,BTSCA00006

@@ -27,7 +27,7 @@ function capitalizarTipo(tipo) {
 function mapearTipo(tipo, largo, esColeccion) {
   if (esColeccion === 'C') return 'Collection';
   const t = TIPO_MAP[tipo] || capitalizarTipo(tipo);
-  if (largo && largo !== '0' && largo !== 0) return `${t} $<(length: ${largo})>$`;
+  if (largo && largo !== '0' && largo !== 0) return `${t} $<(Length: ${largo})>$`;
   return t;
 }
 
@@ -88,7 +88,7 @@ async function generarSeccionSdt(sdtRaiz) {
       [sdtNomDB],
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
-    if (r26.rows.length === 0) return;
+    if (r26.rows.Length === 0) return;
     sdtCache.set(sdtNomDB, sortSdtFields(r26.rows));
     for (const campo of r26.rows) {
       const nestedSdt = (campo.BTISDTELEMSDT && campo.BTISDTELEMSDT.trim()) ||
@@ -104,7 +104,7 @@ async function generarSeccionSdt(sdtRaiz) {
     procesados.add(sdtNomDB);
     await fetchSdtCache(sdtNomDB);
     const rows = sdtCache.get(sdtNomDB);
-    if (!rows || rows.length === 0) {
+    if (!rows || rows.Length === 0) {
       console.error(`⚠️  SDT '${sdtNomDB}' no encontrado en BTI026`);
       return;
     }

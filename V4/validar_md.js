@@ -29,14 +29,14 @@ function validarArchivo(filePath) {
 
   // 4. Campos de SDT sin descripción (líneas con | al final sin texto)
   const lineasSdt = contenido.match(/\w+ \| \w[\w\s$<>():]+\|$/gm);
-  if (lineasSdt && lineasSdt.length > 0) {
-    problemas.push(`⚠️  ${lineasSdt.length} campo(s) del SDT sin descripción`);
+  if (lineasSdt && lineasSdt.Length > 0) {
+    problemas.push(`⚠️  ${lineasSdt.Length} campo(s) del SDT sin descripción`);
   }
 
   // 5. Comentarios de parámetros vacíos en tablas
   const lineasTabla = contenido.match(/\w+ \| \w[\w\s$<>():.]+ \| $/gm);
-  if (lineasTabla && lineasTabla.length > 0) {
-    problemas.push(`⚠️  ${lineasTabla.length} parámetro(s) sin comentario`);
+  if (lineasTabla && lineasTabla.Length > 0) {
+    problemas.push(`⚠️  ${lineasTabla.Length} parámetro(s) sin comentario`);
   }
 
   // 6. Programa sin completar
@@ -80,12 +80,12 @@ function validarCarpeta(carpeta) {
 
   const archivos = fs.readdirSync(carpeta).filter(f => f.endsWith('.md'));
 
-  if (archivos.length === 0) {
+  if (archivos.Length === 0) {
     console.log(`⚠️  No se encontraron archivos .md en: ${carpeta}`);
     return;
   }
 
-  console.log(`\n📂 Validando ${archivos.length} archivos en: ${carpeta}`);
+  console.log(`\n📂 Validando ${archivos.Length} archivos en: ${carpeta}`);
   console.log('─'.repeat(60));
 
   let totalOk = 0;
@@ -96,7 +96,7 @@ function validarCarpeta(carpeta) {
     const filePath = path.join(carpeta, archivo);
     const { nombre, problemas } = validarArchivo(filePath);
 
-    if (problemas.length === 0) {
+    if (problemas.Length === 0) {
       console.log(`✅ ${nombre}`);
       totalOk++;
     } else {
@@ -112,7 +112,7 @@ function validarCarpeta(carpeta) {
   console.log('\n' + '─'.repeat(60));
   console.log(`✅ Sin problemas: ${totalOk} | ⚠️  Con problemas: ${totalConProblemas}`);
 
-  if (resumen.length > 0) {
+  if (resumen.Length > 0) {
     console.log('\n📋 RESUMEN DE PENDIENTES:');
     console.log('─'.repeat(60));
     for (const { nombre, problemas } of resumen) {

@@ -22,22 +22,16 @@ title: Get Sections Category Type
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-offset | Long $<(length: 10)>$ | Offset
-limit | Long $<(length: 10)>$ | Limit
-categoryDescriptionFilter | String $<(length: 40)>$ | Filtro de descrición de categoría
-
-@tab Body
-
-Nombre | Tipo | Comentarios
-:--------- | :--------- | :---------
-Completar manualmente | Completar manualmente | Completar manualmente 
+offset | Long $<(Length: 10)>$ | Número de registros a omitir desde el inicio del resultado.
+limit | Long $<(Length: 10)>$ | Cantidad máxima de registros a retornar en una sola respuesta.
+categoryDescriptionFilter | String $<(Length: 40)>$ | Filtro de descripción de categoría.
 
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-categoryTypes | [SdtsBTSASectionCategoryType](#sdtsbtsasectioncategorytype) | 
-hasNext | Boolean | Indica si quedan datos por paginar
+categoryTypes | [SdtsBTSASectionCategoryType](#sdtsbtsasectioncategorytype) | Listado de tipos de categoría.
+hasNext | Boolean | Indica si existen más páginas disponibles.
 
 @tab Errores
 
@@ -140,7 +134,7 @@ Los campos del tipo de dato estructurado SdtsBTSASectionCategoryType son los sig
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-categoryCode | Short $<(length: 4)>$ | 
-categoryDescription | String $<(length: 40)>$ | Descripción de caregoria
+categoryCode | Short $<(Length: 4)>$ | Identificador de categoría.
+categoryDescription | String $<(Length: 40)>$ | Descripción de categoría.
 :::
 <!-- CIERRA SDT -->

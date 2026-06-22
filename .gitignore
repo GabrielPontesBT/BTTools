@@ -20,3 +20,6 @@ npm-debug.log*
 *.tmp
 *.temp
 --debug
+
+# Cache de errores documentados
+error-docs/output/cache/

@@ -591,6 +591,35 @@ async function sg_querySdtsBatch(platform, db, version, initialSdtNames) {
 
 const SG_SDT_EXCLUDE = new Set(['SdtsBTBusinessError']);
 
+const VALIDATE_ENGLISH_RE = /\b(the|this|that|these|those|is|are|was|were|has|have|had|get|gets|set|sets|update|updates|create|creates|delete|deletes|return|returns|method|service|parameter|value|field|list|object|type|name|code|date|amount|flag|allow|allows|perform|performs|retrieve|retrieves)\b/i;
+const VALIDATE_LARGO_TYPES = new Set(['long','int','double','byte','short','string']);
+
+function sg_validateOne(mtdNom, svcNom, method, params) {
+  const w = [];
+  const dsc = (method.dsc || '').trim();
+  if (!dsc) {
+    w.push({ service: svcNom, method: mtdNom, field: 'BTIMTDDSC', msg: 'Descripción vacía.' });
+  } else {
+    if (!/^m[eé]todo para /i.test(dsc)) w.push({ service: svcNom, method: mtdNom, field: 'BTIMTDDSC', msg: 'No comienza con "Método para".' });
+    if (!dsc.endsWith('.'))             w.push({ service: svcNom, method: mtdNom, field: 'BTIMTDDSC', msg: 'No termina con punto.' });
+    if (VALIDATE_ENGLISH_RE.test(dsc)) w.push({ service: svcNom, method: mtdNom, field: 'BTIMTDDSC', msg: 'Podría estar en inglés.' });
+  }
+  params.forEach(function(p) {
+    const pnom = p.nom || '?', tipo = (p.tipo || '').toLowerCase().trim();
+    const pdsc = p.dsc !== undefined ? (p.dsc || '').trim() : undefined;
+    if (pdsc !== undefined) {
+      if (!pdsc) w.push({ service: svcNom, method: mtdNom, field: 'BTISRVPARDSC', param: pnom, msg: 'Descripción vacía.' });
+      else {
+        if (!pdsc.endsWith('.'))             w.push({ service: svcNom, method: mtdNom, field: 'BTISRVPARDSC', param: pnom, msg: 'No termina con punto.' });
+        if (VALIDATE_ENGLISH_RE.test(pdsc)) w.push({ service: svcNom, method: mtdNom, field: 'BTISRVPARDSC', param: pnom, msg: 'Podría estar en inglés.' });
+      }
+    }
+    if (VALIDATE_LARGO_TYPES.has(tipo) && parseInt(p.largo || '0') === 0) w.push({ service: svcNom, method: mtdNom, field: 'BTISRVPARLARGO', param: pnom, msg: 'Largo es 0 para tipo ' + p.tipo + '.' });
+    if (tipo === 'double' && parseInt(p.deci || '0') === 0)               w.push({ service: svcNom, method: mtdNom, field: 'BTISRVPARDECI',  param: pnom, msg: 'Decimales son 0 para tipo double.' });
+  });
+  return w;
+}
+
 function sg_extractSdtNames(params) {
   const names = new Set();
   for (var i = 0; i < params.length; i++) {
@@ -997,6 +1026,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 
       <div id="svc-list"></div>
       <div class="cres" id="svc-err" style="margin-top:10px"></div>
+      <div id="doc-val-block" style="display:none;margin-top:14px"></div>
     </div>
 
     <!-- Paso 6: Éxito (flujo doc) -->
@@ -1032,6 +1062,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
         <button class="btn btn-primary" onclick="sgAddServiceToList()" style="flex-shrink:0;padding:9px 16px">+ Agregar</button>
       </div>
       <div id="sg-service-groups"></div>
+      <div id="sg-val-block" style="display:none;margin-top:14px"></div>
     </div>
 
     <!-- Paso 5 Scripts: Script generado -->
@@ -1045,6 +1076,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
         <button class="btn btn-success btn-sm" onclick="sgCopyScript()">Copiar</button>
         <button class="btn btn-ghost btn-sm" onclick="document.getElementById('sg-sql-out').value=''">Limpiar</button>
       </div>
+      <div id="sg-warnings" style="display:none;margin-bottom:12px"></div>
       <textarea class="sql-out" id="sg-sql-out" readonly placeholder="Acá va a aparecer el script generado..."></textarea>
       <div class="cres" id="sg-copy-res" style="margin-top:8px"></div>
     </div>
@@ -1080,6 +1112,59 @@ var sgServicesLoaded = false;
 
 // ── Historial de conexiones ───────────────────────────────────
 var _dbHistory = [];
+
+// ── Validaciones ──────────────────────────────────────────────
+var _VALIDATE_ENGLISH_RE = /\b(the|this|that|these|those|is|are|was|were|has|have|had|get|gets|set|sets|update|updates|create|creates|delete|deletes|return|returns|method|service|parameter|value|field|list|object|type|name|code|date|amount|flag|allow|allows|perform|performs|retrieve|retrieves)\b/i;
+var _VALIDATE_LARGO_TYPES = new Set(['long','int','double','byte','short','string']);
+
+function validateItems(items) {
+  var warns = [];
+  (items || []).forEach(function(item) {
+    var svc = (item.header && item.header.BTISrvNom) || item.service || '?';
+    var mtd = (item.header && item.header.BTIMtdNom) || item.method_name || '?';
+    var m   = (item.header ? item.method : null) || {};
+    if (typeof m === 'string') m = {};
+    var params = item.params || [];
+    var dsc = (m.dsc || '').trim();
+    if (!dsc) {
+      warns.push({ service: svc, method: mtd, field: 'BTIMTDDSC', msg: 'Descripción vacía.' });
+    } else {
+      if (!/^m[eé]todo para /i.test(dsc)) warns.push({ service: svc, method: mtd, field: 'BTIMTDDSC', msg: 'No comienza con "Método para".' });
+      if (!dsc.endsWith('.'))                          warns.push({ service: svc, method: mtd, field: 'BTIMTDDSC', msg: 'No termina con punto.' });
+      if (_VALIDATE_ENGLISH_RE.test(dsc))              warns.push({ service: svc, method: mtd, field: 'BTIMTDDSC', msg: 'Podría estar en inglés.' });
+    }
+    params.forEach(function(p) {
+      var pnom = p.nom || '?', tipo = (p.tipo || '').toLowerCase().trim();
+      var pdsc = p.dsc !== undefined ? (p.dsc || '').trim() : undefined;
+      if (pdsc !== undefined) {
+        if (!pdsc) warns.push({ service: svc, method: mtd, field: 'BTISRVPARDSC', param: pnom, msg: 'Descripción vacía.' });
+        else {
+          if (!pdsc.endsWith('.'))                          warns.push({ service: svc, method: mtd, field: 'BTISRVPARDSC', param: pnom, msg: 'No termina con punto.' });
+          if (_VALIDATE_ENGLISH_RE.test(pdsc))              warns.push({ service: svc, method: mtd, field: 'BTISRVPARDSC', param: pnom, msg: 'Podría estar en inglés.' });
+        }
+      }
+      if (_VALIDATE_LARGO_TYPES.has(tipo) && parseInt(p.largo || '0') === 0) warns.push({ service: svc, method: mtd, field: 'BTISRVPARLARGO', param: pnom, msg: 'Largo es 0 para tipo ' + p.tipo + '.' });
+      if (tipo === 'double' && parseInt(p.deci || '0') === 0)                warns.push({ service: svc, method: mtd, field: 'BTISRVPARDECI',  param: pnom, msg: 'Decimales son 0 para tipo double.' });
+    });
+  });
+  return warns;
+}
+
+function renderWarnings(containerId, warnings) {
+  var el = document.getElementById(containerId); if (!el) return;
+  if (!warnings || !warnings.length) { el.innerHTML = ''; el.style.display = 'none'; return; }
+  var n = warnings.length;
+  var html = '<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:14px 16px">' +
+    '<div style="font-weight:600;font-size:13px;color:#92400e;margin-bottom:10px">&#9888; ' + n + ' advertencia' + (n > 1 ? 's' : '') + ' encontrada' + (n > 1 ? 's' : '') + '</div>' +
+    '<ul style="margin:0;padding-left:18px;font-size:12px;color:#78350f;line-height:1.9">';
+  warnings.forEach(function(w) {
+    var ctx = w.param ? w.method + ' &rsaquo; ' + w.param : w.method;
+    html += '<li><code style="background:rgba(0,0,0,.06);padding:1px 5px;border-radius:3px;font-size:11px">' + w.field + '</code> ' +
+      '<span style="color:#b45309;font-weight:500">[' + ctx + ']</span> ' + w.msg + '</li>';
+  });
+  html += '</ul></div>';
+  el.innerHTML = html; el.style.display = '';
+}
 
 // ── Utilidades ────────────────────────────────────────────────
 function v(id)  { var el = document.getElementById(id); return el ? el.value.trim() : ''; }
@@ -1577,6 +1662,36 @@ async function renderList() {
 
 async function saveEnv() {
   var btn = document.getElementById('btn-save');
+  var valEl = document.getElementById('doc-val-block');
+  if (valEl) { valEl.innerHTML = ''; valEl.style.display = 'none'; }
+
+  var docItems = items.filter(function(it) { return it.method; }).map(function(it) { return { service: it.service, method: it.method }; });
+  if (docItems.length) {
+    btn.innerHTML = '<span class="spin"></span>&nbsp;Validando...';
+    btn.disabled = true;
+    try {
+      var rv = await fetch('/sg/api/validate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, items: docItems }) });
+      var dv = await rv.json();
+      if (dv.ok && dv.warnings && dv.warnings.length) {
+        renderWarnings('doc-val-block', dv.warnings);
+        btn.innerHTML = 'Guardar y finalizar &#10003;';
+        btn.disabled = false;
+        return;
+      }
+      if (!dv.ok) {
+        if (valEl) { valEl.innerHTML = '<div style="background:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:12px 16px;font-size:12px;color:#9a3412">&#9888; No se pudo validar: ' + (dv.message || 'error desconocido') + '</div>'; valEl.style.display = ''; }
+        btn.innerHTML = 'Guardar y finalizar &#10003;';
+        btn.disabled = false;
+        return;
+      }
+    } catch(e) {
+      if (valEl) { valEl.innerHTML = '<div style="background:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:12px 16px;font-size:12px;color:#9a3412">&#9888; Error al validar: ' + e.message + '</div>'; valEl.style.display = ''; }
+      btn.innerHTML = 'Guardar y finalizar &#10003;';
+      btn.disabled = false;
+      return;
+    }
+  }
+
   btn.innerHTML = '<span class="spin"></span>&nbsp;Guardando...';
   btn.disabled = true;
   try {
@@ -2176,6 +2291,15 @@ async function sgFetchAndShowOutput(groups) {
       var d = await r.json(); if (!d.ok) throw new Error(d.message);
       d.items.forEach(function(item) { allItems.push(item); });
     }));
+    var warnings = validateItems(allItems);
+    console.log('[SG] validateItems result:', warnings.length, 'warnings', warnings);
+    var valEl = document.getElementById('sg-val-block');
+    if (warnings.length) {
+      if (valEl) renderWarnings('sg-val-block', warnings);
+      if (btn) { btn.innerHTML = 'Generar script &#8594;'; btn.disabled = false; sgUpdateNextBtn(); }
+      return;
+    }
+    if (valEl) { valEl.innerHTML = ''; valEl.style.display = 'none'; }
     sgMultiData = allItems;
     var svcs = allItems.reduce(function(a,it){ if(a.indexOf(it.header.BTISrvNom)<0)a.push(it.header.BTISrvNom); return a; },[]);
     document.getElementById('sg-out-title').textContent = 'Script — ' + svcs.join(', ');
@@ -2407,6 +2531,7 @@ body.dark .nav-bar{background:#7a1a1a}
         <button class="btn btn-primary" onclick="addServiceToList()" style="flex-shrink:0;padding:9px 16px">+ Agregar</button>
       </div>
       <div id="service-groups"></div>
+      <div id="val-block-multi" style="display:none;margin-top:14px"></div>
     </div>
     <div class="panel" id="p4">
       <div class="ptitle">Datos del método</div>
@@ -2432,6 +2557,7 @@ body.dark .nav-bar{background:#7a1a1a}
       <div id="param-opts-loading" style="display:none;font-size:12px;color:var(--muted);margin-bottom:10px"><span class="spin dk"></span>&nbsp;Cargando opciones desde la base de datos...</div>
       <div class="param-wrap"><table class="param-table" id="param-table"><thead id="param-thead"></thead><tbody id="param-tbody"></tbody></table></div>
       <button class="add-btn" onclick="addRow()">+ Agregar parámetro</button>
+      <div id="val-block-single" style="display:none;margin-top:14px"></div>
       <datalist id="dl-tipo"></datalist>
       <datalist id="dl-ittipo"></datalist>
       <datalist id="dl-itnom"></datalist>
@@ -2465,6 +2591,57 @@ var paramOptsLoaded = false;
 var serviceGroups = [];
 var _connOk = false;
 var _connTestTimer = null;
+
+var _VE_RE = /\b(the|this|that|these|those|is|are|was|were|has|have|had|get|gets|set|sets|update|updates|create|creates|delete|deletes|return|returns|method|service|parameter|value|field|list|object|type|name|code|date|amount|flag|allow|allows|perform|performs|retrieve|retrieves)\b/i;
+var _VL_TYPES = new Set(['long','int','double','byte','short','string']);
+
+function validateItems(itemList) {
+  var warns = [];
+  (itemList || []).forEach(function(item) {
+    var svc = (item.header && item.header.BTISrvNom) || '?';
+    var mtd = (item.header && item.header.BTIMtdNom) || '?';
+    var m   = (item.method && typeof item.method === 'object') ? item.method : {};
+    var params = item.params || [];
+    var dsc = (m.dsc || '').trim();
+    if (!dsc) {
+      warns.push({ service: svc, method: mtd, field: 'BTIMTDDSC', msg: 'Descripción vacía.' });
+    } else {
+      if (!/^m[eé]todo para /i.test(dsc)) warns.push({ service: svc, method: mtd, field: 'BTIMTDDSC', msg: 'No comienza con "Método para".' });
+      if (!dsc.endsWith('.'))              warns.push({ service: svc, method: mtd, field: 'BTIMTDDSC', msg: 'No termina con punto.' });
+      if (_VE_RE.test(dsc))               warns.push({ service: svc, method: mtd, field: 'BTIMTDDSC', msg: 'Podría estar en inglés.' });
+    }
+    params.forEach(function(p) {
+      var pnom = p.nom || '?', tipo = (p.tipo || '').toLowerCase().trim();
+      var pdsc = p.dsc !== undefined ? (p.dsc || '').trim() : undefined;
+      if (pdsc !== undefined) {
+        if (!pdsc) warns.push({ service: svc, method: mtd, field: 'BTISRVPARDSC', param: pnom, msg: 'Descripción vacía.' });
+        else {
+          if (!pdsc.endsWith('.')) warns.push({ service: svc, method: mtd, field: 'BTISRVPARDSC', param: pnom, msg: 'No termina con punto.' });
+          if (_VE_RE.test(pdsc))   warns.push({ service: svc, method: mtd, field: 'BTISRVPARDSC', param: pnom, msg: 'Podría estar en inglés.' });
+        }
+      }
+      if (_VL_TYPES.has(tipo) && parseInt(p.largo || '0') === 0) warns.push({ service: svc, method: mtd, field: 'BTISRVPARLARGO', param: pnom, msg: 'Largo es 0 para tipo ' + p.tipo + '.' });
+      if (tipo === 'double' && parseInt(p.deci || '0') === 0)    warns.push({ service: svc, method: mtd, field: 'BTISRVPARDECI',  param: pnom, msg: 'Decimales son 0 para tipo double.' });
+    });
+  });
+  return warns;
+}
+
+function renderWarnings(containerId, warnings) {
+  var el = document.getElementById(containerId); if (!el) return;
+  if (!warnings || !warnings.length) { el.innerHTML = ''; el.style.display = 'none'; return; }
+  var n = warnings.length;
+  var html = '<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:14px 16px">' +
+    '<div style="font-weight:600;font-size:13px;color:#92400e;margin-bottom:10px">&#9888; ' + n + ' advertencia' + (n > 1 ? 's' : '') + ' encontrada' + (n > 1 ? 's' : '') + '. Corregila' + (n > 1 ? 's' : '') + ' antes de generar el script.</div>' +
+    '<ul style="margin:0;padding-left:18px;font-size:12px;color:#78350f;line-height:1.9">';
+  warnings.forEach(function(w) {
+    var ctx = w.param ? w.method + ' › ' + w.param : w.method;
+    html += '<li><code style="background:rgba(0,0,0,.06);padding:1px 5px;border-radius:3px;font-size:11px">' + w.field + '</code> ' +
+      '<span style="color:#b45309;font-weight:500">[' + ctx + ']</span> ' + w.msg + '</li>';
+  });
+  html += '</ul></div>';
+  el.innerHTML = html; el.style.display = '';
+}
 
 function pick(key, val, el) {
   S[key] = val;
@@ -2672,6 +2849,14 @@ async function fetchAndShowOutputMultiService(groups) {
       var d = await r.json(); if (!d.ok) throw new Error(d.message);
       d.items.forEach(function(item) { allItems.push(item); });
     }));
+    var warnings = validateItems(allItems);
+    var valEl = document.getElementById('val-block-multi');
+    if (warnings.length) {
+      renderWarnings('val-block-multi', warnings);
+      btn.innerHTML = 'Siguiente &#8594;'; btn.disabled = false; updateStep3NextBtn();
+      return;
+    }
+    if (valEl) { valEl.innerHTML = ''; valEl.style.display = 'none'; }
     S.isMultiMethod = true; S.multiData = allItems; show(6); doGenerateMulti('both');
   } catch(e) { alert('Error al cargar datos: ' + e.message); btn.innerHTML = 'Siguiente &#8594;'; btn.disabled = false; updateStep3NextBtn(); }
 }
@@ -2762,7 +2947,20 @@ function addRow() {
   var numCells = tbody.querySelectorAll('tr td:first-child'); numCells.forEach(function(c, i) { c.textContent = String(i+1); });
 }
 
-function goToOutput() { if (!paramRows.length) { alert('Agregá al menos un parámetro antes de generar.'); return; } show(6); doGenerate('both'); }
+function goToOutput() {
+  if (!paramRows.length) { alert('Agregá al menos un parámetro antes de generar.'); return; }
+  var svc = document.getElementById('sel-service') ? document.getElementById('sel-service').value : '';
+  var mtd = v('inp-mtdnom-manual');
+  var item = { header: { BTISrvNom: svc, BTIMtdNom: mtd }, method: { dsc: v('m-dsc') }, params: paramRows };
+  var warnings = validateItems([item]);
+  var valEl = document.getElementById('val-block-single');
+  if (warnings.length) {
+    renderWarnings('val-block-single', warnings);
+    return;
+  }
+  if (valEl) { valEl.innerHTML = ''; valEl.style.display = 'none'; }
+  show(6); doGenerate('both');
+}
 
 async function doGenerate(mode) {
   var svc = document.getElementById('sel-service').value, mtd = v('inp-mtdnom-manual');
@@ -3126,6 +3324,33 @@ http.createServer(async (req, res) => {
       }
       if (route === 'param-options') {
         try { const opts = await sg_queryParamOptions(payload.platform, payload.db, payload.version); j(200, { ok: true, opts }); } catch(e) { j(200, { ok: false, message: e.message }); }
+        return;
+      }
+      if (route === 'validate') {
+        try {
+          const reqItems = payload.items || [];
+          const byService = {};
+          reqItems.forEach(function(it) {
+            if (!byService[it.service]) byService[it.service] = new Set();
+            byService[it.service].add(it.method);
+          });
+          let allWarnings = [];
+          for (const [service, methodSet] of Object.entries(byService)) {
+            let methods = [...methodSet];
+            if (methods.includes('__all__')) {
+              methods = await sg_queryMethods(payload.platform, payload.db, payload.version, service);
+            }
+            if (!methods.length) continue;
+            const versions = await sg_queryServiceVersions(payload.platform, payload.db, payload.version, service);
+            const srvver = versions[0] || '1';
+            const details = await sg_queryMethodDetailsBatch(payload.platform, payload.db, payload.version, service, methods);
+            const params  = await sg_queryMethodParamsBatch(payload.platform, payload.db, payload.version, service, srvver, methods);
+            methods.forEach(function(m) {
+              allWarnings = allWarnings.concat(sg_validateOne(m, service, details[m] || {}, params[m] || []));
+            });
+          }
+          j(200, { ok: true, warnings: allWarnings });
+        } catch(e) { j(200, { ok: false, message: e.message }); }
         return;
       }
       if (route === 'methods-full') {

@@ -1,15 +1,15 @@
 ---
-title: Create Section
+title: Originate Refinancing
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para crear un apartado a una cuenta de ahorro.
+::: note Método para contabilizar una refinanciación.
 
-**Nombre publicación:** PublicSavingAccounts.createSection
+**Nombre publicación:** PublicLoans.originateRefinancing
 
-**Módulo:** Liabilities.SavingsAccounts
+**Módulo:** Loans
 
-**Programa:** PublicAPI.BTSAPA0011
+**Programa:** PublicAPI.BTLOPA0019
 
 **Alcance:** Global
 :::
@@ -22,33 +22,26 @@ title: Create Section
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-savingAccountGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la cuenta de ahorro.
+refinancingGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la refinanciación.
+simulationGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la simulación.
 
 @tab Body
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-category | Int $<(Length: 5)>$ | Categoría del apartado.
-concept | String $<(Length: 255)>$ | Concepto.
 geolocalization | [SdtsBTGeolocalization](#sdtsbtgeolocalization) | Datos de geolocalización.
-transferType | Byte $<(Length: 1)>$ | Tipo de transferencia.
-frequency | Byte $<(Length: 1)>$ | Frecuencia.
-amount | Double $<(Length: 18.2)>$ | Monto.
-monthlyTransferDay | Byte $<(Length: 2)>$ | Día mensual de transferencia.
-weeklyTransferDay | Byte $<(Length: 1)>$ | Día semanal de transferencia.
-schedulesTransfer | Boolean | Indica si programa la transferencia.
 
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-sectionGUID | String $<(Length: 36)>$ | GUID (identificador único global) del apartado.
+movementGUID | String $<(Length: 36)>$ | GUID (identificador único global) del movimiento.
 
 @tab Errores
 
 Código | Descripción
 :--------- | :-----------
-14001010001 | Debe ingresar el GUID de la cuenta de ahorro.
+120020061 | No existen datos de simulación.
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -65,23 +58,16 @@ Código | Descripción
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "C004FACBFC2507D9B6B9A13E"
+    "Token": "23B342928917607ECECF65BD"
   },
-  "savingAccountGUID": "65e099e6-00ef-4dcd-a244-0c2aa0793c3e",
-  "category": "1",
-  "concept": "Gastos Varios",
+  "refinancingGUID": "e7a3d240-91bc-4f82-b3e5-2a7c640d18f9",
+  "simulationGUID": "a1d54c72-3f8b-4e20-91dc-6b83e5f029a4",
   "geolocalization": {
-    "latitude": "44.666666",
-    "longitude": "53.123456",
-    "timestamp": "2026-06-14T12:02:00UTC-3"
-  },
-  "transferType": "1",
-  "frequency": "3",
-  "amount": "200",
-  "monthlyTransferDay": "24",
-  "weeklyTransferDay": "0",
-  "schedulesTransfer": "true"
-}'
+    "latitude": -34.60376,
+    "longitude": -58.38162,
+    "timestamp": "2026-06-19T10:55:00.000000-03:00"
+  }
+}
 ```
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
@@ -97,18 +83,16 @@ Código | Descripción
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "C004FACBFC2507D9B6B9A13E"
+    "Token": "23B342928917607ECECF65BD"
   },
-  "sectionGUID": "78824b30-366d-4686-a84e-89ffa0e35285",
-  "BusinessErrors": {
-    "BusinessError": []
-  },
+  "movementGUID": "f3c82b15-6a47-4d91-b0e2-8d51a930c7e6",
+  "BusinessErrors": "",
   "Btoutreq": {
     "Estado": "OK",
-    "Fecha": "2026-06-16",
-    "Hora": "19:45:56",
-    "Numero": 13585058,
-    "Servicio": "PublicSavingAccounts.createSection",
+    "Fecha": "2026-06-19",
+    "Hora": "10:55:12",
+    "Numero": "10048347",
+    "Servicio": "PublicLoans.originateRefinancing",
     "Requerimiento": "1",
     "Canal": "BTDIGITAL"
   }

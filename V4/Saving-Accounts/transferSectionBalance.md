@@ -1,15 +1,15 @@
 ---
-title: Create Section
+title: Transfer Section Balance
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para crear un apartado a una cuenta de ahorro.
+::: note Método para transferir desde o hacia un apartado.
 
-**Nombre publicación:** PublicSavingAccounts.createSection
+**Nombre publicación:** PublicSavingAccounts.transferSectionBalance
 
 **Módulo:** Liabilities.SavingsAccounts
 
-**Programa:** PublicAPI.BTSAPA0011
+**Programa:** PublicAPI.BTSAPA0012
 
 **Alcance:** Global
 :::
@@ -22,33 +22,25 @@ title: Create Section
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-savingAccountGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la cuenta de ahorro.
+sectionGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la cuenta de ahorro.
 
 @tab Body
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-category | Int $<(Length: 5)>$ | Categoría del apartado.
-concept | String $<(Length: 255)>$ | Concepto.
+amount | Double $<(Length: 18.2)>$ | Saldo.
+reference | String $<(Length: 40)>$ | Referencia.
+transferMode | String $<(Length: 3)>$ | Modo de transferencia.
 geolocalization | [SdtsBTGeolocalization](#sdtsbtgeolocalization) | Datos de geolocalización.
-transferType | Byte $<(Length: 1)>$ | Tipo de transferencia.
-frequency | Byte $<(Length: 1)>$ | Frecuencia.
-amount | Double $<(Length: 18.2)>$ | Monto.
-monthlyTransferDay | Byte $<(Length: 2)>$ | Día mensual de transferencia.
-weeklyTransferDay | Byte $<(Length: 1)>$ | Día semanal de transferencia.
-schedulesTransfer | Boolean | Indica si programa la transferencia.
 
 @tab Datos de Salida
 
-Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-sectionGUID | String $<(Length: 36)>$ | GUID (identificador único global) del apartado.
+No aplica.
 
 @tab Errores
 
-Código | Descripción
-:--------- | :-----------
-14001010001 | Debe ingresar el GUID de la cuenta de ahorro.
+No aplica.
+
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -67,20 +59,15 @@ Código | Descripción
     "Requerimiento": "1",
     "Token": "C004FACBFC2507D9B6B9A13E"
   },
-  "savingAccountGUID": "65e099e6-00ef-4dcd-a244-0c2aa0793c3e",
-  "category": "1",
-  "concept": "Gastos Varios",
+  "sectionGUID": "0a1b8daf-ace1-40b9-a5fe-366c1e117193",
+  "amount": "50",
+  "reference": "Ahorros",
+  "transferMode": "INC",
   "geolocalization": {
-    "latitude": "44.666666",
-    "longitude": "53.123456",
-    "timestamp": "2026-06-14T12:02:00UTC-3"
-  },
-  "transferType": "1",
-  "frequency": "3",
-  "amount": "200",
-  "monthlyTransferDay": "24",
-  "weeklyTransferDay": "0",
-  "schedulesTransfer": "true"
+    "latitude": -45.123456,
+    "longitude": -33.123455,
+    "timestamp": "2026-06-14T12:16:00UTC-3"
+  }
 }'
 ```
 :::
@@ -99,16 +86,13 @@ Código | Descripción
     "Requerimiento": "1",
     "Token": "C004FACBFC2507D9B6B9A13E"
   },
-  "sectionGUID": "78824b30-366d-4686-a84e-89ffa0e35285",
-  "BusinessErrors": {
-    "BusinessError": []
-  },
+  "BusinessErrors": "",
   "Btoutreq": {
     "Estado": "OK",
     "Fecha": "2026-06-16",
     "Hora": "19:45:56",
-    "Numero": 13585058,
-    "Servicio": "PublicSavingAccounts.createSection",
+    "Numero": 13585059,
+    "Servicio": "PublicSavingAccounts.transferSectionBalance",
     "Requerimiento": "1",
     "Canal": "BTDIGITAL"
   }

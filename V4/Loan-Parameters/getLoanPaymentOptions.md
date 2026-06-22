@@ -22,7 +22,7 @@ title: Get Loan Payment Options
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-productGUID | String | GUID (identificador único global) del producto.
+productGUID | String $<(Length: 36)>$ | GUID (identificador único global) del producto.
 
 @tab Datos de Salida
 
@@ -119,11 +119,11 @@ Los campos del tipo de dato estructurado SdtsBTLoanDisbursementOption son los si
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-asksBranch | Boolean | ¿Requiere ingresar sucursal?
-asksCounterparty | Boolean | ¿Requiere ingresar contraparte?
-asksCurrency | Boolean | ¿Requiere ingresar moneda?
-asksSavingAccount | Boolean | ¿Requiere ingresar cuenta vista?
-description | String $<(length: 40)>$ | Descripción.
-optionId | Short $<(length: 3)>$ | Identificador.
+asksBranch | Boolean | Requiere ingresar sucursal.
+asksCounterparty | Boolean | Requiere ingresar contraparte.
+asksCurrency | Boolean | Requiere ingresar moneda.
+asksSavingAccount | Boolean | Requiere ingresar cuenta vista.
+description | String $<(Length: 40)>$ | Descripción de la opción de desembolso.
+optionId | Short $<(Length: 3)>$ | Identificador.
 :::
 <!-- CIERRA SDT -->

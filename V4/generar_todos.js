@@ -41,12 +41,12 @@ async function generarTodos(servicio, carpeta) {
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
 
-    if (result.rows.length === 0) {
+    if (result.rows.Length === 0) {
       console.error(`❌ No se encontró el servicio '${servicio}' en BTI014`);
       return;
     }
 
-    console.log(`📋 Se encontraron ${result.rows.length} métodos para ${servicio}`);
+    console.log(`📋 Se encontraron ${result.rows.Length} métodos para ${servicio}`);
     console.log('─'.repeat(50));
 
     let ok = 0;

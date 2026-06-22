@@ -1,15 +1,15 @@
 ---
-title: Create Section
+title: Originate Renewal
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para crear un apartado a una cuenta de ahorro.
+::: note Método para contabilizar una renovación.
 
-**Nombre publicación:** PublicSavingAccounts.createSection
+**Nombre publicación:** PublicLoans.originateRenewal
 
-**Módulo:** Liabilities.SavingsAccounts
+**Módulo:** Loans
 
-**Programa:** PublicAPI.BTSAPA0011
+**Programa:** PublicAPI.BTLOPA0020
 
 **Alcance:** Global
 :::
@@ -22,33 +22,29 @@ title: Create Section
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-savingAccountGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la cuenta de ahorro.
+increaseGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la simulación de las operaciones a cancelar.
+simulationGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la simulación.
+disbursmentAccountGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la cuenta de desembolso.
 
 @tab Body
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-category | Int $<(Length: 5)>$ | Categoría del apartado.
-concept | String $<(Length: 255)>$ | Concepto.
-geolocalization | [SdtsBTGeolocalization](#sdtsbtgeolocalization) | Datos de geolocalización.
-transferType | Byte $<(Length: 1)>$ | Tipo de transferencia.
-frequency | Byte $<(Length: 1)>$ | Frecuencia.
 amount | Double $<(Length: 18.2)>$ | Monto.
-monthlyTransferDay | Byte $<(Length: 2)>$ | Día mensual de transferencia.
-weeklyTransferDay | Byte $<(Length: 1)>$ | Día semanal de transferencia.
-schedulesTransfer | Boolean | Indica si programa la transferencia.
+geolocalization | [SdtsBTGeolocalization](#sdtsbtgeolocalization) | Datos de geolocalización.
 
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-sectionGUID | String $<(Length: 36)>$ | GUID (identificador único global) del apartado.
+movementGUID | String $<(Length: 36)>$ | GUID (identificador único global) del movimiento.
 
 @tab Errores
 
 Código | Descripción
 :--------- | :-----------
-14001010001 | Debe ingresar el GUID de la cuenta de ahorro.
+120050001 | Debe ingresar el GUID de préstamo.
+180040003 | Debe ingresar el GUID de la cuenta de débito.
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -65,23 +61,18 @@ Código | Descripción
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "C004FACBFC2507D9B6B9A13E"
+    "Token": "23B342928917607ECECF65BD"
   },
-  "savingAccountGUID": "65e099e6-00ef-4dcd-a244-0c2aa0793c3e",
-  "category": "1",
-  "concept": "Gastos Varios",
+  "increaseGUID": "c2f91a84-5e3d-4b70-a8f1-d93e720c64b5",
+  "simulationGUID": "a1d54c72-3f8b-4e20-91dc-6b83e5f029a4",
+  "disbursmentAccountGUID": "d6e20c53-8b1f-4a97-b72e-3f94c810d5a1",
+  "amount": 50000.00,
   "geolocalization": {
-    "latitude": "44.666666",
-    "longitude": "53.123456",
-    "timestamp": "2026-06-14T12:02:00UTC-3"
-  },
-  "transferType": "1",
-  "frequency": "3",
-  "amount": "200",
-  "monthlyTransferDay": "24",
-  "weeklyTransferDay": "0",
-  "schedulesTransfer": "true"
-}'
+    "latitude": -34.60376,
+    "longitude": -58.38162,
+    "timestamp": "2026-06-19T11:03:00.000000-03:00"
+  }
+}
 ```
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
@@ -97,18 +88,16 @@ Código | Descripción
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "C004FACBFC2507D9B6B9A13E"
+    "Token": "23B342928917607ECECF65BD"
   },
-  "sectionGUID": "78824b30-366d-4686-a84e-89ffa0e35285",
-  "BusinessErrors": {
-    "BusinessError": []
-  },
+  "movementGUID": "b72f3e91-4c58-4d02-a6b8-1e95d720f4c3",
+  "BusinessErrors": "",
   "Btoutreq": {
     "Estado": "OK",
-    "Fecha": "2026-06-16",
-    "Hora": "19:45:56",
-    "Numero": 13585058,
-    "Servicio": "PublicSavingAccounts.createSection",
+    "Fecha": "2026-06-19",
+    "Hora": "11:03:18",
+    "Numero": "10048365",
+    "Servicio": "PublicLoans.originateRenewal",
     "Requerimiento": "1",
     "Canal": "BTDIGITAL"
   }

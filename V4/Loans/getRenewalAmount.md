@@ -1,15 +1,15 @@
 ---
-title: Process Member Death Write Off
+title: Get Renewal Amount
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para quebranto por fallecimiento
+::: note Método para obtener el monto de renovación.
 
-**Nombre publicación:** PublicLoans.processMemberDeathWriteOff
+**Nombre publicación:** PublicLoans.getRenewalAmount
 
 **Módulo:** Loans
 
-**Programa:** PublicAPI.BTLOPA0050
+**Programa:** PublicAPI.BTLOPA0015
 
 **Alcance:** Global
 :::
@@ -22,25 +22,22 @@ title: Process Member Death Write Off
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-groupId | Int $<(Length: 9)>$ | Identificador de grupo.
+counterpartyGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la contraparte.
 loanGUID | String $<(Length: 36)>$ | GUID (identificador único global) del préstamo.
-
-@tab Body
-
-Nombre | Tipo | Comentarios
-:--------- | :--------- | :---------
-deceasedDate | Date | Fecha de fallecimiento.
+calculationDate | Date | Fecha de cálculo.
 
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-movementGUID | String $<(Length: 36)>$ | GUID (identificador único global) del movimiento.
+consolidationGUID | String $<(Length: 36)>$ | GUID de la consolidación.
+cancellationAmount | Double $<(Length: 18.2)>$ | Monto de cancelación.
 
 @tab Errores
 
-No aplica.
-
+Código | Descripción
+:--------- | :-----------
+120050002 | Debe ingresar el GUID de contraparte.
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -57,12 +54,12 @@ No aplica.
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "E3ADC97E57DC5FDE4F408A70"
+    "Token": "23B342928917607ECECF65BD"
   },
-  "groupId": "70",
-  "loanGUID": "7de60dc6-b377-4683-9a8d-95ce6c69df74",
-  "deceasedDate": "2027-07-30"
-}'
+  "counterpartyGUID": "3a7f2d91-bc14-4e58-9f3a-d2c18b450e77",
+  "loanGUID": "b84e1c60-73d2-4a91-8f5e-cf920a371d24",
+  "calculationDate": "2026-06-19"
+}
 ```
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
@@ -78,18 +75,17 @@ No aplica.
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "E3ADC97E57DC5FDE4F408A70"
+    "Token": "23B342928917607ECECF65BD"
   },
-  "movementGUID": "58cfb0f0-4922-4d38-8d76-3a72ba3aa9d0",
-  "BusinessErrors": {
-    "BusinessError": []
-  },
+  "consolidationGUID": "c2f91a84-5e3d-4b70-a8f1-d93e720c64b5",
+  "cancellationAmount": 48750.00,
+  "BusinessErrors": "",
   "Btoutreq": {
     "Estado": "OK",
-    "Fecha": "2026-06-16",
-    "Hora": "18:50:57",
-    "Numero": 13584292,
-    "Servicio": "PublicLoans.processMemberDeathWriteOff",
+    "Fecha": "2026-06-19",
+    "Hora": "10:52:37",
+    "Numero": "10048329",
+    "Servicio": "PublicLoans.getRenewalAmount",
     "Requerimiento": "1",
     "Canal": "BTDIGITAL"
   }

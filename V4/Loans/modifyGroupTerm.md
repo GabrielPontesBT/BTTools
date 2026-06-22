@@ -1,15 +1,15 @@
 ---
-title: Process Member Death Write Off
+title: Modify Group Term
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para quebranto por fallecimiento
+::: note Método para el aplazamiento de un préstamo grupal.
 
-**Nombre publicación:** PublicLoans.processMemberDeathWriteOff
+**Nombre publicación:** PublicLoans.modifyGroupTerm
 
 **Módulo:** Loans
 
-**Programa:** PublicAPI.BTLOPA0050
+**Programa:** PublicAPI.BTLOPA0054
 
 **Alcance:** Global
 :::
@@ -23,24 +23,20 @@ title: Process Member Death Write Off
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
 groupId | Int $<(Length: 9)>$ | Identificador de grupo.
-loanGUID | String $<(Length: 36)>$ | GUID (identificador único global) del préstamo.
 
 @tab Body
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-deceasedDate | Date | Fecha de fallecimiento.
+periodsToExtend | Int $<(Length: 5)>$ | Períodos a extender.
 
 @tab Datos de Salida
 
-Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-movementGUID | String $<(Length: 36)>$ | GUID (identificador único global) del movimiento.
+No aplica.
 
 @tab Errores
 
 No aplica.
-
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -57,11 +53,10 @@ No aplica.
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "E3ADC97E57DC5FDE4F408A70"
+    "Token": "TOKEN_AQUI"
   },
-  "groupId": "70",
-  "loanGUID": "7de60dc6-b377-4683-9a8d-95ce6c69df74",
-  "deceasedDate": "2027-07-30"
+  "groupId": "123",
+  "periodsToExtend": "2"
 }'
 ```
 :::
@@ -78,18 +73,15 @@ No aplica.
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "E3ADC97E57DC5FDE4F408A70"
+    "Token": "TOKEN_AQUI"
   },
-  "movementGUID": "58cfb0f0-4922-4d38-8d76-3a72ba3aa9d0",
-  "BusinessErrors": {
-    "BusinessError": []
-  },
+  "BusinessErrors": "",
   "Btoutreq": {
     "Estado": "OK",
-    "Fecha": "2026-06-16",
-    "Hora": "18:50:57",
-    "Numero": 13584292,
-    "Servicio": "PublicLoans.processMemberDeathWriteOff",
+    "Fecha": "2026-01-01",
+    "Hora": "00:00:00",
+    "Numero": "00000000",
+    "Servicio": "PublicLoans.modifyGroupTerm",
     "Requerimiento": "1",
     "Canal": "BTDIGITAL"
   }
@@ -97,3 +89,5 @@ No aplica.
 ```
 :::
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
+
+

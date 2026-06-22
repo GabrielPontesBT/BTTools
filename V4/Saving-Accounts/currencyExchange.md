@@ -1,15 +1,15 @@
 ---
-title: Create Section
+title: Currency Exchange
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para crear un apartado a una cuenta de ahorro.
+::: note Método para realizar cambio de moneda.
 
-**Nombre publicación:** PublicSavingAccounts.createSection
+**Nombre publicación:** PublicSavingAccounts.currencyExchange
 
 **Módulo:** Liabilities.SavingsAccounts
 
-**Programa:** PublicAPI.BTSAPA0011
+**Programa:** PublicAPI.BTSAPA0014
 
 **Alcance:** Global
 :::
@@ -22,33 +22,25 @@ title: Create Section
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-savingAccountGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la cuenta de ahorro.
+counterpartyGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la contraparte.
 
 @tab Body
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-category | Int $<(Length: 5)>$ | Categoría del apartado.
-concept | String $<(Length: 255)>$ | Concepto.
+originData | [SdtsBTSAPAOriginData](#sdtsbtsapaorigindata) | Datos del origen.
+exchangeRate | Double $<(Length: 15.8)>$ | Tipo de cambio.
 geolocalization | [SdtsBTGeolocalization](#sdtsbtgeolocalization) | Datos de geolocalización.
-transferType | Byte $<(Length: 1)>$ | Tipo de transferencia.
-frequency | Byte $<(Length: 1)>$ | Frecuencia.
-amount | Double $<(Length: 18.2)>$ | Monto.
-monthlyTransferDay | Byte $<(Length: 2)>$ | Día mensual de transferencia.
-weeklyTransferDay | Byte $<(Length: 1)>$ | Día semanal de transferencia.
-schedulesTransfer | Boolean | Indica si programa la transferencia.
 
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-sectionGUID | String $<(Length: 36)>$ | GUID (identificador único global) del apartado.
+movementGUID | String $<(Length: 36)>$ | GUID (identificador único global) del movimiento.
 
 @tab Errores
 
-Código | Descripción
-:--------- | :-----------
-14001010001 | Debe ingresar el GUID de la cuenta de ahorro.
+No aplica.
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -65,22 +57,20 @@ Código | Descripción
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "C004FACBFC2507D9B6B9A13E"
+    "Token": "AD704D941B64FADDB9349539"
   },
-  "savingAccountGUID": "65e099e6-00ef-4dcd-a244-0c2aa0793c3e",
-  "category": "1",
-  "concept": "Gastos Varios",
+  "counterpartyGUID": "eb862bab-1233-48d2-8a36-7e37f8f2ae67",
+  "originData": {
+    "amout": "3000",
+    "reference": "Cambio moneda",
+    "savingAccountGUIDOrigin": "1923a066-cf5b-452c-8cf2-a2b2d8b5a0c3"
+  },
+  "exchangeRate": "40.56",
   "geolocalization": {
-    "latitude": "44.666666",
-    "longitude": "53.123456",
-    "timestamp": "2026-06-14T12:02:00UTC-3"
-  },
-  "transferType": "1",
-  "frequency": "3",
-  "amount": "200",
-  "monthlyTransferDay": "24",
-  "weeklyTransferDay": "0",
-  "schedulesTransfer": "true"
+    "latitude": "-21.542233",
+    "longitude": "-39.542133",
+    "timestamp": "2026-06-19T13:02:00UTC-3"
+  }
 }'
 ```
 :::
@@ -97,18 +87,18 @@ Código | Descripción
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "C004FACBFC2507D9B6B9A13E"
+    "Token": "AD704D941B64FADDB9349539"
   },
-  "sectionGUID": "78824b30-366d-4686-a84e-89ffa0e35285",
+  "movementGUID": "d7890f4f-4569-4d33-b0b1-25a4d66e8150",
   "BusinessErrors": {
     "BusinessError": []
   },
   "Btoutreq": {
     "Estado": "OK",
-    "Fecha": "2026-06-16",
-    "Hora": "19:45:56",
-    "Numero": 13585058,
-    "Servicio": "PublicSavingAccounts.createSection",
+    "Fecha": "2026-06-19",
+    "Hora": "16:01:20",
+    "Numero": 13603444,
+    "Servicio": "PublicSavingAccounts.currencyExchange",
     "Requerimiento": "1",
     "Canal": "BTDIGITAL"
   }
@@ -120,6 +110,20 @@ Código | Descripción
 ## **Tipos de Dato Estructurado**
 
 <!-- ABRE SDT -->
+::: details SdtsBTSAPAOriginData
+
+### SdtsBTSAPAOriginData
+
+::: center
+Los campos del tipo de dato estructurado SdtsBTSAPAOriginData son los siguientes:
+
+Nombre | Tipo | Comentarios
+:--------- | :----------- | :-----------
+amout | Double $<(Length: 18.2)>$ | Importe.
+reference | String $<(Length: 40)>$ | Referencia.
+savingAccountGUIDOrigin | String $<(Length: 36)>$ | GUID (identificador único global) de la cuenta de ahorro de origen.
+:::
+
 ::: details SdtsBTGeolocalization
 
 ### SdtsBTGeolocalization

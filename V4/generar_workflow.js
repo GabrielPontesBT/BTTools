@@ -134,7 +134,7 @@ function ordenTopologico(metodos, dependencias) {
   const disponibles = metodos.filter(m => inDegree.get(m) === 0).sort();
   const resultado = [];
 
-  while (disponibles.length > 0) {
+  while (disponibles.Length > 0) {
     disponibles.sort();
     const m = disponibles.shift();
     resultado.push(m);
@@ -145,7 +145,7 @@ function ordenTopologico(metodos, dependencias) {
   }
 
   const restantes = metodos.filter(m => !resultado.includes(m)).sort();
-  if (restantes.length > 0) {
+  if (restantes.Length > 0) {
     console.log(`  ⚠️  Dependencias circulares en: ${restantes.join(', ')} — agregados al final`);
   }
 
@@ -173,13 +173,13 @@ async function generarWorkflow(servicio, archivoSalida) {
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
 
-    if (r14.rows.length === 0) {
+    if (r14.rows.Length === 0) {
       console.error(`❌ No se encontró el servicio '${servicio}' en BTI014`);
       return;
     }
 
     const metodos = r14.rows.map(r => r.BTIMTDNOM);
-    console.log(`📋 ${metodos.length} métodos encontrados en ${servicio}`);
+    console.log(`📋 ${metodos.Length} métodos encontrados en ${servicio}`);
 
     // ── BTI019: todos los parámetros del servicio ─────────────
     const r19 = await conn.execute(
@@ -214,10 +214,10 @@ async function generarWorkflow(servicio, archivoSalida) {
     // DEBUG: mostrar outputs de getCountries e inputs de getAdministrativeLevels
     if (process.argv.includes('--debug')) {
       for (const [m, p] of paramsPorMetodo) {
-        if (p.outputs.length > 0 || p.inputs.length > 0) {
+        if (p.outputs.Length > 0 || p.inputs.Length > 0) {
           console.log(`\n🔎 ${m}`);
-          if (p.inputs.length) console.log(`   inputs:  ${p.inputs.join(', ')}`);
-          if (p.outputs.length) p.outputs.forEach(o =>
+          if (p.inputs.Length) console.log(`   inputs:  ${p.inputs.join(', ')}`);
+          if (p.outputs.Length) p.outputs.forEach(o =>
             console.log(`   output:  ${o.nombre}  cat=${o.esColeccionDirecta ? 'S(directo)' : 'B/SDT'}  sdtTipo=${o.sdtTipo}  itemNombre=${o.itemNombre}`)
           );
         }
@@ -280,7 +280,7 @@ async function generarWorkflow(servicio, archivoSalida) {
     }
 
     // ── Resumen ───────────────────────────────────────────────
-    const metodosConDeps = [...requeridosPor.entries()].filter(([, v]) => v.length > 0);
+    const metodosConDeps = [...requeridosPor.entries()].filter(([, v]) => v.Length > 0);
 
     console.log('\n📊 Resultado del análisis:');
 
@@ -293,8 +293,8 @@ async function generarWorkflow(servicio, archivoSalida) {
       console.log('  ℹ️  Ningún método produce campos encadenables');
     }
 
-    if (metodosConDeps.length > 0) {
-      console.log(`  🔗 Métodos con dependencias (${metodosConDeps.length}):`);
+    if (metodosConDeps.Length > 0) {
+      console.log(`  🔗 Métodos con dependencias (${metodosConDeps.Length}):`);
       for (const [m, campos] of metodosConDeps) {
         const prods = campos.flatMap(g => productores.get(g) || []);
         console.log(`     ${m}  necesita ${campos.join(', ')}  ←  ${[...new Set(prods)].join(', ')}`);
@@ -324,7 +324,7 @@ async function generarWorkflow(servicio, archivoSalida) {
     const steps = ordenado.map(metodo => {
       const extracts = extractsPorMetodo.get(metodo);
       const step = { method: metodo };
-      if (extracts && extracts.length > 0) step.extract = extracts;
+      if (extracts && extracts.Length > 0) step.extract = extracts;
       return step;
     });
 
@@ -333,18 +333,18 @@ async function generarWorkflow(servicio, archivoSalida) {
     fs.writeFileSync(outputFile, JSON.stringify(workflow, null, 2), 'utf8');
 
     console.log(`\n✅ Workflow generado: ${outputFile}`);
-    console.log(`📝 ${steps.length} pasos:`);
+    console.log(`📝 ${steps.Length} pasos:`);
 
-    for (let i = 0; i < steps.length; i++) {
+    for (let i = 0; i < steps.Length; i++) {
       const step = steps[i];
       const deps = [...(dependencias.get(step.method) || [])];
       const partes = [];
-      if (step.extract && step.extract.length > 0) {
+      if (step.extract && step.extract.Length > 0) {
         const names = step.extract.map(e => typeof e === 'string' ? e : e.as);
         partes.push(`extrae: ${names.join(', ')}`);
       }
-      if (deps.length > 0) partes.push(`depende de: ${deps.join(', ')}`);
-      const extra = partes.length > 0 ? `  [${partes.join(' | ')}]` : '';
+      if (deps.Length > 0) partes.push(`depende de: ${deps.join(', ')}`);
+      const extra = partes.Length > 0 ? `  [${partes.join(' | ')}]` : '';
       console.log(`  ${String(i + 1).padStart(2)}. ${step.method}${extra}`);
     }
 

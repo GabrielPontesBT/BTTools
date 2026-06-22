@@ -32,7 +32,7 @@ const toFolderName = s => s
     ...BD.filter(k => !process.env[k]),
     ...(usaEjecutar ? API.filter(k => !process.env[k]) : [])
   ];
-  if (faltantes.length) {
+  if (faltantes.Length) {
     console.error('\n❌  Faltan las siguientes variables en el archivo .env:\n');
     faltantes.forEach(k => console.error('   · ' + k));
     console.error('\n   Ejecuta "node setup.js" desde la raiz del proyecto o edita .env manualmente.\n');
@@ -78,7 +78,7 @@ function mapearTipo(tipo, largo, esColeccion, deci) {
   const t = TIPO_MAP[tipo] || capitalizarTipo(tipo);
   if (largo && largo !== '0' && largo !== 0) {
     const lenStr = (deci && deci !== '0' && deci !== 0) ? `${largo}.${deci}` : `${largo}`;
-    return `${t} $<(length: ${lenStr})>$`;
+    return `${t} $<(Length: ${lenStr})>$`;
   }
   return t;
 }
@@ -199,14 +199,14 @@ function extraerModulo(programa) {
   const moduleParts = partes
     .slice(idxBantotal + 1, -1)
     .filter(p => p !== 'publicapi');
-  if (moduleParts.length === 0) return 'Completar manualmente';
+  if (moduleParts.Length === 0) return 'Completar manualmente';
   return moduleParts
     .map(p => MODULO_PARTS_MAP[p] || (p.charAt(0).toUpperCase() + p.slice(1)))
     .join('.');
 }
 
 function generarTabla(rows) {
-  if (!rows || rows.length === 0) return 'No aplica.';
+  if (!rows || rows.Length === 0) return 'No aplica.';
   const lines = ['Nombre | Tipo | Comentarios', ':--------- | :----------- | :-----------'];
   for (const r of rows) {
     const sdtNombre = (r.BTISRVCATIT === 'S' && r.BTISRVPARITTIPO)
@@ -221,7 +221,7 @@ function generarTabla(rows) {
 }
 
 function generarTablaSdt(rows) {
-  if (!rows || rows.length === 0) return '';
+  if (!rows || rows.Length === 0) return '';
   const lines = ['Nombre | Tipo | Comentarios', ':--------- | :----------- | :-----------'];
   for (const r of rows) {
     let tipo;
@@ -460,7 +460,7 @@ function formatCurl(url, payload) {
   return [
     `{`,
     ...lines.slice(1, -1),
-    `${lines[lines.length - 1]}'`
+    `${lines[lines.Length - 1]}'`
   ].join('\n');
 }
 
@@ -482,7 +482,7 @@ async function generarMd(servicio, metodo, carpeta, ejecutar = false, inputParam
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
 
-    if (r14.rows.length === 0) {
+    if (r14.rows.Length === 0) {
       console.error(`❌ No se encontró '${servicio}.${metodo}' en BTI014`);
       return;
     }
@@ -493,16 +493,16 @@ async function generarMd(servicio, metodo, carpeta, ejecutar = false, inputParam
     const descripcion = descripcionRaw || '[Pendiente de completar]';
     const programa = r14.rows[0].BTIMTDPGMNOM || '';
     const progParts = programa.split('.');
-    const progFinal = progParts.length >= 2
+    const progFinal = progParts.Length >= 2
       ? (() => {
-          const penultima = progParts[progParts.length - 2];
-          const ultimaRaw = progParts[progParts.length - 1].toUpperCase();
+          const penultima = progParts[progParts.Length - 2];
+          const ultimaRaw = progParts[progParts.Length - 1].toUpperCase();
           const ultima = ultimaRaw.startsWith('A') ? ultimaRaw.slice(1) : ultimaRaw;
           const penultimaFmt = penultima.toUpperCase().replace('PUBLICAPI', 'PublicAPI');
           return `${penultimaFmt}.${ultima}`;
         })()
       : 'Completar manualmente';
-    const progNombreKB = progParts.length > 0 ? progParts[progParts.length - 1].toUpperCase() : '';
+    const progNombreKB = progParts.Length > 0 ? progParts[progParts.Length - 1].toUpperCase() : '';
 
     // ── BTI019 - Parametros ──
     const r19 = await conn.execute(
@@ -533,7 +533,7 @@ async function generarMd(servicio, metodo, carpeta, ejecutar = false, inputParam
         [sdtNomDB],
         { outFormat: oracledb.OUT_FORMAT_OBJECT }
       );
-      if (r26.rows.length === 0) return;
+      if (r26.rows.Length === 0) return;
       sdtCache.set(sdtNomDB, sortSdtFields(r26.rows));
       for (const campo of r26.rows) {
         const nestedSdt = (campo.BTISDTELEMSDT && campo.BTISDTELEMSDT.trim()) ||
@@ -547,7 +547,7 @@ async function generarMd(servicio, metodo, carpeta, ejecutar = false, inputParam
       procesados.add(sdtNomDB);
       await fetchSdtCache(sdtNomDB);
       const rows = sdtCache.get(sdtNomDB);
-      if (!rows || rows.length === 0) return;
+      if (!rows || rows.Length === 0) return;
       const tabla = generarTablaSdt(rows);
       sdtSection += `
 ::: details ${sdtNomDB}
@@ -659,13 +659,13 @@ ${tabla}
       if (result.status === 0 && fs.existsSync(tmpFile)) {
         const raw = fs.readFileSync(tmpFile, 'utf8').replace(/^﻿/, '').trim();
         const dataLines = raw.split('\n').filter(l => l.trim()).slice(2);
-        if (dataLines.length > 0) {
+        if (dataLines.Length > 0) {
           tablaErrores = raw
             .replace('| cod_err | err_msg | programas |', 'Código | Descripción | Programas')
             .replace('|---:|---|---|', ':--------- | :----------- | :-----------')
             .replace(/^\| (.*) \|$/gm, '$1')
             .trim();
-          console.log(`✅ Errores documentados: ${dataLines.length} error(es) para ${progNombreScript}`);
+          console.log(`✅ Errores documentados: ${dataLines.Length} error(es) para ${progNombreScript}`);
         } else {
           tablaErrores = 'No aplica.';
           console.log(`ℹ️  Sin errores detectados para ${progNombreScript}`);
@@ -777,7 +777,7 @@ async function ejecutarWorkflow(workflowFile) {
   }
 
   const { service: servicio, steps, folder } = workflow;
-  if (!servicio || !Array.isArray(steps) || steps.length === 0) {
+  if (!servicio || !Array.isArray(steps) || steps.Length === 0) {
     console.error('❌ El workflow debe tener "service" y "steps"');
     process.exit(1);
   }
@@ -803,7 +803,7 @@ async function ejecutarWorkflow(workflowFile) {
   let context = {}; // campos acumulados de pasos anteriores
   let ok = 0, errores = 0;
 
-  console.log(`🔄 Iniciando workflow para ${servicio} (${steps.length} pasos)`);
+  console.log(`🔄 Iniciando workflow para ${servicio} (${steps.Length} pasos)`);
   console.log('─'.repeat(50));
 
   for (const step of steps) {
@@ -812,13 +812,13 @@ async function ejecutarWorkflow(workflowFile) {
 
     const mergedParams = deepMerge(context, stepParams);
     console.log(`\n▶ ${servicio}.${method}`);
-    if (Object.keys(mergedParams).length > 0) {
+    if (Object.keys(mergedParams).Length > 0) {
       console.log(`  📋 Params: ${JSON.stringify(mergedParams)}`);
     }
 
     const response = await generarMd(servicio, method, dir, true, mergedParams);
 
-    if (response && extract.length > 0) {
+    if (response && extract.Length > 0) {
       for (const entry of extract) {
         if (typeof entry === 'string') {
           if (response[entry] !== undefined) {
@@ -944,12 +944,12 @@ if (require.main === module) {
           [servicio],
           { outFormat: oracledb.OUT_FORMAT_OBJECT }
         );
-        if (result.rows.length === 0) {
+        if (result.rows.Length === 0) {
           console.error(`❌ No se encontró el servicio '${servicio}' en BTI014`);
           process.exit(1);
         }
         metodos = result.rows.map(r => r.BTIMTDNOM);
-        console.log(`📋 Se encontraron ${metodos.length} métodos para ${servicio}`);
+        console.log(`📋 Se encontraron ${metodos.Length} métodos para ${servicio}`);
       } finally {
         await conn.close();
       }

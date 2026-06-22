@@ -22,15 +22,14 @@ title: Pay Member Group Installment
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-groupId | Int $<(length: 9)>$ | Identificador de grupo.
-date | Date | Fecha de cobro.
-memberPayments | [SdtsBTLOWPaymentOptionByMember](#sdtsbtlowpaymentoptionbymember) | Cobros por miembro.
+groupId | Int $<(Length: 9)>$ | Identificador de grupo.
 
 @tab Body
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-Completar manualmente | Completar manualmente | Completar manualmente 
+date | Date | Fecha de cobro.
+memberPayments | [SdtsBTLOWPaymentOptionByMember](#sdtsbtlowpaymentoptionbymember) | Cobros por miembro.
 
 @tab Datos de Salida
 
@@ -40,9 +39,7 @@ members | [SdtsBTMGMemberAccountingEntry](#sdtsbtmgmemberaccountingentry) | List
 
 @tab Errores
 
-Código | Descripción
-:--------- | :-----------
-Completar manualmente | Completar manualmente
+No aplica.
 
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -60,7 +57,7 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "TOKEN_AQUI"
+    "Token": "23B342928917607ECECF65BD"
   },
   "groupId": "35",
   "date": "",
@@ -91,17 +88,17 @@ Completar manualmente | Completar manualmente
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "TOKEN_AQUI"
+    "Token": "23B342928917607ECECF65BD"
   },
   "members": {
-        "member": [
-            {
-                "loanGUID": "b9422a07-a698-4189-b6f6-5d9fa257cac0",
-                "counterpartyGUID": "4100b799-9e33-44db-8312-6396cd2af91a",
-                "movementGUID": "543fbd4b-3ad1-4388-978b-edee17c4651e"
-            }
-        ]
-    },
+    "member": [
+        {
+          "loanGUID": "b9422a07-a698-4189-b6f6-5d9fa257cac0",
+          "counterpartyGUID": "4100b799-9e33-44db-8312-6396cd2af91a",
+          "movementGUID": "543fbd4b-3ad1-4388-978b-edee17c4651e"
+        }
+    ]
+  },
   "BusinessErrors": {
     "BusinessError": []
   },
@@ -131,13 +128,13 @@ Los campos del tipo de dato estructurado SdtsBTLOWPaymentOptionByMember son los 
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-amount | Double $<(length: 18.2)>$ | amount
-branchId | Int $<(length: 5)>$ | branchId
-counterpartyGUID | String $<(length: 36)>$ | counterpartyGUID
-currencyId | Short $<(length: 4)>$ | currencyId
-loanGUID | String $<(length: 36)>$ | loanGUID
-paymentId | Short $<(length: 3)>$ | paymentId
-savingAccountGUID | String $<(length: 36)>$ | savingAccountGUID
+amount | Double $<(Length: 18.2)>$ | Monto de la opción de pago.
+branchId | Int $<(Length: 5)>$ | Identificador de sucursal.
+counterpartyGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la contraparte.
+currencyId | Short $<(Length: 4)>$ | Identificador de moneda.
+loanGUID | String $<(Length: 36)>$ | GUID (identificador único global) del préstamo.
+paymentId | Short $<(Length: 3)>$ | Forma de cobro.
+savingAccountGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la cuenta de ahorros.
 :::
 
 ::: details SdtsBTMGMemberAccountingEntry
@@ -149,8 +146,8 @@ Los campos del tipo de dato estructurado SdtsBTMGMemberAccountingEntry son los s
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-counterpartyGUID | String $<(length: 36)>$ | GUID de contraparte.
-loanGUID | String $<(length: 36)>$ | Identificador único (GUID) del préstamo.
-movementGUID | String $<(length: 36)>$ | GUID del asiento contable.
+counterpartyGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la contraparte.
+loanGUID | String $<(Length: 36)>$ | GUID (identificador único global) del préstamo.
+movementGUID | String $<(Length: 36)>$ | GUID (identificador único global) del movimiento.
 :::
 <!-- CIERRA SDT -->

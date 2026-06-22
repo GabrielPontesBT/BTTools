@@ -22,58 +22,50 @@ title: Get Group Query
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-groupId | Int $<(length: 9)>$ | Identificador de grupo.
+groupId | Int $<(Length: 9)>$ | Identificador de grupo.
 queryDate | Date | Fecha de consulta.
-interestModality | Byte $<(length: 2)>$ | Modalidad de interés.
-queryMode | String $<(length: 3)>$ | Modo de consulta.
-includePayments | Boolean | ¿Incluir Pagos?
-includeFuturePayments | Boolean | ¿Incluir pagos futuros?
-
-@tab Body
-
-Nombre | Tipo | Comentarios
-:--------- | :--------- | :---------
-Completar manualmente | Completar manualmente | Completar manualmente 
+interestModality | Byte $<(Length: 2)>$ | Modalidad de interés.
+queryMode | String $<(Length: 3)>$ | Modo de consulta.
+includePayments | Boolean | Indica si se incluyen los pagos.
+includeFuturePayments | Boolean | Indica si se incluyen pagos futuros.
 
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-totalDebt | Double $<(length: 18.2)>$ | Deuda total.
-totalOfCapital | Double $<(length: 18.2)>$ | Total de capital.
-totalOfCapitalTaxes | Double $<(length: 18.2)>$ | Total de impuestos sobre capital.
-totalOfInterest | Double $<(length: 18.2)>$ | Total de interés.
-totalOfInterestTaxes | Double $<(length: 18.2)>$ | Total de impuestos sobre interés.
-totalOfDeferredInterest | Double $<(length: 18.2)>$ | Total de interés diferido.
-totalOfDeferredInterestTaxes | Double $<(length: 18.2)>$ | Total de impuestos sobre interés diferido.
-totalOfDistributedInterest | Double $<(length: 18.2)>$ | Total de interés distribuido.
-totalOfDistributedInterestTaxes | Double $<(length: 18.2)>$ | Total de impuestos sobre interés distribuido..
-totalOfInterestArrears | Double $<(length: 18.2)>$ | Total de interés por mora.
-totalOfInterestArrearsTaxes | Double $<(length: 18.2)>$ | Total de impuestos sobre interés por mora.
-totalOfInterestArrearsFees | Double $<(length: 18.2)>$ | Total de comisiones sobre interés por mora.
-totalOfCompensatoryInterest | Double $<(length: 18.2)>$ | Total de interés compensatorio.
-totalOfCompensatoryInterestFees | Double $<(length: 18.2)>$ | Total de comisiones sobre interés compensatorio.
-totalOfPunitiveInterest | Double $<(length: 18.2)>$ | Total de interés punitorio.
-totalOfPunitiveInterestFees | Double $<(length: 18.2)>$ | Total de comisiones sobre interés punitorio.
-totalOfTaxes | Double $<(length: 18.2)>$ | Total de impuestos.
-totalOfInsurances | Double $<(length: 18.2)>$ | Total de seguros.
-totalOfDistributedInsurances | Double $<(length: 18.2)>$ | Total de seguros distribuidos.
-totalOfConcessional | Double $<(length: 18.2)>$ | Total de montos concesionales.
-totalOfCapitalConcessional | Double $<(length: 18.2)>$ | Total de capital concesional.
-totalOfFees | Double $<(length: 18.2)>$ | Total de comisiones.
-totalTaxesOnFeesInQuotas | Double $<(length: 18.2)>$ | Total de impuestos sobre comisiones en cuotas.
-totalOfCancelationFee | Double $<(length: 18.2)>$ | Total de comisión por cancelación.
-totalOfTaxesInCancelationFee | Double $<(length: 18.2)>$ | Total de impuestos en comisión por cancelación.
-totalOfRoundOff | Double $<(length: 18.2)>$ | Total de redondeo.
-daysInArrears | Int $<(length: 9)>$ | Días de atraso.
-kindValue | Double $<(length: 15.8)>$ | Precio de especie.
-installmentSchedule | [SdtsBTLOWInstallment](#sdtsbtlowinstallment) | Lista de cuotas.
+totalDebt | Double $<(Length: 18.2)>$ | Deuda total.
+totalOfCapital | Double $<(Length: 18.2)>$ | Total de capital.
+totalOfCapitalTaxes | Double $<(Length: 18.2)>$ | Total de impuestos sobre capital.
+totalOfInterest | Double $<(Length: 18.2)>$ | Total de interés.
+totalOfInterestTaxes | Double $<(Length: 18.2)>$ | Total de impuestos sobre interés.
+totalOfDeferredInterest | Double $<(Length: 18.2)>$ | Total de interés diferido.
+totalOfDeferredInterestTaxes | Double $<(Length: 18.2)>$ | Total de impuestos sobre interés diferido.
+totalOfDistributedInterest | Double $<(Length: 18.2)>$ | Total de interés distribuido.
+totalOfDistributedInterestTaxes | Double $<(Length: 18.2)>$ | Total de impuestos sobre interés distribuido.
+totalOfInterestArrears | Double $<(Length: 18.2)>$ | Total de interés por mora.
+totalOfInterestArrearsTaxes | Double $<(Length: 18.2)>$ | Total de impuestos sobre interés por mora.
+totalOfInterestArrearsFees | Double $<(Length: 18.2)>$ | Total de comisiones sobre interés por mora.
+totalOfCompensatoryInterest | Double $<(Length: 18.2)>$ | Total de interés compensatorio.
+totalOfCompensatoryInterestFees | Double $<(Length: 18.2)>$ | Total de comisiones sobre interés compensatorio.
+totalOfPunitiveInterest | Double $<(Length: 18.2)>$ | Total de interés punitorio.
+totalOfPunitiveInterestFees | Double $<(Length: 18.2)>$ | Total de comisiones sobre interés punitorio.
+totalOfTaxes | Double $<(Length: 18.2)>$ | Total de impuestos.
+totalOfInsurances | Double $<(Length: 18.2)>$ | Total de seguros.
+totalOfDistributedInsurances | Double $<(Length: 18.2)>$ | Total de seguros distribuidos.
+totalOfConcessional | Double $<(Length: 18.2)>$ | Total de montos concesionales.
+totalOfCapitalConcessional | Double $<(Length: 18.2)>$ | Total de capital concesional.
+totalOfFees | Double $<(Length: 18.2)>$ | Total de comisiones.
+totalTaxesOnFeesInQuotas | Double $<(Length: 18.2)>$ | Total de impuestos sobre comisiones en cuotas.
+totalOfcancellationFee | Double $<(Length: 18.2)>$ | Total de comisión por cancelación.
+totalOfTaxesIncancellationFee | Double $<(Length: 18.2)>$ | Total de impuestos en comisión por cancelación.
+totalOfRoundOff | Double $<(Length: 18.2)>$ | Total de redondeo.
+daysInArrears | Int $<(Length: 9)>$ | Días de atraso.
+kindValue | Double $<(Length: 15.8)>$ | Precio de especie.
+installmentSchedule | [SdtsBTLOWInstallment](#sdtsbtlowinstallment) | Listado de cuotas.
 
 @tab Errores
 
-Código | Descripción
-:--------- | :-----------
-Completar manualmente | Completar manualmente
+No aplica.
 
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -140,8 +132,8 @@ Completar manualmente | Completar manualmente
   "totalOfCapitalConcessional": 0,
   "totalOfFees": 0,
   "totalTaxesOnFeesInQuotas": 0,
-  "totalOfCancelationFee": 0,
-  "totalOfTaxesInCancelationFee": 0,
+  "totalOfcancellationFee": 0,
+  "totalOfTaxesIncancellationFee": 0,
   "totalOfRoundOff": 0,
   "daysInArrears": 0,
   "kindValue": 0,
@@ -598,62 +590,62 @@ Los campos del tipo de dato estructurado SdtsBTLOWInstallment son los siguientes
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-ArrearDays | Int $<(length: 9)>$ | Días de mora.
-ArrearFee1 | Double $<(length: 18.2)>$ | Comisión por mora 1.
-ArrearFee2 | Double $<(length: 18.2)>$ | Comisión por mora 2.
-ArrearFee3 | Double $<(length: 18.2)>$ | Comisión por mora 3.
-ArrearInterest | Double $<(length: 18.2)>$ | Interés de mora.
-ArrearTax | Double $<(length: 18.2)>$ | Impuesto sobre mora.
-Capital | Double $<(length: 18.2)>$ | Capital.
-CapitalConcessional | Double $<(length: 18.2)>$ | Capital concesional.
-CapitalTax | Double $<(length: 18.2)>$ | Impuesto sobre capital.
-CompensatoryInterest | Double $<(length: 18.2)>$ | Interés compensatorio.
-CompensatoryInterestTax | Double $<(length: 18.2)>$ | Impuesto sobre interés compensatorio.
-Concessional | Double $<(length: 18.2)>$ | Concesional.
-DecimalsNumber | Byte $<(length: 1)>$ | Número de decimales.
-DefaultDate | Date $<(length: 8)>$ | Fecha de incumplimiento.
-DeferredInterests | Double $<(length: 18.2)>$ | Intereses diferidos.
-DeferredInterestTax1 | Double $<(length: 18.2)>$ | Impuesto de interés diferido 1.
-DeferredInterestTax2 | Double $<(length: 18.2)>$ | Impuesto de interés diferido 2.
-DeferredInterestTax3 | Double $<(length: 18.2)>$ | Impuesto de interés diferido 3.
-DistributedInsurance1 | Double $<(length: 18.2)>$ | Seguro distribuido 1.
-DistributedInsurance2 | Double $<(length: 18.2)>$ | Seguro distribuido 2.
-DistributedInterest | Double $<(length: 18.2)>$ | Interés distribuido.
-DistributedInterestTax1 | Double $<(length: 18.2)>$ | Impuesto de interés distribuido 1.
-DistributedInterestTax2 | Double $<(length: 18.2)>$ | Impuesto de interés distribuido 2.
-DistributedInterestTax3 | Double $<(length: 18.2)>$ | Impuesto de interés distribuido 3.
-EndDate | Date $<(length: 8)>$ | Fecha de fin.
-ExtendsTerm | Boolean $<(length: 1)>$ | Extiende plazo.
+ArrearDays | Int $<(Length: 9)>$ | Días de mora.
+ArrearFee1 | Double $<(Length: 18.2)>$ | Comisión por mora 1.
+ArrearFee2 | Double $<(Length: 18.2)>$ | Comisión por mora 2.
+ArrearFee3 | Double $<(Length: 18.2)>$ | Comisión por mora 3.
+ArrearInterest | Double $<(Length: 18.2)>$ | Interés de mora.
+ArrearTax | Double $<(Length: 18.2)>$ | Impuesto sobre mora.
+Capital | Double $<(Length: 18.2)>$ | Capital.
+CapitalConcessional | Double $<(Length: 18.2)>$ | Capital concesional.
+CapitalTax | Double $<(Length: 18.2)>$ | Impuesto sobre capital.
+CompensatoryInterest | Double $<(Length: 18.2)>$ | Interés compensatorio.
+CompensatoryInterestTax | Double $<(Length: 18.2)>$ | Impuesto sobre interés compensatorio.
+Concessional | Double $<(Length: 18.2)>$ | Concesional.
+DecimalsNumber | Byte $<(Length: 1)>$ | Número de decimales.
+DefaultDate | Date $<(Length: 8)>$ | Fecha de incumplimiento.
+DeferredInterests | Double $<(Length: 18.2)>$ | Intereses diferidos.
+DeferredInterestTax1 | Double $<(Length: 18.2)>$ | Impuesto de interés diferido 1.
+DeferredInterestTax2 | Double $<(Length: 18.2)>$ | Impuesto de interés diferido 2.
+DeferredInterestTax3 | Double $<(Length: 18.2)>$ | Impuesto de interés diferido 3.
+DistributedInsurance1 | Double $<(Length: 18.2)>$ | Seguro distribuido 1.
+DistributedInsurance2 | Double $<(Length: 18.2)>$ | Seguro distribuido 2.
+DistributedInterest | Double $<(Length: 18.2)>$ | Interés distribuido.
+DistributedInterestTax1 | Double $<(Length: 18.2)>$ | Impuesto de interés distribuido 1.
+DistributedInterestTax2 | Double $<(Length: 18.2)>$ | Impuesto de interés distribuido 2.
+DistributedInterestTax3 | Double $<(Length: 18.2)>$ | Impuesto de interés distribuido 3.
+EndDate | Date $<(Length: 8)>$ | Fecha de fin.
+ExtendsTerm | Boolean $<(Length: 1)>$ | Extiende plazo.
 Fees | [SdtsBTLOWFee](#sdtsbtlowfee) | Comisiones.
-FeeTotal | Double $<(length: 18.2)>$ | Total de comisiones.
-GraceInQuota | Boolean $<(length: 1)>$ | Gracia en cuota.
-GraceReach | String $<(length: 1)>$ | Tipo de gracia.
-InArrear | Boolean $<(length: 1)>$ | En mora.
-InitialDate | Date $<(length: 8)>$ | Fecha inicial.
+FeeTotal | Double $<(Length: 18.2)>$ | Total de comisiones.
+GraceInQuota | Boolean $<(Length: 1)>$ | Gracia en cuota.
+GraceReach | String $<(Length: 1)>$ | Tipo de gracia.
+InArrear | Boolean $<(Length: 1)>$ | En mora.
+InitialDate | Date $<(Length: 8)>$ | Fecha inicial.
 InstallmentNumber | Short | Número de cuota.
-InstallmentType | String $<(length: 1)>$ | Tipo de cuota.
-InstallmentValue | Double $<(length: 18.2)>$ | Valor de la cuota.
+InstallmentType | String $<(Length: 1)>$ | Tipo de cuota.
+InstallmentValue | Double $<(Length: 18.2)>$ | Valor de la cuota.
 Insurances | [SdtsBTLOWInsurance](#sdtsbtlowinsurance) | Seguros.
-InsurancesTotal | Double $<(length: 18.2)>$ | Total de seguros.
-Interest | Double $<(length: 18.2)>$ | Interés.
-InterestTax1 | Double $<(length: 18.2)>$ | Impuesto de interés 1.
-InterestTax2 | Double $<(length: 18.2)>$ | Impuesto de interés 2.
-InterestTax3 | Double $<(length: 18.2)>$ | Impuesto de interés 3.
-InversePlannedPaymentDate | Int $<(length: 8)>$ | Fecha prevista de pago inversa.
+InsurancesTotal | Double $<(Length: 18.2)>$ | Total de seguros.
+Interest | Double $<(Length: 18.2)>$ | Interés.
+InterestTax1 | Double $<(Length: 18.2)>$ | Impuesto de interés 1.
+InterestTax2 | Double $<(Length: 18.2)>$ | Impuesto de interés 2.
+InterestTax3 | Double $<(Length: 18.2)>$ | Impuesto de interés 3.
+InversePlannedPaymentDate | Int $<(Length: 8)>$ | Fecha prevista de pago inversa.
 Payments | [SdtsBTLOWPayment](#sdtsbtlowpayment) | Pagos.
-PlannedPaymentDate | Date $<(length: 8)>$ | Fecha prevista de pago.
-PunitiveInterest | Double $<(length: 18.2)>$ | Interés punitorio.
-PunitiveInterestTax | Double $<(length: 18.2)>$ | Impuesto sobre interés punitorio.
-RoundOff | Double $<(length: 18.2)>$ | Redondeo.
-StatusId | String $<(length: 1)>$ | Identificador de estado.
-SubTotal | Double $<(length: 18.2)>$ | Subtotal.
-Subvention1 | Double $<(length: 18.2)>$ | Subvención 1.
-Subvention2 | Double $<(length: 18.2)>$ | Subvención 2.
-Subvention3 | Double $<(length: 18.2)>$ | Subvención 3.
-Taxes | Double $<(length: 18.2)>$ | Impuestos.
-TaxWithoutSubvention | Double $<(length: 18.2)>$ | Impuesto sin subvención.
-Term | Int $<(length: 5)>$ | Plazo.
-Total | Double $<(length: 18.2)>$ | Total.
+PlannedPaymentDate | Date $<(Length: 8)>$ | Fecha prevista de pago.
+PunitiveInterest | Double $<(Length: 18.2)>$ | Interés punitorio.
+PunitiveInterestTax | Double $<(Length: 18.2)>$ | Impuesto sobre interés punitorio.
+RoundOff | Double $<(Length: 18.2)>$ | Redondeo.
+StatusId | String $<(Length: 1)>$ | Identificador de estado.
+SubTotal | Double $<(Length: 18.2)>$ | Subtotal.
+Subvention1 | Double $<(Length: 18.2)>$ | Subvención 1.
+Subvention2 | Double $<(Length: 18.2)>$ | Subvención 2.
+Subvention3 | Double $<(Length: 18.2)>$ | Subvención 3.
+Taxes | Double $<(Length: 18.2)>$ | Impuestos.
+TaxWithoutSubvention | Double $<(Length: 18.2)>$ | Impuesto sin subvención.
+Term | Int $<(Length: 5)>$ | Plazo.
+Total | Double $<(Length: 18.2)>$ | Total.
 :::
 
 ::: details SdtsBTLOWFee
@@ -665,25 +657,25 @@ Los campos del tipo de dato estructurado SdtsBTLOWFee son los siguientes:
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-Amount | Double | Monto.
+Amount | Double | Monto de la comisión.
 AppliesToDisbursement | Boolean | Aplica al desembolso.
 CalculationBase | String | Base de cálculo.
-ChargeBase | String | Base imponible del cargo.
-Description | String | Descripción.
+ChargeBase | String | Base de cargo.
+Description | String | Descripción de la comisión.
 DistributionForm | String | Forma de distribución.
 Enabled | Boolean | Habilitado.
 ExcludesCapitalization | Boolean | Excluye capitalización.
 FeeId | Int | Identificador de comisión.
-FeeTypeId | String | Tipo de comisión.
+FeeTypeId | String | Identificador del tipo de comisión.
 MaximumAmount | Double | Monto máximo.
 MinimumAmount | Double | Monto mínimo.
-Modifiable | Boolean | Editable.
+Modifiable | Boolean | Modificable.
 ModificationType | Byte | Tipo de modificación.
 Modified | Boolean | Modificado.
 Percentage | Double | Porcentaje.
 SuggestsAmount | Double | Monto sugerido.
 Tax | Double | Impuesto.
-Total | Double | Total
+Total | Double | Total.
 TotalAmount | Double | Monto total.
 :::
 
@@ -696,24 +688,24 @@ Los campos del tipo de dato estructurado SdtsBTLOWInsurance son los siguientes:
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-AddedAmount | Double | Monto adicional.
+AddedAmount | Double | Monto agregado.
 AllowsModification | Boolean | Permite modificación.
 AssociatesInsurancePolicy | Boolean | Asocia póliza de seguro.
-ChargeTypeId | String | Identificador de tipo de cargo.
+ChargeTypeId | String | Identificador del tipo de cobro.
 CommercialValue | Double | Valor comercial.
-Description | String $<(length: 40)>$ | Descripción.
-Description | String | Descripción
+Description | String $<(Length: 40)>$ | Descripción del seguro.
+Description | String | Descripción del seguro.
 ExtraPremium | Double | Prima adicional.
-Id | Int $<(length: 9)>$ | Identificador
-Id | Int | Identificador
-ManagesExtraPremium | Boolean | Maneja prima adicional.
-Modified | Boolean | Modificado
+Id | Int $<(Length: 9)>$ | Identificador del seguro.
+Id | Int | Identificador del seguro.
+ManagesExtraPremium | Boolean | Gestiona prima adicional.
+Modified | Boolean | Modificado.
 PercentageModified | Double | Porcentaje modificado.
-PolicyEndDate | Date | Fecha de vencimiento de póliza
+PolicyEndDate | Date | Fecha de fin de póliza.
 PolicyNumber | String | Número de póliza.
-PolicyStartDate | Date | Fecha de inicio de póliza
-Total | Double | Total
-Total | Double $<(length: 18.2)>$ | Total
+PolicyStartDate | Date | Fecha de inicio de póliza.
+Total | Double | Total.
+Total | Double $<(Length: 18.2)>$ | Total.
 :::
 
 ::: details SdtsBTLOWPayment
@@ -725,52 +717,52 @@ Los campos del tipo de dato estructurado SdtsBTLOWPayment son los siguientes:
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-AccountBalance | Double $<(length: 18.2)>$ | Saldo contable.
-ArrearFee1 | Double $<(length: 18.2)>$ | Comisión por mora 1.
-ArrearFee2 | Double $<(length: 18.2)>$ | Comisión por mora 2.
-ArrearFee3 | Double $<(length: 18.2)>$ | Comisión por mora 3.
-ArrearInterest | Double $<(length: 18.2)>$ | Interés de mora.
-ArrearRate | Double $<(length: 11.6)>$ | Tasa de mora.
-ArrearTax | Double $<(length: 18.2)>$ | Impuesto sobre mora.
-Capital | Double $<(length: 18.2)>$ | Capital.
-CapitalConcessional | Double $<(length: 18.2)>$ | Capital concesional.
-CapitalTax | Double $<(length: 18.2)>$ | Impuesto sobre capital.
-CompensatoryInterest | Double $<(length: 18.2)>$ | Interés compensatorio.
-CompensatoryInterestTax | Double $<(length: 18.2)>$ | Impuesto sobre interés compensatorio.
-Concessional | Double $<(length: 18.2)>$ | Concesional.
-DeferredInterest | Double $<(length: 18.2)>$ | Interés diferido.
-DeferredInterestTax1 | Double $<(length: 18.2)>$ | Impuesto de interés diferido 1.
-DeferredInterestTax2 | Double $<(length: 18.2)>$ | Impuesto de interés diferido 2.
-DeferredInterestTax3 | Double $<(length: 18.2)>$ | Impuesto de interés diferido 3.
-DistributedInsurance1 | Double $<(length: 18.2)>$ | Seguro distribuido 1.
-DistributedInsurance2 | Double $<(length: 18.2)>$ | Seguro distribuido 2.
-DistributedInterest | Double $<(length: 18.2)>$ | Interés distribuido.
-DistributedInterestTax1 | Double $<(length: 18.2)>$ | Impuesto de interés distribuido 1.
-DistributedInterestTax2 | Double $<(length: 18.2)>$ | Impuesto de interés distribuido 2.
-DistributedInterestTax3 | Double $<(length: 18.2)>$ | Impuesto de interés distribuido 3.
+AccountBalance | Double $<(Length: 18.2)>$ | Saldo contable.
+ArrearFee1 | Double $<(Length: 18.2)>$ | Comisión por mora 1.
+ArrearFee2 | Double $<(Length: 18.2)>$ | Comisión por mora 2.
+ArrearFee3 | Double $<(Length: 18.2)>$ | Comisión por mora 3.
+ArrearInterest | Double $<(Length: 18.2)>$ | Interés de mora.
+ArrearRate | Double $<(Length: 11.6)>$ | Tasa de mora.
+ArrearTax | Double $<(Length: 18.2)>$ | Impuesto sobre mora.
+Capital | Double $<(Length: 18.2)>$ | Capital.
+CapitalConcessional | Double $<(Length: 18.2)>$ | Capital concesional.
+CapitalTax | Double $<(Length: 18.2)>$ | Impuesto sobre capital.
+CompensatoryInterest | Double $<(Length: 18.2)>$ | Interés compensatorio.
+CompensatoryInterestTax | Double $<(Length: 18.2)>$ | Impuesto sobre interés compensatorio.
+Concessional | Double $<(Length: 18.2)>$ | Concesional.
+DeferredInterest | Double $<(Length: 18.2)>$ | Interés diferido.
+DeferredInterestTax1 | Double $<(Length: 18.2)>$ | Impuesto de interés diferido 1.
+DeferredInterestTax2 | Double $<(Length: 18.2)>$ | Impuesto de interés diferido 2.
+DeferredInterestTax3 | Double $<(Length: 18.2)>$ | Impuesto de interés diferido 3.
+DistributedInsurance1 | Double $<(Length: 18.2)>$ | Seguro distribuido 1.
+DistributedInsurance2 | Double $<(Length: 18.2)>$ | Seguro distribuido 2.
+DistributedInterest | Double $<(Length: 18.2)>$ | Interés distribuido.
+DistributedInterestTax1 | Double $<(Length: 18.2)>$ | Impuesto de interés distribuido 1.
+DistributedInterestTax2 | Double $<(Length: 18.2)>$ | Impuesto de interés distribuido 2.
+DistributedInterestTax3 | Double $<(Length: 18.2)>$ | Impuesto de interés distribuido 3.
 Fees | [SdtsBTLOWFee](#sdtsbtlowfee) | Comisiones.
-FeeTotal | Double $<(length: 18.2)>$ | Total de comisiones.
-InstallmentNumber | Int $<(length: 5)>$ | Número de cuota.
-InstallmentType | String $<(length: 1)>$ | Tipo de cuota.
+FeeTotal | Double $<(Length: 18.2)>$ | Total de comisiones.
+InstallmentNumber | Int $<(Length: 5)>$ | Número de cuota.
+InstallmentType | String $<(Length: 1)>$ | Tipo de cuota.
 Insurances | [SdtsBTLOWInsurance](#sdtsbtlowinsurance) | Seguros.
-InsurancesTotal | Double $<(length: 18.2)>$ | Total de seguros.
-Interest | Double $<(length: 18.2)>$ | Interés.
-InterestModality | Byte $<(length: 2)>$ | Modalidad de interés.
-InterestTax1 | Double $<(length: 18.2)>$ | Impuesto de interés 1.
-InterestTax2 | Double $<(length: 18.2)>$ | Impuesto de interés 2.
-InterestTax3 | Double $<(length: 18.2)>$ | Impuesto de interés 3.
-MovementGUID | String | GUID del movimiento.
-PaymentDate | Date $<(length: 8)>$ | Fecha de pago.
+InsurancesTotal | Double $<(Length: 18.2)>$ | Total de seguros.
+Interest | Double $<(Length: 18.2)>$ | Interés.
+InterestModality | Byte $<(Length: 2)>$ | Modalidad de interés.
+InterestTax1 | Double $<(Length: 18.2)>$ | Impuesto de interés 1.
+InterestTax2 | Double $<(Length: 18.2)>$ | Impuesto de interés 2.
+InterestTax3 | Double $<(Length: 18.2)>$ | Impuesto de interés 3.
+MovementGUID | String | GUID (identificador único global) del movimiento.
+PaymentDate | Date $<(Length: 8)>$ | Fecha de pago.
 PaymentNumber | Short | Número de pago.
-PlannedPaymentDate | Date $<(length: 8)>$ | Fecha prevista de pago.
-PunitiveInterest | Double $<(length: 18.2)>$ | Interés punitorio.
-PunitiveInterestTax | Double $<(length: 18.2)>$ | Impuesto sobre interés punitorio.
-RoundOff | Double $<(length: 18.2)>$ | Redondeo.
-StatusId | String $<(length: 1)>$ | Identificador de estado.
-Subvention1 | Double $<(length: 18.2)>$ | Subvención 1.
-Subvention2 | Double $<(length: 18.2)>$ | Subvención 2.
-Subvention3 | Double $<(length: 18.2)>$ | Subvención 3.
-Taxes | Double $<(length: 18.2)>$ | Impuestos.
-Total | Double $<(length: 18.2)>$ | Total.
+PlannedPaymentDate | Date $<(Length: 8)>$ | Fecha prevista de pago.
+PunitiveInterest | Double $<(Length: 18.2)>$ | Interés punitorio.
+PunitiveInterestTax | Double $<(Length: 18.2)>$ | Impuesto sobre interés punitorio.
+RoundOff | Double $<(Length: 18.2)>$ | Redondeo.
+StatusId | String $<(Length: 1)>$ | Identificador de estado.
+Subvention1 | Double $<(Length: 18.2)>$ | Subvención 1.
+Subvention2 | Double $<(Length: 18.2)>$ | Subvención 2.
+Subvention3 | Double $<(Length: 18.2)>$ | Subvención 3.
+Taxes | Double $<(Length: 18.2)>$ | Impuestos.
+Total | Double $<(Length: 18.2)>$ | Total.
 :::
 <!-- CIERRA SDT -->

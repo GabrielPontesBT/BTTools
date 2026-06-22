@@ -22,17 +22,16 @@ title: Add Intercycle Member
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-groupId | Int $<(length: 9)>$ | Identificador de grupo.
-memberSimulationInput | [SdtsBTMGMemberSimulationIn](#sdtsbtmgmembersimulationin) | Datos de entrada para simular un integrante.
-keepInsurancesFees | Boolean | Mantiene los seguros del preseteo.
-insurancesInput | [SdtsBTLOInsuranceIn](#sdtsbtloinsurancein) | Listado de seguros de entrada que se consideran al simular.
-disbursementOptions | [SdtsBTLOWDisbursementOption](#sdtsbtlowdisbursementoption) | Listado de opciones de desembolso.
+groupId | Int $<(Length: 9)>$ | Identificador de grupo.
 
 @tab Body
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-Completar manualmente | Completar manualmente | Completar manualmente 
+memberSimulationInput | [SdtsBTMGMemberSimulationIn](#sdtsbtmgmembersimulationin) | Datos de entrada para simular un integrante.
+keepInsurancesFees | Boolean | Indica si se mantienen los seguros del preseteo.
+insurancesInput | [SdtsBTLOInsuranceIn](#sdtsbtloinsurancein) | Listado de seguros de entrada para la simulación.
+disbursementOptions | [SdtsBTLOWDisbursementOption](#sdtsbtlowdisbursementoption) | Listado de opciones de desembolso.
 
 @tab Datos de Salida
 
@@ -110,16 +109,19 @@ No aplica.
     "Usuario": "INSTALADOR",
     "Device": "INSTALADOR",
     "Requerimiento": "1",
-    "Token": "23B342928917607ECECF65BD"
+    "Token": "TOKEN_AQUI"
   },
-  "BusinessErrors": {
-    "BusinessError": []
+  "accountingEntry": {
+    "counterpartyGUID": "0b4dc6b9-388c-44b9-b637-a03f66111fb3",
+    "loanGUID": "a157764e-8d23-44a9-8fa6-9392608c9e4d",
+    "movementGUID": "c35e28db-0fcd-451e-9cfd-e4b24791662a"
   },
+  "BusinessErrors": "",
   "Btoutreq": {
     "Estado": "OK",
-    "Fecha": "",
-    "Hora": "",
-    "Numero": 0,
+    "Fecha": "2026-01-01",
+    "Hora": "00:00:00",
+    "Numero": "00000000",
     "Servicio": "PublicLoans.addIntercycleMember",
     "Requerimiento": "1",
     "Canal": "BTDIGITAL"
@@ -141,12 +143,12 @@ Los campos del tipo de dato estructurado SdtsBTMGMemberSimulationIn son los sigu
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-counterpartyGUID | String $<(length: 36)>$ | GUID de contraparte.
+counterpartyGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la contraparte.
 disbursementDate | Date | Fecha de desembolso.
-firstPaymentDate | Date | Fecha de primer pago.
-memberTypeId | Byte $<(length: 2)>$ | Tipo de integrante.
-rate | Double $<(length: 11.6)>$ | Tasa.
-requestedLoanAmount | Double $<(length: 18.2)>$ | Monto de préstamo solicitado.
+firstPaymentDate | Date | Fecha del primer pago.
+memberTypeId | Byte $<(Length: 2)>$ | Identificador del tipo de miembro.
+rate | Double $<(Length: 11.6)>$ | Tasa.
+requestedLoanAmount | Double $<(Length: 18.2)>$ | Monto de préstamo solicitado.
 :::
 
 ::: details SdtsBTLOInsuranceIn
@@ -158,13 +160,13 @@ Los campos del tipo de dato estructurado SdtsBTLOInsuranceIn son los siguientes:
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-amount | Double $<(length: 18.2)>$ | Monto agregado.
-commercialValue | Double $<(length: 18.2)>$ | Valor comercial.
-extraPremium | Double $<(length: 11.6)>$ | Prima adicional.
-insuranceId | Int $<(length: 9)>$ | Identificador de seguro.
-percentage | Double $<(length: 11.6)>$ | Porcentaje modificado.
+amount | Double $<(Length: 18.2)>$ | Monto del seguro.
+commercialValue | Double $<(Length: 18.2)>$ | Valor comercial.
+extraPremium | Double $<(Length: 11.6)>$ | Prima adicional.
+insuranceId | Int $<(Length: 9)>$ | Identificador de seguro.
+percentage | Double $<(Length: 11.6)>$ | Porcentaje.
 policyEndDate | Date | Fecha de fin de póliza.
-policyNumber | String $<(length: 20)>$ | Número de póliza.
+policyNumber | String $<(Length: 20)>$ | Número de póliza.
 policyStartDate | Date | Fecha de inicio de póliza.
 :::
 
@@ -177,12 +179,12 @@ Los campos del tipo de dato estructurado SdtsBTLOWDisbursementOption son los sig
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-amount | Double $<(length: 18.2)>$ | amount
-branchId | Int $<(length: 5)>$ | branchId
-counterpartyGUID | String $<(length: 36)>$ | counterpartyGUID
-currencyId | Short $<(length: 4)>$ | currencyId
-disbursementId | Short $<(length: 3)>$ | disbursementId
-savingAccountGUID | String $<(length: 36)>$ | savingAccountGUID
+amount | Double $<(Length: 18.2)>$ | Monto de la opción de desembolso.
+branchId | Int $<(Length: 5)>$ | Identificador de sucursal.
+counterpartyGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la contraparte.
+currencyId | Short $<(Length: 4)>$ | Identificador de moneda.
+disbursementId | Short $<(Length: 3)>$ | Identificador de desembolso.
+savingAccountGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la cuenta de ahorros.
 :::
 
 ::: details SdtsBTMGMemberAccountingEntry
@@ -194,8 +196,8 @@ Los campos del tipo de dato estructurado SdtsBTMGMemberAccountingEntry son los s
 
 Nombre | Tipo | Comentarios
 :--------- | :----------- | :-----------
-counterpartyGUID | String $<(length: 36)>$ | GUID de contraparte.
-loanGUID | String $<(length: 36)>$ | Identificador único (GUID) del préstamo.
-movementGUID | String $<(length: 36)>$ | GUID del asiento contable.
+counterpartyGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la contraparte.
+loanGUID | String $<(Length: 36)>$ | GUID (identificador único global) del préstamo.
+movementGUID | String $<(Length: 36)>$ | GUID (identificador único global) del movimiento.
 :::
 <!-- CIERRA SDT -->
