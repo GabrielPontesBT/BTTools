@@ -7,7 +7,7 @@
 require('dotenv').config();
 const sql = require('mssql');
 const fs = require('fs');
-const { generarMd } = require('./generar_md.js');
+const { generarMd } = require('./v3.js');
 
 const DB_CONFIG = {
   server: process.env.DB_SERVER,

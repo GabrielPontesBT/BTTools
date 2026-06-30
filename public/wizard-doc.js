@@ -142,25 +142,25 @@ function updateStepLabels(action) {
 }
 
 function vizPos(step) {
-  if (S.action === 'validate') {
-    return step === 1 ? 1 : 2; // action→1, validate panel→2
+  if (S.action === 'validate' || S.action === 'collections') {
+    return step === 1 ? 1 : 2; // action→1, panel→2
   }
   return step; // doc/scripts: 1-5 direct (step 6 success has no active dot)
 }
 
 function dots(step) {
   var pos = vizPos(step);
-  var isValidate = S.action === 'validate';
+  var isSingle = S.action === 'validate' || S.action === 'collections';
 
-  // Para validate: d2 = "Validar", ocultar d3..d5; para otros: d2 = "Versión"
+  // Para validate/collections: d2 = label, ocultar d3..d5; para otros: d2 = "Versión"
   var lb2 = document.getElementById('lb2');
-  if (lb2) lb2.textContent = isValidate ? 'Validar' : 'Versión';
+  if (lb2) lb2.textContent = S.action === 'validate' ? 'Validar' : S.action === 'collections' ? 'Collections' : 'Versión';
   ['d3','d4','d5','l2','l3','l4'].forEach(function(id) {
     var el = document.getElementById(id);
-    if (el) el.style.display = isValidate ? 'none' : '';
+    if (el) el.style.display = isSingle ? 'none' : '';
   });
 
-  var maxDot = isValidate ? 2 : 5;
+  var maxDot = isSingle ? 2 : 5;
   [1,2,3,4,5].forEach(function(i) {
     var d = document.getElementById('d' + i);
     if (!d) return;
@@ -179,6 +179,7 @@ function panelId(step) {
   if (step === 2) return 'p1'; // versión
   if (step === 3) return 'p2'; // conexión
   if (S.action === 'validate') return 'p4v';
+  if (S.action === 'collections') return 'p4c';
   if (S.action === 'scripts') return step === 4 ? 'p4s' : 'p5s';
   return 'p' + step; // doc: p4, p5, p6
 }
@@ -224,7 +225,7 @@ function foot(step) {
   } else if (step === 3) { // conexión
     ftr.innerHTML = '<button class="btn btn-outline" id="btn-test" onclick="testConn()">Probar conexión</button>&nbsp;&nbsp;' +
       '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (_connOk ? '' : ' disabled') + '>Siguiente &#8594;</button>';
-  } else if (step === 4 && S.action === 'validate') {
+  } else if (step === 4 && (S.action === 'validate' || S.action === 'collections')) {
     ftr.innerHTML = '';
   } else if (step === 4 && S.action === 'scripts') {
     ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()" disabled>Generar script &#8594;</button>';
@@ -242,7 +243,7 @@ function foot(step) {
 function goNext() {
   var s = S.step;
   if (s === 1 && !S.action) return;
-  if (s === 1 && S.action === 'validate') { show(4); return; } // saltar versión y conexión
+  if (s === 1 && (S.action === 'validate' || S.action === 'collections')) { show(4); return; } // saltar versión y conexión
   if (s === 1) { show(2); return; }
   if (s === 2 && !S.version) return;
   if (s === 2) { show(3); return; }
@@ -259,7 +260,7 @@ function goNext() {
 
 function goBack() {
   var s = S.step;
-  if (s === 4 && S.action === 'validate') { show(1); return; } // saltar versión y conexión
+  if (s === 4 && (S.action === 'validate' || S.action === 'collections')) { show(1); return; } // saltar versión y conexión
   if (s === 4) { show(3); return; }
   if (s === 5 && S.action === 'scripts') { show(4); return; }
   if (s > 1) show(s - 1);

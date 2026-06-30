@@ -7,7 +7,7 @@
 require('dotenv').config();
 const oracledb = require('oracledb');
 const fs = require('fs');
-const { generarMd } = require('./generar_md.js');
+const { generarMd } = require('./v4.js');
 
 const toFolderName = s => s
   .replace(/^Public/, '')

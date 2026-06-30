@@ -11,7 +11,7 @@ const http = require('http');
 
 // ── VALIDACION DE ENTORNO ─────────────────────────────────────
 (function validarEntorno() {
-  if (!fs.existsSync(__dirname + '/.env')) {
+  if (!fs.existsSync(require('path').join(process.cwd(), '.env'))) {
     console.error('\n❌  Falta el archivo .env en esta carpeta.');
     console.error('   Ejecuta "node setup.js" desde la raiz del proyecto para configurarlo,');
     console.error('   o copia .env.example y editalo con tus datos.\n');
