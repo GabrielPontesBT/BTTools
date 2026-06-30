@@ -131,7 +131,7 @@ if not exist "%SHORTCUT%" (
 curl -sf http://localhost:3777 >nul 2>&1
 if %errorlevel% == 0 goto abrir
 
-start "Herramienta Bantotal" /min node setup.js
+powershell -WindowStyle Hidden -NoProfile -Command "Start-Process -FilePath 'node' -ArgumentList 'setup.js' -WorkingDirectory '%CD%' -WindowStyle Hidden"
 
 set /a intentos=0
 :esperar

@@ -1,6 +1,6 @@
 [
   {
-    "id": "1781881278764",
+    "id": "1782167130470",
     "key": "V4|ora|10.0.0.4:1521/btv4db|BTDESAV23CPA",
     "version": "V4",
     "platform": "oracle",
@@ -10,6 +10,6 @@
       "password": "CPAbtv23",
       "connectString": "10.0.0.4:1521/btv4db"
     },
-    "savedAt": "2026-06-19T15:01:18.764Z"
+    "savedAt": "2026-06-24T15:13:27.334Z"
   }
 ]
