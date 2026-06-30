@@ -353,6 +353,50 @@ function validarParametrosContraEjemplo(campos, jsonEjemplo, camposIgnorados, sd
   return problemas;
 }
 
+function detectarSdtsAnidados(contenido) {
+  const problemas = [];
+
+  const detailsRegex = /^::: details (\w+)/gim;
+  const bloques = [];
+  let m;
+  while ((m = detailsRegex.exec(contenido)) !== null) {
+    bloques.push({ pos: m.index, nombre: m[1] });
+  }
+
+  for (let i = 0; i < bloques.length; i++) {
+    const inicio = bloques[i].pos;
+    const fin = i + 1 < bloques.length ? bloques[i + 1].pos : contenido.length;
+    const bloque = contenido.slice(inicio, fin);
+
+    const sdtDefRegex = /Los campos del tipo de dato estructurado (\w+) son los siguientes:/gi;
+    const defs = [];
+    let sm;
+    while ((sm = sdtDefRegex.exec(bloque)) !== null) {
+      defs.push(sm[1]);
+    }
+
+    if (defs.length > 1) {
+      const anidados = defs.slice(1);
+      problemas.push(`❌ Bloque "::: details ${bloques[i].nombre}" contiene SDT(s) anidado(s): ${anidados.join(', ')} — cada SDT debe ser un bloque ::: details independiente`);
+    }
+  }
+
+  // SDT definitions outside any ::: details block
+  const limiteInicio = bloques.length > 0 ? bloques[0].pos : contenido.length;
+  const antesDelPrimero = contenido.slice(0, limiteInicio);
+  const sdtFueraRegex = /Los campos del tipo de dato estructurado (\w+) son los siguientes:/gi;
+  const sdtFuera = [];
+  let sf;
+  while ((sf = sdtFueraRegex.exec(antesDelPrimero)) !== null) {
+    sdtFuera.push(sf[1]);
+  }
+  if (sdtFuera.length > 0) {
+    problemas.push(`❌ SDT(s) definido(s) fuera de un bloque ::: details: ${sdtFuera.join(', ')} — cada SDT debe tener su propio bloque ::: details`);
+  }
+
+  return problemas;
+}
+
 function validarArchivo(filePath) {
   const contenido = fs.readFileSync(filePath, 'utf8');
   const nombre = path.basename(filePath);
@@ -404,6 +448,9 @@ function validarArchivo(filePath) {
   if (tabsConSdtInline.length > 0) {
     problemas.push(`❌ Definiciones de SDT inline en tab(s) ${tabsConSdtInline.join(', ')} — deben estar al final del documento en bloques ::: details`);
   }
+
+  // SDTs anidados dentro de otros bloques ::: details
+  problemas.push(...detectarSdtsAnidados(contenido));
 
   // Tipos SDT en tablas sin hipervínculo [Nombre](#anchor)
   const sdtSinLink = new Set();
