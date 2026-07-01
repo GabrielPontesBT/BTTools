@@ -557,3 +557,240 @@ test('validarArchivo detecta cuando el campo SDT está en ALGUNOS items del arra
   );
   fs.rmSync(path.dirname(filePath), { recursive: true, force: true });
 });
+
+// ── Campo SDT faltante que es en sí mismo OTRO SDT (colección anidada) ──
+//
+// Reproduce el caso real reportado en ObtenerProductos.md: el SDT sBTProducto
+// documenta un campo "otrosConceptos" cuyo TIPO es otro SDT (sBTConcepto), no un
+// tipo simple. Cuando ese campo falta en el ejemplo, insertar "REVISAR" como
+// string plano es incorrecto — hay que insertar un objeto/tag con los propios
+// sub-campos de sBTConcepto (concepto, texto, valor), cada uno con su default.
+
+function mdConSdtAnidadoEnCampo(sdtProductoEsLista) {
+  const jsonProducto = sdtProductoEsLista
+    ? [
+        '  "sdtProductos": {',
+        '    "sBTProducto": [',
+        '      { "productoUId": "12", "nombre": "Producto A" },',
+        '      { "productoUId": "13", "nombre": "Producto B" }',
+        '    ]',
+        '  },'
+      ].join('\n')
+    : '  "producto": { "productoUId": "12", "nombre": "Producto A" },';
+
+  const xmlProducto = sdtProductoEsLista
+    ? [
+        '         <sdtProductos>',
+        '            <sBTProducto>',
+        '               <productoUId>12</productoUId>',
+        '               <nombre>Producto A</nombre>',
+        '            </sBTProducto>',
+        '            <sBTProducto>',
+        '               <productoUId>13</productoUId>',
+        '               <nombre>Producto B</nombre>',
+        '            </sBTProducto>',
+        '         </sdtProductos>'
+      ].join('\n')
+    : [
+        '         <producto>',
+        '            <productoUId>12</productoUId>',
+        '            <nombre>Producto A</nombre>',
+        '         </producto>'
+      ].join('\n');
+
+  const filaTabla = sdtProductoEsLista
+    ? 'sdtProductos | [sBTProducto](#sbtproducto) | Listado de productos.'
+    : 'producto | [sBTProducto](#sbtproducto) | Un producto.';
+
+  return [
+    '---',
+    'title: Test',
+    '---',
+    '',
+    '::: tabs #Datos',
+    '',
+    '@tab Datos de Entrada',
+    '',
+    'No aplica.',
+    '',
+    '@tab Datos de Salida',
+    '',
+    'Nombre | Tipo | Comentarios',
+    ':--------- | :--------- | :---------',
+    filaTabla,
+    '',
+    '@tab Errores',
+    '',
+    'No aplica.',
+    ':::',
+    '',
+    '::: details Ejemplo de Invocación',
+    '::: code-tabs #Formato',
+    '',
+    '@tab XML',
+    '```xml',
+    '<soapenv:Envelope>',
+    '   <soapenv:Body>',
+    '      <bts:Test.Metodo>',
+    '         <bts:Btinreq>',
+    '            <bts:Canal>BTDIGITAL</bts:Canal>',
+    '         </bts:Btinreq>',
+    '      </bts:Test.Metodo>',
+    '   </soapenv:Body>',
+    '</soapenv:Envelope>',
+    '```',
+    '',
+    '@tab JSON',
+    '```json',
+    '{',
+    '  "Btinreq": { "Canal": "BTDIGITAL" }',
+    '}',
+    '```',
+    ':::',
+    '',
+    '::: details Ejemplo de Respuesta',
+    '::: code-tabs #Formato',
+    '',
+    '@tab XML',
+    '```xml',
+    '<SOAP-ENV:Envelope>',
+    '   <SOAP-ENV:Body>',
+    '      <Test.MetodoResponse>',
+    '         <Btinreq>',
+    '            <Canal>BTDIGITAL</Canal>',
+    '         </Btinreq>',
+    xmlProducto,
+    '         <Erroresnegocio></Erroresnegocio>',
+    '         <Btoutreq>',
+    '            <Estado>OK</Estado>',
+    '         </Btoutreq>',
+    '      </Test.MetodoResponse>',
+    '   </SOAP-ENV:Body>',
+    '</SOAP-ENV:Envelope>',
+    '```',
+    '',
+    '@tab JSON',
+    '```json',
+    '{',
+    '  "Btinreq": { "Canal": "BTDIGITAL" },',
+    jsonProducto,
+    '  "Erroresnegocio": {},',
+    '  "Btoutreq": { "Estado": "OK" }',
+    '}',
+    '```',
+    ':::',
+    '',
+    '## **Tipos de Dato Estructurado**',
+    '',
+    '::: details sBTProducto',
+    '',
+    '### sBTProducto',
+    '',
+    '::: center',
+    'Los campos del tipo de dato estructurado sBTProducto son los siguientes:',
+    '',
+    'Nombre | Tipo | Comentarios',
+    ':--------- | :--------- | :---------',
+    'nombre | String | Nombre.',
+    'otrosConceptos | [sBTConcepto](#sbtconcepto) | Datos de otros conceptos.',
+    'productoUId | Long | Identificador.',
+    ':::',
+    '',
+    '::: details sBTConcepto',
+    '',
+    '### sBTConcepto',
+    '',
+    '::: center',
+    'Los campos del tipo de dato estructurado sBTConcepto son los siguientes:',
+    '',
+    'Nombre | Tipo | Comentarios',
+    ':--------- | :--------- | :---------',
+    'concepto | String | Concepto.',
+    'texto | String | Texto.',
+    'valor | Double | Importe.',
+    ':::',
+    ''
+  ].join('\n');
+}
+
+const MD_SDT_ANIDADO_SIN_CAMPO_SIMPLE = mdConSdtAnidadoEnCampo(false);
+const MD_SDT_ANIDADO_SIN_CAMPO_LISTA = mdConSdtAnidadoEnCampo(true);
+
+test('fixarArchivo agrega un campo SDT anidado (objeto único) como OBJETO con sus propios sub-campos, no como string plano', () => {
+  const filePath = tmpFile('sdt-anidado-simple.md', MD_SDT_ANIDADO_SIN_CAMPO_SIMPLE);
+  fixarArchivo(filePath);
+  const contenido = fs.readFileSync(filePath, 'utf8');
+
+  const res = parsearJsonEjemplo(contenido, 'Respuesta').data;
+  const otrosConceptos = res.producto.otrosConceptos;
+  assert.equal(typeof otrosConceptos, 'object', `otrosConceptos debería ser un objeto, no ${JSON.stringify(otrosConceptos)}`);
+  assert.equal(otrosConceptos.concepto, 'REVISAR');
+  assert.equal(otrosConceptos.texto, 'REVISAR');
+  assert.equal(otrosConceptos.valor, 'REVISAR');
+
+  fs.rmSync(path.dirname(filePath), { recursive: true, force: true });
+});
+
+test('fixarArchivo agrega el mismo campo SDT anidado dentro de <producto> en el XML, con sus propios sub-tags', () => {
+  const filePath = tmpFile('sdt-anidado-simple-xml.md', MD_SDT_ANIDADO_SIN_CAMPO_SIMPLE);
+  fixarArchivo(filePath);
+  const contenido = fs.readFileSync(filePath, 'utf8');
+
+  const xmlResp = parsearXmlEjemplo(contenido, 'Respuesta');
+  const contenedor = xmlResp.match(/<otrosConceptos>([\s\S]*?)<\/otrosConceptos>/);
+  assert.ok(contenedor, `debería existir <otrosConceptos> con contenido: ${xmlResp}`);
+  assert.match(contenedor[1], /<concepto>REVISAR<\/concepto>/);
+  assert.match(contenedor[1], /<texto>REVISAR<\/texto>/);
+  assert.match(contenedor[1], /<valor>REVISAR<\/valor>/);
+
+  fs.rmSync(path.dirname(filePath), { recursive: true, force: true });
+});
+
+test('fixarArchivo agrega el campo SDT anidado como OBJETO en CADA item de una lista, no como string plano', () => {
+  const filePath = tmpFile('sdt-anidado-lista.md', MD_SDT_ANIDADO_SIN_CAMPO_LISTA);
+  fixarArchivo(filePath);
+  const contenido = fs.readFileSync(filePath, 'utf8');
+
+  const res = parsearJsonEjemplo(contenido, 'Respuesta').data;
+  const items = res.sdtProductos.sBTProducto;
+  assert.equal(items.length, 2);
+  for (const item of items) {
+    assert.equal(typeof item.otrosConceptos, 'object', `otrosConceptos debería ser objeto en ${JSON.stringify(item)}`);
+    assert.equal(item.otrosConceptos.concepto, 'REVISAR');
+    assert.equal(item.otrosConceptos.texto, 'REVISAR');
+    assert.equal(item.otrosConceptos.valor, 'REVISAR');
+  }
+
+  fs.rmSync(path.dirname(filePath), { recursive: true, force: true });
+});
+
+test('fixarArchivo agrega el campo SDT anidado dentro de CADA <sBTProducto> del XML, con sus propios sub-tags', () => {
+  const filePath = tmpFile('sdt-anidado-lista-xml.md', MD_SDT_ANIDADO_SIN_CAMPO_LISTA);
+  fixarArchivo(filePath);
+  const contenido = fs.readFileSync(filePath, 'utf8');
+
+  const xmlResp = parsearXmlEjemplo(contenido, 'Respuesta');
+  const bloques = [...xmlResp.matchAll(/<sBTProducto>([\s\S]*?)<\/sBTProducto>/g)];
+  assert.equal(bloques.length, 2);
+  for (const b of bloques) {
+    const contenedor = b[1].match(/<otrosConceptos>([\s\S]*?)<\/otrosConceptos>/);
+    assert.ok(contenedor, `falta <otrosConceptos> en item: ${b[1]}`);
+    assert.match(contenedor[1], /<concepto>REVISAR<\/concepto>/);
+    assert.match(contenedor[1], /<texto>REVISAR<\/texto>/);
+    assert.match(contenedor[1], /<valor>REVISAR<\/valor>/);
+  }
+
+  fs.rmSync(path.dirname(filePath), { recursive: true, force: true });
+});
+
+test('fixarArchivo no cuelga cuando un SDT anidado se referencia a sí mismo (auto-referencia)', () => {
+  const mdAutorreferencia = MD_SDT_ANIDADO_SIN_CAMPO_SIMPLE.replace(
+    '::: details sBTConcepto\n\n### sBTConcepto\n\n::: center\nLos campos del tipo de dato estructurado sBTConcepto son los siguientes:\n\nNombre | Tipo | Comentarios\n:--------- | :--------- | :---------\nconcepto | String | Concepto.\ntexto | String | Texto.\nvalor | Double | Importe.\n:::',
+    '::: details sBTConcepto\n\n### sBTConcepto\n\n::: center\nLos campos del tipo de dato estructurado sBTConcepto son los siguientes:\n\nNombre | Tipo | Comentarios\n:--------- | :--------- | :---------\nconcepto | String | Concepto.\nhijo | [sBTConcepto](#sbtconcepto) | Referencia a sí mismo.\n:::'
+  );
+  const filePath = tmpFile('sdt-autorreferencia.md', mdAutorreferencia);
+
+  assert.doesNotThrow(() => fixarArchivo(filePath));
+
+  fs.rmSync(path.dirname(filePath), { recursive: true, force: true });
+});

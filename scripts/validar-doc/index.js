@@ -937,12 +937,51 @@ function itemsDeContenedorJson(obj) {
   return [obj];
 }
 
-// Igual que normalizarCampoCI pero navega el patrón wrapper/lista antes de
-// normalizar, aplicando el cambio a CADA item cuando el SDT es una lista.
-function normalizarCampoAnidadoCI(obj, nombreDocumentado, valorDefault) {
-  const items = itemsDeContenedorJson(obj);
+function esTipoSdt(tipo) {
+  return /\[[^\]]+\]\(#[^)]+\)/.test(tipo || '');
+}
+
+function nombreSdtDeTipo(tipo) {
+  return (tipo && tipo.match(/\[([^\]]+)\]/)?.[1]) || null;
+}
+
+// Normaliza/agrega un campo de un SDT en cada item del contenedor (objeto único o
+// lista — navega el patrón wrapper/lista igual que antes). Si el campo es en sí
+// mismo OTRO SDT (ej. sBTProducto.otrosConceptos: [sBTConcepto]), en vez de
+// insertar un valor plano ("REVISAR") inserta un objeto y recursa para poblar los
+// propios sub-campos de ese SDT anidado. `visitados` corta ciclos en SDTs que se
+// referencian a sí mismos (directa o indirectamente) para no colgarse.
+function normalizarCampoSdtRecursivo(contenedor, ck, ct, sdtsConTipos, visitados) {
+  const items = itemsDeContenedorJson(contenedor);
   let cambios = 0;
-  for (const item of items) cambios += normalizarCampoCI(item, nombreDocumentado, valorDefault);
+
+  if (!esTipoSdt(ct)) {
+    for (const item of items) cambios += normalizarCampoCI(item, ck, obtenerDefaultPorTipo(ct));
+    return cambios;
+  }
+
+  const subNombreSdt = nombreSdtDeTipo(ct);
+  const key = subNombreSdt ? subNombreSdt.toLowerCase() : null;
+  if (!key || visitados.has(key)) return cambios;
+
+  const subCampos = sdtsConTipos[key];
+  const nuevosVisitados = new Set(visitados);
+  nuevosVisitados.add(key);
+
+  for (const item of items) {
+    const claveExistente = Object.keys(item).find(k => k.toLowerCase() === ck.toLowerCase());
+    if (!claveExistente || item[claveExistente] === null || typeof item[claveExistente] !== 'object' || Array.isArray(item[claveExistente])) {
+      if (claveExistente) delete item[claveExistente];
+      item[ck] = {};
+      cambios++;
+    }
+    if (subCampos) {
+      const nombreReal = Object.keys(item).find(k => k.toLowerCase() === ck.toLowerCase());
+      for (const sub of subCampos) {
+        cambios += normalizarCampoSdtRecursivo(item[nombreReal], sub.nombre, sub.tipo, sdtsConTipos, nuevosVisitados);
+      }
+    }
+  }
   return cambios;
 }
 
@@ -986,8 +1025,9 @@ function fixarJsonSeccion(json, campos, camposIgnorados, sdtsConTipos, camposOcu
       const camposSdt = sdtsConTipos[campo.nombreSdt.toLowerCase()];
       if (camposSdt) {
         const valorEnJson = json[altSdtKey];
+        const visitados = new Set([campo.nombreSdt.toLowerCase()]);
         for (const { nombre: ck, tipo: ct } of camposSdt) {
-          cambios += normalizarCampoAnidadoCI(valorEnJson, ck, obtenerDefaultPorTipo(ct));
+          cambios += normalizarCampoSdtRecursivo(valorEnJson, ck, ct, sdtsConTipos, visitados);
         }
       }
       continue;
@@ -1009,8 +1049,9 @@ function fixarJsonSeccion(json, campos, camposIgnorados, sdtsConTipos, camposOcu
       }
 
       const valorEnJson = json[keyReal || campo.nombre];
+      const visitados = new Set([campo.nombreSdt.toLowerCase()]);
       for (const { nombre: ck, tipo: ct } of camposSdt) {
-        cambios += normalizarCampoAnidadoCI(valorEnJson, ck, obtenerDefaultPorTipo(ct));
+        cambios += normalizarCampoSdtRecursivo(valorEnJson, ck, ct, sdtsConTipos, visitados);
       }
     }
   }
@@ -1085,6 +1126,35 @@ function renombrarTagXml(xml, nombreCorrecto) {
     .replace(new RegExp(`</(\\w+:)?(${nombreCorrecto})>`, 'gi'), `</$1${nombreCorrecto}>`);
 }
 
+// Construye el XML de un campo SDT, recursivamente: si `tipo` es en sí mismo otro
+// SDT, arma un tag anidado con los propios sub-campos de ese SDT (en vez de un
+// valor plano), en vez de asumir un tipo simple. `visitados` corta ciclos en SDTs
+// auto-referenciados. `valorJson`, si viene (ej. ya poblado por el fixer JSON en
+// el mismo pase), se usa para preferir valores reales sobre el default.
+function construirXmlCampoSdt(nombre, tipo, sdtsConTipos, visitados, valorJson, indent) {
+  if (!esTipoSdt(tipo)) {
+    const val = (valorJson === undefined || valorJson === null)
+      ? jsonValorAXml(obtenerDefaultPorTipo(tipo))
+      : jsonValorAXml(valorJson);
+    return `<${nombre}>${val}</${nombre}>`;
+  }
+
+  const subNombreSdt = nombreSdtDeTipo(tipo);
+  const key = subNombreSdt ? subNombreSdt.toLowerCase() : null;
+  const subCampos = key && !visitados.has(key) ? sdtsConTipos[key] : null;
+  if (!subCampos) return `<${nombre}></${nombre}>`;
+
+  const nuevosVisitados = new Set(visitados);
+  nuevosVisitados.add(key);
+  const subIndent = indent + '   ';
+  let interior = '';
+  for (const sub of subCampos) {
+    const subValor = obtenerValorAnidadoJson(valorJson, sub.nombre);
+    interior += `\n${subIndent}${construirXmlCampoSdt(sub.nombre, sub.tipo, sdtsConTipos, nuevosVisitados, subValor, subIndent)}`;
+  }
+  return `<${nombre}>${interior}\n${indent}</${nombre}>`;
+}
+
 function eliminarTagXml(xml, nombreTag) {
   // Elimina el tag con todo su contenido (apertura + contenido + cierre, cualquier namespace)
   const escaped = escapeRegex(nombreTag);
@@ -1130,12 +1200,10 @@ function fixarXmlSeccion(xml, campos, camposIgnorados, sdtsConTipos, jsonObj, es
             for (const { nombre: ck, tipo: ct } of camposSdt) {
               if (!tagExisteEnXml(contenedorAlt, ck)) {
                 const valAnidado = jsonObj ? obtenerValorAnidadoJson(jsonObj[campo.nombreSdt] || jsonObj[campo.nombre], ck) : undefined;
-                const xmlVal = (valAnidado === undefined || valAnidado === null)
-                  ? jsonValorAXml(obtenerDefaultPorTipo(ct))
-                  : jsonValorAXml(valAnidado);
+                const nuevoTag = construirXmlCampoSdt(ck, ct, sdtsConTipos, new Set([campo.nombreSdt.toLowerCase()]), valAnidado, '            ');
                 xml = xml.replace(
                   new RegExp(`(<\\/(?:\\w+:)?${campo.nombreSdt}>)`, 'i'),
-                  `\n            <${ck}>${xmlVal}</${ck}>$1`
+                  `\n            ${nuevoTag}$1`
                 );
                 cambios++;
               }
@@ -1164,10 +1232,7 @@ function fixarXmlSeccion(xml, campos, camposIgnorados, sdtsConTipos, jsonObj, es
           const jsonValCampo = jsonObj[Object.keys(jsonObj).find(k => k.toLowerCase() === campo.nombre.toLowerCase())];
           for (const { nombre: ck, tipo: ct } of camposSdt) {
             const valAnidado = obtenerValorAnidadoJson(jsonValCampo, ck);
-            const xmlVal = (valAnidado === undefined || valAnidado === null)
-              ? jsonValorAXml(obtenerDefaultPorTipo(ct))
-              : jsonValorAXml(valAnidado);
-            contenidoInterno += `\n${indent}   <${ck}>${xmlVal}</${ck}>`;
+            contenidoInterno += `\n${indent}   ${construirXmlCampoSdt(ck, ct, sdtsConTipos, new Set([campo.nombreSdt.toLowerCase()]), valAnidado, indent + '   ')}`;
           }
         }
       }
@@ -1228,10 +1293,9 @@ function fixarXmlSeccion(xml, campos, camposIgnorados, sdtsConTipos, jsonObj, es
 
           for (const { nombre: ck, tipo: ct } of camposSdt) {
             if (!tagExisteEnXml(bloqueItem, ck)) {
-              const xmlVal = jsonValorAXml(obtenerDefaultPorTipo(ct));
               const indentMatches = [...bloqueItem.matchAll(/^([ \t]+)</gm)];
               const indent = indentMatches.length > 0 ? indentMatches[indentMatches.length - 1][1] : '   ';
-              const nuevoTag = `${indent}<${ck}>${xmlVal}</${ck}>`;
+              const nuevoTag = `${indent}${construirXmlCampoSdt(ck, ct, sdtsConTipos, new Set([campo.nombreSdt.toLowerCase()]), undefined, indent)}`;
               // Insertar antes del espacio en blanco final (la indentación del propio
               // cierre </tag>) para no dejarlo pegado en la misma línea que el nuevo campo.
               const finalWs = bloqueItem.match(/(\r?\n[ \t]*)$/);
@@ -1263,10 +1327,7 @@ function fixarXmlSeccion(xml, campos, camposIgnorados, sdtsConTipos, jsonObj, es
         if (!tagExisteEnXml(contenedor, ck)) {
           // Tag ausente → insertar
           const valAnidado = jsonObj ? obtenerValorAnidadoJson(jsonObj[campo.nombre], ck) : undefined;
-          const xmlVal = (valAnidado === undefined || valAnidado === null)
-            ? jsonValorAXml(obtenerDefaultPorTipo(ct))
-            : jsonValorAXml(valAnidado);
-          const nuevoTag = `<${ck}>${xmlVal}</${ck}>`;
+          const nuevoTag = construirXmlCampoSdt(ck, ct, sdtsConTipos, new Set([campo.nombreSdt.toLowerCase()]), valAnidado, '            ');
 
           // Siempre insertar usando campo.nombre como anchor del contenedor,
           // para no confundirlo con otros elementos del mismo tipo SDT en el documento.
