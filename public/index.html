@@ -61,10 +61,10 @@
         <div class="field" style="margin-bottom:10px">
           <label style="margin-bottom:6px;display:block">Conexiones guardadas</label>
           <div style="display:flex;gap:8px;align-items:center">
-            <select id="db-hist-sel" onchange="loadDbHistEntry()" style="flex:1;height:36px;border:1px solid var(--border);border-radius:6px;padding:0 10px;font-size:var(--fs-sm);background:var(--bg);color:var(--text)">
+            <select id="db-hist-sel" onchange="loadDbHistEntry()" style="flex:1;height:var(--ctrl-h);border:1px solid var(--border);border-radius:6px;padding:0 10px;font-size:var(--fs-sm);background:var(--bg);color:var(--text)">
               <option value="">-- Nueva conexión --</option>
             </select>
-            <button id="db-hist-del" onclick="deleteDbHistEntry()" disabled style="height:36px;padding:0 14px;border-radius:6px;border:1px solid var(--red);background:var(--red-l);color:var(--red);font-size:var(--fs-sm);font-weight:600;cursor:pointer;white-space:nowrap;transition:opacity .15s" onmouseover="this.style.opacity='.75'" onmouseout="this.style.opacity='1'">Eliminar</button>
+            <button id="db-hist-del" onclick="deleteDbHistEntry()" disabled style="height:var(--ctrl-h);padding:0 14px;border-radius:6px;border:1px solid var(--red);background:var(--red-l);color:var(--red);font-size:var(--fs-sm);font-weight:600;cursor:pointer;white-space:nowrap;transition:opacity .15s" onmouseover="this.style.opacity='.75'" onmouseout="this.style.opacity='1'">Eliminar</button>
           </div>
         </div>
         <div style="border-top:1px solid var(--border);margin:14px 0 18px"></div>
@@ -124,7 +124,7 @@
         <div class="ccard act-ccard" onclick="pick('action','validate',this)">
           <span class="act-icon">&#128269;</span>
           <span class="ccard-title" style="font-size:var(--fs-2xl);display:block;margin-bottom:6px">Validar Documentos</span>
-          <span class="ccard-desc">Verifica que los parámetros documentados coincidan con los ejemplos de invocación/respuesta.</span>
+          <span class="ccard-desc">Verifica que los documentos se encuentren con el estándar correct, y que los parámetros documentados coincidan con los ejemplos de invocación/respuesta.</span>
         </div>
         <div class="ccard act-ccard" onclick="pick('action','collections',this)">
           <span class="act-icon">&#129514;</span>
@@ -296,7 +296,7 @@
       <div class="ptitle">Validar documentos</div>
       <div class="psub">Ingresá la ruta de la carpeta con los archivos .md a validar.</div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-        <input type="text" id="val-path" placeholder="ej: C:\...\V4\Customers" autocomplete="off" oninput="onValPathInput()" style="flex:1;padding:10px 14px;border:1.5px solid var(--border);border-radius:0.7em;font-size:var(--fs-sm);font-family:Consolas,monospace;color:var(--text);outline:none;background:#fff;transition:border-color .15s" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border)'">
+        <input type="text" id="val-path" placeholder="ej: C:\...\V4\Customers" autocomplete="off" oninput="onValPathInput()" style="flex:1;height:var(--ctrl-h);padding:10px 14px;border:1.5px solid var(--border);border-radius:0.7em;font-size:var(--fs-sm);font-family:Consolas,monospace;color:var(--text);outline:none;background:#fff;transition:border-color .15s" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border)'">
         <button class="btn btn-primary" id="btn-run-validate" onclick="runValidation()" disabled style="flex-shrink:0;white-space:nowrap">Validar &#10003;</button>
       </div>
       <div class="cres" id="val-res"></div>
