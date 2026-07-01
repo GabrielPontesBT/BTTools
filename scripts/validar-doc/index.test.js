@@ -4,7 +4,10 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { detectarSdtsAnidados, fixarSdtsAnidados, fixarArchivo, validarArchivo } = require('./index.js');
+const {
+  detectarSdtsAnidados, fixarSdtsAnidados, fixarArchivo, validarArchivo,
+  detectarConflictosCasingArchivo, aplicarEleccionesCasing
+} = require('./index.js');
 
 function tmpFile(nombre, contenido) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'validar-doc-test-'));
@@ -167,6 +170,200 @@ test('fixarArchivo (el mismo camino que usa el botón "Corregir seleccionados" v
 
   const { problemas } = validarArchivo(filePath);
   assert.ok(!problemas.some(p => p.includes('anidado')), `no debería quedar error de SDT anidado, pero se encontró: ${JSON.stringify(problemas)}`);
+
+  fs.rmSync(path.dirname(filePath), { recursive: true, force: true });
+});
+
+// ── Conflictos de casing (documentación vs ejemplo JSON) ─────────
+
+function mdConCasing(jsonInvocacion, sdtBlocks) {
+  return [
+    '---',
+    'title: Test',
+    '---',
+    '',
+    '::: tabs #Datos',
+    '',
+    '@tab Datos de Entrada',
+    '',
+    'Nombre | Tipo | Comentarios',
+    ':--------- | :----------- | :-----------',
+    'Producto | [sBTProductosDepositoAPlazo](#sbtproductosdepositoaplazo) | Producto.',
+    '',
+    '@tab Datos de Salida',
+    '',
+    'Nombre | Tipo | Comentarios',
+    ':--------- | :----------- | :-----------',
+    '',
+    ':::',
+    '',
+    '::: details Ejemplo de Invocación',
+    '::: code-tabs #Formato',
+    '@tab JSON',
+    '```json',
+    JSON.stringify(jsonInvocacion, null, 2),
+    '```',
+    ':::',
+    '<!-- CIERRA EJEMPLO DE INVOCACIÓN -->',
+    '',
+    '::: details Ejemplo de Respuesta',
+    '::: code-tabs #Formato',
+    '@tab JSON',
+    '```json',
+    '{}',
+    '```',
+    ':::',
+    '',
+    '## **Tipos de Dato Estructurado**',
+    '',
+    '<!-- ABRE SDT -->',
+    sdtBlocks,
+    '<!-- CIERRA SDT -->'
+  ].join('\n');
+}
+
+function sdtBlock(nombre, filas) {
+  return [
+    `::: details ${nombre}`,
+    '',
+    `### ${nombre}`,
+    '',
+    '::: center',
+    `Los campos del tipo de dato estructurado ${nombre} son los siguientes:`,
+    '',
+    'Nombre | Tipo | Comentarios',
+    ':--------- | :----------- | :-----------',
+    ...filas,
+    ':::',
+    ''
+  ].join('\n');
+}
+
+const MD_CASING_1_NIVEL = mdConCasing(
+  { Producto: { campo1: 'x' } },
+  sdtBlock('sBTProductosDepositoAPlazo', ['Campo1 | String | Comentario.'])
+);
+
+const MD_CASING_2_NIVELES = mdConCasing(
+  { Producto: { Campo1: 'x', DatoExtendido: { campoa: 'y' } } },
+  sdtBlock('sBTProductosDepositoAPlazo', [
+    'Campo1 | String | Comentario.',
+    'DatoExtendido | [sBTDatoExtendido](#sbtdatoextendido) | Dato extendido.'
+  ]) + sdtBlock('sBTDatoExtendido', ['CampoA | String | Comentario A.'])
+);
+
+const MD_CASING_3_NIVELES = mdConCasing(
+  { Producto: { Campo1: 'x', DatoExtendido: { CampoA: 'y', DatoProfundo: { campob: 'z' } } } },
+  sdtBlock('sBTProductosDepositoAPlazo', [
+    'Campo1 | String | Comentario.',
+    'DatoExtendido | [sBTDatoExtendido](#sbtdatoextendido) | Dato extendido.'
+  ]) + sdtBlock('sBTDatoExtendido', [
+    'CampoA | String | Comentario A.',
+    'DatoProfundo | [sBTDatoProfundo](#sbtdatoprofundo) | Dato profundo.'
+  ]) + sdtBlock('sBTDatoProfundo', ['CampoB | String | Comentario B.'])
+);
+
+// SDT que se referencia a sí mismo (estructura recursiva real, p.ej. un árbol) —
+// no debe colgar el detector en loop infinito.
+const MD_CASING_AUTORREFERENCIA = mdConCasing(
+  { Producto: { Campo1: 'x', Hijo: { Campo1: 'y', Hijo: {} } } },
+  sdtBlock('sBTProductosDepositoAPlazo', [
+    'Campo1 | String | Comentario.',
+    'Hijo | [sBTProductosDepositoAPlazo](#sbtproductosdepositoaplazo) | Referencia a sí mismo.'
+  ])
+);
+
+test('detectarConflictosCasingArchivo detecta conflicto de casing en el primer nivel (regresión)', () => {
+  const conflictos = detectarConflictosCasingArchivo(MD_CASING_1_NIVEL);
+  assert.equal(conflictos.length, 1);
+  assert.equal(conflictos[0].sdt, 'sBTProductosDepositoAPlazo');
+  assert.equal(conflictos[0].campo, 'Campo1');
+  assert.equal(conflictos[0].enDoc, 'Campo1');
+  assert.equal(conflictos[0].enEjemplo, 'campo1');
+});
+
+test('detectarConflictosCasingArchivo detecta conflicto de casing en un SDT anidado dentro de otro SDT (2 niveles)', () => {
+  const conflictos = detectarConflictosCasingArchivo(MD_CASING_2_NIVELES);
+  assert.equal(conflictos.length, 1);
+  assert.equal(conflictos[0].sdt, 'sBTDatoExtendido');
+  assert.equal(conflictos[0].campo, 'CampoA');
+  assert.equal(conflictos[0].enDoc, 'CampoA');
+  assert.equal(conflictos[0].enEjemplo, 'campoa');
+});
+
+test('detectarConflictosCasingArchivo detecta conflicto de casing a 3 niveles de profundidad', () => {
+  const conflictos = detectarConflictosCasingArchivo(MD_CASING_3_NIVELES);
+  assert.equal(conflictos.length, 1);
+  assert.equal(conflictos[0].sdt, 'sBTDatoProfundo');
+  assert.equal(conflictos[0].campo, 'CampoB');
+  assert.equal(conflictos[0].enEjemplo, 'campob');
+});
+
+test('detectarConflictosCasingArchivo no cuelga con un SDT que se referencia a sí mismo', () => {
+  const conflictos = detectarConflictosCasingArchivo(MD_CASING_AUTORREFERENCIA);
+  assert.deepEqual(conflictos, []);
+});
+
+test('aplicarEleccionesCasing con choice="doc" renombra el campo en el JSON aunque esté anidado a 2 niveles', () => {
+  const filePath = tmpFile('casing-doc-2niveles.md', MD_CASING_2_NIVELES);
+  const conflictos = detectarConflictosCasingArchivo(fs.readFileSync(filePath, 'utf8'));
+  const decision = { sdt: conflictos[0].sdt, sdtKey: conflictos[0].sdtKey, path: conflictos[0].path, campo: conflictos[0].campo, choice: 'doc', enDoc: conflictos[0].enDoc, enEjemplo: conflictos[0].enEjemplo };
+
+  const cambios = aplicarEleccionesCasing(filePath, [decision]);
+  assert.ok(cambios > 0);
+
+  const contenidoFinal = fs.readFileSync(filePath, 'utf8');
+  assert.match(contenidoFinal, /"CampoA":\s*"y"/);
+  assert.doesNotMatch(contenidoFinal, /"campoa":/);
+  assert.deepEqual(detectarConflictosCasingArchivo(contenidoFinal), []);
+
+  fs.rmSync(path.dirname(filePath), { recursive: true, force: true });
+});
+
+test('aplicarEleccionesCasing con choice="ejemplo" renombra el campo en la tabla del SDT anidado a 2 niveles', () => {
+  const filePath = tmpFile('casing-ejemplo-2niveles.md', MD_CASING_2_NIVELES);
+  const conflictos = detectarConflictosCasingArchivo(fs.readFileSync(filePath, 'utf8'));
+  const decision = { sdt: conflictos[0].sdt, sdtKey: conflictos[0].sdtKey, path: conflictos[0].path, campo: conflictos[0].campo, choice: 'ejemplo', enDoc: conflictos[0].enDoc, enEjemplo: conflictos[0].enEjemplo };
+
+  const cambios = aplicarEleccionesCasing(filePath, [decision]);
+  assert.ok(cambios > 0);
+
+  const contenidoFinal = fs.readFileSync(filePath, 'utf8');
+  assert.deepEqual(detectarConflictosCasingArchivo(contenidoFinal), []);
+  // La tabla del SDT sBTDatoExtendido ahora debe listar "campoa" en vez de "CampoA"
+  const bloqueSdt = contenidoFinal.slice(contenidoFinal.indexOf('::: details sBTDatoExtendido'));
+  assert.match(bloqueSdt, /^campoa \| String/m);
+
+  fs.rmSync(path.dirname(filePath), { recursive: true, force: true });
+});
+
+test('detectarConflictosCasingArchivo reporta conflictos en distintos niveles a la vez sin mezclarlos', () => {
+  const md = mdConCasing(
+    { Producto: { campo1: 'x', DatoExtendido: { campoa: 'y' } } },
+    sdtBlock('sBTProductosDepositoAPlazo', [
+      'Campo1 | String | Comentario.',
+      'DatoExtendido | [sBTDatoExtendido](#sbtdatoextendido) | Dato extendido.'
+    ]) + sdtBlock('sBTDatoExtendido', ['CampoA | String | Comentario A.'])
+  );
+
+  const conflictos = detectarConflictosCasingArchivo(md);
+  assert.equal(conflictos.length, 2);
+  const porSdt = Object.fromEntries(conflictos.map(c => [c.sdt, c]));
+  assert.equal(porSdt['sBTProductosDepositoAPlazo'].enEjemplo, 'campo1');
+  assert.deepEqual(porSdt['sBTProductosDepositoAPlazo'].path, ['Producto']);
+  assert.equal(porSdt['sBTDatoExtendido'].enEjemplo, 'campoa');
+  assert.deepEqual(porSdt['sBTDatoExtendido'].path, ['Producto', 'DatoExtendido']);
+});
+
+test('aplicarEleccionesCasing acepta decisiones sin "path" (compatibilidad hacia atrás) para conflictos de 1 nivel', () => {
+  const filePath = tmpFile('casing-legacy.md', MD_CASING_1_NIVEL);
+  const conflictos = detectarConflictosCasingArchivo(fs.readFileSync(filePath, 'utf8'));
+  // Decisión "vieja": sin campo path, como se guardaba antes de este cambio.
+  const decision = { sdt: conflictos[0].sdt, sdtKey: conflictos[0].sdtKey, campo: conflictos[0].campo, choice: 'doc', enDoc: conflictos[0].enDoc, enEjemplo: conflictos[0].enEjemplo };
+
+  const cambios = aplicarEleccionesCasing(filePath, [decision]);
+  assert.ok(cambios > 0);
+  assert.deepEqual(detectarConflictosCasingArchivo(fs.readFileSync(filePath, 'utf8')), []);
 
   fs.rmSync(path.dirname(filePath), { recursive: true, force: true });
 });

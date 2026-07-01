@@ -1488,15 +1488,16 @@ function showCasingDialog(conflicts) {
       var shortName = file.replace(/\\/g, '/').split('/').pop();
       var rows = items.map(function(item, ii) {
         var key = 'c_' + fi + '_' + ii;
+        var pathAttr = _escHtml(JSON.stringify(item.path || [item.sdtKey || item.sdt]));
         return '<div class="casing-item">' +
           '<div class="casing-item-label">Campo <code>' + _escHtml(item.campo) + '</code> del SDT <code>' + _escHtml(item.sdt) + '</code></div>' +
           '<div class="casing-opts">' +
             '<label class="casing-opt">' +
-              '<input type="radio" name="' + key + '" value="doc" data-file="' + _escHtml(file) + '" data-sdt="' + _escHtml(item.sdt) + '" data-sdtkey="' + _escHtml(item.sdtKey||item.sdt) + '" data-campo="' + _escHtml(item.campo) + '" data-doc="' + _escHtml(item.enDoc) + '" data-ej="' + _escHtml(item.enEjemplo) + '">' +
+              '<input type="radio" name="' + key + '" value="doc" data-file="' + _escHtml(file) + '" data-sdt="' + _escHtml(item.sdt) + '" data-sdtkey="' + _escHtml(item.sdtKey||item.sdt) + '" data-path="' + pathAttr + '" data-campo="' + _escHtml(item.campo) + '" data-doc="' + _escHtml(item.enDoc) + '" data-ej="' + _escHtml(item.enEjemplo) + '">' +
               'Usar <code>' + _escHtml(item.enDoc) + '</code> (documentación) — se corrige el ejemplo' +
             '</label>' +
             '<label class="casing-opt">' +
-              '<input type="radio" name="' + key + '" value="ejemplo" data-file="' + _escHtml(file) + '" data-sdt="' + _escHtml(item.sdt) + '" data-sdtkey="' + _escHtml(item.sdtKey||item.sdt) + '" data-campo="' + _escHtml(item.campo) + '" data-doc="' + _escHtml(item.enDoc) + '" data-ej="' + _escHtml(item.enEjemplo) + '">' +
+              '<input type="radio" name="' + key + '" value="ejemplo" data-file="' + _escHtml(file) + '" data-sdt="' + _escHtml(item.sdt) + '" data-sdtkey="' + _escHtml(item.sdtKey||item.sdt) + '" data-path="' + pathAttr + '" data-campo="' + _escHtml(item.campo) + '" data-doc="' + _escHtml(item.enDoc) + '" data-ej="' + _escHtml(item.enEjemplo) + '">' +
               'Usar <code>' + _escHtml(item.enEjemplo) + '</code> (ejemplo) — se corrige la documentación' +
             '</label>' +
           '</div>' +
@@ -1516,7 +1517,9 @@ function confirmCasingDialog() {
   radios.forEach(function(r) {
     var f = r.dataset.file;
     if (!byFile[f]) byFile[f] = [];
-    byFile[f].push({ sdt: r.dataset.sdt, sdtKey: r.dataset.sdtkey, campo: r.dataset.campo, choice: r.value, enDoc: r.dataset.doc, enEjemplo: r.dataset.ej });
+    var path = null;
+    try { path = JSON.parse(r.dataset.path); } catch (e) { path = [r.dataset.sdtkey]; }
+    byFile[f].push({ sdt: r.dataset.sdt, sdtKey: r.dataset.sdtkey, path: path, campo: r.dataset.campo, choice: r.value, enDoc: r.dataset.doc, enEjemplo: r.dataset.ej });
   });
   document.getElementById('casing-overlay').classList.remove('show');
   if (_casingResolve) { _casingResolve(byFile); _casingResolve = null; }

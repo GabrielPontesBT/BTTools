@@ -135,13 +135,17 @@ function parsearSdtsConTipos(contenido) {
   return sdts;
 }
 
-function obtenerClavesJson(obj) {
-  if (!obj || typeof obj !== 'object') return new Set();
+// Dado el valor JSON asociado a un campo SDT, devuelve el objeto "efectivo" cuyas
+// claves directas son los campos del SDT — desenvolviendo wrappers de lista/array
+// cuando corresponda. Se usa tanto para leer (obtenerClavesJson) como para navegar
+// y mutar el JSON real durante la corrección de casing (ver aplicarEleccionesCasing).
+function desenvolverJson(obj) {
+  if (!obj || typeof obj !== 'object') return null;
   // Si es array, usamos el primer elemento
   if (Array.isArray(obj)) {
     const item = obj[0];
-    if (!item || typeof item !== 'object') return new Set();
-    return new Set(Object.keys(item));
+    if (!item || typeof item !== 'object') return null;
+    return item;
   }
   const keys = Object.keys(obj);
   // Patrón wrapper: { "sBTNivel": [...] } — un solo key que ES un nombre de tipo SDT (no un campo)
@@ -150,11 +154,16 @@ function obtenerClavesJson(obj) {
     const inner = obj[keys[0]];
     if (Array.isArray(inner)) {
       const item = inner[0];
-      if (item && typeof item === 'object') return new Set(Object.keys(item));
+      if (item && typeof item === 'object') return item;
     }
-    if (inner && typeof inner === 'object') return new Set(Object.keys(inner));
+    if (inner && typeof inner === 'object') return inner;
   }
-  return new Set(keys);
+  return obj;
+}
+
+function obtenerClavesJson(obj) {
+  const efectivo = desenvolverJson(obj);
+  return efectivo ? new Set(Object.keys(efectivo)) : new Set();
 }
 
 // ── XML ──────────────────────────────────────────────────────
@@ -1212,10 +1221,56 @@ function fixarCasingEnTabla(contenido, sdtNombre, enDoc, enEjemplo) {
   return { resultado, cambios };
 }
 
+// Camina un `path` (array de claves JSON reales, de raíz hacia adentro) sobre el
+// objeto raíz de un ejemplo JSON y devuelve el objeto "efectivo" (post-desenvolver)
+// al final del recorrido — el mismo objeto cuyas claves compara/corrige el casing.
+// Replica exactamente cómo compararSdtRecursivo desciende nivel a nivel.
+function navegarObjetoJson(raiz, path) {
+  let actual = raiz;
+  for (let i = 0; i < path.length; i++) {
+    if (i > 0) actual = desenvolverJson(actual);
+    if (!actual || typeof actual !== 'object') return null;
+    actual = actual[path[i]];
+  }
+  return desenvolverJson(actual);
+}
+
 function detectarConflictosCasingArchivo(contenido) {
   const version = detectarVersion(contenido);
-  const sdts = parsearSdts(contenido);
+  const sdtsConTipos = parsearSdtsConTipos(contenido);
   const conflictos = [];
+
+  // Compara recursivamente los campos de un SDT contra el objeto JSON que le
+  // corresponde, y desciende dentro de cualquier campo que sea a su vez otro SDT.
+  // `path` acumula las claves reales del JSON necesarias para volver a ubicar este
+  // nivel más adelante (lo usa aplicarEleccionesCasing).
+  function compararSdtRecursivo(nombreSdt, valorJson, seccion, path, visitados) {
+    const key = nombreSdt.toLowerCase();
+    if (visitados.has(key)) return; // corta ciclos en SDTs auto-referenciados
+    const camposSdt = sdtsConTipos[key];
+    const efectivo = desenvolverJson(valorJson);
+    if (!camposSdt || !efectivo) return;
+
+    const siguientesVisitados = new Set(visitados);
+    siguientesVisitados.add(key);
+
+    const mapaAnidado = new Map(Object.keys(efectivo).map(k => [k.toLowerCase(), k]));
+
+    for (const { nombre: campoClave, tipo } of camposSdt) {
+      const claveEnJson = mapaAnidado.get(campoClave.toLowerCase());
+      if (claveEnJson && claveEnJson !== campoClave) {
+        conflictos.push({ seccion, sdt: nombreSdt, sdtKey: path[0], path, campo: campoClave, enDoc: campoClave, enEjemplo: claveEnJson });
+      }
+
+      const esSdt = /\[[^\]]+\]\(#[^)]+\)/.test(tipo || '');
+      if (!esSdt) continue;
+      const subNombreSdt = tipo.match(/\[([^\]]+)\]/)?.[1];
+      if (!subNombreSdt) continue;
+
+      const claveReal = claveEnJson || campoClave;
+      compararSdtRecursivo(subNombreSdt, efectivo[claveReal], seccion, [...path, claveReal], siguientesVisitados);
+    }
+  }
 
   for (const [seccion, tituloEjemplo, tituloDatos] of [
     ['Entrada', 'Invocación', 'Datos de Entrada'],
@@ -1235,43 +1290,38 @@ function detectarConflictosCasingArchivo(contenido) {
 
     for (const campo of campos) {
       if (ignorados.has(campo.nombre) || !campo.esSdt || !campo.nombreSdt) continue;
-      const camposSdt = sdts[campo.nombreSdt.toLowerCase()];
-      if (!camposSdt) continue;
-
       const keyEnJson = mapaRaiz.get(campo.nombre.toLowerCase()) || mapaRaiz.get(campo.nombreSdt.toLowerCase());
       if (!keyEnJson) continue;
 
-      const valorEnJson = res.data[keyEnJson];
-      const clavesAnidadas = obtenerClavesJson(valorEnJson);
-      const mapaAnidado = new Map([...clavesAnidadas].map(k => [k.toLowerCase(), k]));
-
-      for (const campoClave of camposSdt) {
-        const claveEnJson = mapaAnidado.get(campoClave.toLowerCase());
-        if (claveEnJson && claveEnJson !== campoClave) {
-          conflictos.push({ seccion, sdt: campo.nombreSdt, sdtKey: keyEnJson, campo: campoClave, enDoc: campoClave, enEjemplo: claveEnJson });
-        }
-      }
+      compararSdtRecursivo(campo.nombreSdt, res.data[keyEnJson], seccion, [keyEnJson], new Set());
     }
   }
   return conflictos;
 }
 
 function aplicarEleccionesCasing(filePath, decisions) {
-  // decisions: [{sdt, sdtKey, campo, choice: 'doc'|'ejemplo', enDoc, enEjemplo}]
+  // decisions: [{sdt, sdtKey, path, campo, choice: 'doc'|'ejemplo', enDoc, enEjemplo}]
+  // `path` es el array de claves reales (raíz → adentro) para llegar al objeto del
+  // SDT en el JSON; si no viene (decisiones guardadas antes de este cambio), se
+  // arma un path de un solo nivel a partir de sdtKey/sdt para no romper compatibilidad.
   let contenido = fs.readFileSync(filePath, 'utf8');
   let cambios = 0;
 
-  for (const { sdt, sdtKey, choice, enDoc, enEjemplo } of decisions) {
+  for (const { sdt, sdtKey, path: pathDecision, choice, enDoc, enEjemplo } of decisions) {
+    const path = (pathDecision && pathDecision.length > 0) ? pathDecision : [sdtKey || sdt];
+
     if (choice === 'doc') {
       // Renombrar en los ejemplos JSON: enEjemplo → enDoc
       for (const seccion of ['Invocación', 'Respuesta']) {
         const res = parsearJsonEjemplo(contenido, seccion);
         if (!res.data) continue;
         const mapaRaiz = new Map(Object.keys(res.data).map(k => [k.toLowerCase(), k]));
-        const key = mapaRaiz.get((sdtKey || sdt).toLowerCase());
-        if (!key) continue;
-        const sdtObj = res.data[key];
-        if (!sdtObj || typeof sdtObj !== 'object' || Array.isArray(sdtObj)) continue;
+        const primeraClave = mapaRaiz.get(path[0].toLowerCase());
+        if (!primeraClave) continue;
+        const pathReal = [primeraClave, ...path.slice(1)];
+
+        const sdtObj = navegarObjetoJson(res.data, pathReal);
+        if (!sdtObj || Array.isArray(sdtObj)) continue;
         if (renombrarClaveJson(sdtObj, enEjemplo, enDoc)) {
           contenido = reemplazarJsonEnMd(contenido, seccion, res.data);
           cambios++;
@@ -1427,7 +1477,9 @@ module.exports = {
   detectarSdtsAnidados,
   fixarSdtsAnidados,
   fixarArchivo,
-  validarArchivo
+  validarArchivo,
+  detectarConflictosCasingArchivo,
+  aplicarEleccionesCasing
 };
 
 // ── CLI ────────────────────────────────────────────────────────
