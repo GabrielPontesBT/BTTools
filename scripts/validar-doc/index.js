@@ -397,6 +397,128 @@ function detectarSdtsAnidados(contenido) {
   return problemas;
 }
 
+function fixarSdtsAnidados(contenido) {
+  const nl = contenido.includes('\r\n') ? '\r\n' : '\n';
+
+  const detailsRegex = /^::: details (\w+)/gim;
+  const bloques = [];
+  let m;
+  while ((m = detailsRegex.exec(contenido)) !== null) {
+    bloques.push({ pos: m.index, nombre: m[1] });
+  }
+
+  if (bloques.length === 0) return { resultado: contenido, cambios: 0 };
+
+  let resultado = contenido;
+  let cambios = 0;
+
+  for (let i = bloques.length - 1; i >= 0; i--) {
+    const inicio = bloques[i].pos;
+    const fin = i + 1 < bloques.length ? bloques[i + 1].pos : contenido.length;
+    const bloque = contenido.slice(inicio, fin);
+
+    // Buscar todas las definiciones SDT dentro del bloque
+    const sdtDefRegex = /^Los campos del tipo de dato estructurado (\w+) son los siguientes:/gim;
+    const sdtDefs = [];
+    let dm;
+    while ((dm = sdtDefRegex.exec(bloque)) !== null) {
+      sdtDefs.push({ pos: dm.index, nombre: dm[1] });
+    }
+
+    if (sdtDefs.length <= 1) continue;
+
+    // Para cada definición SDT, determinar dónde empieza su sección
+    const secciones = [];
+    const nombresVistos = new Set();
+
+    for (const def of sdtDefs) {
+      if (nombresVistos.has(def.nombre.toLowerCase())) continue;
+      nombresVistos.add(def.nombre.toLowerCase());
+
+      const textAntes = bloque.slice(0, def.pos);
+
+      // Buscar el último "### NAME" antes de esta definición usando matchAll
+      const headingMatches = [...textAntes.matchAll(/^### (\w+)/gm)];
+      const lastHeading = headingMatches.length > 0 ? headingMatches[headingMatches.length - 1] : null;
+
+      let secStart;
+      let tieneHeading;
+
+      if (lastHeading && lastHeading[1].toLowerCase() === def.nombre.toLowerCase()) {
+        // Hay un ### NAME que coincide: la sección empieza ahí
+        secStart = lastHeading.index;
+        tieneHeading = true;
+      } else {
+        // Sin heading propio: buscar el último "::: center" antes de la definición
+        const centerMatches = [...textAntes.matchAll(/^::: center[ \t]*$/gm)];
+        const lastCenter = centerMatches.length > 0 ? centerMatches[centerMatches.length - 1] : null;
+        secStart = lastCenter ? lastCenter.index : def.pos;
+        tieneHeading = false;
+      }
+
+      secciones.push({ nombre: def.nombre, secStart, tieneHeading });
+    }
+
+    if (secciones.length <= 1) continue;
+
+    secciones.sort((a, b) => a.secStart - b.secStart);
+
+    const preHeader = bloque.slice(0, secciones[0].secStart);
+
+    let reemplazo = '';
+    for (let j = 0; j < secciones.length; j++) {
+      const sec = secciones[j];
+      const secFin = j + 1 < secciones.length ? secciones[j + 1].secStart : bloque.length;
+      let contenidoSec = bloque.slice(sec.secStart, secFin);
+
+      // Separar cualquier contenido posterior al último ':::' de cierre (p.ej. "<!-- CIERRA SDT -->"
+      // u otro comentario final) para no duplicar el marcador de cierre ni perder ese contenido.
+      let cola = '';
+      const cierresLinea = [...contenidoSec.matchAll(/^[ \t]*:::[ \t]*$/gm)];
+      if (cierresLinea.length > 0) {
+        const ultimoCierre = cierresLinea[cierresLinea.length - 1];
+        cola = contenidoSec.slice(ultimoCierre.index + ultimoCierre[0].length).trim();
+        contenidoSec = contenidoSec.slice(0, ultimoCierre.index);
+      }
+      contenidoSec = contenidoSec.trimEnd();
+
+      if (!sec.tieneHeading) {
+        contenidoSec = `### ${sec.nombre}${nl}${nl}${contenidoSec}`;
+      }
+
+      if (j === 0) {
+        reemplazo += preHeader + contenidoSec + nl + ':::' + nl + nl;
+      } else {
+        reemplazo += `::: details ${sec.nombre}` + nl + nl + contenidoSec + nl + ':::' + nl + nl;
+      }
+      if (cola) reemplazo += cola + nl + nl;
+    }
+
+    resultado = resultado.slice(0, inicio) + reemplazo + resultado.slice(fin);
+    cambios++;
+  }
+
+  return { resultado, cambios };
+}
+
+function fixarSdtsCarpeta(carpeta) {
+  if (!fs.existsSync(carpeta)) { console.error(`❌ No existe: ${carpeta}`); process.exit(1); }
+  const archivos = fs.statSync(carpeta).isDirectory() ? buscarMdRecursivo(carpeta) : [carpeta];
+  let corregidos = 0, sinCambios = 0;
+  for (const filePath of archivos) {
+    const contenido = fs.readFileSync(filePath, 'utf8');
+    const { resultado, cambios } = fixarSdtsAnidados(contenido);
+    if (cambios > 0) {
+      fs.writeFileSync(filePath, resultado, 'utf8');
+      console.log(`✅ ${filePath.replace(/\\/g, '/')} — ${cambios} bloque(s) reestructurado(s)`);
+      corregidos++;
+    } else {
+      sinCambios++;
+    }
+  }
+  console.log(`\n🔧 Corregidos: ${corregidos} | Sin cambios: ${sinCambios}`);
+}
+
 function validarArchivo(filePath) {
   const contenido = fs.readFileSync(filePath, 'utf8');
   const nombre = path.basename(filePath);
@@ -1187,6 +1309,12 @@ function fixarArchivo(filePath) {
   let contenido = fs.readFileSync(filePath, 'utf8');
   let totalCambios = 0;
 
+  // --- Paso -1: separar SDTs anidados en bloques ::: details independientes ---
+  // Debe correr antes que cualquier otro paso: los pasos siguientes parsean los
+  // bloques ::: details por nombre y se confunden si hay más de un SDT por bloque.
+  const { resultado: normSdt, cambios: cSdt } = fixarSdtsAnidados(contenido);
+  if (cSdt > 0) { contenido = normSdt; totalCambios += cSdt; }
+
   // --- Paso 0: corregir bloques ```json sin cierre ``` ---
   const { resultado: norm00, cambios: c00 } = fixarCierreJsonFaltante(contenido);
   if (c00 > 0) { contenido = norm00; totalCambios += c00; }
@@ -1293,7 +1421,18 @@ function fixarCarpeta(carpeta) {
   console.log(`🔧 Corregidos: ${corregidos} archivos | Sin cambios: ${sinCambios}`);
 }
 
+// ── Exports (para tests) ─────────────────────────────────────────
+
+module.exports = {
+  detectarSdtsAnidados,
+  fixarSdtsAnidados,
+  fixarArchivo,
+  validarArchivo
+};
+
 // ── CLI ────────────────────────────────────────────────────────
+
+if (require.main === module) {
 
 const args = process.argv.slice(2);
 const flagArgs = args.filter(a => a.startsWith('--'));
@@ -1302,11 +1441,12 @@ const rutas = args.filter(a => !a.startsWith('--'));
 const modoFix          = flags.has('--fix');
 const modoJson         = flags.has('--json');
 const modoDetectCasing = flags.has('--detect-casing');
+const modoFixSdts      = flags.has('--fix-sdts');
 const applyCasingFlag  = flagArgs.find(f => f.startsWith('--apply-casing='));
 const modoApplyCasing  = applyCasingFlag ? applyCasingFlag.split('=').slice(1).join('=') : null;
 
 if (!modoApplyCasing && rutas.length === 0) {
-  console.log('Uso: node validar_md.js <Carpeta|Archivo...> [--fix] [--json] [--detect-casing]');
+  console.log('Uso: node validar_md.js <Carpeta|Archivo...> [--fix] [--fix-sdts] [--json] [--detect-casing]');
   console.log('     node validar_md.js --apply-casing=<choices.json>');
   process.exit(1);
 }
@@ -1336,6 +1476,11 @@ if (modoApplyCasing) {
     })
     .filter(r => r.conflictos.length > 0);
   console.log(JSON.stringify(resultado));
+} else if (modoFixSdts) {
+  for (const ruta of rutas) {
+    if (!fs.existsSync(ruta)) { console.error(`❌ No existe: ${ruta}`); continue; }
+    fixarSdtsCarpeta(ruta);
+  }
 } else if (modoFix) {
   // Acepta una carpeta o uno/varios archivos específicos
   const archivosAFix = [];
@@ -1370,4 +1515,6 @@ if (modoApplyCasing) {
   console.log(JSON.stringify(resultados));
 } else {
   validarCarpeta(rutas[0]);
+}
+
 }
