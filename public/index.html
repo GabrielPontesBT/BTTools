@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Herramienta Bantotal</title>
+<title>BTAPI</title>
 <link rel="stylesheet" href="/public/styles.css">
 </head>
 <body>
@@ -13,20 +13,26 @@
     <div class="wiz-hd-logo">
       <img src="/public/logo.png" alt="Bantotal">
     </div>
-    <div class="wiz-hd-steps">
-      <div class="steps-bar">
-        <div class="sdot active" id="d1"><span id="dn1">1</span><span class="sdot-lb">Acción</span></div>
-        <div class="sline" id="l1"></div>
-        <div class="sdot" id="d2"><span id="dn2">2</span><span class="sdot-lb" id="lb2">Versión</span></div>
-        <div class="sline" id="l2"></div>
-        <div class="sdot" id="d3"><span id="dn3">3</span><span class="sdot-lb" id="lb3">Conexión</span></div>
-        <div class="sline" id="l3"></div>
-        <div class="sdot" id="d4"><span id="dn4">4</span><span class="sdot-lb" id="lb4"> </span></div>
-        <div class="sline" id="l4"></div>
-        <div class="sdot" id="d5"><span id="dn5">5</span><span class="sdot-lb" id="lb5"> </span></div>
-      </div>
+    <div class="wiz-hd-title">API</div>
+  </div>
+
+  <div class="wiz-main">
+
+  <div class="wiz-sidebar">
+    <div class="steps-bar">
+      <div class="step-row"><div class="sdot active" id="d1"><span id="dn1">1</span></div><span class="sdot-lb">Acción</span></div>
+      <div class="sline" id="l1"></div>
+      <div class="step-row"><div class="sdot" id="d2"><span id="dn2">2</span></div><span class="sdot-lb" id="lb2">Versión</span></div>
+      <div class="sline" id="l2"></div>
+      <div class="step-row"><div class="sdot" id="d3"><span id="dn3">3</span></div><span class="sdot-lb" id="lb3">Conexión</span></div>
+      <div class="sline" id="l3"></div>
+      <div class="step-row"><div class="sdot" id="d4"><span id="dn4">4</span></div><span class="sdot-lb" id="lb4"> </span></div>
+      <div class="sline" id="l4"></div>
+      <div class="step-row"><div class="sdot" id="d5"><span id="dn5">5</span></div><span class="sdot-lb" id="lb5"> </span></div>
     </div>
   </div>
+
+  <div class="wiz-content">
 
   <div class="wiz-bd">
 
@@ -55,22 +61,22 @@
         <div class="field" style="margin-bottom:10px">
           <label style="margin-bottom:6px;display:block">Conexiones guardadas</label>
           <div style="display:flex;gap:8px;align-items:center">
-            <select id="db-hist-sel" onchange="loadDbHistEntry()" style="flex:1;height:36px;border:1px solid var(--border);border-radius:6px;padding:0 10px;font-size:13px;background:var(--bg);color:var(--text)">
+            <select id="db-hist-sel" onchange="loadDbHistEntry()" style="flex:1;height:36px;border:1px solid var(--border);border-radius:6px;padding:0 10px;font-size:var(--fs-sm);background:var(--bg);color:var(--text)">
               <option value="">-- Nueva conexión --</option>
             </select>
-            <button id="db-hist-del" onclick="deleteDbHistEntry()" disabled style="height:36px;padding:0 14px;border-radius:6px;border:1px solid #fca5a5;background:#fee2e2;color:#dc2626;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;transition:opacity .15s" onmouseover="this.style.opacity='.75'" onmouseout="this.style.opacity='1'">Eliminar</button>
+            <button id="db-hist-del" onclick="deleteDbHistEntry()" disabled style="height:36px;padding:0 14px;border-radius:6px;border:1px solid var(--red);background:var(--red-l);color:var(--red);font-size:var(--fs-sm);font-weight:600;cursor:pointer;white-space:nowrap;transition:opacity .15s" onmouseover="this.style.opacity='.75'" onmouseout="this.style.opacity='1'">Eliminar</button>
           </div>
         </div>
         <div style="border-top:1px solid var(--border);margin:14px 0 18px"></div>
       </div>
 
       <div class="field" style="margin-bottom:16px">
-        <label>Nombre de la conexión <span style="font-weight:400;color:var(--muted);font-size:11px">(opcional)</span></label>
+        <label>Nombre de la conexión <span style="font-weight:400;color:var(--muted);font-size:var(--fs-sm)">(opcional)</span></label>
         <div style="display:flex;gap:8px;align-items:center">
           <input type="text" id="db-conn-name" placeholder="ej: Producción V4" autocomplete="off" style="flex:1">
           <button class="btn btn-ghost" id="btn-save-conn" onclick="saveConnName()" style="white-space:nowrap;flex-shrink:0" title="Guardar nombre de la conexión">Guardar nombre</button>
         </div>
-        <div id="conn-name-res" style="font-size:11px;margin-top:4px;display:none"></div>
+        <div id="conn-name-res" style="font-size:var(--fs-sm);margin-top:4px;display:none"></div>
       </div>
 
       <div id="sql-fields">
@@ -107,22 +113,22 @@
       <div class="cards" style="grid-template-columns:1fr 1fr 1fr 1fr">
         <div class="ccard act-ccard" onclick="pick('action','doc',this)">
           <span class="act-icon">&#128196;</span>
-          <span class="ccard-title" style="font-size:17px;display:block;margin-bottom:6px">Documentar</span>
+          <span class="ccard-title" style="font-size:var(--fs-2xl);display:block;margin-bottom:6px">Documentar</span>
           <span class="ccard-desc">Genera archivos .md con la documentación de los servicios Bantotal.</span>
         </div>
         <div class="ccard act-ccard" onclick="pick('action','scripts',this)">
           <span class="act-icon">&#128295;</span>
-          <span class="ccard-title" style="font-size:17px;display:block;margin-bottom:6px">Generar Scripts</span>
+          <span class="ccard-title" style="font-size:var(--fs-2xl);display:block;margin-bottom:6px">Generar Scripts</span>
           <span class="ccard-desc">Genera scripts INSERT/DELETE para instalar servicios en otra base de datos.</span>
         </div>
         <div class="ccard act-ccard" onclick="pick('action','validate',this)">
           <span class="act-icon">&#128269;</span>
-          <span class="ccard-title" style="font-size:17px;display:block;margin-bottom:6px">Validar Documentos</span>
+          <span class="ccard-title" style="font-size:var(--fs-2xl);display:block;margin-bottom:6px">Validar Documentos</span>
           <span class="ccard-desc">Verifica que los parámetros documentados coincidan con los ejemplos de invocación/respuesta.</span>
         </div>
         <div class="ccard act-ccard" onclick="pick('action','collections',this)">
           <span class="act-icon">&#129514;</span>
-          <span class="ccard-title" style="font-size:17px;display:block;margin-bottom:6px">Generar Casos de Prueba</span>
+          <span class="ccard-title" style="font-size:var(--fs-2xl);display:block;margin-bottom:6px">Generar Casos de Prueba</span>
           <span class="ccard-desc">Genera casos de uso a partir de la información de los servicios del ambiente.</span>
         </div>
       </div>
@@ -181,11 +187,11 @@
       <button class="btn btn-outline" id="btn-test-api" onclick="testAuth()" style="margin-top:2px;width:100%">Probar autenticación</button>
 
       <div style="border-top:1px solid var(--border);margin-top:18px;padding-top:14px">
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:13px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:var(--fs-sm)">
           <input type="checkbox" id="cb-doc-errores" onchange="toggleDocErrores()" style="width:15px;height:15px;cursor:pointer">
           Documentar errores posibles
         </label>
-        <p style="margin-top:3px;margin-left:23px;font-size:11px;color:var(--muted)">
+        <p style="margin-top:3px;margin-left:23px;font-size:var(--fs-sm);color:var(--muted)">
           Llama al Documentador de Errores para incluir la tabla de errores en cada .md generado.
           Requiere Python y los archivos KB del modelo GeneXus.
         </p>
@@ -259,7 +265,7 @@
     <div class="panel" id="p4s">
       <div class="ptitle">¿De qué servicios querés generar scripts?</div>
       <div class="psub">Agregá uno o más servicios y seleccioná los métodos de cada uno.</div>
-      <div id="sg-svc-loading" style="display:none;font-size:12px;color:var(--muted);margin-bottom:14px;align-items:center;gap:6px"><span class="spin dk"></span>&nbsp;Cargando servicios...</div>
+      <div id="sg-svc-loading" style="display:none;font-size:var(--fs-sm);color:var(--muted);margin-bottom:14px;align-items:center;gap:6px"><span class="spin dk"></span>&nbsp;Cargando servicios...</div>
       <div class="cres" id="sg-svc-err"></div>
       <div style="display:flex;gap:8px;margin-bottom:14px;align-items:flex-end">
         <div class="field" style="flex:1;margin-bottom:0"><label>Servicio</label><select id="sg-sel-svc"><option value="">-- Seleccioná un servicio --</option></select></div>
@@ -290,18 +296,18 @@
       <div class="ptitle">Validar documentos</div>
       <div class="psub">Ingresá la ruta de la carpeta con los archivos .md a validar.</div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-        <input type="text" id="val-path" placeholder="ej: C:\...\V4\Customers" autocomplete="off" oninput="onValPathInput()" style="flex:1;padding:10px 14px;border:1.5px solid var(--border);border-radius:0.7em;font-size:13px;font-family:Consolas,monospace;color:var(--text);outline:none;background:#fff;transition:border-color .15s" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border)'">
+        <input type="text" id="val-path" placeholder="ej: C:\...\V4\Customers" autocomplete="off" oninput="onValPathInput()" style="flex:1;padding:10px 14px;border:1.5px solid var(--border);border-radius:0.7em;font-size:var(--fs-sm);font-family:Consolas,monospace;color:var(--text);outline:none;background:#fff;transition:border-color .15s" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border)'">
         <button class="btn btn-primary" id="btn-run-validate" onclick="runValidation()" disabled style="flex-shrink:0;white-space:nowrap">Validar &#10003;</button>
       </div>
       <div class="cres" id="val-res"></div>
-      <div id="val-output" style="display:none;border:1.5px solid var(--border);border-radius:0.7em;font-size:12px;font-family:Consolas,monospace;background:#f8fafc;overflow-y:auto;line-height:1.6"></div>
+      <div id="val-output" style="display:none;border:1.5px solid var(--border);border-radius:0.7em;font-size:var(--fs-sm);font-family:Consolas,monospace;background:#f8fafc;overflow-y:auto;line-height:1.6"></div>
       <div id="val-fix-bar" style="display:none;margin:1em 0;gap:8px;align-items:center;flex-wrap:wrap">
-        <button class="btn" onclick="valSelectAll(true)" style="font-size:12px;padding:4px 10px">Seleccionar todos</button>
-        <button class="btn" onclick="valSelectAll(false)" style="font-size:12px;padding:4px 10px">Deseleccionar todos</button>
-        <button class="btn" id="btn-fix-selected" onclick="fixSelected()" style="background:#f59e0b;color:#fff;border:none;font-size:12px;padding:4px 14px" disabled>&#9881; Corregir seleccionados (0)</button>
+        <button class="btn" onclick="valSelectAll(true)" style="font-size:var(--fs-sm);padding:4px 10px">Seleccionar todos</button>
+        <button class="btn" onclick="valSelectAll(false)" style="font-size:var(--fs-sm);padding:4px 10px">Deseleccionar todos</button>
+        <button class="btn" id="btn-fix-selected" onclick="fixSelected()" style="background:var(--warn);color:#fff;border:none;font-size:var(--fs-sm);padding:4px 14px" disabled>&#9881; Corregir seleccionados (0)</button>
       </div>
       <div class="cres" id="fix-res" style="margin-top:8px"></div>
-      <pre id="fix-output" style="display:none;border:1.5px solid var(--border);border-radius:0.7em;padding:12px 16px;font-size:11px;font-family:Consolas,monospace;background:#f8fafc;white-space:pre-wrap;word-break:break-word;overflow-y:auto;line-height:1.5;margin-top:8px"></pre>
+      <pre id="fix-output" style="display:none;border:1.5px solid var(--border);border-radius:0.7em;padding:12px 16px;font-size:var(--fs-sm);font-family:Consolas,monospace;background:#f8fafc;white-space:pre-wrap;word-break:break-word;overflow-y:auto;line-height:1.5;margin-top:8px"></pre>
     </div>
 
     <!-- Generar Collections -->
@@ -310,8 +316,8 @@
       <div class="psub">Genera casos de uso a partir de la información de los servicios del ambiente.</div>
       <div style="text-align:center;padding:48px 0 32px;color:var(--muted)">
         <div style="font-size:56px;margin-bottom:20px">&#9993;</div>
-        <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px">Próximamente</div>
-        <div style="font-size:13px;line-height:1.6;max-width:360px;margin:0 auto">Esta herramienta está en desarrollo. Cuando esté lista, permitirá generar colecciones de requests listos para importar en herramientas de prueba.</div>
+        <div style="font-size:var(--fs-base);font-weight:600;color:var(--text);margin-bottom:8px">Próximamente</div>
+        <div style="font-size:var(--fs-sm);line-height:1.6;max-width:360px;margin:0 auto">Esta herramienta está en desarrollo. Cuando esté lista, permitirá generar colecciones de requests listos para importar en herramientas de prueba.</div>
       </div>
     </div>
 
@@ -323,6 +329,9 @@
     <div id="ft-r">
       <button class="btn btn-primary" id="btn-next" onclick="goNext()" disabled>Siguiente &#8594;</button>
     </div>
+  </div>
+
+  </div>
   </div>
 
 </div>
