@@ -189,6 +189,18 @@ function extraerContenidoTag(xml, tagName) {
   return m ? m[1] : null;
 }
 
+// Extrae el contenido interno de CADA ocurrencia de <tagName> dentro de xml —
+// para el patrón lista Bantotal (ej: <sdtProductos><sBTProducto>...</sBTProducto>
+// <sBTProducto>...</sBTProducto>...</sdtProductos>), donde un mismo tipo SDT se
+// repite como varios hermanos dentro de un contenedor.
+function extraerBloquesTagRepetidos(xml, tagName) {
+  const regex = new RegExp(`<(?:\\w+:)?${tagName}(?:[\\s][^>]*)?>([\\s\\S]*?)<\\/(?:\\w+:)?${tagName}>`, 'gi');
+  const bloques = [];
+  let m;
+  while ((m = regex.exec(xml)) !== null) bloques.push(m[1]);
+  return bloques;
+}
+
 function tagExisteEnXml(xml, tagName) {
   return new RegExp(`<(?:\\w+:)?${tagName}(?:[\\s\\/>])`, 'i').test(xml);
 }
@@ -267,14 +279,30 @@ function validarParametrosContraXml(campos, xmlStr, camposIgnorados, sdts, etiqu
       const contenedor = extraerContenidoTag(xmlLimpio, tagEfectivo);
       if (contenedor === null) continue;  // null = tag ausente; "" = tag vacío → validar igual
 
+      // Patrón lista Bantotal: el contenedor tiene varios <nombreSdt>...</nombreSdt>
+      // hermanos (uno por item). Si no hay repetición, se valida el contenedor entero
+      // como un único item (comportamiento previo, sin cambios).
+      const bloquesItem = tagEfectivo !== campo.nombreSdt
+        ? extraerBloquesTagRepetidos(contenedor, campo.nombreSdt)
+        : [];
+      const items = bloquesItem.length > 0 ? bloquesItem : [contenedor];
+      const totalItems = items.length;
+
       for (const campoClave of camposSdt) {
-        if (!tagExisteEnXml(contenedor, campoClave)) {
+        let faltantes = 0;
+        let casingDistinto = null;
+        for (const item of items) {
+          if (!tagExisteEnXml(item, campoClave)) { faltantes++; continue; }
+          const matchTag = item.match(new RegExp(`<(?:\\w+:)?(${campoClave})(?:[\\s/>])`, 'i'));
+          if (matchTag && matchTag[1] !== campoClave && casingDistinto === null) casingDistinto = matchTag[1];
+        }
+
+        if (faltantes === totalItems) {
           problemas.push(`❌ [XML ${etiqueta}] SDT "${campo.nombreSdt}.${campoClave}" documentado pero ausente en el ejemplo XML`);
-        } else {
-          const matchTag = contenedor.match(new RegExp(`<(?:\\w+:)?(${campoClave})(?:[\\s/>])`, 'i'));
-          if (matchTag && matchTag[1] !== campoClave) {
-            problemas.push(`❌ [XML ${etiqueta}] SDT "${campo.nombreSdt}" — casing difiere: documentado como "${campoClave}", en el ejemplo aparece como "${matchTag[1]}"`);
-          }
+        } else if (faltantes > 0) {
+          problemas.push(`❌ [XML ${etiqueta}] SDT "${campo.nombreSdt}.${campoClave}" ausente en ${faltantes} de ${totalItems} item(s) del ejemplo XML — debe estar en todos`);
+        } else if (casingDistinto) {
+          problemas.push(`❌ [XML ${etiqueta}] SDT "${campo.nombreSdt}" — casing difiere: documentado como "${campoClave}", en el ejemplo aparece como "${casingDistinto}"`);
         }
       }
     }
@@ -332,17 +360,28 @@ function validarParametrosContraEjemplo(campos, jsonEjemplo, camposIgnorados, sd
       const camposSdt = sdts[campo.nombreSdt.toLowerCase()];
       if (!camposSdt) continue;
 
+      // Cuando el SDT es una lista (patrón Bantotal: { "sdtProductos": { "sBTProducto": [...] } }),
+      // hay que validar CADA item — un campo puede estar presente en algunos y ausente en otros.
       const valorEnJson = jsonEf[keyEnJson];
-      const clavesAnidadas = obtenerClavesJson(valorEnJson);
-      // Mapa lowercase → clave real para detectar tanto ausencia como diferencia de casing
-      const mapaAnidado = new Map([...clavesAnidadas].map(k => [k.toLowerCase(), k]));
+      const items = itemsDeContenedorJson(valorEnJson);
+      const totalItems = items.length;
 
       for (const campoClave of camposSdt) {
-        const claveEnJson = mapaAnidado.get(campoClave.toLowerCase());
-        if (!claveEnJson) {
+        let faltantes = 0;
+        let casingDistinto = null;
+        for (const item of items) {
+          const mapaItem = new Map(Object.keys(item).map(k => [k.toLowerCase(), k]));
+          const claveEnJson = mapaItem.get(campoClave.toLowerCase());
+          if (!claveEnJson) faltantes++;
+          else if (claveEnJson !== campoClave && casingDistinto === null) casingDistinto = claveEnJson;
+        }
+
+        if (faltantes === totalItems) {
           problemas.push(`❌ [${etiqueta}] SDT "${campo.nombreSdt}.${campoClave}" documentado pero ausente en el ejemplo JSON`);
-        } else if (claveEnJson !== campoClave) {
-          problemas.push(`❌ [${etiqueta}] SDT "${campo.nombreSdt}" — casing difiere: documentado como "${campoClave}", en el ejemplo aparece como "${claveEnJson}"`);
+        } else if (faltantes > 0) {
+          problemas.push(`❌ [${etiqueta}] SDT "${campo.nombreSdt}.${campoClave}" ausente en ${faltantes} de ${totalItems} item(s) del array de ejemplo JSON — debe estar en todos`);
+        } else if (casingDistinto) {
+          problemas.push(`❌ [${etiqueta}] SDT "${campo.nombreSdt}" — casing difiere: documentado como "${campoClave}", en el ejemplo aparece como "${casingDistinto}"`);
         }
       }
     }
@@ -878,22 +917,33 @@ function desenvolverEnvoltorio(json) {
   return json;
 }
 
-// Igual que normalizarCampoCI pero navega el patrón wrapper antes de normalizar
-function normalizarCampoAnidadoCI(obj, nombreDocumentado, valorDefault) {
-  if (!obj || typeof obj !== 'object') return 0;
-  let target = obj;
-  if (Array.isArray(obj)) {
-    if (!obj[0] || typeof obj[0] !== 'object') return 0;
-    target = obj[0];
-  } else {
-    const keys = Object.keys(obj);
-    if (keys.length === 1) {
-      const inner = obj[keys[0]];
-      if (Array.isArray(inner)) { if (!inner[0] || typeof inner[0] !== 'object') return 0; target = inner[0]; }
-      else if (inner && typeof inner === 'object') target = inner;
-    }
+// Dado el valor JSON de un campo SDT, devuelve TODOS los objetos concretos a los
+// que se les debe aplicar la normalización/inserción de un campo — no solo el
+// primero. Cubre el patrón lista de Bantotal: { "sdtProductos": { "sBTProducto":
+// [ {...}, {...}, ... ] } }, donde cada elemento del array es un item real que
+// debe recibir el campo documentado, no únicamente el primero.
+function itemsDeContenedorJson(obj) {
+  if (!obj || typeof obj !== 'object') return [];
+  if (Array.isArray(obj)) return obj.filter(it => it && typeof it === 'object' && !Array.isArray(it));
+  const keys = Object.keys(obj);
+  // Mismo criterio que desenvolverJson: solo desenvolver el wrapper de lista si la
+  // clave parece un nombre de tipo SDT (sBT.../SdtsBT...), para no confundirlo con
+  // un SDT de un único campo cuyo nombre coincide por casualidad con un wrapper.
+  if (keys.length === 1 && /^(?:sBT|SdtsBT)/i.test(keys[0])) {
+    const inner = obj[keys[0]];
+    if (Array.isArray(inner)) return inner.filter(it => it && typeof it === 'object' && !Array.isArray(it));
+    if (inner && typeof inner === 'object') return [inner];
   }
-  return normalizarCampoCI(target, nombreDocumentado, valorDefault);
+  return [obj];
+}
+
+// Igual que normalizarCampoCI pero navega el patrón wrapper/lista antes de
+// normalizar, aplicando el cambio a CADA item cuando el SDT es una lista.
+function normalizarCampoAnidadoCI(obj, nombreDocumentado, valorDefault) {
+  const items = itemsDeContenedorJson(obj);
+  let cambios = 0;
+  for (const item of items) cambios += normalizarCampoCI(item, nombreDocumentado, valorDefault);
+  return cambios;
 }
 
 function reemplazarJsonEnMd(contenido, tituloSeccion, nuevoJson) {
@@ -1143,7 +1193,7 @@ function fixarXmlSeccion(xml, campos, camposIgnorados, sdtsConTipos, jsonObj, es
     if (campo.esSdt && campo.nombreSdt) {
       const camposSdt = sdtsConTipos[campo.nombreSdt.toLowerCase()];
       if (!camposSdt) continue;
-      const contenedor = extraerContenidoTag(xml, campo.nombre);
+      let contenedor = extraerContenidoTag(xml, campo.nombre);
       if (contenedor === null) continue; // null = tag ausente; "" = vacío → insertar campos igual
 
       // Si el contenedor está en una sola línea (vacío), expandirlo para que la inserción quede bien indentada
@@ -1155,6 +1205,58 @@ function fixarXmlSeccion(xml, campos, camposIgnorados, sdtsConTipos, jsonObj, es
             return `${open}\n${indent}</${campo.nombre}>`;
           }
         );
+        contenedor = extraerContenidoTag(xml, campo.nombre);
+      }
+
+      // Patrón lista Bantotal: el contenedor tiene varios <nombreSdt>...</nombreSdt>
+      // hermanos, uno por item (ej: <sdtProductos><sBTProducto/><sBTProducto/>...).
+      // Cada item se corrige de forma independiente para no perder los demás.
+      const esListaDeItems = campo.nombreSdt.toLowerCase() !== campo.nombre.toLowerCase();
+      const itemRegex = new RegExp(`<(?:\\w+:)?${escapeRegex(campo.nombreSdt)}(?:[\\s][^>]*)?>([\\s\\S]*?)<\\/(?:\\w+:)?${escapeRegex(campo.nombreSdt)}>`, 'gi');
+      const itemMatches = esListaDeItems ? [...contenedor.matchAll(itemRegex)] : [];
+
+      if (itemMatches.length > 0) {
+        let nuevoContenedor = contenedor;
+        // De atrás hacia adelante para no invalidar los índices de los matches restantes.
+        for (let idx = itemMatches.length - 1; idx >= 0; idx--) {
+          const m = itemMatches[idx];
+          const aperturaLen = m[0].indexOf(m[1]);
+          const apertura = m[0].slice(0, aperturaLen);
+          const cierre = m[0].slice(aperturaLen + m[1].length);
+          let bloqueItem = m[1];
+          let bloqueCambiado = false;
+
+          for (const { nombre: ck, tipo: ct } of camposSdt) {
+            if (!tagExisteEnXml(bloqueItem, ck)) {
+              const xmlVal = jsonValorAXml(obtenerDefaultPorTipo(ct));
+              const indentMatches = [...bloqueItem.matchAll(/^([ \t]+)</gm)];
+              const indent = indentMatches.length > 0 ? indentMatches[indentMatches.length - 1][1] : '   ';
+              const nuevoTag = `${indent}<${ck}>${xmlVal}</${ck}>`;
+              // Insertar antes del espacio en blanco final (la indentación del propio
+              // cierre </tag>) para no dejarlo pegado en la misma línea que el nuevo campo.
+              const finalWs = bloqueItem.match(/(\r?\n[ \t]*)$/);
+              bloqueItem = finalWs
+                ? bloqueItem.slice(0, finalWs.index) + `\n${nuevoTag}` + finalWs[1]
+                : bloqueItem + `\n${nuevoTag}`;
+              bloqueCambiado = true;
+            } else {
+              const matchActual = bloqueItem.match(new RegExp(`<(?:\\w+:)?(${ck})(?:[\\s/>])`, 'i'));
+              if (matchActual && matchActual[1] !== ck) {
+                bloqueItem = renombrarTagXml(bloqueItem, ck);
+                bloqueCambiado = true;
+              }
+            }
+          }
+
+          if (bloqueCambiado) {
+            nuevoContenedor = nuevoContenedor.slice(0, m.index) + apertura + bloqueItem + cierre + nuevoContenedor.slice(m.index + m[0].length);
+            cambios++;
+          }
+        }
+        if (nuevoContenedor !== contenedor) {
+          xml = xml.slice(0, xml.indexOf(contenedor)) + nuevoContenedor + xml.slice(xml.indexOf(contenedor) + contenedor.length);
+        }
+        continue;
       }
 
       for (const { nombre: ck, tipo: ct } of camposSdt) {
@@ -1479,7 +1581,9 @@ module.exports = {
   fixarArchivo,
   validarArchivo,
   detectarConflictosCasingArchivo,
-  aplicarEleccionesCasing
+  aplicarEleccionesCasing,
+  parsearJsonEjemplo,
+  parsearXmlEjemplo
 };
 
 // ── CLI ────────────────────────────────────────────────────────

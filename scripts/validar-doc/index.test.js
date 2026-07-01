@@ -6,7 +6,8 @@ const path = require('path');
 
 const {
   detectarSdtsAnidados, fixarSdtsAnidados, fixarArchivo, validarArchivo,
-  detectarConflictosCasingArchivo, aplicarEleccionesCasing
+  detectarConflictosCasingArchivo, aplicarEleccionesCasing,
+  parsearJsonEjemplo, parsearXmlEjemplo
 } = require('./index.js');
 
 function tmpFile(nombre, contenido) {
@@ -365,5 +366,194 @@ test('aplicarEleccionesCasing acepta decisiones sin "path" (compatibilidad hacia
   assert.ok(cambios > 0);
   assert.deepEqual(detectarConflictosCasingArchivo(fs.readFileSync(filePath, 'utf8')), []);
 
+  fs.rmSync(path.dirname(filePath), { recursive: true, force: true });
+});
+
+// ── Campo SDT documentado ausente en un ARRAY de items (patrón lista Bantotal) ──
+//
+// Reproduce el caso real: "Datos de Salida" documenta un campo (ej. sdtProductos)
+// tipado como SDT, cuyo ejemplo es una LISTA de varios items del mismo tipo SDT
+// (JSON: { "sdtProductos": { "sBTProducto": [ {...}, {...}, {...} ] } }, XML:
+// <sdtProductos><sBTProducto>...</sBTProducto><sBTProducto>...</sBTProducto>...).
+// Si el SDT tiene un campo documentado que falta en el ejemplo, la corrección debe
+// agregarlo a TODOS los items, no solo al primero — y la validación debe detectar
+// cuando falta en algunos items aunque esté presente en otros.
+
+const MD_ARRAY_SDT_SIN_CAMPO = [
+  '---',
+  'title: Test',
+  '---',
+  '',
+  '::: tabs #Datos',
+  '',
+  '@tab Datos de Entrada',
+  '',
+  'No aplica.',
+  '',
+  '@tab Datos de Salida',
+  '',
+  'Nombre | Tipo | Comentarios',
+  ':--------- | :--------- | :---------',
+  'sdtProductos | [sBTProducto](#sbtproducto) | Listado de productos.',
+  '',
+  '@tab Errores',
+  '',
+  'No aplica.',
+  ':::',
+  '',
+  '::: details Ejemplo de Invocación',
+  '::: code-tabs #Formato',
+  '',
+  '@tab XML',
+  '```xml',
+  '<soapenv:Envelope>',
+  '   <soapenv:Body>',
+  '      <bts:Test.Metodo>',
+  '         <bts:Btinreq>',
+  '            <bts:Canal>BTDIGITAL</bts:Canal>',
+  '         </bts:Btinreq>',
+  '      </bts:Test.Metodo>',
+  '   </soapenv:Body>',
+  '</soapenv:Envelope>',
+  '```',
+  '',
+  '@tab JSON',
+  '```json',
+  '{',
+  '  "Btinreq": { "Canal": "BTDIGITAL" }',
+  '}',
+  '```',
+  ':::',
+  '',
+  '::: details Ejemplo de Respuesta',
+  '::: code-tabs #Formato',
+  '',
+  '@tab XML',
+  '```xml',
+  '<SOAP-ENV:Envelope>',
+  '   <SOAP-ENV:Body>',
+  '      <Test.MetodoResponse>',
+  '         <Btinreq>',
+  '            <Canal>BTDIGITAL</Canal>',
+  '         </Btinreq>',
+  '         <sdtProductos>',
+  '            <sBTProducto>',
+  '               <productoUId>12</productoUId>',
+  '               <nombre>Producto A</nombre>',
+  '            </sBTProducto>',
+  '            <sBTProducto>',
+  '               <productoUId>13</productoUId>',
+  '               <nombre>Producto B</nombre>',
+  '            </sBTProducto>',
+  '            <sBTProducto>',
+  '               <productoUId>14</productoUId>',
+  '               <nombre>Producto C</nombre>',
+  '            </sBTProducto>',
+  '         </sdtProductos>',
+  '         <Erroresnegocio></Erroresnegocio>',
+  '         <Btoutreq>',
+  '            <Estado>OK</Estado>',
+  '         </Btoutreq>',
+  '      </Test.MetodoResponse>',
+  '   </SOAP-ENV:Body>',
+  '</SOAP-ENV:Envelope>',
+  '```',
+  '',
+  '@tab JSON',
+  '```json',
+  '{',
+  '  "Btinreq": { "Canal": "BTDIGITAL" },',
+  '  "sdtProductos": {',
+  '    "sBTProducto": [',
+  '      { "productoUId": "12", "nombre": "Producto A" },',
+  '      { "productoUId": "13", "nombre": "Producto B" },',
+  '      { "productoUId": "14", "nombre": "Producto C" }',
+  '    ]',
+  '  },',
+  '  "Erroresnegocio": {},',
+  '  "Btoutreq": { "Estado": "OK" }',
+  '}',
+  '```',
+  ':::',
+  '',
+  '## **Tipos de Dato Estructurado**',
+  '',
+  '::: details sBTProducto',
+  '',
+  '### sBTProducto',
+  '',
+  '::: center',
+  'Los campos del tipo de dato estructurado sBTProducto son los siguientes:',
+  '',
+  'Nombre | Tipo | Comentarios',
+  ':--------- | :--------- | :---------',
+  'nombre | String | Nombre.',
+  'otrosConceptos | String | Otros conceptos.',
+  'productoUId | Long | Identificador.',
+  ':::',
+  ''
+].join('\n');
+
+test('validarArchivo detecta el campo SDT ausente en el ejemplo (array de items, ninguno lo tiene)', () => {
+  const filePath = tmpFile('array-sdt-sin-campo.md', MD_ARRAY_SDT_SIN_CAMPO);
+  const { problemas } = validarArchivo(filePath);
+  assert.ok(problemas.some(p => p.includes('SDT "sBTProducto.otrosConceptos" documentado pero ausente en el ejemplo JSON')));
+  assert.ok(problemas.some(p => p.includes('SDT "sBTProducto.otrosConceptos" documentado pero ausente en el ejemplo XML')));
+  fs.rmSync(path.dirname(filePath), { recursive: true, force: true });
+});
+
+test('fixarArchivo agrega el campo faltante a TODOS los items del array en el JSON, no solo al primero', () => {
+  const filePath = tmpFile('array-sdt-fix.md', MD_ARRAY_SDT_SIN_CAMPO);
+  fixarArchivo(filePath);
+  const contenido = fs.readFileSync(filePath, 'utf8');
+
+  const res = parsearJsonEjemplo(contenido, 'Respuesta').data;
+  const items = res.sdtProductos.sBTProducto;
+  assert.equal(items.length, 3);
+  for (const item of items) {
+    assert.equal(item.otrosConceptos, 'REVISAR', `falta otrosConceptos en el item ${JSON.stringify(item)}`);
+  }
+
+  fs.rmSync(path.dirname(filePath), { recursive: true, force: true });
+});
+
+test('fixarArchivo agrega el campo faltante dentro de CADA <sBTProducto> del XML, no como hermano fuera de la lista', () => {
+  const filePath = tmpFile('array-sdt-fix-xml.md', MD_ARRAY_SDT_SIN_CAMPO);
+  fixarArchivo(filePath);
+  const contenido = fs.readFileSync(filePath, 'utf8');
+
+  const xmlResp = parsearXmlEjemplo(contenido, 'Respuesta');
+  const bloques = [...xmlResp.matchAll(/<sBTProducto>([\s\S]*?)<\/sBTProducto>/g)];
+  assert.equal(bloques.length, 3);
+  for (const b of bloques) {
+    assert.match(b[1], /<otrosConceptos>REVISAR<\/otrosConceptos>/, `falta <otrosConceptos> dentro de <sBTProducto>: ${b[1]}`);
+  }
+  // No debe quedar un <otrosConceptos> suelto como hermano de la lista, fuera de cualquier <sBTProducto>
+  const fueraDeItems = xmlResp.replace(/<sBTProducto>[\s\S]*?<\/sBTProducto>/g, '');
+  assert.doesNotMatch(fueraDeItems, /<otrosConceptos>/);
+
+  fs.rmSync(path.dirname(filePath), { recursive: true, force: true });
+});
+
+test('validarArchivo ya no queda "sin problemas" tras corregir — no reporta más el campo SDT como ausente', () => {
+  const filePath = tmpFile('array-sdt-post-fix.md', MD_ARRAY_SDT_SIN_CAMPO);
+  fixarArchivo(filePath);
+  const { problemas } = validarArchivo(filePath);
+  assert.ok(!problemas.some(p => p.includes('sBTProducto.otrosConceptos')), `no debería quedar el campo como ausente: ${JSON.stringify(problemas)}`);
+  fs.rmSync(path.dirname(filePath), { recursive: true, force: true });
+});
+
+test('validarArchivo detecta cuando el campo SDT está en ALGUNOS items del array pero no en todos (antes era invisible)', () => {
+  // Simula el estado que producía el bug: solo el primer item tiene el campo.
+  const mdParcial = MD_ARRAY_SDT_SIN_CAMPO
+    .replace('"productoUId": "12", "nombre": "Producto A" }', '"productoUId": "12", "nombre": "Producto A", "otrosConceptos": "REVISAR" }')
+    .replace('<nombre>Producto A</nombre>\n            </sBTProducto>', '<nombre>Producto A</nombre>\n               <otrosConceptos>REVISAR</otrosConceptos>\n            </sBTProducto>');
+
+  const filePath = tmpFile('array-sdt-parcial.md', mdParcial);
+  const { problemas } = validarArchivo(filePath);
+  assert.ok(
+    problemas.some(p => p.includes('sBTProducto.otrosConceptos') && /2 de 3/.test(p)),
+    `debería reportar que falta en 2 de 3 items: ${JSON.stringify(problemas)}`
+  );
   fs.rmSync(path.dirname(filePath), { recursive: true, force: true });
 });
