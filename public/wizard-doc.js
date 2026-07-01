@@ -76,14 +76,14 @@ function renderWarnings(containerId, warnings) {
   if (!warnings || !warnings.length) { el.innerHTML = ''; el.style.display = 'none'; return; }
   var n = warnings.length;
   var html = '<div style="background:var(--warn-l);border:1px solid var(--warn);border-radius:8px;padding:14px 16px">' +
-    '<div style="font-weight:600;font-size:var(--fs-sm);color:var(--warn-d);margin-bottom:10px">&#9888; ' + n + ' advertencia' + (n > 1 ? 's' : '') + ' encontrada' + (n > 1 ? 's' : '') + '</div>' +
+    '<div style="font-weight:600;font-size:var(--fs-sm);color:var(--warn-d);margin-bottom:var(--sp-3)">&#9888; ' + n + ' advertencia' + (n > 1 ? 's' : '') + ' encontrada' + (n > 1 ? 's' : '') + '</div>' +
     '<ul style="margin:0;padding-left:18px;font-size:var(--fs-sm);color:var(--warn-d);line-height:1.9">';
   warnings.forEach(function(w) {
     var tabla = _FIELD_TABLE[w.field] || '?';
     var loc = w.service ? (w.service + ' &rsaquo; ' + w.method) : w.method;
     if (w.param) loc += ' &rsaquo; ' + w.param;
     html += '<li>' +
-      '<span style="background:var(--warn-l);color:var(--warn-d);font-weight:600;font-size:var(--fs-sm);padding:1px 5px;border-radius:3px;margin-right:4px">' + tabla + '</span>' +
+      '<span style="background:var(--warn-l);color:var(--warn-d);font-weight:600;font-size:var(--fs-sm);padding:1px 5px;border-radius:3px;margin-right:var(--sp-1)">' + tabla + '</span>' +
       '<code style="background:rgba(0,0,0,.06);padding:1px 5px;border-radius:3px;font-size:var(--fs-sm)">' + w.field + '</code> ' +
       '<span style="color:var(--warn-d);font-weight:500"> [' + loc + ']</span> ' + w.msg + '</li>';
   });
@@ -626,7 +626,7 @@ async function renderList() {
     var label = item.method === '__all__' ? 'Todos los metodos' : item.method;
     var border = i > 0 ? 'border-top:1px solid var(--border)' : '';
     var badge = item.method !== '__all__'
-      ? '<div id="svc-badge-' + i + '" style="font-size:var(--fs-sm);margin-top:2px"><span class="spin dk"></span></div>'
+      ? '<div id="svc-badge-' + i + '" style="font-size:var(--fs-sm);margin-top:var(--sp-1)"><span class="spin dk"></span></div>'
       : '';
     return '<div class="svc-row" style="' + border + '">' +
       '<span><strong>' + item.service + '</strong><span class="svc-mtd">/ ' + label + '</span>' + badge + '</span>' +
@@ -752,10 +752,10 @@ function buildWorkflowCard(service, workflow, uncovered) {
   // Global params block (only shown after confirming order)
   if (globalParams.length) {
     html += '<div class="wf-global-params" ondragstart="return false">';
-    html += '<div style="font-size:var(--fs-sm);font-weight:600;color:var(--blue);margin-bottom:8px">Parametros de entrada del workflow:</div>';
+    html += '<div style="font-size:var(--fs-sm);font-weight:600;color:var(--blue);margin-bottom:var(--sp-2)">Parametros de entrada del workflow:</div>';
     globalParams.forEach(function(p) {
       var fid = 'wfg-' + service + '-' + p.name;
-      html += '<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px">';
+      html += '<div style="display:flex;align-items:flex-start;gap:var(--sp-2);margin-bottom:var(--sp-2)">';
       html += '<label style="min-width:130px;font-size:var(--fs-sm);font-weight:500;flex-shrink:0;padding-top:5px">' + p.name;
       if (p.type) html += '<div style="font-size:var(--fs-sm);font-weight:400;color:var(--muted)">' + p.type + '</div>';
       html += '</label>';
@@ -787,7 +787,7 @@ function buildWorkflowCard(service, workflow, uncovered) {
       html += '<div style="flex:1">';
       html += '<span style="font-size:var(--fs-sm);font-weight:600">' + step.method + '</span>';
       if (extracts.length) {
-        html += '<div style="font-size:var(--fs-sm);color:var(--green);margin-top:1px">Extrae: ' + extracts.join(', ') + '</div>';
+        html += '<div style="font-size:var(--fs-sm);color:var(--green);margin-top:var(--sp-1)">Extrae: ' + extracts.join(', ') + '</div>';
       }
       html += '</div>';
       html += '</div>';
@@ -854,7 +854,7 @@ async function wfDrop(e, el) {
     }
   });
   if (!wfConfirmed) {
-    html += '<button class="btn btn-outline" id="btn-confirm-wf" onclick="confirmWorkflowOrder()" style="margin-top:10px;width:100%">Confirmar orden &#10003;</button>';
+    html += '<button class="btn btn-outline" id="btn-confirm-wf" onclick="confirmWorkflowOrder()" style="margin-top:var(--sp-3);width:100%">Confirmar orden &#10003;</button>';
   }
   document.getElementById('params-section').innerHTML = html;
   if (wfConfirmed) {
@@ -947,7 +947,7 @@ async function toggleEjecutar() {
       }
     }
     if (wfHtml) {
-      wfHtml += '<button class="btn btn-outline" id="btn-confirm-wf" onclick="confirmWorkflowOrder()" style="margin-top:10px;width:100%">Confirmar orden &#10003;</button>';
+      wfHtml += '<button class="btn btn-outline" id="btn-confirm-wf" onclick="confirmWorkflowOrder()" style="margin-top:var(--sp-3);width:100%">Confirmar orden &#10003;</button>';
     }
     section.innerHTML = wfHtml || '<div style="padding:6px 0;font-size:var(--fs-sm);color:var(--muted)">No hay servicios para analizar.</div>';
     return;
@@ -1201,7 +1201,7 @@ async function sgAddServiceToList() {
   err.className = 'cres';
   var container = document.getElementById('sg-service-groups');
   var div = document.createElement('div'); div.className = 'sg-svc-group';
-  div.innerHTML = '<div class="sg-svc-group-hd"><span class="sg-svc-group-name">'+svc+'</span><span style="font-size:var(--fs-sm);color:var(--muted);display:flex;align-items:center;gap:5px"><span class="spin dk"></span> Cargando...</span></div>';
+  div.innerHTML = '<div class="sg-svc-group-hd"><span class="sg-svc-group-name">'+svc+'</span><span style="font-size:var(--fs-sm);color:var(--muted);display:flex;align-items:center;gap:var(--sp-2)"><span class="spin dk"></span> Cargando...</span></div>';
   container.appendChild(div);
   try {
     var results = await Promise.all([
@@ -1224,7 +1224,7 @@ async function sgAddServiceToList() {
 function sgRenderServiceGroup(el, group, idx) {
   el.innerHTML = '';
   var hd = document.createElement('div'); hd.className = 'sg-svc-group-hd';
-  var left = document.createElement('div'); left.style.cssText = 'display:flex;align-items:center;gap:10px';
+  var left = document.createElement('div'); left.style.cssText = 'display:flex;align-items:center;gap:var(--sp-3)';
   var nameSpan = document.createElement('span'); nameSpan.className = 'sg-svc-group-name'; nameSpan.textContent = group.name; left.appendChild(nameSpan);
   if (group.versions.length > 1) {
     var verSel = document.createElement('select'); verSel.className = 'pinput'; verSel.style.cssText = 'width:60px;font-size:var(--fs-sm)';
@@ -1234,7 +1234,7 @@ function sgRenderServiceGroup(el, group, idx) {
   } else {
     var verSpan = document.createElement('span'); verSpan.style.cssText = 'font-size:var(--fs-sm);color:var(--muted)'; verSpan.textContent = 'Ver. '+group.version; left.appendChild(verSpan);
   }
-  var right = document.createElement('div'); right.style.cssText = 'display:flex;align-items:center;gap:8px';
+  var right = document.createElement('div'); right.style.cssText = 'display:flex;align-items:center;gap:var(--sp-2)';
   var allBtn = document.createElement('button'); allBtn.className = 'btn-pill'; allBtn.textContent = '✓ Todos';
   allBtn.addEventListener('click', (function(i) { return function() { sgSelectAllInGroup(i, true); }; })(idx));
   var noneBtn = document.createElement('button'); noneBtn.className = 'btn-pill'; noneBtn.textContent = '✗ Ninguno';
