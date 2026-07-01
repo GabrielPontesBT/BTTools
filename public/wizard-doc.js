@@ -75,17 +75,17 @@ function renderWarnings(containerId, warnings) {
   var el = document.getElementById(containerId); if (!el) return;
   if (!warnings || !warnings.length) { el.innerHTML = ''; el.style.display = 'none'; return; }
   var n = warnings.length;
-  var html = '<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:14px 16px">' +
-    '<div style="font-weight:600;font-size:var(--fs-sm);color:#92400e;margin-bottom:10px">&#9888; ' + n + ' advertencia' + (n > 1 ? 's' : '') + ' encontrada' + (n > 1 ? 's' : '') + '</div>' +
-    '<ul style="margin:0;padding-left:18px;font-size:var(--fs-sm);color:#78350f;line-height:1.9">';
+  var html = '<div style="background:var(--warn-l);border:1px solid var(--warn);border-radius:8px;padding:14px 16px">' +
+    '<div style="font-weight:600;font-size:var(--fs-sm);color:var(--warn-d);margin-bottom:10px">&#9888; ' + n + ' advertencia' + (n > 1 ? 's' : '') + ' encontrada' + (n > 1 ? 's' : '') + '</div>' +
+    '<ul style="margin:0;padding-left:18px;font-size:var(--fs-sm);color:var(--warn-d);line-height:1.9">';
   warnings.forEach(function(w) {
     var tabla = _FIELD_TABLE[w.field] || '?';
     var loc = w.service ? (w.service + ' &rsaquo; ' + w.method) : w.method;
     if (w.param) loc += ' &rsaquo; ' + w.param;
     html += '<li>' +
-      '<span style="background:#fde68a;color:#92400e;font-weight:600;font-size:var(--fs-sm);padding:1px 5px;border-radius:3px;margin-right:4px">' + tabla + '</span>' +
+      '<span style="background:var(--warn-l);color:var(--warn-d);font-weight:600;font-size:var(--fs-sm);padding:1px 5px;border-radius:3px;margin-right:4px">' + tabla + '</span>' +
       '<code style="background:rgba(0,0,0,.06);padding:1px 5px;border-radius:3px;font-size:var(--fs-sm)">' + w.field + '</code> ' +
-      '<span style="color:#b45309;font-weight:500"> [' + loc + ']</span> ' + w.msg + '</li>';
+      '<span style="color:var(--warn-d);font-weight:500"> [' + loc + ']</span> ' + w.msg + '</li>';
   });
   html += '</ul></div>';
   el.innerHTML = html; el.style.display = '';
@@ -655,7 +655,7 @@ async function renderList() {
       if (res.exists) {
         var dt = new Date(res.mtime);
         var fmt = dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        badgeEl.innerHTML = '<span style="color:#16a34a;font-weight:500">&#10003; Generado</span> <span style="color:var(--muted)">' + fmt + '</span>';
+        badgeEl.innerHTML = '<span style="color:var(--green);font-weight:500">&#10003; Generado</span> <span style="color:var(--muted)">' + fmt + '</span>';
       } else {
         badgeEl.innerHTML = '<span style="color:var(--muted)">&#9679; No generado aun</span>';
       }
@@ -683,13 +683,13 @@ async function saveEnv() {
         return;
       }
       if (!dv.ok) {
-        if (valEl) { valEl.innerHTML = '<div style="background:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:12px 16px;font-size:var(--fs-sm);color:#9a3412">&#9888; No se pudo validar: ' + (dv.message || 'error desconocido') + '</div>'; valEl.style.display = ''; }
+        if (valEl) { valEl.innerHTML = '<div style="background:var(--warn-l);border:1px solid var(--warn);border-radius:8px;padding:12px 16px;font-size:var(--fs-sm);color:var(--warn-d)">&#9888; No se pudo validar: ' + (dv.message || 'error desconocido') + '</div>'; valEl.style.display = ''; }
         btn.innerHTML = 'Guardar y finalizar &#10003;';
         btn.disabled = false;
         return;
       }
     } catch(e) {
-      if (valEl) { valEl.innerHTML = '<div style="background:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:12px 16px;font-size:var(--fs-sm);color:#9a3412">&#9888; Error al validar: ' + e.message + '</div>'; valEl.style.display = ''; }
+      if (valEl) { valEl.innerHTML = '<div style="background:var(--warn-l);border:1px solid var(--warn);border-radius:8px;padding:12px 16px;font-size:var(--fs-sm);color:var(--warn-d)">&#9888; Error al validar: ' + e.message + '</div>'; valEl.style.display = ''; }
       btn.innerHTML = 'Guardar y finalizar &#10003;';
       btn.disabled = false;
       return;
@@ -1394,7 +1394,7 @@ function _valRenderResults(results, basePath) {
         + '<div style="flex:1;min-width:0">'
         + '<div class="vf-name" onclick="this.closest(\'.vf-item\').classList.toggle(\'expanded\')">'
         + '📄 ' + _escHtml(r.relPath) + tag
-        + ' <span style="font-size:var(--fs-sm);color:#9ca3af">(' + r.problemas.length + ' problema' + (r.problemas.length > 1 ? 's' : '') + ') ▸</span>'
+        + ' <span style="font-size:var(--fs-sm);color:var(--muted)">(' + r.problemas.length + ' problema' + (r.problemas.length > 1 ? 's' : '') + ') ▸</span>'
         + '</div>'
         + '<div class="vf-errors">' + errHtml + '</div>'
         + '</div></div>';
