@@ -134,57 +134,69 @@
       </div>
     </div>
 
-    <!-- Paso 4: API (flujo doc) -->
+    <!-- Paso 5: Ambiente + Llamar a la API (flujo doc) -->
     <div class="panel" id="p4">
       <div class="ptitle">Configuración del ambiente Bantotal</div>
-      <div class="psub">URLs y credenciales para llamar a la API real al generar la documentación.</div>
+      <div class="psub">Decidí si vas a llamar a la API real y, si es así, completá las credenciales.</div>
 
-      <div class="field" id="a-api-wrap">
-        <label>URL de la API</label>
-        <input type="text" id="a-api" placeholder="ej: http://10.0.0.7:5110/btv4core" oninput="onApiUrlInput()">
-        <div class="hint" id="a-api-hint"></div>
+      <div class="exec-toggle" id="exec-toggle">
+        <label class="exec-lbl">
+          <input type="checkbox" id="cb-ejecutar" onchange="toggleEjecutar()" style="width:16px;height:16px;cursor:pointer">
+          Llamar a la API
+        </label>
+        <p class="exec-sub">Ejecuta cada método contra la API de Bantotal y adjunta la respuesta real en el documento.</p>
       </div>
-      <div class="field" id="a-base-wrap">
-        <label id="a-base-label">URL de la API publica</label>
-        <input type="text" id="a-base" placeholder="ej: http://10.0.0.7:5101/api/publicapi" oninput="_setApiHints(v('a-api'), v('a-base'))">
-        <div class="hint" id="a-base-hint"></div>
-      </div>
-      <div id="a-auth-wrap">
-        <div class="field">
-          <label>URL de autenticacion</label>
-          <input type="text" id="a-auth" placeholder="">
-          <div class="hint">Endpoint de login. Se completa automáticamente al ingresar la URL de la API.</div>
+
+      <div id="api-creds-wrap" style="display:none">
+        <div class="field" id="a-api-wrap">
+          <label>URL de la API</label>
+          <input type="text" id="a-api" placeholder="ej: http://10.0.0.7:5110/btv4core" oninput="onApiUrlInput()">
+          <div class="hint" id="a-api-hint"></div>
         </div>
-      </div>
-      <div class="frow">
-        <div class="field">
-          <label>Usuario API</label>
-          <input type="text" id="a-user" placeholder="ej: INSTALADOR">
+        <div class="field" id="a-base-wrap">
+          <label id="a-base-label">URL de la API publica</label>
+          <input type="text" id="a-base" placeholder="ej: http://10.0.0.7:5101/api/publicapi" oninput="_setApiHints(v('a-api'), v('a-base'))">
+          <div class="hint" id="a-base-hint"></div>
         </div>
-        <div class="field">
-          <label>Contraseña API</label>
-          <div class="pw">
-            <input type="password" id="a-pass" placeholder="Contraseña">
-            <button class="pw-btn" onclick="togglePw('a-pass',this)">&#128065;</button>
+        <div id="a-auth-wrap">
+          <div class="field">
+            <label>URL de autenticacion</label>
+            <input type="text" id="a-auth" placeholder="">
+            <div class="hint">Endpoint de login. Se completa automáticamente al ingresar la URL de la API.</div>
           </div>
         </div>
+        <div class="frow">
+          <div class="field">
+            <label>Usuario API</label>
+            <input type="text" id="a-user" placeholder="ej: INSTALADOR">
+          </div>
+          <div class="field">
+            <label>Contraseña API</label>
+            <div class="pw">
+              <input type="password" id="a-pass" placeholder="Contraseña">
+              <button class="pw-btn" onclick="togglePw('a-pass',this)">&#128065;</button>
+            </div>
+          </div>
+        </div>
+        <div class="frow" style="grid-template-columns:1fr 1fr 160px">
+          <div class="field">
+            <label>Canal</label>
+            <input type="text" id="a-canal" placeholder="ej: BTDIGITAL">
+          </div>
+          <div class="field">
+            <label>Device</label>
+            <input type="text" id="a-device" placeholder="ej: INSTALADOR">
+          </div>
+          <div class="field">
+            <label>Requerimiento</label>
+            <input type="text" id="a-requerimiento" placeholder="ej: 1">
+          </div>
+        </div>
+        <div id="ares" class="cres" style="margin-bottom:0"></div>
+        <button class="btn btn-outline" id="btn-test-api" onclick="testAuth()" style="margin-top:var(--sp-1);width:100%">Probar autenticación</button>
       </div>
-      <div class="frow" style="grid-template-columns:1fr 1fr 160px">
-        <div class="field">
-          <label>Canal</label>
-          <input type="text" id="a-canal" placeholder="ej: BTDIGITAL">
-        </div>
-        <div class="field">
-          <label>Device</label>
-          <input type="text" id="a-device" placeholder="ej: INSTALADOR">
-        </div>
-        <div class="field">
-          <label>Requerimiento</label>
-          <input type="text" id="a-requerimiento" placeholder="ej: 1">
-        </div>
-      </div>
-      <div id="ares" class="cres" style="margin-bottom:0"></div>
-      <button class="btn btn-outline" id="btn-test-api" onclick="testAuth()" style="margin-top:var(--sp-1);width:100%">Probar autenticación</button>
+
+      <div id="params-section" style="display:none;margin-bottom:var(--sp-4)"></div>
 
       <div style="border-top:1px solid var(--border);margin-top:var(--sp-5);padding-top:14px">
         <label style="display:flex;align-items:center;gap:var(--sp-2);cursor:pointer;font-weight:600;font-size:var(--fs-sm)">
@@ -205,7 +217,7 @@
       </div>
     </div>
 
-    <!-- Paso 5: Seleccion de servicios -->
+    <!-- Paso 4: Seleccion de servicios (flujo doc) -->
     <div class="panel" id="p5">
       <div class="ptitle">¿Que servicios querés documentar?</div>
       <div class="psub">Carga los servicios disponibles en la BD y selecciona los métodos. Podes agregar varios a la lista.</div>
@@ -244,14 +256,6 @@
       <div class="ok-panel">
         <div class="ok-icon">&#10003;</div>
         <h2>Configuración guardada!</h2>
-        <div class="exec-toggle" id="exec-toggle" style="display:none">
-          <label class="exec-lbl">
-            <input type="checkbox" id="cb-ejecutar" onchange="toggleEjecutar()" style="width:16px;height:16px;cursor:pointer">
-            Llamar a la API
-          </label>
-          <p class="exec-sub">Ejecuta cada método contra la API de Bantotal y adjunta la respuesta real en el documento.</p>
-        </div>
-        <div id="params-section" style="display:none;margin-bottom:var(--sp-4)"></div>
         <button class="btn btn-primary" id="btn-generate" onclick="generateDocs()" style="margin-bottom:var(--sp-4)">Generar documentación ahora</button>
         <div id="gen-log" class="gen-log" style="display:none"></div>
         <p class="close-hint" id="gen-hint">Podes cerrar esta pestaña. Para cambiar la configuración, volvé a ejecutar <strong>node setup.js</strong>.</p>
