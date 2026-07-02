@@ -247,7 +247,7 @@ function foot(step) {
   }
 }
 
-function goNext() {
+async function goNext() {
   var s = S.step;
   if (s === 1 && !S.action) return;
   if (s === 1 && (S.action === 'validate' || S.action === 'collections')) { show(4); return; } // saltar versión y conexión
@@ -262,6 +262,7 @@ function goNext() {
     sgFetchAndShowOutput(grps);
     return;
   }
+  if (s === 4 && S.action === 'doc') { await validateDocItems(); return; }
   if (s < 6) show(s + 1);
 }
 
@@ -670,39 +671,46 @@ async function renderList() {
   } catch(e) {}
 }
 
-async function saveEnv() {
-  var btn = document.getElementById('btn-save');
+async function validateDocItems() {
+  var btn = document.getElementById('btn-next');
   var valEl = document.getElementById('doc-val-block');
   if (valEl) { valEl.innerHTML = ''; valEl.style.display = 'none'; }
 
   var docItems = items.filter(function(it) { return it.method; }).map(function(it) { return { service: it.service, method: it.method }; });
-  if (docItems.length) {
-    btn.innerHTML = '<span class="spin"></span>&nbsp;Validando...';
-    btn.disabled = true;
-    try {
-      var rv = await fetch('/sg/api/validate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, items: docItems }) });
-      var dv = await rv.json();
-      docCacheKey = dv.cacheKey || null;
-      if (dv.ok && dv.warnings && dv.warnings.length) {
-        renderWarnings('doc-val-block', dv.warnings);
-        btn.innerHTML = 'Guardar y finalizar &#10003;';
-        btn.disabled = false;
-        return;
-      }
-      if (!dv.ok) {
-        if (valEl) { valEl.innerHTML = '<div style="background:var(--warn-l);border:1px solid var(--warn);border-radius:8px;padding:12px 16px;font-size:var(--fs-sm);color:var(--warn-d)">&#9888; No se pudo validar: ' + (dv.message || 'error desconocido') + '</div>'; valEl.style.display = ''; }
-        btn.innerHTML = 'Guardar y finalizar &#10003;';
-        btn.disabled = false;
-        return;
-      }
-    } catch(e) {
-      if (valEl) { valEl.innerHTML = '<div style="background:var(--warn-l);border:1px solid var(--warn);border-radius:8px;padding:12px 16px;font-size:var(--fs-sm);color:var(--warn-d)">&#9888; Error al validar: ' + e.message + '</div>'; valEl.style.display = ''; }
-      btn.innerHTML = 'Guardar y finalizar &#10003;';
+  if (!docItems.length) { show(5); return; }
+
+  btn.innerHTML = '<span class="spin"></span>&nbsp;Validando...';
+  btn.disabled = true;
+  try {
+    var rv = await fetch('/sg/api/validate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, items: docItems }) });
+    var dv = await rv.json();
+    docCacheKey = dv.cacheKey || null;
+    if (dv.ok && dv.warnings && dv.warnings.length) {
+      renderWarnings('doc-val-block', dv.warnings);
+      btn.innerHTML = 'Siguiente &#8594;';
       btn.disabled = false;
       return;
     }
+    if (!dv.ok) {
+      if (valEl) { valEl.innerHTML = '<div style="background:var(--warn-l);border:1px solid var(--warn);border-radius:8px;padding:12px 16px;font-size:var(--fs-sm);color:var(--warn-d)">&#9888; No se pudo validar: ' + (dv.message || 'error desconocido') + '</div>'; valEl.style.display = ''; }
+      btn.innerHTML = 'Siguiente &#8594;';
+      btn.disabled = false;
+      return;
+    }
+  } catch(e) {
+    if (valEl) { valEl.innerHTML = '<div style="background:var(--warn-l);border:1px solid var(--warn);border-radius:8px;padding:12px 16px;font-size:var(--fs-sm);color:var(--warn-d)">&#9888; Error al validar: ' + e.message + '</div>'; valEl.style.display = ''; }
+    btn.innerHTML = 'Siguiente &#8594;';
+    btn.disabled = false;
+    return;
   }
 
+  btn.innerHTML = 'Siguiente &#8594;';
+  btn.disabled = false;
+  show(5);
+}
+
+async function saveEnv() {
+  var btn = document.getElementById('btn-save');
   btn.innerHTML = '<span class="spin"></span>&nbsp;Guardando...';
   btn.disabled = true;
   try {
@@ -714,15 +722,6 @@ async function saveEnv() {
     var d = await r.json();
     if (d.ok) {
       show(6);
-      var et = document.getElementById('exec-toggle');
-      if (et) { et.style.display = 'block'; }
-      var cbEjSave = document.getElementById('cb-ejecutar');
-      if (cbEjSave) cbEjSave.checked = false;
-      var ps = document.getElementById('params-section');
-      if (ps) ps.style.display = 'none';
-      paramFields = {};
-      workflowData = {};
-      wfConfirmed = false;
     } else {
       alert('Error al guardar: ' + d.message);
       btn.innerHTML = 'Guardar y finalizar &#10003;';
