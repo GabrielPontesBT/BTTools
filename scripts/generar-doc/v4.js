@@ -3,6 +3,7 @@
 // Uso: node generar_md.js PublicCASHManagement getServices
 // ============================================================
 
+require('./_node-modules')(module, 'V4');
 require('dotenv').config();
 const oracledb = require('oracledb');
 const fs = require('fs');

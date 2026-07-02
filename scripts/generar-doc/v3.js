@@ -3,6 +3,7 @@
 // Uso: node generar_md.js PublicGeneral getMembers [Carpeta]
 // ============================================================
 
+require('./_node-modules')(module, 'V3');
 require('dotenv').config();
 const sql = require('mssql');
 const fs = require('fs');

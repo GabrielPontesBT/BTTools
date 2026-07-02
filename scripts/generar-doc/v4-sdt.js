@@ -7,6 +7,7 @@
 //   node generar_sdt.js SdtsBTPEWNaturalPerson PublicPersons/get.md
 // ============================================================
 
+require('./_node-modules')(module, 'V4');
 require('dotenv').config();
 const oracledb = require('oracledb');
 const fs = require('fs');
