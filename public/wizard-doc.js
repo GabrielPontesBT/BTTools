@@ -138,7 +138,7 @@ function pick(key, val, el) {
 function updateStepLabels(action) {
   var lb4 = document.getElementById('lb4'), lb5 = document.getElementById('lb5');
   if (action === 'scripts') { if (lb4) lb4.textContent = 'Servicios'; if (lb5) lb5.textContent = 'Script'; }
-  else { if (lb4) lb4.textContent = 'API'; if (lb5) lb5.textContent = 'Servicios'; }
+  else { if (lb4) lb4.textContent = 'Servicios'; if (lb5) lb5.textContent = 'API'; }
 }
 
 function vizPos(step) {
