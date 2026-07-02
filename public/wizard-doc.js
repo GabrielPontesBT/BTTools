@@ -181,7 +181,12 @@ function panelId(step) {
   if (S.action === 'validate') return 'p4v';
   if (S.action === 'collections') return 'p4c';
   if (S.action === 'scripts') return step === 4 ? 'p4s' : 'p5s';
-  return 'p' + step; // doc: p4, p5, p6
+  if (S.action === 'doc') {
+    if (step === 4) return 'p5'; // selección de servicios
+    if (step === 5) return 'p4'; // ambiente + llamar a la API
+    return 'p6'; // éxito
+  }
+  return 'p' + step;
 }
 
 function show(step) {
@@ -200,7 +205,8 @@ function show(step) {
     setTimeout(setupConnWatchers, 0);
   }
   if (step === 4 && S.action === 'validate') { loadValidateFolders(); }
-  if (step === 4 && S.action === 'doc') {
+  if (step === 4 && S.action === 'doc') { if (!allServices.length) loadServices(); else renderList(); }
+  if (step === 5 && S.action === 'doc') {
     var isV4 = S.version === 'V4';
     document.getElementById('a-auth-wrap').style.display = isV4 ? 'none' : 'block';
     document.getElementById('a-api-wrap').style.display  = isV4 ? 'none' : 'block';
@@ -210,7 +216,6 @@ function show(step) {
       : 'URL publica <span style="color:var(--muted);font-weight:400;font-size:var(--fs-sm)">(para los ejemplos de la documentacion)</span>';
     fillApiFields();
   }
-  if (step === 5 && S.action === 'doc') { if (!allServices.length) loadServices(); else renderList(); }
   if (step === 4 && S.action === 'scripts' && !sgServicesLoaded) sgLoadServices();
 }
 
