@@ -1081,7 +1081,14 @@ if (require.main === module) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
   if (metodo) {
-    generarMd(servicio, metodo, dir, ejecutar, inputParams, cachedData);
+    generarMd(servicio, metodo, dir, ejecutar, inputParams, cachedData)
+      .then(() => {
+        if (!fs.existsSync(`${dir}\\${metodo}.md`)) process.exitCode = 1;
+      })
+      .catch(e => {
+        console.error('❌ Error inesperado:', e.message);
+        process.exitCode = 1;
+      });
   } else {
     (async () => {
       let conn;
