@@ -727,6 +727,12 @@ ${tabla}
       Token:          '23B342928917607ECECF65BD'
     };
 
+    // ── Split entrada: GUID → query string, resto → body ──
+    const esGuid       = r => (r.BTISRVPARNOM || '').toUpperCase().includes('GUID');
+    const usaQueryAll  = httpMethod === 'GET' || httpMethod === 'DELETE';
+    const entradaQuery = usaQueryAll ? entrada : entrada.filter(esGuid);
+    const entradaBody  = usaQueryAll ? []      : entrada.filter(r => !esGuid(r));
+
     // ── Ejemplos JSON (body sin Btinreq) ──
     const entradaNombres = new Set(entrada.map(r => r.BTISRVPARNOM));
     const filteredParams = inputParams
@@ -765,12 +771,6 @@ ${tabla}
         console.log(`⚠️  ${e.message} — usando valores de ejemplo`);
       }
     }
-
-    // ── Split entrada: GUID → query string, resto → body ──
-    const esGuid       = r => (r.BTISRVPARNOM || '').toUpperCase().includes('GUID');
-    const usaQueryAll  = httpMethod === 'GET' || httpMethod === 'DELETE';
-    const entradaQuery = usaQueryAll ? entrada : entrada.filter(esGuid);
-    const entradaBody  = usaQueryAll ? []      : entrada.filter(r => !esGuid(r));
 
     // ── Tablas ──
     const tablaEntrada = generarTabla(entrada);
