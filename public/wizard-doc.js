@@ -234,8 +234,10 @@ function foot(step) {
     ftr.innerHTML = '';
   } else if (step === 4 && S.action === 'scripts') {
     ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()" disabled>Generar script &#8594;</button>';
+  } else if (step === 4 && S.action === 'doc') {
+    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (items.length ? '' : ' disabled') + '>Siguiente &#8594;</button>';
   } else if (step === 5 && S.action === 'doc') {
-    ftr.innerHTML = '<button class="btn btn-success" id="btn-save" onclick="saveEnv()" disabled>Guardar y finalizar &#10003;</button>';
+    ftr.innerHTML = '<button class="btn btn-success" id="btn-save" onclick="saveEnv()">Guardar y finalizar &#10003;</button>';
   } else if (step === 5 && S.action === 'scripts') {
     ftr.innerHTML = '<button class="btn btn-ghost" onclick="sgReset()">&#8635; Nuevo script</button>';
   } else if (step === 6) {
@@ -611,7 +613,7 @@ function addItem() {
   if (dup) return;
   items.push({ service: svc, method: mtd });
   renderList();
-  var btn = document.getElementById('btn-save');
+  var btn = document.getElementById('btn-next');
   if (btn) btn.disabled = false;
 }
 
@@ -619,7 +621,7 @@ function removeItem(idx) {
   items.splice(idx, 1);
   renderList();
   if (items.length === 0) {
-    var btn = document.getElementById('btn-save');
+    var btn = document.getElementById('btn-next');
     if (btn) btn.disabled = true;
   }
 }
