@@ -918,6 +918,8 @@ async function computeWorkflowUncovered(service, steps) {
 
 async function toggleEjecutar() {
   var enabled = document.getElementById('cb-ejecutar').checked;
+  var credsWrap = document.getElementById('api-creds-wrap');
+  if (credsWrap) credsWrap.style.display = enabled ? 'block' : 'none';
   var section = document.getElementById('params-section');
   if (!enabled) { section.style.display = 'none'; paramFields = {}; workflowData = {}; wfConfirmed = false; return; }
   section.style.display = 'block';
@@ -1127,13 +1129,15 @@ function resetParaOtroServicio() {
   if (postActs) postActs.style.display = 'none';
   var cbEj = document.getElementById('cb-ejecutar');
   if (cbEj) cbEj.checked = false;
+  var credsWrap = document.getElementById('api-creds-wrap');
+  if (credsWrap) credsWrap.style.display = 'none';
   var ps = document.getElementById('params-section');
   if (ps) { ps.style.display = 'none'; ps.innerHTML = ''; }
   var hint = document.getElementById('gen-hint');
   if (hint) hint.style.display = 'none';
   var btn = document.getElementById('btn-generate');
   if (btn) { btn.style.display = 'block'; btn.disabled = false; btn.innerHTML = 'Generar documentacion ahora'; }
-  show(5);
+  show(4);
 }
 
 function handleGenEvent(ev) {
