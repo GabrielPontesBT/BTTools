@@ -75,17 +75,17 @@ function renderWarnings(containerId, warnings) {
   var el = document.getElementById(containerId); if (!el) return;
   if (!warnings || !warnings.length) { el.innerHTML = ''; el.style.display = 'none'; return; }
   var n = warnings.length;
-  var html = '<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:14px 16px">' +
-    '<div style="font-weight:600;font-size:13px;color:#92400e;margin-bottom:10px">&#9888; ' + n + ' advertencia' + (n > 1 ? 's' : '') + ' encontrada' + (n > 1 ? 's' : '') + '</div>' +
-    '<ul style="margin:0;padding-left:18px;font-size:12px;color:#78350f;line-height:1.9">';
+  var html = '<div style="background:var(--warn-l);border:1px solid var(--warn);border-radius:8px;padding:14px 16px">' +
+    '<div style="font-weight:600;font-size:var(--fs-sm);color:var(--warn-d);margin-bottom:var(--sp-3)">&#9888; ' + n + ' advertencia' + (n > 1 ? 's' : '') + ' encontrada' + (n > 1 ? 's' : '') + '</div>' +
+    '<ul style="margin:0;padding-left:18px;font-size:var(--fs-sm);color:var(--warn-d);line-height:1.9">';
   warnings.forEach(function(w) {
     var tabla = _FIELD_TABLE[w.field] || '?';
     var loc = w.service ? (w.service + ' &rsaquo; ' + w.method) : w.method;
     if (w.param) loc += ' &rsaquo; ' + w.param;
     html += '<li>' +
-      '<span style="background:#fde68a;color:#92400e;font-weight:600;font-size:10px;padding:1px 5px;border-radius:3px;margin-right:4px">' + tabla + '</span>' +
-      '<code style="background:rgba(0,0,0,.06);padding:1px 5px;border-radius:3px;font-size:11px">' + w.field + '</code> ' +
-      '<span style="color:#b45309;font-weight:500"> [' + loc + ']</span> ' + w.msg + '</li>';
+      '<span style="background:var(--warn-l);color:var(--warn-d);font-weight:600;font-size:var(--fs-sm);padding:1px 5px;border-radius:3px;margin-right:var(--sp-1)">' + tabla + '</span>' +
+      '<code style="background:rgba(0,0,0,.06);padding:1px 5px;border-radius:3px;font-size:var(--fs-sm)">' + w.field + '</code> ' +
+      '<span style="color:var(--warn-d);font-weight:500"> [' + loc + ']</span> ' + w.msg + '</li>';
   });
   html += '</ul></div>';
   el.innerHTML = html; el.style.display = '';
@@ -206,8 +206,8 @@ function show(step) {
     document.getElementById('a-api-wrap').style.display  = isV4 ? 'none' : 'block';
     var lbl = document.getElementById('a-base-label');
     if (lbl) lbl.innerHTML = isV4
-      ? 'URL de la API <span style="color:var(--muted);font-weight:400;font-size:11px">(ej: http://10.0.0.7:5101/api/publicapi)</span>'
-      : 'URL publica <span style="color:var(--muted);font-weight:400;font-size:11px">(para los ejemplos de la documentacion)</span>';
+      ? 'URL de la API <span style="color:var(--muted);font-weight:400;font-size:var(--fs-sm)">(ej: http://10.0.0.7:5101/api/publicapi)</span>'
+      : 'URL publica <span style="color:var(--muted);font-weight:400;font-size:var(--fs-sm)">(para los ejemplos de la documentacion)</span>';
     fillApiFields();
   }
   if (step === 5 && S.action === 'doc') { if (!allServices.length) loadServices(); else renderList(); }
@@ -528,7 +528,7 @@ async function loadServices() {
   var area = document.getElementById('svc-load-area');
   var err  = document.getElementById('svc-err');
   err.className = 'cres';
-  area.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:4px 0"><span class="spin dk"></span>&nbsp;Cargando servicios...</div>';
+  area.innerHTML = '<div style="font-size:var(--fs-sm);color:var(--muted);padding:4px 0"><span class="spin dk"></span>&nbsp;Cargando servicios...</div>';
   document.getElementById('svc-picker').style.display = 'none';
   try {
     var r = await fetch('/api/services', {
@@ -626,7 +626,7 @@ async function renderList() {
     var label = item.method === '__all__' ? 'Todos los metodos' : item.method;
     var border = i > 0 ? 'border-top:1px solid var(--border)' : '';
     var badge = item.method !== '__all__'
-      ? '<div id="svc-badge-' + i + '" style="font-size:10px;margin-top:2px"><span class="spin dk"></span></div>'
+      ? '<div id="svc-badge-' + i + '" style="font-size:var(--fs-sm);margin-top:var(--sp-1)"><span class="spin dk"></span></div>'
       : '';
     return '<div class="svc-row" style="' + border + '">' +
       '<span><strong>' + item.service + '</strong><span class="svc-mtd">/ ' + label + '</span>' + badge + '</span>' +
@@ -655,7 +655,7 @@ async function renderList() {
       if (res.exists) {
         var dt = new Date(res.mtime);
         var fmt = dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        badgeEl.innerHTML = '<span style="color:#16a34a;font-weight:500">&#10003; Generado</span> <span style="color:var(--muted)">' + fmt + '</span>';
+        badgeEl.innerHTML = '<span style="color:var(--green);font-weight:500">&#10003; Generado</span> <span style="color:var(--muted)">' + fmt + '</span>';
       } else {
         badgeEl.innerHTML = '<span style="color:var(--muted)">&#9679; No generado aun</span>';
       }
@@ -683,13 +683,13 @@ async function saveEnv() {
         return;
       }
       if (!dv.ok) {
-        if (valEl) { valEl.innerHTML = '<div style="background:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:12px 16px;font-size:12px;color:#9a3412">&#9888; No se pudo validar: ' + (dv.message || 'error desconocido') + '</div>'; valEl.style.display = ''; }
+        if (valEl) { valEl.innerHTML = '<div style="background:var(--warn-l);border:1px solid var(--warn);border-radius:8px;padding:12px 16px;font-size:var(--fs-sm);color:var(--warn-d)">&#9888; No se pudo validar: ' + (dv.message || 'error desconocido') + '</div>'; valEl.style.display = ''; }
         btn.innerHTML = 'Guardar y finalizar &#10003;';
         btn.disabled = false;
         return;
       }
     } catch(e) {
-      if (valEl) { valEl.innerHTML = '<div style="background:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:12px 16px;font-size:12px;color:#9a3412">&#9888; Error al validar: ' + e.message + '</div>'; valEl.style.display = ''; }
+      if (valEl) { valEl.innerHTML = '<div style="background:var(--warn-l);border:1px solid var(--warn);border-radius:8px;padding:12px 16px;font-size:var(--fs-sm);color:var(--warn-d)">&#9888; Error al validar: ' + e.message + '</div>'; valEl.style.display = ''; }
       btn.innerHTML = 'Guardar y finalizar &#10003;';
       btn.disabled = false;
       return;
@@ -746,25 +746,25 @@ function buildWorkflowCard(service, workflow, uncovered) {
   var html = '<div class="param-card">';
   html += '<div class="param-card-hd" style="display:flex;justify-content:space-between;align-items:center">';
   html += '<span>' + service + ' &mdash; ' + total + ' pasos</span>';
-  html += '<span style="font-size:10px;font-weight:400;color:var(--muted)">Arrastra para reordenar</span>';
+  html += '<span style="font-size:var(--fs-sm);font-weight:400;color:var(--muted)">Arrastra para reordenar</span>';
   html += '</div>';
 
   // Global params block (only shown after confirming order)
   if (globalParams.length) {
     html += '<div class="wf-global-params" ondragstart="return false">';
-    html += '<div style="font-size:11px;font-weight:600;color:var(--blue);margin-bottom:8px">Parametros de entrada del workflow:</div>';
+    html += '<div style="font-size:var(--fs-sm);font-weight:600;color:var(--blue);margin-bottom:var(--sp-2)">Parametros de entrada del workflow:</div>';
     globalParams.forEach(function(p) {
       var fid = 'wfg-' + service + '-' + p.name;
-      html += '<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px">';
-      html += '<label style="min-width:130px;font-size:11px;font-weight:500;flex-shrink:0;padding-top:5px">' + p.name;
-      if (p.type) html += '<div style="font-size:10px;font-weight:400;color:var(--muted)">' + p.type + '</div>';
+      html += '<div style="display:flex;align-items:flex-start;gap:var(--sp-2);margin-bottom:var(--sp-2)">';
+      html += '<label style="min-width:130px;font-size:var(--fs-sm);font-weight:500;flex-shrink:0;padding-top:5px">' + p.name;
+      if (p.type) html += '<div style="font-size:var(--fs-sm);font-weight:400;color:var(--muted)">' + p.type + '</div>';
       html += '</label>';
       if (p.isComplex) {
         var lines = p.example ? Math.min(p.example.split('\\n').length, 12) : 3;
         var exVal = p.example ? p.example.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : (p.itemType ? '[]' : '{}');
-        html += '<textarea id="' + fid + '" rows="' + lines + '" data-example="' + exVal + '" style="flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:11px;font-family:Consolas,monospace;resize:vertical;outline:none">' + exVal + '</textarea>';
+        html += '<textarea id="' + fid + '" rows="' + lines + '" data-example="' + exVal + '" style="flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:var(--fs-sm);font-family:Consolas,monospace;resize:vertical;outline:none">' + exVal + '</textarea>';
       } else {
-        html += '<input type="text" id="' + fid + '" placeholder="Ingresar valor..." style="flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;outline:none">';
+        html += '<input type="text" id="' + fid + '" placeholder="Ingresar valor..." style="flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:var(--fs-sm);font-family:inherit;outline:none">';
       }
       html += '</div>';
     });
@@ -773,7 +773,7 @@ function buildWorkflowCard(service, workflow, uncovered) {
 
   html += '<div class="param-card-bd" style="padding:0" id="wf-bd-' + service + '">';
   if (!total) {
-    html += '<p style="font-size:12px;color:var(--muted);padding:10px 12px">Sin metodos detectados.</p>';
+    html += '<p style="font-size:var(--fs-sm);color:var(--muted);padding:10px 12px">Sin metodos detectados.</p>';
   } else {
     steps.forEach(function(step, idx) {
       var extracts = (step.extract || []).map(function(e) { return typeof e === 'string' ? e : (e.as || ''); }).filter(Boolean);
@@ -783,11 +783,11 @@ function buildWorkflowCard(service, workflow, uncovered) {
         ' style="' + (idx > 0 ? 'border-top:1px solid var(--border)' : '') + '">';
       html += '<div class="wf-step-hd">';
       html += '<span class="wf-handle">&#9776;</span>';
-      html += '<span style="font-size:10px;font-weight:700;color:var(--muted);min-width:18px;text-align:right">' + (idx + 1) + '</span>';
+      html += '<span style="font-size:var(--fs-sm);font-weight:700;color:var(--muted);min-width:18px;text-align:right">' + (idx + 1) + '</span>';
       html += '<div style="flex:1">';
-      html += '<span style="font-size:12px;font-weight:600">' + step.method + '</span>';
+      html += '<span style="font-size:var(--fs-sm);font-weight:600">' + step.method + '</span>';
       if (extracts.length) {
-        html += '<div style="font-size:10px;color:var(--green);margin-top:1px">Extrae: ' + extracts.join(', ') + '</div>';
+        html += '<div style="font-size:var(--fs-sm);color:var(--green);margin-top:var(--sp-1)">Extrae: ' + extracts.join(', ') + '</div>';
       }
       html += '</div>';
       html += '</div>';
@@ -854,7 +854,7 @@ async function wfDrop(e, el) {
     }
   });
   if (!wfConfirmed) {
-    html += '<button class="btn btn-outline" id="btn-confirm-wf" onclick="confirmWorkflowOrder()" style="margin-top:10px;width:100%">Confirmar orden &#10003;</button>';
+    html += '<button class="btn btn-outline" id="btn-confirm-wf" onclick="confirmWorkflowOrder()" style="margin-top:var(--sp-3);width:100%">Confirmar orden &#10003;</button>';
   }
   document.getElementById('params-section').innerHTML = html;
   if (wfConfirmed) {
@@ -927,7 +927,7 @@ async function toggleEjecutar() {
   }
 
   if (hasAll) {
-    section.innerHTML = '<div style="padding:6px 0;font-size:12px;color:var(--muted)"><span class="spin dk"></span>&nbsp;Analizando dependencias...</div>';
+    section.innerHTML = '<div style="padding:6px 0;font-size:var(--fs-sm);color:var(--muted)"><span class="spin dk"></span>&nbsp;Analizando dependencias...</div>';
     var wfHtml = '';
     for (var wi = 0; wi < items.length; wi++) {
       var wfItem = items[wi];
@@ -943,18 +943,18 @@ async function toggleEjecutar() {
         wfHtml += buildWorkflowCard(wfItem.service, wfD.workflow, null);
       } catch(wfE) {
         wfHtml += '<div class="param-card"><div class="param-card-hd">' + wfItem.service + '</div>' +
-          '<div class="param-card-bd" style="font-size:12px;color:var(--red)">Error: ' + wfE.message + '</div></div>';
+          '<div class="param-card-bd" style="font-size:var(--fs-sm);color:var(--red)">Error: ' + wfE.message + '</div></div>';
       }
     }
     if (wfHtml) {
-      wfHtml += '<button class="btn btn-outline" id="btn-confirm-wf" onclick="confirmWorkflowOrder()" style="margin-top:10px;width:100%">Confirmar orden &#10003;</button>';
+      wfHtml += '<button class="btn btn-outline" id="btn-confirm-wf" onclick="confirmWorkflowOrder()" style="margin-top:var(--sp-3);width:100%">Confirmar orden &#10003;</button>';
     }
-    section.innerHTML = wfHtml || '<div style="padding:6px 0;font-size:12px;color:var(--muted)">No hay servicios para analizar.</div>';
+    section.innerHTML = wfHtml || '<div style="padding:6px 0;font-size:var(--fs-sm);color:var(--muted)">No hay servicios para analizar.</div>';
     return;
   }
 
   // Modo parametros individuales
-  section.innerHTML = '<div style="padding:6px 0;font-size:12px;color:var(--muted)"><span class="spin dk"></span>&nbsp;Cargando parametros...</div>';
+  section.innerHTML = '<div style="padding:6px 0;font-size:var(--fs-sm);color:var(--muted)"><span class="spin dk"></span>&nbsp;Cargando parametros...</div>';
   var html = '';
   for (var i = 0; i < items.length; i++) {
     var item = items[i];
@@ -968,7 +968,7 @@ async function toggleEjecutar() {
       if (!dp.ok) throw new Error(dp.message || 'Error al consultar BD');
       if (!dp.params.length) {
         html += '<div class="param-card"><div class="param-card-hd">' + item.service + ' / ' + item.method + '</div>' +
-          '<div class="param-card-bd" style="font-size:12px;color:var(--muted)">Sin parametros de entrada.</div></div>';
+          '<div class="param-card-bd" style="font-size:var(--fs-sm);color:var(--muted)">Sin parametros de entrada.</div></div>';
         continue;
       }
       paramFields[i] = dp.params.map(function(p) { return { name: p.name, id: 'pf-' + i + '-' + p.name, isComplex: !!p.isComplex }; });
@@ -982,7 +982,7 @@ async function toggleEjecutar() {
         if (p.isComplex) {
           var lines = p.example ? Math.min(p.example.split('\\n').length, 12) : 3;
           var exVal = p.example ? p.example.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : (p.itemType ? '[]' : '{}');
-          html += '<textarea id="' + fid + '" rows="' + lines + '" data-example="' + exVal + '" style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:11px;font-family:Consolas,monospace;resize:vertical;outline:none">' + exVal + '</textarea>';
+          html += '<textarea id="' + fid + '" rows="' + lines + '" data-example="' + exVal + '" style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:var(--fs-sm);font-family:Consolas,monospace;resize:vertical;outline:none">' + exVal + '</textarea>';
         } else {
           html += '<input type="text" id="' + fid + '" placeholder="' + (p.type || 'Varchar') + '">';
         }
@@ -991,10 +991,10 @@ async function toggleEjecutar() {
       html += '</div></div>';
     } catch(ep) {
       html += '<div class="param-card"><div class="param-card-hd">' + item.service + ' / ' + item.method + '</div>' +
-        '<div class="param-card-bd" style="font-size:12px;color:var(--red)">Error: ' + ep.message + '</div></div>';
+        '<div class="param-card-bd" style="font-size:var(--fs-sm);color:var(--red)">Error: ' + ep.message + '</div></div>';
     }
   }
-  section.innerHTML = html || '<div style="padding:6px 0;font-size:12px;color:var(--muted)">No hay parametros de entrada para los servicios seleccionados.</div>';
+  section.innerHTML = html || '<div style="padding:6px 0;font-size:var(--fs-sm);color:var(--muted)">No hay parametros de entrada para los servicios seleccionados.</div>';
 }
 
 async function generateDocs() {
@@ -1100,7 +1100,7 @@ async function generateDocs() {
       });
     }
   } catch(e) {
-    log.innerHTML += '<div style="padding:10px 13px;font-size:12px;color:var(--red)">Error: ' + e.message + '</div>';
+    log.innerHTML += '<div style="padding:10px 13px;font-size:var(--fs-sm);color:var(--red)">Error: ' + e.message + '</div>';
   }
 
   btn.innerHTML = 'Generar documentacion';
@@ -1145,12 +1145,12 @@ function handleGenEvent(ev) {
           var fp = S.version + '/' + toFolderName(item.service) + '/' + item.method + '.md';
           lbl.insertAdjacentHTML('beforeend',
             '<br><a href="/files/' + encodeURIComponent(fp) + '" download' +
-            ' style="font-size:10px;color:var(--blue);text-decoration:none">&#8595; Descargar .md</a>');
+            ' style="font-size:var(--fs-sm);color:var(--blue);text-decoration:none">&#8595; Descargar .md</a>');
         } else {
           var folder = S.version + '/' + toFolderName(item.service);
           lbl.insertAdjacentHTML('beforeend',
             '<br><button data-folder="' + folder + '" onclick="openFolder(this.dataset.folder)"' +
-            ' style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--blue);padding:0">&#128193; Abrir carpeta</button>');
+            ' style="background:none;border:none;cursor:pointer;font-size:var(--fs-sm);color:var(--blue);padding:0">&#128193; Abrir carpeta</button>');
         }
       }
     } else {
@@ -1201,7 +1201,7 @@ async function sgAddServiceToList() {
   err.className = 'cres';
   var container = document.getElementById('sg-service-groups');
   var div = document.createElement('div'); div.className = 'sg-svc-group';
-  div.innerHTML = '<div class="sg-svc-group-hd"><span class="sg-svc-group-name">'+svc+'</span><span style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px"><span class="spin dk"></span> Cargando...</span></div>';
+  div.innerHTML = '<div class="sg-svc-group-hd"><span class="sg-svc-group-name">'+svc+'</span><span style="font-size:var(--fs-sm);color:var(--muted);display:flex;align-items:center;gap:var(--sp-2)"><span class="spin dk"></span> Cargando...</span></div>';
   container.appendChild(div);
   try {
     var results = await Promise.all([
@@ -1224,17 +1224,17 @@ async function sgAddServiceToList() {
 function sgRenderServiceGroup(el, group, idx) {
   el.innerHTML = '';
   var hd = document.createElement('div'); hd.className = 'sg-svc-group-hd';
-  var left = document.createElement('div'); left.style.cssText = 'display:flex;align-items:center;gap:10px';
+  var left = document.createElement('div'); left.style.cssText = 'display:flex;align-items:center;gap:var(--sp-3)';
   var nameSpan = document.createElement('span'); nameSpan.className = 'sg-svc-group-name'; nameSpan.textContent = group.name; left.appendChild(nameSpan);
   if (group.versions.length > 1) {
-    var verSel = document.createElement('select'); verSel.className = 'pinput'; verSel.style.cssText = 'width:60px;font-size:11px';
+    var verSel = document.createElement('select'); verSel.className = 'pinput'; verSel.style.cssText = 'width:60px;font-size:var(--fs-sm)';
     group.versions.forEach(function(ver) { var opt = document.createElement('option'); opt.value = ver; opt.textContent = ver; if (ver === group.version) opt.selected = true; verSel.appendChild(opt); });
     verSel.addEventListener('change', (function(i) { return function() { sgServiceGroups[i].version = this.value; }; })(idx));
     left.appendChild(verSel);
   } else {
-    var verSpan = document.createElement('span'); verSpan.style.cssText = 'font-size:11px;color:var(--muted)'; verSpan.textContent = 'Ver. '+group.version; left.appendChild(verSpan);
+    var verSpan = document.createElement('span'); verSpan.style.cssText = 'font-size:var(--fs-sm);color:var(--muted)'; verSpan.textContent = 'Ver. '+group.version; left.appendChild(verSpan);
   }
-  var right = document.createElement('div'); right.style.cssText = 'display:flex;align-items:center;gap:8px';
+  var right = document.createElement('div'); right.style.cssText = 'display:flex;align-items:center;gap:var(--sp-2)';
   var allBtn = document.createElement('button'); allBtn.className = 'btn-pill'; allBtn.textContent = '✓ Todos';
   allBtn.addEventListener('click', (function(i) { return function() { sgSelectAllInGroup(i, true); }; })(idx));
   var noneBtn = document.createElement('button'); noneBtn.className = 'btn-pill'; noneBtn.textContent = '✗ Ninguno';
@@ -1244,11 +1244,11 @@ function sgRenderServiceGroup(el, group, idx) {
   right.appendChild(allBtn); right.appendChild(noneBtn); right.appendChild(rmBtn);
   hd.appendChild(left); hd.appendChild(right); el.appendChild(hd);
   var searchWrap = document.createElement('div'); searchWrap.className = 'sg-search-wrap';
-  var searchInput = document.createElement('input'); searchInput.type = 'text'; searchInput.placeholder = 'Buscar método...'; searchInput.className = 'pinput'; searchInput.style.cssText = 'width:100%;font-size:12px';
+  var searchInput = document.createElement('input'); searchInput.type = 'text'; searchInput.placeholder = 'Buscar método...'; searchInput.className = 'pinput'; searchInput.style.cssText = 'width:100%;font-size:var(--fs-sm)';
   searchWrap.appendChild(searchInput); el.appendChild(searchWrap);
   var bd = document.createElement('div'); bd.className = 'sg-svc-group-bd';
   searchInput.addEventListener('input', function() { var q = this.value.toLowerCase(); bd.querySelectorAll('.sg-mtd-item').forEach(function(item) { var lbl = item.querySelector('.sg-chk-lbl'); item.style.display = (!q || lbl.textContent.toLowerCase().indexOf(q) !== -1) ? '' : 'none'; }); });
-  if (!group.methods.length) { var empty = document.createElement('div'); empty.style.cssText = 'padding:13px 16px;font-size:13px;color:var(--muted)'; empty.textContent = 'Sin métodos'; bd.appendChild(empty); }
+  if (!group.methods.length) { var empty = document.createElement('div'); empty.style.cssText = 'padding:13px 16px;font-size:var(--fs-sm);color:var(--muted)'; empty.textContent = 'Sin métodos'; bd.appendChild(empty); }
   else { group.methods.forEach(function(method) { bd.appendChild(sgBuildMethodCheckbox(group, idx, method)); }); }
   el.appendChild(bd);
 }
@@ -1394,7 +1394,7 @@ function _valRenderResults(results, basePath) {
         + '<div style="flex:1;min-width:0">'
         + '<div class="vf-name" onclick="this.closest(\'.vf-item\').classList.toggle(\'expanded\')">'
         + '📄 ' + _escHtml(r.relPath) + tag
-        + ' <span style="font-size:10px;color:#9ca3af">(' + r.problemas.length + ' problema' + (r.problemas.length > 1 ? 's' : '') + ') ▸</span>'
+        + ' <span style="font-size:var(--fs-sm);color:var(--muted)">(' + r.problemas.length + ' problema' + (r.problemas.length > 1 ? 's' : '') + ') ▸</span>'
         + '</div>'
         + '<div class="vf-errors">' + errHtml + '</div>'
         + '</div></div>';
@@ -1488,15 +1488,16 @@ function showCasingDialog(conflicts) {
       var shortName = file.replace(/\\/g, '/').split('/').pop();
       var rows = items.map(function(item, ii) {
         var key = 'c_' + fi + '_' + ii;
+        var pathAttr = _escHtml(JSON.stringify(item.path || [item.sdtKey || item.sdt]));
         return '<div class="casing-item">' +
           '<div class="casing-item-label">Campo <code>' + _escHtml(item.campo) + '</code> del SDT <code>' + _escHtml(item.sdt) + '</code></div>' +
           '<div class="casing-opts">' +
             '<label class="casing-opt">' +
-              '<input type="radio" name="' + key + '" value="doc" data-file="' + _escHtml(file) + '" data-sdt="' + _escHtml(item.sdt) + '" data-sdtkey="' + _escHtml(item.sdtKey||item.sdt) + '" data-campo="' + _escHtml(item.campo) + '" data-doc="' + _escHtml(item.enDoc) + '" data-ej="' + _escHtml(item.enEjemplo) + '">' +
+              '<input type="radio" name="' + key + '" value="doc" data-file="' + _escHtml(file) + '" data-sdt="' + _escHtml(item.sdt) + '" data-sdtkey="' + _escHtml(item.sdtKey||item.sdt) + '" data-path="' + pathAttr + '" data-campo="' + _escHtml(item.campo) + '" data-doc="' + _escHtml(item.enDoc) + '" data-ej="' + _escHtml(item.enEjemplo) + '">' +
               'Usar <code>' + _escHtml(item.enDoc) + '</code> (documentación) — se corrige el ejemplo' +
             '</label>' +
             '<label class="casing-opt">' +
-              '<input type="radio" name="' + key + '" value="ejemplo" data-file="' + _escHtml(file) + '" data-sdt="' + _escHtml(item.sdt) + '" data-sdtkey="' + _escHtml(item.sdtKey||item.sdt) + '" data-campo="' + _escHtml(item.campo) + '" data-doc="' + _escHtml(item.enDoc) + '" data-ej="' + _escHtml(item.enEjemplo) + '">' +
+              '<input type="radio" name="' + key + '" value="ejemplo" data-file="' + _escHtml(file) + '" data-sdt="' + _escHtml(item.sdt) + '" data-sdtkey="' + _escHtml(item.sdtKey||item.sdt) + '" data-path="' + pathAttr + '" data-campo="' + _escHtml(item.campo) + '" data-doc="' + _escHtml(item.enDoc) + '" data-ej="' + _escHtml(item.enEjemplo) + '">' +
               'Usar <code>' + _escHtml(item.enEjemplo) + '</code> (ejemplo) — se corrige la documentación' +
             '</label>' +
           '</div>' +
@@ -1516,7 +1517,9 @@ function confirmCasingDialog() {
   radios.forEach(function(r) {
     var f = r.dataset.file;
     if (!byFile[f]) byFile[f] = [];
-    byFile[f].push({ sdt: r.dataset.sdt, sdtKey: r.dataset.sdtkey, campo: r.dataset.campo, choice: r.value, enDoc: r.dataset.doc, enEjemplo: r.dataset.ej });
+    var path = null;
+    try { path = JSON.parse(r.dataset.path); } catch (e) { path = [r.dataset.sdtkey]; }
+    byFile[f].push({ sdt: r.dataset.sdt, sdtKey: r.dataset.sdtkey, path: path, campo: r.dataset.campo, choice: r.value, enDoc: r.dataset.doc, enEjemplo: r.dataset.ej });
   });
   document.getElementById('casing-overlay').classList.remove('show');
   if (_casingResolve) { _casingResolve(byFile); _casingResolve = null; }
