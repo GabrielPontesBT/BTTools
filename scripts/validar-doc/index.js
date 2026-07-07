@@ -135,13 +135,17 @@ function parsearSdtsConTipos(contenido) {
   return sdts;
 }
 
-function obtenerClavesJson(obj) {
-  if (!obj || typeof obj !== 'object') return new Set();
+// Dado el valor JSON asociado a un campo SDT, devuelve el objeto "efectivo" cuyas
+// claves directas son los campos del SDT — desenvolviendo wrappers de lista/array
+// cuando corresponda. Se usa tanto para leer (obtenerClavesJson) como para navegar
+// y mutar el JSON real durante la corrección de casing (ver aplicarEleccionesCasing).
+function desenvolverJson(obj) {
+  if (!obj || typeof obj !== 'object') return null;
   // Si es array, usamos el primer elemento
   if (Array.isArray(obj)) {
     const item = obj[0];
-    if (!item || typeof item !== 'object') return new Set();
-    return new Set(Object.keys(item));
+    if (!item || typeof item !== 'object') return null;
+    return item;
   }
   const keys = Object.keys(obj);
   // Patrón wrapper: { "sBTNivel": [...] } — un solo key que ES un nombre de tipo SDT (no un campo)
@@ -150,11 +154,16 @@ function obtenerClavesJson(obj) {
     const inner = obj[keys[0]];
     if (Array.isArray(inner)) {
       const item = inner[0];
-      if (item && typeof item === 'object') return new Set(Object.keys(item));
+      if (item && typeof item === 'object') return item;
     }
-    if (inner && typeof inner === 'object') return new Set(Object.keys(inner));
+    if (inner && typeof inner === 'object') return inner;
   }
-  return new Set(keys);
+  return obj;
+}
+
+function obtenerClavesJson(obj) {
+  const efectivo = desenvolverJson(obj);
+  return efectivo ? new Set(Object.keys(efectivo)) : new Set();
 }
 
 // ── XML ──────────────────────────────────────────────────────
@@ -178,6 +187,18 @@ function eliminarBloqueTag(xml, tagName) {
 function extraerContenidoTag(xml, tagName) {
   const m = xml.match(new RegExp(`<(?:\\w+:)?${tagName}(?:[\\s][^>]*)?>([\\s\\S]*?)<\\/(?:\\w+:)?${tagName}>`, 'i'));
   return m ? m[1] : null;
+}
+
+// Extrae el contenido interno de CADA ocurrencia de <tagName> dentro de xml —
+// para el patrón lista Bantotal (ej: <sdtProductos><sBTProducto>...</sBTProducto>
+// <sBTProducto>...</sBTProducto>...</sdtProductos>), donde un mismo tipo SDT se
+// repite como varios hermanos dentro de un contenedor.
+function extraerBloquesTagRepetidos(xml, tagName) {
+  const regex = new RegExp(`<(?:\\w+:)?${tagName}(?:[\\s][^>]*)?>([\\s\\S]*?)<\\/(?:\\w+:)?${tagName}>`, 'gi');
+  const bloques = [];
+  let m;
+  while ((m = regex.exec(xml)) !== null) bloques.push(m[1]);
+  return bloques;
 }
 
 function tagExisteEnXml(xml, tagName) {
@@ -258,14 +279,30 @@ function validarParametrosContraXml(campos, xmlStr, camposIgnorados, sdts, etiqu
       const contenedor = extraerContenidoTag(xmlLimpio, tagEfectivo);
       if (contenedor === null) continue;  // null = tag ausente; "" = tag vacío → validar igual
 
+      // Patrón lista Bantotal: el contenedor tiene varios <nombreSdt>...</nombreSdt>
+      // hermanos (uno por item). Si no hay repetición, se valida el contenedor entero
+      // como un único item (comportamiento previo, sin cambios).
+      const bloquesItem = tagEfectivo !== campo.nombreSdt
+        ? extraerBloquesTagRepetidos(contenedor, campo.nombreSdt)
+        : [];
+      const items = bloquesItem.length > 0 ? bloquesItem : [contenedor];
+      const totalItems = items.length;
+
       for (const campoClave of camposSdt) {
-        if (!tagExisteEnXml(contenedor, campoClave)) {
+        let faltantes = 0;
+        let casingDistinto = null;
+        for (const item of items) {
+          if (!tagExisteEnXml(item, campoClave)) { faltantes++; continue; }
+          const matchTag = item.match(new RegExp(`<(?:\\w+:)?(${campoClave})(?:[\\s/>])`, 'i'));
+          if (matchTag && matchTag[1] !== campoClave && casingDistinto === null) casingDistinto = matchTag[1];
+        }
+
+        if (faltantes === totalItems) {
           problemas.push(`❌ [XML ${etiqueta}] SDT "${campo.nombreSdt}.${campoClave}" documentado pero ausente en el ejemplo XML`);
-        } else {
-          const matchTag = contenedor.match(new RegExp(`<(?:\\w+:)?(${campoClave})(?:[\\s/>])`, 'i'));
-          if (matchTag && matchTag[1] !== campoClave) {
-            problemas.push(`❌ [XML ${etiqueta}] SDT "${campo.nombreSdt}" — casing difiere: documentado como "${campoClave}", en el ejemplo aparece como "${matchTag[1]}"`);
-          }
+        } else if (faltantes > 0) {
+          problemas.push(`❌ [XML ${etiqueta}] SDT "${campo.nombreSdt}.${campoClave}" ausente en ${faltantes} de ${totalItems} item(s) del ejemplo XML — debe estar en todos`);
+        } else if (casingDistinto) {
+          problemas.push(`❌ [XML ${etiqueta}] SDT "${campo.nombreSdt}" — casing difiere: documentado como "${campoClave}", en el ejemplo aparece como "${casingDistinto}"`);
         }
       }
     }
@@ -323,17 +360,28 @@ function validarParametrosContraEjemplo(campos, jsonEjemplo, camposIgnorados, sd
       const camposSdt = sdts[campo.nombreSdt.toLowerCase()];
       if (!camposSdt) continue;
 
+      // Cuando el SDT es una lista (patrón Bantotal: { "sdtProductos": { "sBTProducto": [...] } }),
+      // hay que validar CADA item — un campo puede estar presente en algunos y ausente en otros.
       const valorEnJson = jsonEf[keyEnJson];
-      const clavesAnidadas = obtenerClavesJson(valorEnJson);
-      // Mapa lowercase → clave real para detectar tanto ausencia como diferencia de casing
-      const mapaAnidado = new Map([...clavesAnidadas].map(k => [k.toLowerCase(), k]));
+      const items = itemsDeContenedorJson(valorEnJson);
+      const totalItems = items.length;
 
       for (const campoClave of camposSdt) {
-        const claveEnJson = mapaAnidado.get(campoClave.toLowerCase());
-        if (!claveEnJson) {
+        let faltantes = 0;
+        let casingDistinto = null;
+        for (const item of items) {
+          const mapaItem = new Map(Object.keys(item).map(k => [k.toLowerCase(), k]));
+          const claveEnJson = mapaItem.get(campoClave.toLowerCase());
+          if (!claveEnJson) faltantes++;
+          else if (claveEnJson !== campoClave && casingDistinto === null) casingDistinto = claveEnJson;
+        }
+
+        if (faltantes === totalItems) {
           problemas.push(`❌ [${etiqueta}] SDT "${campo.nombreSdt}.${campoClave}" documentado pero ausente en el ejemplo JSON`);
-        } else if (claveEnJson !== campoClave) {
-          problemas.push(`❌ [${etiqueta}] SDT "${campo.nombreSdt}" — casing difiere: documentado como "${campoClave}", en el ejemplo aparece como "${claveEnJson}"`);
+        } else if (faltantes > 0) {
+          problemas.push(`❌ [${etiqueta}] SDT "${campo.nombreSdt}.${campoClave}" ausente en ${faltantes} de ${totalItems} item(s) del array de ejemplo JSON — debe estar en todos`);
+        } else if (casingDistinto) {
+          problemas.push(`❌ [${etiqueta}] SDT "${campo.nombreSdt}" — casing difiere: documentado como "${campoClave}", en el ejemplo aparece como "${casingDistinto}"`);
         }
       }
     }
@@ -395,6 +443,128 @@ function detectarSdtsAnidados(contenido) {
   }
 
   return problemas;
+}
+
+function fixarSdtsAnidados(contenido) {
+  const nl = contenido.includes('\r\n') ? '\r\n' : '\n';
+
+  const detailsRegex = /^::: details (\w+)/gim;
+  const bloques = [];
+  let m;
+  while ((m = detailsRegex.exec(contenido)) !== null) {
+    bloques.push({ pos: m.index, nombre: m[1] });
+  }
+
+  if (bloques.length === 0) return { resultado: contenido, cambios: 0 };
+
+  let resultado = contenido;
+  let cambios = 0;
+
+  for (let i = bloques.length - 1; i >= 0; i--) {
+    const inicio = bloques[i].pos;
+    const fin = i + 1 < bloques.length ? bloques[i + 1].pos : contenido.length;
+    const bloque = contenido.slice(inicio, fin);
+
+    // Buscar todas las definiciones SDT dentro del bloque
+    const sdtDefRegex = /^Los campos del tipo de dato estructurado (\w+) son los siguientes:/gim;
+    const sdtDefs = [];
+    let dm;
+    while ((dm = sdtDefRegex.exec(bloque)) !== null) {
+      sdtDefs.push({ pos: dm.index, nombre: dm[1] });
+    }
+
+    if (sdtDefs.length <= 1) continue;
+
+    // Para cada definición SDT, determinar dónde empieza su sección
+    const secciones = [];
+    const nombresVistos = new Set();
+
+    for (const def of sdtDefs) {
+      if (nombresVistos.has(def.nombre.toLowerCase())) continue;
+      nombresVistos.add(def.nombre.toLowerCase());
+
+      const textAntes = bloque.slice(0, def.pos);
+
+      // Buscar el último "### NAME" antes de esta definición usando matchAll
+      const headingMatches = [...textAntes.matchAll(/^### (\w+)/gm)];
+      const lastHeading = headingMatches.length > 0 ? headingMatches[headingMatches.length - 1] : null;
+
+      let secStart;
+      let tieneHeading;
+
+      if (lastHeading && lastHeading[1].toLowerCase() === def.nombre.toLowerCase()) {
+        // Hay un ### NAME que coincide: la sección empieza ahí
+        secStart = lastHeading.index;
+        tieneHeading = true;
+      } else {
+        // Sin heading propio: buscar el último "::: center" antes de la definición
+        const centerMatches = [...textAntes.matchAll(/^::: center[ \t]*$/gm)];
+        const lastCenter = centerMatches.length > 0 ? centerMatches[centerMatches.length - 1] : null;
+        secStart = lastCenter ? lastCenter.index : def.pos;
+        tieneHeading = false;
+      }
+
+      secciones.push({ nombre: def.nombre, secStart, tieneHeading });
+    }
+
+    if (secciones.length <= 1) continue;
+
+    secciones.sort((a, b) => a.secStart - b.secStart);
+
+    const preHeader = bloque.slice(0, secciones[0].secStart);
+
+    let reemplazo = '';
+    for (let j = 0; j < secciones.length; j++) {
+      const sec = secciones[j];
+      const secFin = j + 1 < secciones.length ? secciones[j + 1].secStart : bloque.length;
+      let contenidoSec = bloque.slice(sec.secStart, secFin);
+
+      // Separar cualquier contenido posterior al último ':::' de cierre (p.ej. "<!-- CIERRA SDT -->"
+      // u otro comentario final) para no duplicar el marcador de cierre ni perder ese contenido.
+      let cola = '';
+      const cierresLinea = [...contenidoSec.matchAll(/^[ \t]*:::[ \t]*$/gm)];
+      if (cierresLinea.length > 0) {
+        const ultimoCierre = cierresLinea[cierresLinea.length - 1];
+        cola = contenidoSec.slice(ultimoCierre.index + ultimoCierre[0].length).trim();
+        contenidoSec = contenidoSec.slice(0, ultimoCierre.index);
+      }
+      contenidoSec = contenidoSec.trimEnd();
+
+      if (!sec.tieneHeading) {
+        contenidoSec = `### ${sec.nombre}${nl}${nl}${contenidoSec}`;
+      }
+
+      if (j === 0) {
+        reemplazo += preHeader + contenidoSec + nl + ':::' + nl + nl;
+      } else {
+        reemplazo += `::: details ${sec.nombre}` + nl + nl + contenidoSec + nl + ':::' + nl + nl;
+      }
+      if (cola) reemplazo += cola + nl + nl;
+    }
+
+    resultado = resultado.slice(0, inicio) + reemplazo + resultado.slice(fin);
+    cambios++;
+  }
+
+  return { resultado, cambios };
+}
+
+function fixarSdtsCarpeta(carpeta) {
+  if (!fs.existsSync(carpeta)) { console.error(`❌ No existe: ${carpeta}`); process.exit(1); }
+  const archivos = fs.statSync(carpeta).isDirectory() ? buscarMdRecursivo(carpeta) : [carpeta];
+  let corregidos = 0, sinCambios = 0;
+  for (const filePath of archivos) {
+    const contenido = fs.readFileSync(filePath, 'utf8');
+    const { resultado, cambios } = fixarSdtsAnidados(contenido);
+    if (cambios > 0) {
+      fs.writeFileSync(filePath, resultado, 'utf8');
+      console.log(`✅ ${filePath.replace(/\\/g, '/')} — ${cambios} bloque(s) reestructurado(s)`);
+      corregidos++;
+    } else {
+      sinCambios++;
+    }
+  }
+  console.log(`\n🔧 Corregidos: ${corregidos} | Sin cambios: ${sinCambios}`);
 }
 
 function validarArchivo(filePath) {
@@ -747,22 +917,72 @@ function desenvolverEnvoltorio(json) {
   return json;
 }
 
-// Igual que normalizarCampoCI pero navega el patrón wrapper antes de normalizar
-function normalizarCampoAnidadoCI(obj, nombreDocumentado, valorDefault) {
-  if (!obj || typeof obj !== 'object') return 0;
-  let target = obj;
-  if (Array.isArray(obj)) {
-    if (!obj[0] || typeof obj[0] !== 'object') return 0;
-    target = obj[0];
-  } else {
-    const keys = Object.keys(obj);
-    if (keys.length === 1) {
-      const inner = obj[keys[0]];
-      if (Array.isArray(inner)) { if (!inner[0] || typeof inner[0] !== 'object') return 0; target = inner[0]; }
-      else if (inner && typeof inner === 'object') target = inner;
+// Dado el valor JSON de un campo SDT, devuelve TODOS los objetos concretos a los
+// que se les debe aplicar la normalización/inserción de un campo — no solo el
+// primero. Cubre el patrón lista de Bantotal: { "sdtProductos": { "sBTProducto":
+// [ {...}, {...}, ... ] } }, donde cada elemento del array es un item real que
+// debe recibir el campo documentado, no únicamente el primero.
+function itemsDeContenedorJson(obj) {
+  if (!obj || typeof obj !== 'object') return [];
+  if (Array.isArray(obj)) return obj.filter(it => it && typeof it === 'object' && !Array.isArray(it));
+  const keys = Object.keys(obj);
+  // Mismo criterio que desenvolverJson: solo desenvolver el wrapper de lista si la
+  // clave parece un nombre de tipo SDT (sBT.../SdtsBT...), para no confundirlo con
+  // un SDT de un único campo cuyo nombre coincide por casualidad con un wrapper.
+  if (keys.length === 1 && /^(?:sBT|SdtsBT)/i.test(keys[0])) {
+    const inner = obj[keys[0]];
+    if (Array.isArray(inner)) return inner.filter(it => it && typeof it === 'object' && !Array.isArray(it));
+    if (inner && typeof inner === 'object') return [inner];
+  }
+  return [obj];
+}
+
+function esTipoSdt(tipo) {
+  return /\[[^\]]+\]\(#[^)]+\)/.test(tipo || '');
+}
+
+function nombreSdtDeTipo(tipo) {
+  return (tipo && tipo.match(/\[([^\]]+)\]/)?.[1]) || null;
+}
+
+// Normaliza/agrega un campo de un SDT en cada item del contenedor (objeto único o
+// lista — navega el patrón wrapper/lista igual que antes). Si el campo es en sí
+// mismo OTRO SDT (ej. sBTProducto.otrosConceptos: [sBTConcepto]), en vez de
+// insertar un valor plano ("REVISAR") inserta un objeto y recursa para poblar los
+// propios sub-campos de ese SDT anidado. `visitados` corta ciclos en SDTs que se
+// referencian a sí mismos (directa o indirectamente) para no colgarse.
+function normalizarCampoSdtRecursivo(contenedor, ck, ct, sdtsConTipos, visitados) {
+  const items = itemsDeContenedorJson(contenedor);
+  let cambios = 0;
+
+  if (!esTipoSdt(ct)) {
+    for (const item of items) cambios += normalizarCampoCI(item, ck, obtenerDefaultPorTipo(ct));
+    return cambios;
+  }
+
+  const subNombreSdt = nombreSdtDeTipo(ct);
+  const key = subNombreSdt ? subNombreSdt.toLowerCase() : null;
+  if (!key || visitados.has(key)) return cambios;
+
+  const subCampos = sdtsConTipos[key];
+  const nuevosVisitados = new Set(visitados);
+  nuevosVisitados.add(key);
+
+  for (const item of items) {
+    const claveExistente = Object.keys(item).find(k => k.toLowerCase() === ck.toLowerCase());
+    if (!claveExistente || item[claveExistente] === null || typeof item[claveExistente] !== 'object' || Array.isArray(item[claveExistente])) {
+      if (claveExistente) delete item[claveExistente];
+      item[ck] = {};
+      cambios++;
+    }
+    if (subCampos) {
+      const nombreReal = Object.keys(item).find(k => k.toLowerCase() === ck.toLowerCase());
+      for (const sub of subCampos) {
+        cambios += normalizarCampoSdtRecursivo(item[nombreReal], sub.nombre, sub.tipo, sdtsConTipos, nuevosVisitados);
+      }
     }
   }
-  return normalizarCampoCI(target, nombreDocumentado, valorDefault);
+  return cambios;
 }
 
 function reemplazarJsonEnMd(contenido, tituloSeccion, nuevoJson) {
@@ -805,8 +1025,9 @@ function fixarJsonSeccion(json, campos, camposIgnorados, sdtsConTipos, camposOcu
       const camposSdt = sdtsConTipos[campo.nombreSdt.toLowerCase()];
       if (camposSdt) {
         const valorEnJson = json[altSdtKey];
+        const visitados = new Set([campo.nombreSdt.toLowerCase()]);
         for (const { nombre: ck, tipo: ct } of camposSdt) {
-          cambios += normalizarCampoAnidadoCI(valorEnJson, ck, obtenerDefaultPorTipo(ct));
+          cambios += normalizarCampoSdtRecursivo(valorEnJson, ck, ct, sdtsConTipos, visitados);
         }
       }
       continue;
@@ -828,8 +1049,9 @@ function fixarJsonSeccion(json, campos, camposIgnorados, sdtsConTipos, camposOcu
       }
 
       const valorEnJson = json[keyReal || campo.nombre];
+      const visitados = new Set([campo.nombreSdt.toLowerCase()]);
       for (const { nombre: ck, tipo: ct } of camposSdt) {
-        cambios += normalizarCampoAnidadoCI(valorEnJson, ck, obtenerDefaultPorTipo(ct));
+        cambios += normalizarCampoSdtRecursivo(valorEnJson, ck, ct, sdtsConTipos, visitados);
       }
     }
   }
@@ -904,6 +1126,35 @@ function renombrarTagXml(xml, nombreCorrecto) {
     .replace(new RegExp(`</(\\w+:)?(${nombreCorrecto})>`, 'gi'), `</$1${nombreCorrecto}>`);
 }
 
+// Construye el XML de un campo SDT, recursivamente: si `tipo` es en sí mismo otro
+// SDT, arma un tag anidado con los propios sub-campos de ese SDT (en vez de un
+// valor plano), en vez de asumir un tipo simple. `visitados` corta ciclos en SDTs
+// auto-referenciados. `valorJson`, si viene (ej. ya poblado por el fixer JSON en
+// el mismo pase), se usa para preferir valores reales sobre el default.
+function construirXmlCampoSdt(nombre, tipo, sdtsConTipos, visitados, valorJson, indent) {
+  if (!esTipoSdt(tipo)) {
+    const val = (valorJson === undefined || valorJson === null)
+      ? jsonValorAXml(obtenerDefaultPorTipo(tipo))
+      : jsonValorAXml(valorJson);
+    return `<${nombre}>${val}</${nombre}>`;
+  }
+
+  const subNombreSdt = nombreSdtDeTipo(tipo);
+  const key = subNombreSdt ? subNombreSdt.toLowerCase() : null;
+  const subCampos = key && !visitados.has(key) ? sdtsConTipos[key] : null;
+  if (!subCampos) return `<${nombre}></${nombre}>`;
+
+  const nuevosVisitados = new Set(visitados);
+  nuevosVisitados.add(key);
+  const subIndent = indent + '   ';
+  let interior = '';
+  for (const sub of subCampos) {
+    const subValor = obtenerValorAnidadoJson(valorJson, sub.nombre);
+    interior += `\n${subIndent}${construirXmlCampoSdt(sub.nombre, sub.tipo, sdtsConTipos, nuevosVisitados, subValor, subIndent)}`;
+  }
+  return `<${nombre}>${interior}\n${indent}</${nombre}>`;
+}
+
 function eliminarTagXml(xml, nombreTag) {
   // Elimina el tag con todo su contenido (apertura + contenido + cierre, cualquier namespace)
   const escaped = escapeRegex(nombreTag);
@@ -949,12 +1200,10 @@ function fixarXmlSeccion(xml, campos, camposIgnorados, sdtsConTipos, jsonObj, es
             for (const { nombre: ck, tipo: ct } of camposSdt) {
               if (!tagExisteEnXml(contenedorAlt, ck)) {
                 const valAnidado = jsonObj ? obtenerValorAnidadoJson(jsonObj[campo.nombreSdt] || jsonObj[campo.nombre], ck) : undefined;
-                const xmlVal = (valAnidado === undefined || valAnidado === null)
-                  ? jsonValorAXml(obtenerDefaultPorTipo(ct))
-                  : jsonValorAXml(valAnidado);
+                const nuevoTag = construirXmlCampoSdt(ck, ct, sdtsConTipos, new Set([campo.nombreSdt.toLowerCase()]), valAnidado, '            ');
                 xml = xml.replace(
                   new RegExp(`(<\\/(?:\\w+:)?${campo.nombreSdt}>)`, 'i'),
-                  `\n            <${ck}>${xmlVal}</${ck}>$1`
+                  `\n            ${nuevoTag}$1`
                 );
                 cambios++;
               }
@@ -983,10 +1232,7 @@ function fixarXmlSeccion(xml, campos, camposIgnorados, sdtsConTipos, jsonObj, es
           const jsonValCampo = jsonObj[Object.keys(jsonObj).find(k => k.toLowerCase() === campo.nombre.toLowerCase())];
           for (const { nombre: ck, tipo: ct } of camposSdt) {
             const valAnidado = obtenerValorAnidadoJson(jsonValCampo, ck);
-            const xmlVal = (valAnidado === undefined || valAnidado === null)
-              ? jsonValorAXml(obtenerDefaultPorTipo(ct))
-              : jsonValorAXml(valAnidado);
-            contenidoInterno += `\n${indent}   <${ck}>${xmlVal}</${ck}>`;
+            contenidoInterno += `\n${indent}   ${construirXmlCampoSdt(ck, ct, sdtsConTipos, new Set([campo.nombreSdt.toLowerCase()]), valAnidado, indent + '   ')}`;
           }
         }
       }
@@ -1012,7 +1258,7 @@ function fixarXmlSeccion(xml, campos, camposIgnorados, sdtsConTipos, jsonObj, es
     if (campo.esSdt && campo.nombreSdt) {
       const camposSdt = sdtsConTipos[campo.nombreSdt.toLowerCase()];
       if (!camposSdt) continue;
-      const contenedor = extraerContenidoTag(xml, campo.nombre);
+      let contenedor = extraerContenidoTag(xml, campo.nombre);
       if (contenedor === null) continue; // null = tag ausente; "" = vacío → insertar campos igual
 
       // Si el contenedor está en una sola línea (vacío), expandirlo para que la inserción quede bien indentada
@@ -1024,16 +1270,64 @@ function fixarXmlSeccion(xml, campos, camposIgnorados, sdtsConTipos, jsonObj, es
             return `${open}\n${indent}</${campo.nombre}>`;
           }
         );
+        contenedor = extraerContenidoTag(xml, campo.nombre);
+      }
+
+      // Patrón lista Bantotal: el contenedor tiene varios <nombreSdt>...</nombreSdt>
+      // hermanos, uno por item (ej: <sdtProductos><sBTProducto/><sBTProducto/>...).
+      // Cada item se corrige de forma independiente para no perder los demás.
+      const esListaDeItems = campo.nombreSdt.toLowerCase() !== campo.nombre.toLowerCase();
+      const itemRegex = new RegExp(`<(?:\\w+:)?${escapeRegex(campo.nombreSdt)}(?:[\\s][^>]*)?>([\\s\\S]*?)<\\/(?:\\w+:)?${escapeRegex(campo.nombreSdt)}>`, 'gi');
+      const itemMatches = esListaDeItems ? [...contenedor.matchAll(itemRegex)] : [];
+
+      if (itemMatches.length > 0) {
+        let nuevoContenedor = contenedor;
+        // De atrás hacia adelante para no invalidar los índices de los matches restantes.
+        for (let idx = itemMatches.length - 1; idx >= 0; idx--) {
+          const m = itemMatches[idx];
+          const aperturaLen = m[0].indexOf(m[1]);
+          const apertura = m[0].slice(0, aperturaLen);
+          const cierre = m[0].slice(aperturaLen + m[1].length);
+          let bloqueItem = m[1];
+          let bloqueCambiado = false;
+
+          for (const { nombre: ck, tipo: ct } of camposSdt) {
+            if (!tagExisteEnXml(bloqueItem, ck)) {
+              const indentMatches = [...bloqueItem.matchAll(/^([ \t]+)</gm)];
+              const indent = indentMatches.length > 0 ? indentMatches[indentMatches.length - 1][1] : '   ';
+              const nuevoTag = `${indent}${construirXmlCampoSdt(ck, ct, sdtsConTipos, new Set([campo.nombreSdt.toLowerCase()]), undefined, indent)}`;
+              // Insertar antes del espacio en blanco final (la indentación del propio
+              // cierre </tag>) para no dejarlo pegado en la misma línea que el nuevo campo.
+              const finalWs = bloqueItem.match(/(\r?\n[ \t]*)$/);
+              bloqueItem = finalWs
+                ? bloqueItem.slice(0, finalWs.index) + `\n${nuevoTag}` + finalWs[1]
+                : bloqueItem + `\n${nuevoTag}`;
+              bloqueCambiado = true;
+            } else {
+              const matchActual = bloqueItem.match(new RegExp(`<(?:\\w+:)?(${ck})(?:[\\s/>])`, 'i'));
+              if (matchActual && matchActual[1] !== ck) {
+                bloqueItem = renombrarTagXml(bloqueItem, ck);
+                bloqueCambiado = true;
+              }
+            }
+          }
+
+          if (bloqueCambiado) {
+            nuevoContenedor = nuevoContenedor.slice(0, m.index) + apertura + bloqueItem + cierre + nuevoContenedor.slice(m.index + m[0].length);
+            cambios++;
+          }
+        }
+        if (nuevoContenedor !== contenedor) {
+          xml = xml.slice(0, xml.indexOf(contenedor)) + nuevoContenedor + xml.slice(xml.indexOf(contenedor) + contenedor.length);
+        }
+        continue;
       }
 
       for (const { nombre: ck, tipo: ct } of camposSdt) {
         if (!tagExisteEnXml(contenedor, ck)) {
           // Tag ausente → insertar
           const valAnidado = jsonObj ? obtenerValorAnidadoJson(jsonObj[campo.nombre], ck) : undefined;
-          const xmlVal = (valAnidado === undefined || valAnidado === null)
-            ? jsonValorAXml(obtenerDefaultPorTipo(ct))
-            : jsonValorAXml(valAnidado);
-          const nuevoTag = `<${ck}>${xmlVal}</${ck}>`;
+          const nuevoTag = construirXmlCampoSdt(ck, ct, sdtsConTipos, new Set([campo.nombreSdt.toLowerCase()]), valAnidado, '            ');
 
           // Siempre insertar usando campo.nombre como anchor del contenedor,
           // para no confundirlo con otros elementos del mismo tipo SDT en el documento.
@@ -1090,10 +1384,56 @@ function fixarCasingEnTabla(contenido, sdtNombre, enDoc, enEjemplo) {
   return { resultado, cambios };
 }
 
+// Camina un `path` (array de claves JSON reales, de raíz hacia adentro) sobre el
+// objeto raíz de un ejemplo JSON y devuelve el objeto "efectivo" (post-desenvolver)
+// al final del recorrido — el mismo objeto cuyas claves compara/corrige el casing.
+// Replica exactamente cómo compararSdtRecursivo desciende nivel a nivel.
+function navegarObjetoJson(raiz, path) {
+  let actual = raiz;
+  for (let i = 0; i < path.length; i++) {
+    if (i > 0) actual = desenvolverJson(actual);
+    if (!actual || typeof actual !== 'object') return null;
+    actual = actual[path[i]];
+  }
+  return desenvolverJson(actual);
+}
+
 function detectarConflictosCasingArchivo(contenido) {
   const version = detectarVersion(contenido);
-  const sdts = parsearSdts(contenido);
+  const sdtsConTipos = parsearSdtsConTipos(contenido);
   const conflictos = [];
+
+  // Compara recursivamente los campos de un SDT contra el objeto JSON que le
+  // corresponde, y desciende dentro de cualquier campo que sea a su vez otro SDT.
+  // `path` acumula las claves reales del JSON necesarias para volver a ubicar este
+  // nivel más adelante (lo usa aplicarEleccionesCasing).
+  function compararSdtRecursivo(nombreSdt, valorJson, seccion, path, visitados) {
+    const key = nombreSdt.toLowerCase();
+    if (visitados.has(key)) return; // corta ciclos en SDTs auto-referenciados
+    const camposSdt = sdtsConTipos[key];
+    const efectivo = desenvolverJson(valorJson);
+    if (!camposSdt || !efectivo) return;
+
+    const siguientesVisitados = new Set(visitados);
+    siguientesVisitados.add(key);
+
+    const mapaAnidado = new Map(Object.keys(efectivo).map(k => [k.toLowerCase(), k]));
+
+    for (const { nombre: campoClave, tipo } of camposSdt) {
+      const claveEnJson = mapaAnidado.get(campoClave.toLowerCase());
+      if (claveEnJson && claveEnJson !== campoClave) {
+        conflictos.push({ seccion, sdt: nombreSdt, sdtKey: path[0], path, campo: campoClave, enDoc: campoClave, enEjemplo: claveEnJson });
+      }
+
+      const esSdt = /\[[^\]]+\]\(#[^)]+\)/.test(tipo || '');
+      if (!esSdt) continue;
+      const subNombreSdt = tipo.match(/\[([^\]]+)\]/)?.[1];
+      if (!subNombreSdt) continue;
+
+      const claveReal = claveEnJson || campoClave;
+      compararSdtRecursivo(subNombreSdt, efectivo[claveReal], seccion, [...path, claveReal], siguientesVisitados);
+    }
+  }
 
   for (const [seccion, tituloEjemplo, tituloDatos] of [
     ['Entrada', 'Invocación', 'Datos de Entrada'],
@@ -1113,43 +1453,38 @@ function detectarConflictosCasingArchivo(contenido) {
 
     for (const campo of campos) {
       if (ignorados.has(campo.nombre) || !campo.esSdt || !campo.nombreSdt) continue;
-      const camposSdt = sdts[campo.nombreSdt.toLowerCase()];
-      if (!camposSdt) continue;
-
       const keyEnJson = mapaRaiz.get(campo.nombre.toLowerCase()) || mapaRaiz.get(campo.nombreSdt.toLowerCase());
       if (!keyEnJson) continue;
 
-      const valorEnJson = res.data[keyEnJson];
-      const clavesAnidadas = obtenerClavesJson(valorEnJson);
-      const mapaAnidado = new Map([...clavesAnidadas].map(k => [k.toLowerCase(), k]));
-
-      for (const campoClave of camposSdt) {
-        const claveEnJson = mapaAnidado.get(campoClave.toLowerCase());
-        if (claveEnJson && claveEnJson !== campoClave) {
-          conflictos.push({ seccion, sdt: campo.nombreSdt, sdtKey: keyEnJson, campo: campoClave, enDoc: campoClave, enEjemplo: claveEnJson });
-        }
-      }
+      compararSdtRecursivo(campo.nombreSdt, res.data[keyEnJson], seccion, [keyEnJson], new Set());
     }
   }
   return conflictos;
 }
 
 function aplicarEleccionesCasing(filePath, decisions) {
-  // decisions: [{sdt, sdtKey, campo, choice: 'doc'|'ejemplo', enDoc, enEjemplo}]
+  // decisions: [{sdt, sdtKey, path, campo, choice: 'doc'|'ejemplo', enDoc, enEjemplo}]
+  // `path` es el array de claves reales (raíz → adentro) para llegar al objeto del
+  // SDT en el JSON; si no viene (decisiones guardadas antes de este cambio), se
+  // arma un path de un solo nivel a partir de sdtKey/sdt para no romper compatibilidad.
   let contenido = fs.readFileSync(filePath, 'utf8');
   let cambios = 0;
 
-  for (const { sdt, sdtKey, choice, enDoc, enEjemplo } of decisions) {
+  for (const { sdt, sdtKey, path: pathDecision, choice, enDoc, enEjemplo } of decisions) {
+    const path = (pathDecision && pathDecision.length > 0) ? pathDecision : [sdtKey || sdt];
+
     if (choice === 'doc') {
       // Renombrar en los ejemplos JSON: enEjemplo → enDoc
       for (const seccion of ['Invocación', 'Respuesta']) {
         const res = parsearJsonEjemplo(contenido, seccion);
         if (!res.data) continue;
         const mapaRaiz = new Map(Object.keys(res.data).map(k => [k.toLowerCase(), k]));
-        const key = mapaRaiz.get((sdtKey || sdt).toLowerCase());
-        if (!key) continue;
-        const sdtObj = res.data[key];
-        if (!sdtObj || typeof sdtObj !== 'object' || Array.isArray(sdtObj)) continue;
+        const primeraClave = mapaRaiz.get(path[0].toLowerCase());
+        if (!primeraClave) continue;
+        const pathReal = [primeraClave, ...path.slice(1)];
+
+        const sdtObj = navegarObjetoJson(res.data, pathReal);
+        if (!sdtObj || Array.isArray(sdtObj)) continue;
         if (renombrarClaveJson(sdtObj, enEjemplo, enDoc)) {
           contenido = reemplazarJsonEnMd(contenido, seccion, res.data);
           cambios++;
@@ -1186,6 +1521,12 @@ function fixarCierreJsonFaltante(contenido) {
 function fixarArchivo(filePath) {
   let contenido = fs.readFileSync(filePath, 'utf8');
   let totalCambios = 0;
+
+  // --- Paso -1: separar SDTs anidados en bloques ::: details independientes ---
+  // Debe correr antes que cualquier otro paso: los pasos siguientes parsean los
+  // bloques ::: details por nombre y se confunden si hay más de un SDT por bloque.
+  const { resultado: normSdt, cambios: cSdt } = fixarSdtsAnidados(contenido);
+  if (cSdt > 0) { contenido = normSdt; totalCambios += cSdt; }
 
   // --- Paso 0: corregir bloques ```json sin cierre ``` ---
   const { resultado: norm00, cambios: c00 } = fixarCierreJsonFaltante(contenido);
@@ -1293,7 +1634,22 @@ function fixarCarpeta(carpeta) {
   console.log(`🔧 Corregidos: ${corregidos} archivos | Sin cambios: ${sinCambios}`);
 }
 
+// ── Exports (para tests) ─────────────────────────────────────────
+
+module.exports = {
+  detectarSdtsAnidados,
+  fixarSdtsAnidados,
+  fixarArchivo,
+  validarArchivo,
+  detectarConflictosCasingArchivo,
+  aplicarEleccionesCasing,
+  parsearJsonEjemplo,
+  parsearXmlEjemplo
+};
+
 // ── CLI ────────────────────────────────────────────────────────
+
+if (require.main === module) {
 
 const args = process.argv.slice(2);
 const flagArgs = args.filter(a => a.startsWith('--'));
@@ -1302,11 +1658,12 @@ const rutas = args.filter(a => !a.startsWith('--'));
 const modoFix          = flags.has('--fix');
 const modoJson         = flags.has('--json');
 const modoDetectCasing = flags.has('--detect-casing');
+const modoFixSdts      = flags.has('--fix-sdts');
 const applyCasingFlag  = flagArgs.find(f => f.startsWith('--apply-casing='));
 const modoApplyCasing  = applyCasingFlag ? applyCasingFlag.split('=').slice(1).join('=') : null;
 
 if (!modoApplyCasing && rutas.length === 0) {
-  console.log('Uso: node validar_md.js <Carpeta|Archivo...> [--fix] [--json] [--detect-casing]');
+  console.log('Uso: node validar_md.js <Carpeta|Archivo...> [--fix] [--fix-sdts] [--json] [--detect-casing]');
   console.log('     node validar_md.js --apply-casing=<choices.json>');
   process.exit(1);
 }
@@ -1336,6 +1693,11 @@ if (modoApplyCasing) {
     })
     .filter(r => r.conflictos.length > 0);
   console.log(JSON.stringify(resultado));
+} else if (modoFixSdts) {
+  for (const ruta of rutas) {
+    if (!fs.existsSync(ruta)) { console.error(`❌ No existe: ${ruta}`); continue; }
+    fixarSdtsCarpeta(ruta);
+  }
 } else if (modoFix) {
   // Acepta una carpeta o uno/varios archivos específicos
   const archivosAFix = [];
@@ -1370,4 +1732,6 @@ if (modoApplyCasing) {
   console.log(JSON.stringify(resultados));
 } else {
   validarCarpeta(rutas[0]);
+}
+
 }
