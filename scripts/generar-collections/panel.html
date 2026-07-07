@@ -1,0 +1,118 @@
+    <!-- Paso 8: Collection -->
+    <div class="panel" id="p8">
+      <div class="collection-shell">
+        <div class="ptitle">Generar casos de prueba</div>
+        <div class="collection-lead">Genera casos de uso JSON a partir de la definicion Swagger del ambiente, manteniendo una estructura clara para su revision, ejecucion y exportacion en Postman.</div>
+
+        <div class="collection-block">
+          <h3>1. Elegi el formato</h3>
+          <div class="collection-mini-cards">
+            <div class="ccard collection-soon" id="col-format-xml" onclick="collectionPickChoice('format','xml',this)">
+              <span class="ccard-badge">Legacy</span>
+              <span class="ccard-title">XML</span>
+              <span class="ccard-desc">Queda disponible para el camino SOAP anterior, pero ya no es el foco principal.</span>
+            </div>
+            <div class="ccard" id="col-format-json" onclick="collectionPickChoice('format','json',this)">
+              <span class="ccard-title">JSON</span>
+              <span class="ccard-desc">Usa la definicion Swagger del ambiente para armar requests REST y colecciones Postman.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="collection-block">
+          <h3>2. Elegi el destino</h3>
+          <div class="collection-mini-cards">
+            <div class="ccard" id="col-target-postman" onclick="collectionPickChoice('target','postman',this)">
+              <span class="ccard-title">Postman</span>
+              <span class="ccard-desc">Genera una colección Postman SOAP lista para descargar desde la app.</span>
+            </div>
+            <div class="ccard collection-soon" id="col-target-soap" onclick="collectionPickChoice('target','soap',this)">
+              <span class="ccard-badge">Luego</span>
+              <span class="ccard-title">SOAP</span>
+              <span class="ccard-desc">Base preparada para un runner o exportador dedicado.</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="collection-path-note" class="collection-path" style="display:none"></div>
+
+        <div id="collection-config" class="collection-block" style="display:none">
+          <h3>3. Usar el ambiente actual</h3>
+          <div id="collection-env-summary" class="collection-inline-note" style="margin-bottom:12px">Todavia no hay configuracion cargada desde el wizard.</div>
+          <div class="field" style="margin-bottom:12px">
+            <label>Ruta Swagger</label>
+            <input type="text" id="collection-swagger-url" placeholder="ej: http://10.0.0.5:5101/api/swagger-ui/index.html#/" oninput="collectionUpdateSwaggerUrl(this.value)">
+            <div class="collection-inline-note" style="margin-top:6px">Podes pegar la URL del Swagger UI o directamente la del JSON OpenAPI. El builder va a intentar resolverla automaticamente.</div>
+          </div>
+          <div class="collection-actions">
+            <button class="btn btn-outline" type="button" id="btn-collection-test-db">Probar BD actual</button>
+            <button class="btn btn-outline" type="button" id="btn-collection-test-auth">Probar auth actual</button>
+            <button class="btn btn-primary" type="button" id="btn-collection-load-services">Cargar servicios desde Swagger</button>
+          </div>
+          <div id="collection-status" class="collection-status"></div>
+        </div>
+
+        <div id="collection-services" class="collection-block" style="display:none">
+          <div class="collection-builder-top">
+            <div>
+              <h3 style="margin-bottom:6px">4. Constructor de cadenas</h3>
+              <div class="collection-inline-note">Busca servicios, agregalos con clic o arrastrandolos al lienzo y configura cada paso desde el panel lateral antes de exportar el JSON.</div>
+            </div>
+            <div class="collection-builder-actions">
+              <button class="btn btn-outline" id="btn-collection-execute" onclick="collectionExecuteFlow()" disabled>Probar</button>
+              <button class="btn btn-success" id="btn-collection-generate" onclick="collectionGenerate()" disabled>Generar JSON</button>
+            </div>
+          </div>
+
+          <div class="collection-builder-meta">
+            <div class="field" style="margin:0">
+              <label>Nombre de la collection</label>
+              <input type="text" id="collection-name" value="Bantotal JSON Collection" placeholder="Ej. CASH Management" oninput="collectionUpdateName(this.value)">
+            </div>
+            <div class="field" style="margin:0">
+              <label>Cadena activa</label>
+              <input type="text" id="collection-scenario-name" value="Caso de uso 1" placeholder="Ej. Alta de operacion" oninput="collectionRenameActiveScenario(this.value)">
+            </div>
+          </div>
+
+          <div class="collection-builder-feedback">
+            <div id="collection-execution" class="collection-result" style="display:none"></div>
+            <div id="collection-result" class="collection-result"></div>
+          </div>
+
+          <div class="collection-builder-shell">
+            <aside class="collection-builder-sidebar">
+              <div class="collection-builder-panel-title">Servicios</div>
+              <div class="field" style="margin:12px 0 8px">
+                <label>Servicio</label>
+                <input type="text" id="col-svc-filter" placeholder="Ej. Persons" oninput="collectionFilterServices()">
+              </div>
+              <div class="field" style="margin:0 0 10px">
+                <label>Metodo</label>
+                <input type="text" id="col-method-filter" placeholder="Ej. update" oninput="collectionFilterServices()">
+              </div>
+              <div id="collection-service-list" class="collection-service-list"></div>
+              <div class="collection-builder-hint">Arrastra un servicio al lienzo o toca una tarjeta para agregarlo al flujo.</div>
+            </aside>
+
+            <main class="collection-builder-canvas">
+              <div class="collection-builder-panel-title">Flujo de ejecucion</div>
+              <div id="collection-chain" class="collection-chain"></div>
+            </main>
+
+            <aside class="collection-builder-inspector">
+              <div class="collection-builder-panel-title">Configuracion del paso</div>
+              <div id="collection-step-config" class="collection-step-config"></div>
+            </aside>
+          </div>
+
+          <div id="collection-flow-wrap" class="collection-flow-wrap" style="display:none">
+            <div id="collection-flow" class="collection-flow"></div>
+          </div>
+
+          <div id="collection-vars-wrap" style="display:none;margin-top:14px">
+            <div id="collection-vars" class="collection-vars"></div>
+          </div>
+        </div>
+      </div>
+    </div>

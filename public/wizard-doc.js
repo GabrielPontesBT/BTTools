@@ -137,12 +137,20 @@ function pick(key, val, el) {
 
 function updateStepLabels(action) {
   var lb4 = document.getElementById('lb4'), lb5 = document.getElementById('lb5');
-  if (action === 'scripts') { if (lb4) lb4.textContent = 'Servicios'; if (lb5) lb5.textContent = 'Script'; }
-  else { if (lb4) lb4.textContent = 'API'; if (lb5) lb5.textContent = 'Servicios'; }
+  if (action === 'scripts') {
+    if (lb4) lb4.textContent = 'Servicios';
+    if (lb5) lb5.textContent = 'Script';
+  } else if (action === 'collections') {
+    if (lb4) lb4.textContent = 'API';
+    if (lb5) lb5.textContent = 'Collections';
+  } else {
+    if (lb4) lb4.textContent = 'API';
+    if (lb5) lb5.textContent = 'Servicios';
+  }
 }
 
 function vizPos(step) {
-  if (S.action === 'validate' || S.action === 'collections') {
+  if (S.action === 'validate') {
     return step === 1 ? 1 : 2; // action→1, panel→2
   }
   return step; // doc/scripts: 1-5 direct (step 6 success has no active dot)
@@ -150,11 +158,11 @@ function vizPos(step) {
 
 function dots(step) {
   var pos = vizPos(step);
-  var isSingle = S.action === 'validate' || S.action === 'collections';
+  var isSingle = S.action === 'validate';
 
-  // Para validate/collections: d2 = label, ocultar d3..d5; para otros: d2 = "Versión"
+  // Para validate: d2 = label, ocultar d3..d5; para otros: d2 = "Version"
   var lb2 = document.getElementById('lb2');
-  if (lb2) lb2.textContent = S.action === 'validate' ? 'Validar' : S.action === 'collections' ? 'Collections' : 'Versión';
+  if (lb2) lb2.textContent = S.action === 'validate' ? 'Validar' : 'Version';
   ['d3','d4','d5','l2','l3','l4'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.style.display = isSingle ? 'none' : '';
@@ -179,7 +187,7 @@ function panelId(step) {
   if (step === 2) return 'p1'; // versión
   if (step === 3) return 'p2'; // conexión
   if (S.action === 'validate') return 'p4v';
-  if (S.action === 'collections') return 'p4c';
+  if (S.action === 'collections') return step === 4 ? 'p4' : 'p4c';
   if (S.action === 'scripts') return step === 4 ? 'p4s' : 'p5s';
   return 'p' + step; // doc: p4, p5, p6
 }
@@ -200,17 +208,28 @@ function show(step) {
     setTimeout(setupConnWatchers, 0);
   }
   if (step === 4 && S.action === 'validate') { loadValidateFolders(); }
-  if (step === 4 && S.action === 'doc') {
+  if (step === 4 && (S.action === 'doc' || S.action === 'collections')) {
     var isV4 = S.version === 'V4';
+    var isCollections = S.action === 'collections';
     document.getElementById('a-auth-wrap').style.display = isV4 ? 'none' : 'block';
-    document.getElementById('a-api-wrap').style.display  = isV4 ? 'none' : 'block';
+    document.getElementById('a-api-wrap').style.display  = (isV4 && !isCollections) ? 'none' : 'block';
     var lbl = document.getElementById('a-base-label');
-    if (lbl) lbl.innerHTML = isV4
-      ? 'URL de la API <span style="color:var(--muted);font-weight:400;font-size:11px">(ej: http://10.0.0.7:5101/api/publicapi)</span>'
-      : 'URL publica <span style="color:var(--muted);font-weight:400;font-size:11px">(para los ejemplos de la documentacion)</span>';
+    if (lbl) {
+      if (isCollections && isV4) {
+        lbl.innerHTML = 'URL publica <span style="color:var(--muted);font-weight:400;font-size:11px">(ej: http://10.0.0.7:5101/api/publicapi)</span>';
+      } else if (isV4) {
+        lbl.innerHTML = 'URL de la API <span style="color:var(--muted);font-weight:400;font-size:11px">(ej: http://10.0.0.7:5101/api/publicapi)</span>';
+      } else {
+        lbl.innerHTML = 'URL publica <span style="color:var(--muted);font-weight:400;font-size:11px">(para los ejemplos de la documentacion)</span>';
+      }
+    }
     fillApiFields();
   }
   if (step === 5 && S.action === 'doc') { if (!allServices.length) loadServices(); else renderList(); }
+  if (step === 5 && S.action === 'collections') {
+    if (typeof collectionRefreshContext === 'function') collectionRefreshContext();
+    if (typeof collectionToggleConfig === 'function') collectionToggleConfig();
+  }
   if (step === 4 && S.action === 'scripts' && !sgServicesLoaded) sgLoadServices();
 }
 
@@ -225,7 +244,9 @@ function foot(step) {
   } else if (step === 3) { // conexión
     ftr.innerHTML = '<button class="btn btn-outline" id="btn-test" onclick="testConn()">Probar conexión</button>&nbsp;&nbsp;' +
       '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (_connOk ? '' : ' disabled') + '>Siguiente &#8594;</button>';
-  } else if (step === 4 && (S.action === 'validate' || S.action === 'collections')) {
+  } else if (step === 4 && S.action === 'validate') {
+    ftr.innerHTML = '';
+  } else if (step === 5 && S.action === 'collections') {
     ftr.innerHTML = '';
   } else if (step === 4 && S.action === 'scripts') {
     ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()" disabled>Generar script &#8594;</button>';
@@ -243,12 +264,13 @@ function foot(step) {
 function goNext() {
   var s = S.step;
   if (s === 1 && !S.action) return;
-  if (s === 1 && (S.action === 'validate' || S.action === 'collections')) { show(4); return; } // saltar versión y conexión
+  if (s === 1 && S.action === 'validate') { show(4); return; } // saltar versión y conexión
   if (s === 1) { show(2); return; }
   if (s === 2 && !S.version) return;
   if (s === 2) { show(3); return; }
   if (s === 3 && !_connOk) return;
   if (s === 3) { show(4); return; }
+  if (s === 4 && S.action === 'collections') { show(5); return; }
   if (s === 4 && S.action === 'scripts') {
     var grps = sgServiceGroups.filter(function(g) { return g.selected.size > 0; });
     if (!grps.length) { alert('Seleccioná al menos un método.'); return; }
@@ -260,7 +282,8 @@ function goNext() {
 
 function goBack() {
   var s = S.step;
-  if (s === 4 && (S.action === 'validate' || S.action === 'collections')) { show(1); return; } // saltar versión y conexión
+  if (s === 4 && S.action === 'validate') { show(1); return; } // saltar versión y conexión
+  if (s === 5 && S.action === 'collections') { show(4); return; }
   if (s === 4) { show(3); return; }
   if (s === 5 && S.action === 'scripts') { show(4); return; }
   if (s > 1) show(s - 1);
