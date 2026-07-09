@@ -1412,7 +1412,7 @@ function _valRenderResults(results, basePath) {
       html += '<div class="vf-item ok">✅ ' + _escHtml(r.relPath) + tag + '</div>';
     } else {
       var errHtml = r.problemas.map(function(p) { return '<div>' + _escHtml(p) + '</div>'; }).join('');
-      html += '<div class="vf-item err" data-abs="' + _escHtml(r.absPath) + '">'
+      html += '<div class="vf-item err expanded" data-abs="' + _escHtml(r.absPath) + '">'
         + '<input type="checkbox" class="val-file-cb" value="' + _escHtml(r.absPath) + '" onchange="updateFixBar()">'
         + '<div style="flex:1;min-width:0">'
         + '<div class="vf-name" onclick="this.closest(\'.vf-item\').classList.toggle(\'expanded\')">'

@@ -4,6 +4,7 @@
 // Uso: node generar_workflow.js <Servicio> [archivo-salida.json]
 // ============================================================
 
+require('./_node-modules')(module, 'V4');
 require('dotenv').config();
 const oracledb = require('oracledb');
 const fs = require('fs');
