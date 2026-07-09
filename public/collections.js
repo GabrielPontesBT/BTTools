@@ -13,140 +13,310 @@ var collectionState = {
   scenarios: [],
   activeScenarioId: null,
   contextKey: null,
-  nextScenarioId: 1
+  nextScenarioId: 1,
+  nextNodeId: 1
 };
 
 var collectionButtonsBound = false;
 var collectionFlowResizeBound = false;
 var collectionStudioUpgraded = false;
+var collectionCanvasDragState = null;
+var collectionConnectionDragState = null;
+var collectionExecutionPopup = null;
+var collectionUtils = new window.BTCollectionModules.CollectionUtils({
+  getDb: function() { return typeof getDb === 'function' ? getDb() : {}; },
+  getApi: function() { return typeof getApi === 'function' ? getApi() : {}; }
+});
+var collectionApiClient = new window.BTCollectionModules.CollectionApiClient();
+var collectionStore = new window.BTCollectionModules.CollectionStateStore(collectionState);
+var collectionFeedbackManager = new window.BTCollectionModules.CollectionFeedbackManager();
+var collectionStudioManager = null;
+var collectionCanvasManager = null;
+var collectionCanvasInteractionManager = null;
+var collectionInspectorManager = null;
+var collectionScenarioManager = null;
+var collectionServiceCatalogManager = null;
+var collectionPreviewManager = null;
+var collectionExecutionCenter = null;
+var collectionEnvironmentManager = null;
+var collectionBootstrapManager = null;
 
 function collectionCreateScenario(name) {
-  var ordinal = collectionState.nextScenarioId++;
-  var id = 'scenario_' + ordinal;
-  return {
-    id: id,
-    name: name || ('Caso de uso ' + ordinal),
-    items: [],
-    selectedItemIndex: -1,
-    previewVariables: [],
-    previewOutputs: [],
-    previewMappings: [],
-    variableOverrides: {},
-    inputMappings: {},
-    outputAliases: {},
-    repeatableOverrides: {}
-  };
+  return collectionStore.createScenario(name);
+}
+
+function collectionEnsureItemNodeId(item) {
+  return collectionStore.ensureItemNodeId(item);
+}
+
+function collectionDefaultNodeLayout(index) {
+  return collectionStore.defaultNodeLayout(index);
+}
+
+function collectionEnsureItemLayout(item, index) {
+  return collectionStore.ensureItemLayout(item, index);
+}
+
+function collectionEnsureScenarioConnections(scenario) {
+  return collectionStore.ensureScenarioConnections(scenario);
 }
 
 function collectionGetActiveScenario() {
-  var activeId = collectionState.activeScenarioId;
-  for (var i = 0; i < collectionState.scenarios.length; i++) {
-    if (collectionState.scenarios[i].id === activeId) return collectionState.scenarios[i];
-  }
-  return collectionState.scenarios[0] || null;
+  return collectionStore.getActiveScenario();
 }
 
 function collectionEnsureScenario() {
-  if (!collectionState.scenarios.length) {
-    var scenario = collectionCreateScenario('Caso de uso 1');
-    collectionState.scenarios.push(scenario);
-    collectionState.activeScenarioId = scenario.id;
-  }
-  if (!collectionGetActiveScenario()) {
-    collectionState.activeScenarioId = collectionState.scenarios[0].id;
-  }
+  collectionStore.ensureScenario();
 }
 
 function collectionShowStatus(kind, text) {
-  var el = document.getElementById('collection-status');
-  if (!el) return;
-  el.className = 'collection-status show ' + kind;
-  el.textContent = text;
+  collectionFeedbackManager.showStatus(kind, text);
 }
 
 function collectionClearStatus() {
-  var el = document.getElementById('collection-status');
-  if (!el) return;
-  el.className = 'collection-status';
-  el.textContent = '';
+  collectionFeedbackManager.clearStatus();
+}
+
+function collectionGetStudioManager() {
+  if (collectionStudioManager) return collectionStudioManager;
+  collectionStudioManager = new window.BTCollectionModules.CollectionStudioManager(collectionState, {
+    refreshContext: collectionRefreshContext,
+    clearStatus: collectionClearStatus,
+    resetResult: collectionResetResult,
+    resetExecution: collectionResetExecution,
+    toggleConfig: collectionToggleConfig
+  });
+  return collectionStudioManager;
+}
+
+function collectionGetExecutionCenter() {
+  if (collectionExecutionCenter) return collectionExecutionCenter;
+  collectionExecutionCenter = new window.BTCollectionModules.CollectionExecutionCenter({
+    getState: function() { return collectionState; },
+    getActiveScenario: collectionGetActiveScenario,
+    getFormat: function() { return collectionState.format; },
+    getVersion: function() { return typeof S !== 'undefined' ? S.version : ''; },
+    getPlatform: function() { return typeof S !== 'undefined' ? S.platform : ''; },
+    getDb: function() { return typeof getDb === 'function' ? getDb() : {}; },
+    getApi: function() { return typeof getApi === 'function' ? getApi() : {}; },
+    getAuthContext: function() { return collectionState.authContext; },
+    getSwaggerBaseUrl: function() { return collectionState.swaggerBaseUrl; },
+    getSwaggerAuthUrl: function() { return collectionState.swaggerAuthUrl; },
+    executeFlowRequest: function(payload) { return collectionApiClient.executeFlow(payload); },
+    isPathSupported: collectionPathSupported,
+    refreshContext: collectionRefreshContext,
+    syncInspectorInputs: collectionSyncInspectorInputs,
+    showStatus: collectionShowStatus,
+    escapeHtml: collectionEscapeHtml
+  });
+  return collectionExecutionCenter;
+}
+
+function collectionGetScenarioManager() {
+  if (collectionScenarioManager) return collectionScenarioManager;
+  collectionScenarioManager = new window.BTCollectionModules.CollectionScenarioManager({
+    getState: function() { return collectionState; },
+    createScenario: collectionCreateScenario,
+    ensureScenario: collectionEnsureScenario,
+    getActiveScenario: collectionGetActiveScenario,
+    renderItems: collectionRenderItems,
+    renderVariableEditor: collectionRenderVariableEditor,
+    resetResult: collectionResetResult,
+    resetExecution: collectionResetExecution,
+    escapeHtml: collectionEscapeHtml
+  });
+  return collectionScenarioManager;
+}
+
+function collectionGetServiceCatalogManager() {
+  if (collectionServiceCatalogManager) return collectionServiceCatalogManager;
+  collectionServiceCatalogManager = new window.BTCollectionModules.CollectionServiceCatalogManager({
+    getState: function() { return collectionState; },
+    getPlatform: function() { return typeof S !== 'undefined' ? S.platform : ''; },
+    getVersion: function() { return typeof S !== 'undefined' ? S.version : ''; },
+    getApi: function() { return typeof getApi === 'function' ? getApi() : {}; },
+    refreshContext: collectionRefreshContext,
+    pathSupported: collectionPathSupported,
+    showStatus: collectionShowStatus,
+    renderItems: collectionRenderItems,
+    renderVariableEditor: collectionRenderVariableEditor,
+    setStudioStage: collectionSetStudioStage,
+    escapeHtml: collectionEscapeHtml
+  });
+  return collectionServiceCatalogManager;
+}
+
+function collectionGetPreviewManager() {
+  if (collectionPreviewManager) return collectionPreviewManager;
+  collectionPreviewManager = new window.BTCollectionModules.CollectionPreviewManager({
+    getState: function() { return collectionState; },
+    getActiveScenario: collectionGetActiveScenario,
+    getSelectedItem: collectionGetSelectedItem,
+    getVersion: function() { return typeof S !== 'undefined' ? S.version : ''; },
+    getPlatform: function() { return typeof S !== 'undefined' ? S.platform : ''; },
+    getDb: function() { return typeof getDb === 'function' ? getDb() : {}; },
+    getApi: function() { return typeof getApi === 'function' ? getApi() : {}; },
+    loadPreviewRequest: function(payload) { return collectionApiClient.loadPreview(payload); },
+    ensureItemNodeId: collectionEnsureItemNodeId,
+    getConnectedSourceId: collectionGetConnectedSourceId,
+    isAutoResolvedKey: collectionIsAutoResolvedKey,
+    renderVariableEditor: collectionRenderVariableEditor,
+    showStatus: collectionShowStatus,
+    pathSupported: collectionPathSupported
+  });
+  return collectionPreviewManager;
+}
+
+function collectionGetEnvironmentManager() {
+  if (collectionEnvironmentManager) return collectionEnvironmentManager;
+
+  collectionEnvironmentManager = new window.BTCollectionModules.CollectionEnvironmentManager({
+    apiClient: collectionApiClient,
+    getState: function() { return collectionState; },
+    getWizardState: function() { return typeof S !== 'undefined' ? S : {}; },
+    getDb: function() { return typeof getDb === 'function' ? getDb() : {}; },
+    getApi: function() { return typeof getApi === 'function' ? getApi() : {}; },
+    contextKey: collectionContextKey,
+    resolveV4AuthUrl: collectionResolveV4AuthUrl,
+    guessSwaggerUrl: collectionGuessSwaggerUrl,
+    isPathSupported: collectionPathSupported,
+    resetLoadedData: collectionResetLoadedData,
+    showStatus: collectionShowStatus,
+    filterServices: collectionFilterServices,
+    renderVariableEditor: collectionRenderVariableEditor,
+    setStudioStage: collectionSetStudioStage
+  });
+
+  return collectionEnvironmentManager;
+}
+
+function collectionGetBootstrapManager() {
+  if (collectionBootstrapManager) return collectionBootstrapManager;
+
+  collectionBootstrapManager = new window.BTCollectionModules.CollectionBootstrapManager({
+    apiClient: collectionApiClient,
+    isButtonsBound: function() { return collectionButtonsBound; },
+    setButtonsBound: function(value) { collectionButtonsBound = !!value; },
+    isFlowResizeBound: function() { return collectionFlowResizeBound; },
+    setFlowResizeBound: function(value) { collectionFlowResizeBound = !!value; },
+    testDb: collectionTestDb,
+    testAuth: collectionTestAuth,
+    loadServices: collectionLoadServices,
+    upgradeStudioLayout: collectionUpgradeStudioLayout,
+    ensureScenario: collectionEnsureScenario,
+    renderScenarios: collectionRenderScenarios,
+    renderItems: collectionRenderItems,
+    refreshContext: collectionRefreshContext,
+    renderFlowConnections: collectionRenderFlowConnections,
+    renderCanvasConnections: collectionRenderCanvasConnections,
+    pickChoice: collectionPickChoice,
+    escapeHtml: collectionEscapeHtml
+  });
+
+  return collectionBootstrapManager;
+}
+
+function collectionGetCanvasManager() {
+  if (collectionCanvasManager) return collectionCanvasManager;
+  collectionCanvasManager = new window.BTCollectionModules.CollectionCanvasManager({
+    getState: function() { return collectionState; },
+    getActiveScenario: collectionGetActiveScenario,
+    ensureScenarioConnections: collectionEnsureScenarioConnections,
+    findItemIndexByNodeId: collectionFindItemIndexByNodeId,
+    buildCanvasGroupKey: collectionBuildCanvasGroupKey,
+    inputMappingConfig: collectionInputMappingConfig,
+    outputDisplayName: collectionOutputDisplayName,
+    inputDisplayName: collectionInputDisplayName,
+    ensureItemLayout: collectionEnsureItemLayout,
+    ensureItemNodeId: collectionEnsureItemNodeId,
+    inferOperationKind: collectionInferOperationKind,
+    escapeHtml: collectionEscapeHtml,
+    getSelectedItemIndex: collectionGetSelectedItemIndex,
+    renderServiceCatalog: collectionRenderServiceCatalog,
+    renderInspector: collectionRenderInspector,
+    pathSupported: collectionPathSupported,
+    getConnectionDragState: function() { return collectionConnectionDragState; }
+  });
+  return collectionCanvasManager;
+}
+
+function collectionGetCanvasInteractionManager() {
+  if (collectionCanvasInteractionManager) return collectionCanvasInteractionManager;
+
+  collectionCanvasInteractionManager = new window.BTCollectionModules.CollectionCanvasInteractionManager({
+    getActiveScenario: collectionGetActiveScenario,
+    getSelectedItem: collectionGetSelectedItem,
+    setSelectedItem: collectionSetSelectedItem,
+    getCanvasDragState: function() { return collectionCanvasDragState; },
+    setCanvasDragState: function(value) { collectionCanvasDragState = value; },
+    getConnectionDragState: function() { return collectionConnectionDragState; },
+    setConnectionDragState: function(value) { collectionConnectionDragState = value; },
+    boundHandleCanvasDragMove: collectionHandleCanvasDragMove,
+    boundHandleCanvasDragEnd: collectionHandleCanvasDragEnd,
+    boundHandleConnectionDragMove: collectionHandleConnectionDragMove,
+    boundHandleConnectionDragEnd: collectionHandleConnectionDragEnd,
+    renderCanvasConnections: collectionRenderCanvasConnections,
+    renderVariableEditor: collectionRenderVariableEditor,
+    renderInspector: collectionRenderInspector,
+    renderScenarios: collectionRenderScenarios,
+    renderItems: collectionRenderItems,
+    loadPreview: collectionLoadPreview,
+    resetExecution: collectionResetExecution,
+    showStatus: collectionShowStatus,
+    ensureItemLayout: collectionEnsureItemLayout,
+    ensureItemNodeId: collectionEnsureItemNodeId,
+    ensureScenarioConnections: collectionEnsureScenarioConnections,
+    findItemIndexByNodeId: collectionFindItemIndexByNodeId,
+    rebuildItemsFromConnections: collectionRebuildItemsFromConnections,
+    buildOrthogonalCanvasPath: collectionBuildOrthogonalCanvasPath,
+    insertOperation: collectionInsertOperation
+  });
+
+  return collectionCanvasInteractionManager;
+}
+
+function collectionGetInspectorManager() {
+  if (collectionInspectorManager) return collectionInspectorManager;
+  collectionInspectorManager = new window.BTCollectionModules.CollectionInspectorManager({
+    getActiveScenario: collectionGetActiveScenario,
+    getSelectedItem: collectionGetSelectedItem,
+    getSelectedItemIndex: collectionGetSelectedItemIndex,
+    buildSelectedItemExecutionUrl: collectionBuildSelectedItemExecutionUrl,
+    selectedItemInputValue: collectionSelectedItemInputValue,
+    inputMappingConfig: collectionInputMappingConfig,
+    findSourceOption: collectionFindSourceOption,
+    inputDisplayName: collectionInputDisplayName,
+    outputDisplayName: collectionOutputDisplayName,
+    escapeHtml: collectionEscapeHtml,
+    domId: collectionDomId,
+    captureInspectorState: collectionCaptureInspectorState,
+    restoreInspectorState: collectionRestoreInspectorState
+  });
+  return collectionInspectorManager;
 }
 
 function collectionPathSupported() {
-  return collectionState.format === 'json' && collectionState.target === 'postman';
+  return collectionGetStudioManager().pathSupported();
 }
 
 function collectionStageLabel(stage) {
-  if (stage === 'define') return 'Definicion';
-  if (stage === 'setup') return 'Ambiente';
-  if (stage === 'builder') return 'Builder';
-  return stage;
+  return collectionGetStudioManager().stageLabel(stage);
 }
 
 function collectionSetStudioStage(stage) {
-  collectionState.studioStage = stage;
-  collectionRenderStudioStage();
+  collectionGetStudioManager().setStage(stage);
 }
 
 function collectionRenderStudioStage() {
-  var intro = document.getElementById('collection-studio-intro');
-  var config = document.getElementById('collection-config');
-  var services = document.getElementById('collection-services');
-  var stageButtons = document.querySelectorAll('.collection-stage-btn');
-  var shell = document.querySelector('.collection-shell-studio');
-  var stage = collectionState.studioStage || 'define';
-  Array.prototype.forEach.call(stageButtons, function(button) {
-    var isActive = button.dataset.stage === stage;
-    button.classList.toggle('active', isActive);
-  });
-
-  if (shell) {
-    shell.classList.toggle('collection-shell-studio-builder', stage === 'builder');
-  }
-
-  if (intro) intro.style.display = stage === 'define' ? 'block' : 'none';
-  if (config) config.style.display = stage === 'setup' ? 'block' : 'none';
-  if (services) services.style.display = stage === 'builder' ? 'block' : 'none';
-
-  var summary = document.getElementById('collection-studio-summary');
-  if (summary) {
-    var formatText = collectionState.format ? collectionState.format.toUpperCase() : 'Sin formato';
-    var targetText = collectionState.target ? collectionState.target : 'Sin destino';
-    summary.textContent = 'Camino seleccionado: ' + formatText + ' + ' + targetText + '.';
-  }
-
-  var defineContinue = document.getElementById('collection-stage-continue');
-  if (defineContinue) defineContinue.disabled = !collectionPathSupported();
-
-  if (stage === 'setup') collectionRefreshContext();
+  collectionGetStudioManager().renderStage();
 }
 
 function collectionSyncToolbarChoices() {
-  var pairs = [
-    ['format', 'json', 'col-toolbar-format-json'],
-    ['format', 'xml', 'col-toolbar-format-xml'],
-    ['target', 'postman', 'col-toolbar-target-postman'],
-    ['target', 'soap', 'col-toolbar-target-soap']
-  ];
-  pairs.forEach(function(pair) {
-    var el = document.getElementById(pair[2]);
-    if (!el) return;
-    if (collectionState[pair[0]] === pair[1]) el.classList.add('sel');
-    else el.classList.remove('sel');
-  });
+  collectionGetStudioManager().syncToolbarChoices();
 }
 
 function collectionPickToolbarChoice(kind, value, el) {
-  collectionState[kind] = value;
-  if (el && el.parentElement) {
-    Array.prototype.forEach.call(el.parentElement.querySelectorAll('.collection-mode-btn'), function(button) {
-      if (button.dataset.kind === kind) button.classList.remove('sel');
-    });
-    el.classList.add('sel');
-  }
-  collectionClearStatus();
-  collectionResetResult();
-  collectionResetExecution();
-  collectionToggleConfig();
+  collectionGetStudioManager().pickToolbarChoice(kind, value, el);
 }
 
 function collectionUpgradeStudioLayout() {
@@ -256,18 +426,159 @@ function collectionUpgradeStudioLayout() {
 }
 
 function collectionResetResult() {
-  var result = document.getElementById('collection-result');
-  if (!result) return;
-  result.className = 'collection-result';
-  result.innerHTML = '';
+  collectionFeedbackManager.resetResult();
 }
 
 function collectionResetExecution() {
   var result = document.getElementById('collection-execution');
-  if (!result) return;
-  result.className = 'collection-result';
-  result.style.display = 'none';
-  result.innerHTML = '';
+  var inline = document.getElementById('collection-execution-inline');
+  var visibleResult = document.getElementById('collection-result');
+  var modal = document.getElementById('collection-execution-modal');
+  var dock = document.getElementById('collection-execution-dock');
+  var openBtn = document.getElementById('btn-collection-open-console');
+  if (result) result.innerHTML = '';
+  if (inline) {
+    inline.innerHTML = '';
+    inline.style.display = 'none';
+  }
+  if (visibleResult) {
+    visibleResult.className = 'collection-result';
+    visibleResult.innerHTML = '';
+  }
+  if (modal) modal.style.display = 'none';
+  if (dock) dock.style.display = 'none';
+  if (openBtn) {
+    openBtn.style.display = '';
+    openBtn.disabled = false;
+  }
+  collectionState.lastExecutionHtml = '';
+  collectionState.lastExecutionData = null;
+}
+
+function collectionHandleExecutionBackdrop(event) {
+  if (!event || event.target.id !== 'collection-execution-modal') return;
+  collectionCloseExecutionConsole();
+}
+
+// La consola se comporta como una ventana propia: cerrar limpia visibilidad,
+// minimizar la manda a un "dock" flotante y restaurar la trae de vuelta.
+function collectionCloseExecutionConsole() {
+  var modal = document.getElementById('collection-execution-modal');
+  var dock = document.getElementById('collection-execution-dock');
+  if (modal) modal.style.display = 'none';
+  if (dock) dock.style.display = 'none';
+}
+
+function collectionMinimizeExecutionConsole() {
+  var modal = document.getElementById('collection-execution-modal');
+  var dock = document.getElementById('collection-execution-dock');
+  if (modal) modal.style.display = 'none';
+  if (dock) dock.style.display = 'block';
+}
+
+function collectionRestoreExecutionConsole() {
+  var inline = document.getElementById('collection-execution-inline');
+  var dock = document.getElementById('collection-execution-dock');
+  if (inline) {
+    inline.style.display = 'block';
+    if (typeof inline.scrollIntoView === 'function') inline.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  var modal = document.getElementById('collection-execution-modal');
+  if (modal && inline && inline.innerHTML) modal.style.display = 'flex';
+  if (dock) dock.style.display = 'none';
+}
+
+// Mantiene sincronizadas todas las superficies de salida de la consola.
+function collectionSetExecutionHtml(html, data) {
+  var safeHtml = String(html || '');
+  var el = document.getElementById('collection-execution');
+  var inline = document.getElementById('collection-execution-inline');
+  var visibleResult = document.getElementById('collection-result');
+  var modal = document.getElementById('collection-execution-modal');
+  var dock = document.getElementById('collection-execution-dock');
+
+  collectionState.lastExecutionHtml = safeHtml;
+  collectionState.lastExecutionData = data || null;
+
+  if (el) el.innerHTML = safeHtml;
+  if (inline) {
+    inline.innerHTML = safeHtml;
+    inline.style.display = 'block';
+  }
+  if (visibleResult) {
+    visibleResult.className = 'collection-result show';
+    visibleResult.innerHTML = safeHtml;
+  }
+  if (modal && safeHtml) modal.style.display = 'flex';
+  if (dock) dock.style.display = 'none';
+}
+
+function collectionBuildExecutionPopupShell(content) {
+  return '<!doctype html><html lang="es"><head><meta charset="utf-8">' +
+    '<title>Consola de ejecucion</title>' +
+    '<style>' +
+      'body{margin:0;padding:24px;background:#f8fafc;color:#0f172a;font-family:Segoe UI,Arial,sans-serif}' +
+      '.wrap{max-width:1180px;margin:0 auto}' +
+      '.head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px}' +
+      '.title{font-size:28px;font-weight:800}' +
+      '.sub{font-size:12px;color:#64748b;margin-top:6px}' +
+      '.panel{background:#fff;border:1px solid #e5e7eb;border-radius:22px;box-shadow:0 20px 44px rgba(15,23,42,.10);padding:20px}' +
+    '</style></head><body><div class="wrap"><div class="head"><div><div class="title">Consola de ejecucion</div><div class="sub">Salida del flujo ejecutado desde BTTools</div></div></div><div class="panel">' +
+    content +
+    '</div></div></body></html>';
+}
+
+function collectionOpenExecutionConsole() {
+  var inline = document.getElementById('collection-execution-inline');
+  var html = collectionState.lastExecutionHtml || '';
+  if (!html && collectionState.lastExecutionData) {
+    html = '<div class="collection-run-section"><div class="collection-run-section-title">JSON de ejecucion</div><div class="collection-run-pre">' +
+      collectionEscapeHtml(JSON.stringify(collectionState.lastExecutionData, null, 2)) +
+      '</div></div>';
+  }
+  if (!html) {
+    html = '<div class="collection-run-section"><div class="collection-run-section-title">Consola</div><div class="collection-run-card"><div class="collection-run-card-value-sm">Todavia no hay una ejecucion para mostrar.</div></div></div>';
+  }
+
+  if (inline) {
+    inline.innerHTML = html;
+    inline.style.display = 'block';
+    if (typeof inline.scrollIntoView === 'function') inline.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  try {
+    if (!collectionExecutionPopup || collectionExecutionPopup.closed) {
+      collectionExecutionPopup = window.open('', 'bttools_execution_console', 'width=1280,height=860,resizable=yes,scrollbars=yes');
+    }
+    if (collectionExecutionPopup) {
+      collectionExecutionPopup.document.open();
+      collectionExecutionPopup.document.write(collectionBuildExecutionPopupShell(html));
+      collectionExecutionPopup.document.close();
+      collectionExecutionPopup.focus();
+      return;
+    }
+  } catch (e) {}
+
+  collectionRestoreExecutionConsole();
+}
+
+function collectionRenderExecutionLoading() {
+  var el = document.getElementById('collection-execution');
+  var modal = document.getElementById('collection-execution-modal');
+  var title = document.getElementById('collection-execution-title');
+  if (!el) return;
+  var scenario = collectionGetActiveScenario();
+  if (title) title.textContent = scenario ? scenario.name : 'Ejecucion del flujo';
+  var html =
+    '<div class="collection-run-grid">' +
+      '<div class="collection-run-card"><div class="collection-run-card-label">Estado</div><div class="collection-run-card-value-sm">Ejecutando flujo desde la app...</div></div>' +
+    '</div>' +
+    '<div class="collection-run-section">' +
+      '<div class="collection-run-section-title">Consola</div>' +
+      '<div class="collection-run-card"><div class="collection-run-card-value-sm">Preparando autenticacion, headers y requests del caso activo.</div></div>' +
+    '</div>';
+  collectionSetExecutionHtml(html, { loading: true });
+  if (modal) modal.style.display = 'none';
 }
 
 function collectionContextKey() {
@@ -517,6 +828,567 @@ function collectionSetActiveScenario(id) {
   collectionResetExecution();
 }
 
+function collectionBuildCanvasGroupKey(item, index) {
+  return item.service + '.' + item.method + '::' + index;
+}
+
+function collectionFindItemIndexByNodeId(scenario, nodeId) {
+  if (!scenario || !Array.isArray(scenario.items)) return -1;
+  for (var i = 0; i < scenario.items.length; i++) {
+    if (collectionEnsureItemNodeId(scenario.items[i]) === nodeId) return i;
+  }
+  return -1;
+}
+
+function collectionFindOutgoingConnection(scenario, fromId) {
+  var connections = collectionEnsureScenarioConnections(scenario);
+  for (var i = 0; i < connections.length; i++) {
+    if (connections[i].fromId === fromId) return connections[i];
+  }
+  return null;
+}
+
+function collectionFindIncomingConnection(scenario, toId) {
+  var connections = collectionEnsureScenarioConnections(scenario);
+  for (var i = 0; i < connections.length; i++) {
+    if (connections[i].toId === toId) return connections[i];
+  }
+  return null;
+}
+
+function collectionRebuildItemsFromConnections(scenario, selectedItem) {
+  if (!scenario || !Array.isArray(scenario.items) || scenario.items.length < 2) {
+    if (scenario && selectedItem) scenario.selectedItemIndex = scenario.items.indexOf(selectedItem);
+    return false;
+  }
+  var before = scenario.items.slice();
+  var connections = collectionEnsureScenarioConnections(scenario);
+  if (!connections.length) {
+    if (selectedItem) scenario.selectedItemIndex = scenario.items.indexOf(selectedItem);
+    return false;
+  }
+  var itemById = {};
+  var incoming = {};
+  var outgoing = {};
+  scenario.items.forEach(function(item) {
+    var nodeId = collectionEnsureItemNodeId(item);
+    itemById[nodeId] = item;
+  });
+  connections.forEach(function(connection) {
+    incoming[connection.toId] = connection.fromId;
+    outgoing[connection.fromId] = connection.toId;
+  });
+  var ordered = [];
+  var visited = {};
+  scenario.items.forEach(function(item) {
+    var nodeId = collectionEnsureItemNodeId(item);
+    if (incoming[nodeId]) return;
+    var currentId = nodeId;
+    while (currentId && itemById[currentId] && !visited[currentId]) {
+      visited[currentId] = true;
+      ordered.push(itemById[currentId]);
+      currentId = outgoing[currentId] || '';
+    }
+  });
+  scenario.items.forEach(function(item) {
+    var nodeId = collectionEnsureItemNodeId(item);
+    if (!visited[nodeId]) {
+      visited[nodeId] = true;
+      ordered.push(item);
+    }
+  });
+  scenario.items = ordered;
+  if (selectedItem) scenario.selectedItemIndex = scenario.items.indexOf(selectedItem);
+  for (var i = 0; i < before.length; i++) {
+    if (before[i] !== scenario.items[i]) return true;
+  }
+  return false;
+}
+
+function collectionGetConnectedSourceId(scenario, item) {
+  if (!scenario || !item) return '';
+  var nodeId = collectionEnsureItemNodeId(item);
+  var incoming = collectionFindIncomingConnection(scenario, nodeId);
+  return incoming ? incoming.fromId : '';
+}
+
+function collectionInputAliasValue(mappingKey) {
+  var scenario = collectionGetActiveScenario();
+  if (!scenario || !scenario.inputAliases) return '';
+  return scenario.inputAliases[mappingKey] || '';
+}
+
+function collectionUpdateInputAlias(mappingKey, value) {
+  var scenario = collectionGetActiveScenario();
+  if (!scenario) return;
+  if (!scenario.inputAliases) scenario.inputAliases = {};
+  var trimmed = String(value || '').trim();
+  if (trimmed) scenario.inputAliases[mappingKey] = trimmed;
+  else delete scenario.inputAliases[mappingKey];
+  collectionLoadPreview();
+}
+
+function collectionInputDisplayName(input) {
+  return input.alias || input.key;
+}
+
+function collectionSetPendingConnection(nodeId) {
+  var scenario = collectionGetActiveScenario();
+  if (!scenario) return;
+  collectionEnsureScenarioConnections(scenario);
+  scenario.pendingConnectionFromId = scenario.pendingConnectionFromId === nodeId ? '' : nodeId;
+  collectionRenderItems();
+}
+
+function collectionConnectNodes(fromId, toId) {
+  var scenario = collectionGetActiveScenario();
+  if (!scenario || !fromId || !toId || fromId === toId) return;
+  var sourceIndex = collectionFindItemIndexByNodeId(scenario, fromId);
+  var targetIndex = collectionFindItemIndexByNodeId(scenario, toId);
+  if (sourceIndex < 0 || targetIndex < 0) return;
+  var connections = collectionEnsureScenarioConnections(scenario);
+  scenario.connections = connections.filter(function(connection) {
+    if (connection.fromId === fromId) return false;
+    if (connection.toId === toId) return false;
+    if (connection.fromId === toId && connection.toId === fromId) return false;
+    return true;
+  });
+  scenario.connections.push({ fromId: fromId, toId: toId });
+  scenario.connectionsTouched = true;
+  scenario.pendingConnectionFromId = '';
+  var selectedItem = scenario.items[targetIndex];
+  collectionRebuildItemsFromConnections(scenario, selectedItem);
+  collectionRenderScenarios();
+  collectionRenderItems();
+  collectionLoadPreview();
+  collectionResetExecution();
+  collectionShowStatus('ok', 'Flecha creada y mappings sugeridos actualizados.');
+}
+
+function collectionRemoveConnection(fromId, toId) {
+  var scenario = collectionGetActiveScenario();
+  if (!scenario) return;
+  collectionEnsureScenarioConnections(scenario);
+  scenario.connections = scenario.connections.filter(function(connection) {
+    return !(connection.fromId === fromId && connection.toId === toId);
+  });
+  scenario.connectionsTouched = true;
+  scenario.pendingConnectionFromId = '';
+  collectionRebuildItemsFromConnections(scenario, collectionGetSelectedItem());
+  collectionRenderScenarios();
+  collectionRenderItems();
+  collectionLoadPreview();
+  collectionResetExecution();
+  collectionShowStatus('ok', 'Flecha removida.');
+}
+
+function collectionCanvasNodeClick(index) {
+  var scenario = collectionGetActiveScenario();
+  if (!scenario || !scenario.items[index]) return;
+  collectionSetSelectedItem(index);
+}
+
+function collectionBuildCanvasLinkText(sourceItem, sourceIndex, targetItem, targetIndex, scenario) {
+  if (!scenario) return 'Flujo';
+  var sourceGroupKey = collectionBuildCanvasGroupKey(sourceItem, sourceIndex);
+  var targetGroupKey = collectionBuildCanvasGroupKey(targetItem, targetIndex);
+  var outputsByKey = {};
+  (scenario.previewOutputs || []).forEach(function(output) {
+    outputsByKey[output.sourceVarKey] = output;
+  });
+  var mappings = (scenario.previewVariables || []).filter(function(input) {
+    if (input.groupKey !== targetGroupKey || !input.mappingKey) return false;
+    var config = collectionInputMappingConfig(input.mappingKey);
+    if (!config || !config.sourceVarKey) return false;
+    var sourceOption = outputsByKey[config.sourceVarKey];
+    return sourceOption && sourceOption.sourceGroupKey === sourceGroupKey;
+  }).map(function(input) {
+    var config = collectionInputMappingConfig(input.mappingKey);
+    var sourceOption = outputsByKey[config.sourceVarKey];
+    return collectionOutputDisplayName(sourceOption) + ' -> ' + collectionInputDisplayName(input);
+  });
+  if (!mappings.length) return 'Flujo';
+  if (mappings.length === 1) return mappings[0];
+  if (mappings.length === 2) return mappings.join(' · ');
+  return mappings[0] + ' · ' + mappings[1] + ' +' + (mappings.length - 2);
+}
+
+function collectionRenderCanvasConnections() {
+  var scenario = collectionGetActiveScenario();
+  var surface = document.getElementById('collection-canvas-surface');
+  var svg = document.getElementById('collection-canvas-svg');
+  if (!scenario || !surface || !svg) return;
+  var connections = collectionEnsureScenarioConnections(scenario);
+  var stageWidth = surface.offsetWidth || 0;
+  var stageHeight = surface.offsetHeight || 0;
+  svg.setAttribute('viewBox', '0 0 ' + stageWidth + ' ' + stageHeight);
+  svg.setAttribute('width', String(stageWidth));
+  svg.setAttribute('height', String(stageHeight));
+  var rows = [
+    '<defs><marker id="collection-canvas-arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L8,3 z" fill="#7c3aed"></path></marker></defs>'
+  ];
+  for (var i = 0; i < connections.length; i++) {
+    var sourceIndex = collectionFindItemIndexByNodeId(scenario, connections[i].fromId);
+    var targetIndex = collectionFindItemIndexByNodeId(scenario, connections[i].toId);
+    if (sourceIndex < 0 || targetIndex < 0) continue;
+    var sourceEl = document.getElementById('collection-canvas-step-' + sourceIndex);
+    var targetEl = document.getElementById('collection-canvas-step-' + targetIndex);
+    if (!sourceEl || !targetEl) continue;
+    var x1 = sourceEl.offsetLeft + (sourceEl.offsetWidth / 2);
+    var y1 = sourceEl.offsetTop + sourceEl.offsetHeight;
+    var x2 = targetEl.offsetLeft + (targetEl.offsetWidth / 2);
+    var y2 = targetEl.offsetTop;
+    var delta = Math.max(42, Math.abs(y2 - y1) / 2);
+    var midX = x1 + ((x2 - x1) / 2);
+    var midY = y1 + ((y2 - y1) / 2);
+    var label = collectionBuildCanvasLinkText(scenario.items[sourceIndex], sourceIndex, scenario.items[targetIndex], targetIndex, scenario);
+    var labelWidth = Math.min(260, Math.max(92, (String(label || '').length * 6.4)));
+    rows.push(
+      '<path class="collection-canvas-link" marker-end="url(#collection-canvas-arrow)" d="M ' + x1 + ' ' + y1 + ' C ' + x1 + ' ' + (y1 + delta) + ', ' + x2 + ' ' + (y2 - delta) + ', ' + x2 + ' ' + y2 + '"></path>' +
+      '<rect class="collection-canvas-link-label-bg" x="' + (midX - (labelWidth / 2)) + '" y="' + (midY - 12) + '" rx="10" ry="10" width="' + labelWidth + '" height="24"></rect>' +
+      '<text class="collection-canvas-link-label" x="' + midX + '" y="' + (midY + 4) + '" text-anchor="middle">' + collectionEscapeHtml(label) + '</text>' +
+      '<g class="collection-canvas-link-remove" onclick="collectionRemoveConnection(' + "'" + collectionEscapeHtml(connections[i].fromId) + "'" + ',' + "'" + collectionEscapeHtml(connections[i].toId) + "'" + ')">' +
+        '<circle cx="' + (midX + (labelWidth / 2) + 10) + '" cy="' + (midY - 1) + '" r="9"></circle>' +
+        '<text x="' + (midX + (labelWidth / 2) + 10) + '" y="' + (midY + 3) + '" text-anchor="middle">×</text>' +
+      '</g>'
+    );
+  }
+  svg.innerHTML = rows.join('');
+}
+
+function collectionUpdateDraggedNode() {
+  if (!collectionCanvasDragState) return;
+  var item = collectionCanvasDragState.item;
+  var index = collectionCanvasDragState.index;
+  var node = document.getElementById('collection-canvas-step-' + index);
+  if (!item || !node || !item.layout) return;
+  node.style.left = item.layout.x + 'px';
+  node.style.top = item.layout.y + 'px';
+  collectionRenderCanvasConnections();
+}
+
+function collectionHandleCanvasDragMove(event) {
+  if (!collectionCanvasDragState) return;
+  var surface = document.getElementById('collection-canvas-surface');
+  if (!surface) return;
+  var rect = surface.getBoundingClientRect();
+  var nodeWidth = collectionCanvasDragState.nodeWidth || 360;
+  var nodeHeight = collectionCanvasDragState.nodeHeight || 118;
+  var nextX = event.clientX - rect.left - collectionCanvasDragState.offsetX;
+  var nextY = event.clientY - rect.top - collectionCanvasDragState.offsetY;
+  var maxX = Math.max(0, surface.offsetWidth - nodeWidth - 8);
+  var maxY = Math.max(0, surface.offsetHeight - nodeHeight - 8);
+  collectionCanvasDragState.item.layout.x = Math.max(8, Math.min(maxX, nextX));
+  collectionCanvasDragState.item.layout.y = Math.max(8, Math.min(maxY, nextY));
+  collectionUpdateDraggedNode();
+}
+
+function collectionHandleCanvasDragEnd() {
+  if (!collectionCanvasDragState) return;
+  collectionCanvasDragState = null;
+  document.removeEventListener('mousemove', collectionHandleCanvasDragMove);
+  document.removeEventListener('mouseup', collectionHandleCanvasDragEnd);
+  collectionRenderCanvasConnections();
+  collectionRenderVariableEditor();
+  collectionResetExecution();
+}
+
+function collectionBuildTemporaryConnectionPath(anchorX, anchorY, pointerX, pointerY, dragEnd) {
+  var horizontalBias = Math.abs(pointerX - anchorX) > Math.abs(pointerY - anchorY);
+  if (horizontalBias) {
+    var midX = anchorX + ((pointerX - anchorX) / 2);
+    if (dragEnd === 'from') {
+      return 'M ' + pointerX + ' ' + pointerY + ' L ' + midX + ' ' + pointerY + ' L ' + midX + ' ' + anchorY + ' L ' + anchorX + ' ' + anchorY;
+    }
+    return 'M ' + anchorX + ' ' + anchorY + ' L ' + midX + ' ' + anchorY + ' L ' + midX + ' ' + pointerY + ' L ' + pointerX + ' ' + pointerY;
+  }
+  var midY = anchorY + ((pointerY - anchorY) / 2);
+  if (dragEnd === 'from') {
+    return 'M ' + pointerX + ' ' + pointerY + ' L ' + pointerX + ' ' + midY + ' L ' + anchorX + ' ' + midY + ' L ' + anchorX + ' ' + anchorY;
+  }
+  return 'M ' + anchorX + ' ' + anchorY + ' L ' + anchorX + ' ' + midY + ' L ' + pointerX + ' ' + midY + ' L ' + pointerX + ' ' + pointerY;
+}
+
+function collectionHandleConnectionDragMove(event) {
+  if (!collectionConnectionDragState) return;
+  var surface = document.getElementById('collection-canvas-surface');
+  if (!surface) return;
+  var rect = surface.getBoundingClientRect();
+  var pointerX = event.clientX - rect.left;
+  var pointerY = event.clientY - rect.top;
+  collectionConnectionDragState.tempPath = collectionBuildTemporaryConnectionPath(
+    collectionConnectionDragState.anchorX,
+    collectionConnectionDragState.anchorY,
+    pointerX,
+    pointerY,
+    collectionConnectionDragState.dragEnd
+  );
+  collectionRenderCanvasConnections();
+}
+
+function collectionHandleConnectionDragEnd(event) {
+  if (!collectionConnectionDragState) return;
+  var scenario = collectionGetActiveScenario();
+  var drag = collectionConnectionDragState;
+  collectionConnectionDragState = null;
+  document.removeEventListener('mousemove', collectionHandleConnectionDragMove);
+  document.removeEventListener('mouseup', collectionHandleConnectionDragEnd);
+  var nodeElement = null;
+  if (event && document.elementsFromPoint) {
+    var stack = document.elementsFromPoint(event.clientX, event.clientY) || [];
+    for (var i = 0; i < stack.length; i++) {
+      if (stack[i] && stack[i].closest) {
+        var candidate = stack[i].closest('.collection-canvas-step');
+        if (candidate) {
+          nodeElement = candidate;
+          break;
+        }
+      }
+    }
+  } else {
+    var targetElement = event && document.elementFromPoint ? document.elementFromPoint(event.clientX, event.clientY) : null;
+    nodeElement = targetElement && targetElement.closest ? targetElement.closest('.collection-canvas-step') : null;
+  }
+  if (scenario && nodeElement && nodeElement.id) {
+    var indexText = nodeElement.id.replace('collection-canvas-step-', '');
+    var nodeIndex = parseInt(indexText, 10);
+    if (!isNaN(nodeIndex) && scenario.items[nodeIndex]) {
+      var targetNodeId = collectionEnsureItemNodeId(scenario.items[nodeIndex]);
+      if (drag.dragEnd === 'from') {
+        collectionConnectNodes(targetNodeId, drag.fixedNodeId);
+      } else {
+        collectionConnectNodes(drag.fixedNodeId, targetNodeId);
+      }
+      return;
+    }
+  }
+  collectionRenderCanvasConnections();
+}
+
+function collectionStartConnectionDrag(fromId, toId, dragEnd, event) {
+  if (!event) return;
+  var scenario = collectionGetActiveScenario();
+  if (!scenario) return;
+  var fromIndex = collectionFindItemIndexByNodeId(scenario, fromId);
+  var toIndex = collectionFindItemIndexByNodeId(scenario, toId);
+  if (fromIndex < 0 || toIndex < 0) return;
+  var fromEl = document.getElementById('collection-canvas-step-' + fromIndex);
+  var toEl = document.getElementById('collection-canvas-step-' + toIndex);
+  if (!fromEl || !toEl) return;
+  var route = collectionBuildOrthogonalCanvasPath(fromEl, toEl);
+  collectionConnectionDragState = {
+    fromId: fromId,
+    toId: toId,
+    dragEnd: dragEnd,
+    fixedNodeId: dragEnd === 'from' ? toId : fromId,
+    anchorX: dragEnd === 'from' ? route.endX : route.startX,
+    anchorY: dragEnd === 'from' ? route.endY : route.startY,
+    tempPath: ''
+  };
+  document.addEventListener('mousemove', collectionHandleConnectionDragMove);
+  document.addEventListener('mouseup', collectionHandleConnectionDragEnd);
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+function collectionStartNewConnectionDrag(nodeId, event) {
+  if (!event) return;
+  var scenario = collectionGetActiveScenario();
+  if (!scenario || !nodeId) return;
+  var index = collectionFindItemIndexByNodeId(scenario, nodeId);
+  if (index < 0) return;
+  var node = document.getElementById('collection-canvas-step-' + index);
+  if (!node) return;
+  collectionSetSelectedItem(index);
+  var anchorX = node.offsetLeft + (node.offsetWidth / 2);
+  var anchorY = node.offsetTop + node.offsetHeight;
+  collectionConnectionDragState = {
+    fromId: nodeId,
+    toId: '',
+    dragEnd: 'to',
+    fixedNodeId: nodeId,
+    anchorX: anchorX,
+    anchorY: anchorY,
+    tempPath: ''
+  };
+  document.addEventListener('mousemove', collectionHandleConnectionDragMove);
+  document.addEventListener('mouseup', collectionHandleConnectionDragEnd);
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+function collectionStartNodeDrag(index, event) {
+  if (!event || event.button !== 0) return;
+  if (event.target && event.target.closest && (event.target.closest('.svc-rm') || event.target.closest('.collection-canvas-node-handle'))) return;
+  var scenario = collectionGetActiveScenario();
+  if (!scenario || !scenario.items[index]) return;
+  var node = document.getElementById('collection-canvas-step-' + index);
+  if (!node) return;
+  var item = scenario.items[index];
+  collectionEnsureItemLayout(item, index);
+  scenario.selectedItemIndex = index;
+  collectionRenderInspector();
+  var rect = node.getBoundingClientRect();
+  collectionCanvasDragState = {
+    index: index,
+    item: item,
+    offsetX: event.clientX - rect.left,
+    offsetY: event.clientY - rect.top,
+    nodeWidth: rect.width,
+    nodeHeight: rect.height
+  };
+  document.addEventListener('mousemove', collectionHandleCanvasDragMove);
+  document.addEventListener('mouseup', collectionHandleCanvasDragEnd);
+  event.preventDefault();
+}
+
+function collectionBuildOrthogonalCanvasPath(sourceEl, targetEl) {
+  var sourceRect = {
+    left: sourceEl.offsetLeft,
+    top: sourceEl.offsetTop,
+    width: sourceEl.offsetWidth,
+    height: sourceEl.offsetHeight
+  };
+  var targetRect = {
+    left: targetEl.offsetLeft,
+    top: targetEl.offsetTop,
+    width: targetEl.offsetWidth,
+    height: targetEl.offsetHeight
+  };
+  var sourceCenterX = sourceRect.left + (sourceRect.width / 2);
+  var sourceCenterY = sourceRect.top + (sourceRect.height / 2);
+  var targetCenterX = targetRect.left + (targetRect.width / 2);
+  var targetCenterY = targetRect.top + (targetRect.height / 2);
+  var horizontalBias = Math.abs(targetCenterX - sourceCenterX) > Math.abs(targetCenterY - sourceCenterY);
+
+  if (horizontalBias) {
+    var startX = targetCenterX >= sourceCenterX ? (sourceRect.left + sourceRect.width) : sourceRect.left;
+    var startY = sourceCenterY;
+    var endX = targetCenterX >= sourceCenterX ? targetRect.left : (targetRect.left + targetRect.width);
+    var endY = targetCenterY;
+    var midX = startX + ((endX - startX) / 2);
+    return {
+      path: 'M ' + startX + ' ' + startY + ' L ' + midX + ' ' + startY + ' L ' + midX + ' ' + endY + ' L ' + endX + ' ' + endY,
+      startX: startX,
+      startY: startY,
+      endX: endX,
+      endY: endY,
+      labelX: midX,
+      labelY: startY + ((endY - startY) / 2)
+    };
+  }
+
+  var startXVertical = sourceCenterX;
+  var startYVertical = targetCenterY >= sourceCenterY ? (sourceRect.top + sourceRect.height) : sourceRect.top;
+  var endXVertical = targetCenterX;
+  var endYVertical = targetCenterY >= sourceCenterY ? targetRect.top : (targetRect.top + targetRect.height);
+  var midY = startYVertical + ((endYVertical - startYVertical) / 2);
+  return {
+    path: 'M ' + startXVertical + ' ' + startYVertical + ' L ' + startXVertical + ' ' + midY + ' L ' + endXVertical + ' ' + midY + ' L ' + endXVertical + ' ' + endYVertical,
+    startX: startXVertical,
+    startY: startYVertical,
+    endX: endXVertical,
+    endY: endYVertical,
+    labelX: startXVertical + ((endXVertical - startXVertical) / 2),
+    labelY: midY
+  };
+}
+
+function collectionBuildCanvasLinkText(sourceItem, sourceIndex, targetItem, targetIndex, scenario) {
+  if (!scenario) return 'Flujo';
+  var sourceGroupKey = collectionBuildCanvasGroupKey(sourceItem, sourceIndex);
+  var targetGroupKey = collectionBuildCanvasGroupKey(targetItem, targetIndex);
+  var outputsByKey = {};
+  (scenario.previewOutputs || []).forEach(function(output) {
+    outputsByKey[output.sourceVarKey] = output;
+  });
+  var mappings = (scenario.previewVariables || []).filter(function(input) {
+    if (input.groupKey !== targetGroupKey || !input.mappingKey) return false;
+    var config = collectionInputMappingConfig(input.mappingKey);
+    if (!config || !config.sourceVarKey) return false;
+    var sourceOption = outputsByKey[config.sourceVarKey];
+    return sourceOption && sourceOption.sourceGroupKey === sourceGroupKey;
+  }).map(function(input) {
+    var config = collectionInputMappingConfig(input.mappingKey);
+    var sourceOption = outputsByKey[config.sourceVarKey];
+    return collectionOutputDisplayName(sourceOption) + ' -> ' + collectionInputDisplayName(input);
+  });
+  if (!mappings.length) return 'Flujo';
+  if (mappings.length === 1) return mappings[0];
+  if (mappings.length === 2) return mappings.join(' | ');
+  return mappings[0] + ' | ' + mappings[1] + ' +' + (mappings.length - 2);
+}
+
+function collectionRenderCanvasConnections() {
+  var scenario = collectionGetActiveScenario();
+  var surface = document.getElementById('collection-canvas-surface');
+  var svg = document.getElementById('collection-canvas-svg');
+  if (!scenario || !surface || !svg) return;
+  var connections = collectionEnsureScenarioConnections(scenario);
+  var stageWidth = surface.offsetWidth || 0;
+  var stageHeight = surface.offsetHeight || 0;
+  svg.setAttribute('viewBox', '0 0 ' + stageWidth + ' ' + stageHeight);
+  svg.setAttribute('width', String(stageWidth));
+  svg.setAttribute('height', String(stageHeight));
+  var rows = [
+    '<defs><marker id="collection-canvas-arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L8,3 z" fill="#7c3aed"></path></marker></defs>'
+  ];
+  for (var i = 0; i < connections.length; i++) {
+    var sourceIndex = collectionFindItemIndexByNodeId(scenario, connections[i].fromId);
+    var targetIndex = collectionFindItemIndexByNodeId(scenario, connections[i].toId);
+    if (sourceIndex < 0 || targetIndex < 0) continue;
+    var sourceEl = document.getElementById('collection-canvas-step-' + sourceIndex);
+    var targetEl = document.getElementById('collection-canvas-step-' + targetIndex);
+    if (!sourceEl || !targetEl) continue;
+    var route = collectionBuildOrthogonalCanvasPath(sourceEl, targetEl);
+    var label = collectionBuildCanvasLinkText(scenario.items[sourceIndex], sourceIndex, scenario.items[targetIndex], targetIndex, scenario);
+    var labelWidth = Math.min(260, Math.max(92, (String(label || '').length * 6.2)));
+    var removeX = route.labelX + (labelWidth / 2) + 12;
+    var removeY = route.labelY;
+    rows.push(
+      '<path class="collection-canvas-link" marker-end="url(#collection-canvas-arrow)" d="' + route.path + '"></path>' +
+      '<circle class="collection-canvas-link-handle" cx="' + route.startX + '" cy="' + route.startY + '" r="6" onmousedown="collectionStartConnectionDrag(' + "'" + collectionEscapeHtml(connections[i].fromId) + "'" + ',' + "'" + collectionEscapeHtml(connections[i].toId) + "'" + ',' + "'" + 'from' + "'" + ', event)"></circle>' +
+      '<circle class="collection-canvas-link-handle" cx="' + route.endX + '" cy="' + route.endY + '" r="6" onmousedown="collectionStartConnectionDrag(' + "'" + collectionEscapeHtml(connections[i].fromId) + "'" + ',' + "'" + collectionEscapeHtml(connections[i].toId) + "'" + ',' + "'" + 'to' + "'" + ', event)"></circle>' +
+      '<rect class="collection-canvas-link-label-bg" x="' + (route.labelX - (labelWidth / 2)) + '" y="' + (route.labelY - 12) + '" rx="10" ry="10" width="' + labelWidth + '" height="24"></rect>' +
+      '<text class="collection-canvas-link-label" x="' + route.labelX + '" y="' + (route.labelY + 4) + '" text-anchor="middle">' + collectionEscapeHtml(label) + '</text>' +
+      '<g class="collection-canvas-link-remove" onclick="collectionRemoveConnection(' + "'" + collectionEscapeHtml(connections[i].fromId) + "'" + ',' + "'" + collectionEscapeHtml(connections[i].toId) + "'" + ')">' +
+        '<circle cx="' + removeX + '" cy="' + removeY + '" r="9"></circle>' +
+        '<text x="' + removeX + '" y="' + (removeY + 3) + '" text-anchor="middle">x</text>' +
+      '</g>'
+    );
+  }
+  if (collectionConnectionDragState && collectionConnectionDragState.tempPath) {
+    rows.push('<path class="collection-canvas-link collection-canvas-link-temp" d="' + collectionConnectionDragState.tempPath + '"></path>');
+  }
+  svg.innerHTML = rows.join('');
+}
+
+function collectionStartNodeDrag(index, event) {
+  if (!event || event.button !== 0) return;
+  if (event.target && event.target.closest && event.target.closest('.svc-rm')) return;
+  var scenario = collectionGetActiveScenario();
+  if (!scenario || !scenario.items[index]) return;
+  var node = document.getElementById('collection-canvas-step-' + index);
+  if (!node) return;
+  var item = scenario.items[index];
+  collectionEnsureItemLayout(item, index);
+  var nodeId = collectionEnsureItemNodeId(item);
+  scenario.selectedItemIndex = index;
+  collectionRenderInspector();
+  var rect = node.getBoundingClientRect();
+  collectionCanvasDragState = {
+    index: index,
+    item: item,
+    offsetX: event.clientX - rect.left,
+    offsetY: event.clientY - rect.top,
+    nodeWidth: rect.width,
+    nodeHeight: rect.height
+  };
+  document.addEventListener('mousemove', collectionHandleCanvasDragMove);
+  document.addEventListener('mouseup', collectionHandleCanvasDragEnd);
+  event.preventDefault();
+}
+
 function collectionAddScenario() {
   var scenario = collectionCreateScenario();
   collectionState.scenarios.push(scenario);
@@ -624,6 +1496,7 @@ function collectionSyncInspectorInputs() {
   var item = collectionGetSelectedItem();
   var inputs = document.querySelectorAll('[data-collection-input-key]');
   Array.prototype.forEach.call(inputs, function(input) {
+    if (input.disabled) return;
     var key = input.getAttribute('data-collection-input-key');
     if (!key) return;
     scenario.variableOverrides[key] = input.value;
@@ -819,12 +1692,26 @@ function collectionBuildInputMappingKey(item, input) {
 }
 
 function collectionSuggestMappingForInput(input, sourceOptions) {
-  var normalizedInput = collectionNormalizeToken((input && (input.pathLabel || input.key)) || '');
-  if (!normalizedInput) return '';
+  var normalizedCandidates = [
+    collectionNormalizeToken((input && input.alias) || ''),
+    collectionNormalizeToken((input && (input.pathLabel || input.key)) || ''),
+    collectionNormalizeToken((input && input.key) || '')
+  ].filter(Boolean);
+  if (!normalizedCandidates.length) return '';
+  function matches(value) {
+    var normalized = collectionNormalizeToken(value);
+    if (!normalized) return false;
+    for (var i = 0; i < normalizedCandidates.length; i++) {
+      if (normalizedCandidates[i] === normalized) return true;
+    }
+    return false;
+  }
   for (var i = sourceOptions.length - 1; i >= 0; i--) {
     var option = sourceOptions[i];
-    if (collectionNormalizeToken(option.pathLabel) === normalizedInput) return option.sourceVarKey;
-    if (collectionNormalizeToken(option.key) === normalizedInput) return option.sourceVarKey;
+    if (matches(option.alias)) return option.sourceVarKey;
+    if (matches(collectionOutputDisplayName(option))) return option.sourceVarKey;
+    if (matches(option.pathLabel)) return option.sourceVarKey;
+    if (matches(option.key)) return option.sourceVarKey;
   }
   return '';
 }
@@ -1074,13 +1961,18 @@ function collectionInsertOperation(service, operationKey, insertIndex) {
   var scenario = collectionGetActiveScenario();
   var selectedOperation = collectionFindOperationByKey(service, operationKey);
   if (!scenario || !selectedOperation) return;
+  collectionEnsureScenarioConnections(scenario);
   var method = selectedOperation.methodName;
   var operationKind = String(selectedOperation.httpMethod || '').toLowerCase() === 'get' ? 'query' : 'action';
+  var safeIndex = typeof insertIndex === 'number' && insertIndex >= 0 ? insertIndex : scenario.items.length;
+  if (safeIndex > scenario.items.length) safeIndex = scenario.items.length;
+  var previousItem = safeIndex > 0 ? scenario.items[safeIndex - 1] : null;
+  var nextItem = safeIndex < scenario.items.length ? scenario.items[safeIndex] : null;
   var exists = scenario.items.some(function(item) {
     return item.service === service && item.method === method;
   });
   if (exists) return;
-  var nextItem = {
+  var newItem = {
     service: service,
     method: method,
     operationKind: operationKind,
@@ -1091,11 +1983,28 @@ function collectionInsertOperation(service, operationKey, insertIndex) {
     manualInputs: selectedOperation.manualInputs || [],
     inputOverrides: {},
     bodyTemplate: selectedOperation.bodyTemplate || null,
-    outputFields: selectedOperation.outputFields || []
+    outputFields: selectedOperation.outputFields || [],
+    layout: collectionDefaultNodeLayout(safeIndex)
   };
-  var safeIndex = typeof insertIndex === 'number' && insertIndex >= 0 ? insertIndex : scenario.items.length;
-  if (safeIndex > scenario.items.length) safeIndex = scenario.items.length;
-  scenario.items.splice(safeIndex, 0, nextItem);
+  collectionEnsureItemNodeId(newItem);
+  scenario.items.splice(safeIndex, 0, newItem);
+  if (previousItem) {
+    var previousId = collectionEnsureItemNodeId(previousItem);
+    var nextId = nextItem ? collectionEnsureItemNodeId(nextItem) : '';
+  scenario.connections = scenario.connections.filter(function(connection) {
+    return !(nextId && connection.fromId === previousId && connection.toId === nextId);
+  });
+  scenario.connections.push({ fromId: previousId, toId: newItem.nodeId });
+    if (nextId) {
+      scenario.connections.push({ fromId: newItem.nodeId, toId: nextId });
+    }
+  } else if (nextItem) {
+    scenario.connections.push({ fromId: newItem.nodeId, toId: collectionEnsureItemNodeId(nextItem) });
+  }
+  if (scenario.connections.length) scenario.connectionsTouched = true;
+  for (var i = 0; i < scenario.items.length; i++) {
+    collectionEnsureItemLayout(scenario.items[i], i);
+  }
   scenario.selectedItemIndex = safeIndex;
   collectionRenderScenarios();
   collectionRenderItems();
@@ -1157,6 +2066,37 @@ function collectionRenderVariableEditor() {
   collectionRenderInspector();
 }
 
+function collectionCaptureInspectorState(container) {
+  if (!container) return null;
+  var state = { scrollTop: container.scrollTop || 0, fieldKey: '', selectionStart: null, selectionEnd: null };
+  var active = document.activeElement;
+  if (!active || !container.contains(active)) return state;
+  state.fieldKey = active.getAttribute('data-inspector-key') || active.id || '';
+  if (typeof active.selectionStart === 'number' && typeof active.selectionEnd === 'number') {
+    state.selectionStart = active.selectionStart;
+    state.selectionEnd = active.selectionEnd;
+  }
+  return state;
+}
+
+function collectionRestoreInspectorState(container, state) {
+  if (!container || !state) return;
+  container.scrollTop = state.scrollTop || 0;
+  if (!state.fieldKey) return;
+  var selector = '[data-inspector-key="' + collectionEscapeHtml(state.fieldKey) + '"]';
+  var field = container.querySelector(selector);
+  if (!field && state.fieldKey) {
+    field = document.getElementById(state.fieldKey);
+  }
+  if (!field || typeof field.focus !== 'function') return;
+  field.focus();
+  if (typeof state.selectionStart === 'number' && typeof field.setSelectionRange === 'function') {
+    try {
+      field.setSelectionRange(state.selectionStart, state.selectionEnd == null ? state.selectionStart : state.selectionEnd);
+    } catch (error) {}
+  }
+}
+
 async function collectionLoadPreview() {
   var scenario = collectionGetActiveScenario();
   if (!scenario || !scenario.items.length) {
@@ -1170,76 +2110,85 @@ async function collectionLoadPreview() {
   }
 
   if (collectionPathSupported()) {
-    scenario.previewVariables = [];
-    scenario.previewOutputs = [];
-    scenario.previewMappings = [];
-    var availableOutputs = [];
-    scenario.items.forEach(function(item, itemIndex) {
-      (item.manualInputs || []).forEach(function(input) {
-        if (collectionIsAutoResolvedKey(input.key, input.pathLabel)) return;
-        var mappingKey = collectionBuildInputMappingKey(item, input);
-        var sourceOptions = availableOutputs.slice();
-        if (!collectionInputMappingValue(mappingKey)) {
-          var suggestedSource = collectionSuggestMappingForInput(input, sourceOptions);
+      scenario.previewVariables = [];
+      scenario.previewOutputs = [];
+      scenario.previewMappings = [];
+      var availableOutputs = [];
+      scenario.items.forEach(function(item, itemIndex) {
+        collectionEnsureItemNodeId(item);
+        (item.manualInputs || []).forEach(function(input) {
+          if (collectionIsAutoResolvedKey(input.key, input.pathLabel)) return;
+          var mappingKey = collectionBuildInputMappingKey(item, input);
+          var sourceOptions = availableOutputs.slice();
+          var inputAlias = (scenario.inputAliases && scenario.inputAliases[mappingKey]) ? scenario.inputAliases[mappingKey] : '';
+          scenario.previewVariables.push({
+            key: input.key,
+            pathLabel: input.pathLabel || input.key,
+            type: input.type || '',
+            description: input.description || '',
+            defaultValue: input.defaultValue || '',
+            suggestions: [],
+            alias: inputAlias,
+            mappingKey: mappingKey,
+            sourceOptions: sourceOptions,
+            groupKey: item.service + '.' + item.method + '::' + itemIndex,
+            groupTitle: (itemIndex + 1) + '. ' + item.service + '.' + item.method,
+            sourceNodeId: collectionGetConnectedSourceId(scenario, item)
+          });
+        });
+        (item.outputFields || []).forEach(function(outputField) {
+          var sourceVarKey = collectionBuildOutputVarKey(item, outputField);
+          var output = {
+            key: outputField.key || '',
+            pathLabel: outputField.pathLabel || outputField.key || '',
+            type: outputField.type || '',
+            description: outputField.description || '',
+            sourceVarKey: sourceVarKey,
+            sourceGroupKey: item.service + '.' + item.method + '::' + itemIndex,
+            sourceNodeId: item.nodeId,
+            sourceLabel: (itemIndex + 1) + '. ' + item.service + '.' + item.method,
+            displayLabel: outputField.key || outputField.pathLabel || sourceVarKey,
+            alias: scenario.outputAliases[sourceVarKey] || ''
+          };
+          availableOutputs.push(output);
+          scenario.previewOutputs.push(output);
+        });
+      });
+      scenario.previewOutputs = collectionDecoratePreviewOutputs(scenario.previewOutputs || []);
+      var outputsByKey = {};
+      (scenario.previewOutputs || []).forEach(function(output) {
+        outputsByKey[output.sourceVarKey] = output;
+      });
+      (scenario.previewVariables || []).forEach(function(input) {
+        var sourceNodeId = input.sourceNodeId || '';
+        input.sourceOptions = (input.sourceOptions || []).map(function(option) {
+          return outputsByKey[option.sourceVarKey] || option;
+        }).filter(function(option) {
+          if (!sourceNodeId) return true;
+          return option.sourceNodeId === sourceNodeId;
+        });
+        if (!collectionInputMappingValue(input.mappingKey)) {
+          var suggestedSource = collectionSuggestMappingForInput(input, input.sourceOptions || []);
           if (suggestedSource) {
-            scenario.inputMappings[mappingKey] = suggestedSource;
+            scenario.inputMappings[input.mappingKey] = suggestedSource;
             scenario.previewMappings.push({
-              target: item.service + '.' + item.method,
+              target: input.groupTitle || '',
               input: input.pathLabel || input.key,
               source: suggestedSource
             });
           }
         }
-        scenario.previewVariables.push({
-          key: input.key,
-          pathLabel: input.pathLabel || input.key,
-          type: input.type || '',
-          description: input.description || '',
-          defaultValue: input.defaultValue || '',
-          suggestions: [],
-          mappingKey: mappingKey,
-          sourceOptions: sourceOptions,
-          groupKey: item.service + '.' + item.method + '::' + itemIndex,
-          groupTitle: (itemIndex + 1) + '. ' + item.service + '.' + item.method
-        });
+        var currentMapping = input.mappingKey ? collectionInputMappingConfig(input.mappingKey) : null;
+        var selectedOption = currentMapping ? collectionFindSourceOption(input, currentMapping.sourceVarKey) : null;
+        if (currentMapping && selectedOption && selectedOption.isCollectionItemOutput) {
+          currentMapping.collectionPathLabel = selectedOption.collectionPathLabel || '';
+          currentMapping.itemPathLabel = selectedOption.itemPathLabel || '';
+          scenario.inputMappings[input.mappingKey] = currentMapping;
+        }
       });
-      (item.outputFields || []).forEach(function(outputField) {
-        var sourceVarKey = collectionBuildOutputVarKey(item, outputField);
-        var output = {
-          key: outputField.key || '',
-          pathLabel: outputField.pathLabel || outputField.key || '',
-          type: outputField.type || '',
-          description: outputField.description || '',
-          sourceVarKey: sourceVarKey,
-          sourceGroupKey: item.service + '.' + item.method + '::' + itemIndex,
-          sourceLabel: (itemIndex + 1) + '. ' + item.service + '.' + item.method,
-          displayLabel: outputField.key || outputField.pathLabel || sourceVarKey,
-          alias: scenario.outputAliases[sourceVarKey] || ''
-        };
-        availableOutputs.push(output);
-        scenario.previewOutputs.push(output);
-      });
-    });
-    scenario.previewOutputs = collectionDecoratePreviewOutputs(scenario.previewOutputs || []);
-    var outputsByKey = {};
-    (scenario.previewOutputs || []).forEach(function(output) {
-      outputsByKey[output.sourceVarKey] = output;
-    });
-    (scenario.previewVariables || []).forEach(function(input) {
-      input.sourceOptions = (input.sourceOptions || []).map(function(option) {
-        return outputsByKey[option.sourceVarKey] || option;
-      });
-      var currentMapping = input.mappingKey ? collectionInputMappingConfig(input.mappingKey) : null;
-      var selectedOption = currentMapping ? collectionFindSourceOption(input, currentMapping.sourceVarKey) : null;
-      if (currentMapping && selectedOption && selectedOption.isCollectionItemOutput) {
-        currentMapping.collectionPathLabel = selectedOption.collectionPathLabel || '';
-        currentMapping.itemPathLabel = selectedOption.itemPathLabel || '';
-        scenario.inputMappings[input.mappingKey] = currentMapping;
-      }
-    });
-    collectionRenderVariableEditor();
-    return;
-  }
+      collectionRenderVariableEditor();
+      return;
+    }
 
   try {
     var r = await fetch('/api/collection/preview', {
@@ -1457,10 +2406,12 @@ function collectionRenderServiceCatalog() {
 function collectionRenderInspector() {
   var container = document.getElementById('collection-step-config');
   if (!container) return;
+  var inspectorState = collectionCaptureInspectorState(container);
   var scenario = collectionGetActiveScenario();
   var selectedItem = collectionGetSelectedItem();
   if (!scenario || !selectedItem) {
     container.innerHTML = '<div class="collection-step-empty">Selecciona un paso del flujo para ver sus entradas, salidas y ajustes manuales.</div>';
+    collectionRestoreInspectorState(container, inspectorState);
     return;
   }
   var selectedIndex = collectionGetSelectedItemIndex();
@@ -1519,9 +2470,10 @@ function collectionRenderInspector() {
           scenario.inputMappings[mappingKey] = mappingConfig;
         }
         return '<div class="collection-config-item">' +
-          '<div class="collection-config-item-name">' + collectionEscapeHtml(input.key) + '</div>' +
+          '<div class="collection-config-item-name">' + collectionEscapeHtml(collectionInputDisplayName(input)) + '</div>' +
           '<div class="collection-config-item-meta">' + collectionEscapeHtml((input.pathLabel || input.key) + (input.type ? ' | ' + input.type : '') + (input.description ? ' | ' + input.description : '')) + '</div>' +
-          (input.sourceOptions && input.sourceOptions.length ? '<div class="collection-config-item-row"><select class="collection-var-input" onchange="collectionUpdateInputMapping(' + "'" + collectionEscapeHtml(mappingKey) + "'" + ', this.value)"><option value=\"\">Completar a mano</option>' + input.sourceOptions.map(function(option) {
+          '<div class="collection-config-item-row"><input data-inspector-key="' + collectionEscapeHtml('input-alias:' + mappingKey) + '" class="collection-var-input" type="text" value="' + collectionEscapeHtml(input.alias || '') + '" placeholder="Nombre funcional para match" oninput="collectionUpdateInputAlias(' + "'" + collectionEscapeHtml(mappingKey) + "'" + ', this.value)"></div>' +
+          (input.sourceOptions && input.sourceOptions.length ? '<div class="collection-config-item-row"><select data-inspector-key="' + collectionEscapeHtml('input-map:' + mappingKey) + '" class="collection-var-input" onchange="collectionUpdateInputMapping(' + "'" + collectionEscapeHtml(mappingKey) + "'" + ', this.value)"><option value=\"\">Completar a mano</option>' + input.sourceOptions.map(function(option) {
             var selected = mappedSource === option.sourceVarKey ? ' selected' : '';
             return '<option value="' + collectionEscapeHtml(option.sourceVarKey) + '"' + selected + '>' + collectionEscapeHtml(collectionOutputDisplayName(option)) + '</option>';
           }).join('') + '</select></div>' : '') +
@@ -1529,14 +2481,14 @@ function collectionRenderInspector() {
             '<div class="collection-config-filter-title">Filtrar item de la lista origen</div>' +
             '<div class="collection-config-item-meta">La salida viene de una coleccion. Puedes elegir que registro tomar antes de pasarlo a este input.</div>' +
             '<div class="collection-config-filter-grid">' +
-              '<select class="collection-var-input" onchange="collectionUpdateInputMappingFilterField(' + "'" + collectionEscapeHtml(mappingKey) + "'" + ', this.value)"><option value=\"\">Sin filtro (primer item util)</option>' + (mappedOption.filterFieldOptions || []).map(function(option) {
+              '<select data-inspector-key="' + collectionEscapeHtml('input-filter-field:' + mappingKey) + '" class="collection-var-input" onchange="collectionUpdateInputMappingFilterField(' + "'" + collectionEscapeHtml(mappingKey) + "'" + ', this.value)"><option value=\"\">Sin filtro (primer item util)</option>' + (mappedOption.filterFieldOptions || []).map(function(option) {
                 var selected = filterField === option.value ? ' selected' : '';
                 return '<option value="' + collectionEscapeHtml(option.value) + '"' + selected + '>' + collectionEscapeHtml(option.label) + '</option>';
               }).join('') + '</select>' +
-              '<input class="collection-var-input" type="text" placeholder="Valor esperado" value="' + collectionEscapeHtml(filterValue) + '" oninput="collectionUpdateInputMappingFilterValue(' + "'" + collectionEscapeHtml(mappingKey) + "'" + ', this.value)">' +
+              '<input data-inspector-key="' + collectionEscapeHtml('input-filter-value:' + mappingKey) + '" class="collection-var-input" type="text" placeholder="Valor esperado" value="' + collectionEscapeHtml(filterValue) + '" oninput="collectionUpdateInputMappingFilterValue(' + "'" + collectionEscapeHtml(mappingKey) + "'" + ', this.value)">' +
             '</div>' +
           '</div>' : '') +
-          '<div class="collection-config-item-row"><input id="' + collectionEscapeHtml(collectionDomId(input.key)) + '" data-collection-input-key="' + collectionEscapeHtml(input.key) + '" class="collection-var-input" type="text" value="' + collectionEscapeHtml(currentValue) + '" oninput="collectionUpdateVar(' + "'" + collectionEscapeHtml(input.key) + "'" + ', this.value)"' + (mappedSource ? ' disabled' : '') + '></div>' +
+          '<div class="collection-config-item-row"><input id="' + collectionEscapeHtml(collectionDomId(input.key)) + '" data-inspector-key="' + collectionEscapeHtml('input-value:' + input.key) + '" data-collection-input-key="' + collectionEscapeHtml(input.key) + '" class="collection-var-input" type="text" value="' + collectionEscapeHtml(currentValue) + '" oninput="collectionUpdateVar(' + "'" + collectionEscapeHtml(input.key) + "'" + ', this.value)"' + (mappedSource ? ' disabled' : '') + '></div>' +
         '</div>';
       }).join('') : '<div class="collection-step-empty">Este paso no necesita variables manuales simples.</div>') +
     '</div>' +
@@ -1546,12 +2498,13 @@ function collectionRenderInspector() {
         return '<div class="collection-config-item">' +
           '<div class="collection-config-item-name">' + collectionEscapeHtml(collectionOutputDisplayName(output)) + '</div>' +
           '<div class="collection-config-item-meta">' + collectionEscapeHtml((output.pathLabel || output.displayLabel || output.sourceVarKey) + (output.type ? ' | ' + output.type : '')) + '</div>' +
-          '<div class="collection-config-item-row"><input class="collection-var-input" type="text" value="' + collectionEscapeHtml(output.alias || '') + '" placeholder="Renombre funcional" oninput="collectionUpdateOutputAlias(' + "'" + collectionEscapeHtml(output.sourceVarKey) + "'" + ', this.value)"></div>' +
+          '<div class="collection-config-item-row"><input data-inspector-key="' + collectionEscapeHtml('output-alias:' + output.sourceVarKey) + '" class="collection-var-input" type="text" value="' + collectionEscapeHtml(output.alias || '') + '" placeholder="Renombre funcional" oninput="collectionUpdateOutputAlias(' + "'" + collectionEscapeHtml(output.sourceVarKey) + "'" + ', this.value)"></div>' +
           '<div class="collection-config-item-row"><span class="collection-config-output-tag">' + collectionEscapeHtml(output.sourceVarKey) + '</span></div>' +
         '</div>';
       }).join('') : '<div class="collection-step-empty">Swagger no expuso salidas simples para este metodo.</div>') +
     '</div>' +
     (repeatableInputs.length ? '<div class="collection-config-section"><div class="collection-config-title">Listas y estructuras</div><div class="collection-step-empty">Este paso tiene ' + repeatableInputs.length + ' campo(s) complejos/repetibles. Los seguimos resolviendo con el motor actual, pero la edicion visual fina queda para la siguiente iteracion.</div></div>' : '');
+  collectionRestoreInspectorState(container, inspectorState);
 }
 
 function collectionRenderItems() {
@@ -1559,6 +2512,7 @@ function collectionRenderItems() {
   if (!container) return;
   var scenario = collectionGetActiveScenario();
   var items = scenario ? scenario.items : [];
+  if (scenario) collectionEnsureScenarioConnections(scenario);
   var totalItems = collectionState.scenarios.reduce(function(total, current) {
     return total + ((current.items || []).length);
   }, 0);
@@ -1569,14 +2523,17 @@ function collectionRenderItems() {
   } else {
     var selectedIndex = collectionGetSelectedItemIndex();
     var blocks = [];
+    var maxX = 0;
+    var maxY = 0;
     for (var i = 0; i < items.length; i++) {
-      if (i === 0) {
-        blocks.push('<button type="button" class="collection-canvas-slot" ondragover="collectionAllowCanvasDrop(event)" ondrop="collectionDropOperation(0, event)" onclick="collectionSetSelectedItem(0)">+</button>');
-      }
       var item = items[i];
+      var layout = collectionEnsureItemLayout(item, i);
+      var nodeId = collectionEnsureItemNodeId(item);
+      maxX = Math.max(maxX, layout.x);
+      maxY = Math.max(maxY, layout.y);
       var op = String(item.operationKind || collectionInferOperationKind(item.method)).toLowerCase();
       blocks.push(
-        '<div class="collection-canvas-step' + (selectedIndex === i ? ' collection-canvas-step-selected' : '') + '" onclick="collectionSetSelectedItem(' + i + ')">' +
+        '<div id="collection-canvas-step-' + i + '" class="collection-canvas-step' + (selectedIndex === i ? ' collection-canvas-step-selected' : '') + '" style="left:' + layout.x + 'px;top:' + layout.y + 'px" onclick="collectionCanvasNodeClick(' + i + ')" onmousedown="collectionStartNodeDrag(' + i + ', event)">' +
           '<div class="collection-canvas-step-head">' +
             '<div class="collection-canvas-step-index">' + (i + 1) + '</div>' +
             '<div class="collection-canvas-step-copy">' +
@@ -1588,13 +2545,22 @@ function collectionRenderItems() {
                 '<span class="collection-canvas-chip">' + collectionEscapeHtml(op === 'query' ? 'Consulta' : 'Ejecucion') + '</span>' +
               '</div>' +
             '</div>' +
+            '<button class="collection-canvas-node-handle" title="Crear flecha desde este paso" onmousedown="collectionStartNewConnectionDrag(' + "'" + collectionEscapeHtml(nodeId) + "'" + ', event)" onclick="event.stopPropagation()" type="button">&#8595;</button>' +
             '<button class="svc-rm" onclick="event.stopPropagation(); collectionRemoveItem(' + i + ')">&#10005;</button>' +
           '</div>' +
         '</div>'
       );
-      blocks.push('<button type="button" class="collection-canvas-slot" ondragover="collectionAllowCanvasDrop(event)" ondrop="collectionDropOperation(' + (i + 1) + ', event)" onclick="collectionSetSelectedItem(' + i + ')">+</button>');
     }
-    container.innerHTML = '<div class="collection-canvas-stage">' + blocks.join('') + '</div>';
+    var surfaceWidth = Math.max(980, maxX + 420);
+    var surfaceHeight = Math.max(540, maxY + 220);
+    container.innerHTML =
+      '<div class="collection-canvas-stage" ondragover="collectionAllowCanvasDrop(event)" ondrop="collectionDropOperation(' + items.length + ', event)">' +
+        '<svg id="collection-canvas-svg" class="collection-canvas-svg"></svg>' +
+        '<div id="collection-canvas-surface" class="collection-canvas-surface" style="width:' + surfaceWidth + 'px;height:' + surfaceHeight + 'px">' +
+          blocks.join('') +
+        '</div>' +
+      '</div>';
+    setTimeout(collectionRenderCanvasConnections, 0);
   }
 
   collectionRenderInspector();
@@ -1614,6 +2580,10 @@ function collectionAddItem() {
 
 function collectionClearItemState(scenario, item) {
   if (!scenario || !item) return;
+  collectionEnsureScenarioConnections(scenario);
+  var nodeId = collectionEnsureItemNodeId(item);
+  var incoming = collectionFindIncomingConnection(scenario, nodeId);
+  var outgoing = collectionFindOutgoingConnection(scenario, nodeId);
   var manualInputs = Array.isArray(item.manualInputs) ? item.manualInputs : [];
   manualInputs.forEach(function(input) {
     var key = input && input.key ? input.key : '';
@@ -1637,6 +2607,13 @@ function collectionClearItemState(scenario, item) {
     }
   });
 
+  scenario.connections = scenario.connections.filter(function(connection) {
+    return connection.fromId !== nodeId && connection.toId !== nodeId;
+  });
+  if (incoming && outgoing && incoming.fromId !== outgoing.toId) {
+    scenario.connections.push({ fromId: incoming.fromId, toId: outgoing.toId });
+  }
+  if (scenario.pendingConnectionFromId === nodeId) scenario.pendingConnectionFromId = '';
   item.inputOverrides = {};
 }
 
@@ -1657,52 +2634,120 @@ function collectionRemoveItem(index) {
 
 function collectionRenderExecutionResult(data) {
   var el = document.getElementById('collection-execution');
+  var inline = document.getElementById('collection-execution-inline');
+  var visibleResult = document.getElementById('collection-result');
+  var modal = document.getElementById('collection-execution-modal');
+  var dock = document.getElementById('collection-execution-dock');
+  var title = document.getElementById('collection-execution-title');
+  var openBtn = document.getElementById('btn-collection-open-console');
   if (!el) return;
   var scenario = collectionGetActiveScenario();
   var steps = Array.isArray(data.steps) ? data.steps : [];
   var runtimeValues = data.runtimeValues || {};
+  var okCount = steps.filter(function(step) { return !!step.ok; }).length;
+  var errCount = steps.filter(function(step) { return !step.ok; }).length;
   var finalVars = Object.keys(runtimeValues).length
     ? '<div class="collection-run-vars">' + Object.keys(runtimeValues).map(function(key) {
         return '<span class="collection-run-var"><strong>' + collectionEscapeHtml(key) + '</strong> ' + collectionEscapeHtml(runtimeValues[key]) + '</span>';
       }).join('') + '</div>'
     : '<p>Sin variables finales para mostrar.</p>';
 
+  // Resume BusinessErrors al formato negocio esperado y deja el payload completo
+  // accesible solo como detalle para que la consola siga siendo clara.
+  function summarizeBusinessError(rawText) {
+    if (!rawText) return null;
+    try {
+      var parsed = typeof rawText === 'string' ? JSON.parse(rawText) : rawText;
+      var errors = parsed && parsed.BusinessErrors && parsed.BusinessErrors.BusinessError;
+      var first = Array.isArray(errors) ? errors[0] : errors;
+      if (!first) return null;
+      return {
+        code: first.Code || first.code || '',
+        description: first.Description || first.description || 'Business error',
+        severity: first.Severity || first.severity || ''
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function prettyPayload(text) {
+    if (!text) return '';
+    try {
+      return JSON.stringify(JSON.parse(text), null, 2);
+    } catch (e) {
+      return String(text);
+    }
+  }
+
   var stepHtml = steps.map(function(step) {
     var extracted = step.extractedValues || {};
+    var businessError = summarizeBusinessError(step.error || '');
     var extractedHtml = Object.keys(extracted).length
       ? '<div class="collection-run-vars">' + Object.keys(extracted).map(function(key) {
           return '<span class="collection-run-var"><strong>' + collectionEscapeHtml(key) + '</strong> ' + collectionEscapeHtml(extracted[key]) + '</span>';
         }).join('') + '</div>'
       : '';
-    var requestXml = step.requestXml ? '<div class="collection-run-pre">' + collectionEscapeHtml(step.requestXml) + '</div>' : '';
-    var responseXml = step.responseXml ? '<div class="collection-run-pre">' + collectionEscapeHtml(step.responseXml) + '</div>' : '';
+    var requestBlock = step.requestXml
+      ? '<details class="collection-run-toggle"><summary>Ver request</summary><div class="collection-run-pre">' + collectionEscapeHtml(prettyPayload(step.requestXml)) + '</div></details>'
+      : '';
+    var responseBlock = step.responseXml
+      ? '<details class="collection-run-toggle"><summary>Ver response</summary><div class="collection-run-pre">' + collectionEscapeHtml(prettyPayload(step.responseXml)) + '</div></details>'
+      : '';
     return '<div class="collection-run-step">' +
       '<div class="collection-run-head">' +
-        '<div class="collection-run-title">' + collectionEscapeHtml(step.name || ('Paso ' + step.index)) + '</div>' +
+        '<div>' +
+          '<div class="collection-run-title">' + collectionEscapeHtml(step.name || ('Paso ' + step.index)) + '</div>' +
+          '<div class="collection-run-subtitle">Paso ' + collectionEscapeHtml(String(step.index || '')) + (step.responseStatus ? ' · HTTP ' + collectionEscapeHtml(String(step.responseStatus)) : '') + '</div>' +
+        '</div>' +
         '<div class="' + (step.ok ? 'collection-run-ok' : 'collection-run-err') + '">' + (step.ok ? 'OK' : 'ERROR') + '</div>' +
       '</div>' +
       '<div class="collection-run-body">' +
-        '<div class="collection-run-meta">URL: ' + collectionEscapeHtml(step.requestUrl || '-') + (step.responseStatus ? ' | HTTP: ' + collectionEscapeHtml(step.responseStatus) : '') + (step.soapAction ? ' | SOAPAction: ' + collectionEscapeHtml(step.soapAction) : '') + '</div>' +
-        (step.error ? '<div class="collection-status show err" style="margin-top:0">Error: ' + collectionEscapeHtml(step.error) + '</div>' : '') +
-        extractedHtml +
-        requestXml +
-        responseXml +
+        '<div class="collection-run-meta"><strong>URL:</strong> ' + collectionEscapeHtml(step.requestUrl || '-') + (step.soapAction ? ' | <strong>SOAPAction:</strong> ' + collectionEscapeHtml(step.soapAction) : '') + '</div>' +
+        (businessError
+          ? '<div class="collection-run-error"><div class="collection-run-error-icon">❌</div><div><div class="collection-run-error-title">Error de negocio ' + collectionEscapeHtml(String(businessError.code || '').trim() || '-') + '</div><div class="collection-run-error-text">' + collectionEscapeHtml(businessError.description || 'Sin descripcion.') + '</div></div></div>'
+          : (step.error ? '<div class="collection-run-error"><div class="collection-run-error-icon">❌</div><div><div class="collection-run-error-title">Error de ejecucion</div><div class="collection-run-error-text">' + collectionEscapeHtml(step.error) + '</div></div></div>' : '')) +
+        (extractedHtml ? '<div class="collection-run-section"><div class="collection-run-section-title">Valores detectados</div>' + extractedHtml + '</div>' : '') +
+        requestBlock +
+        responseBlock +
       '</div>' +
     '</div>';
   }).join('');
+  var topBusinessError = !data.ok ? summarizeBusinessError(data.message || '') : null;
   var topError = !data.ok && data.message
-    ? '<div class="collection-status show err" style="margin-bottom:10px">Error general: ' + collectionEscapeHtml(data.message) + '</div>'
+    ? (topBusinessError
+      ? '<div class="collection-run-error"><div class="collection-run-error-icon">❌</div><div><div class="collection-run-error-title">Error general ' + collectionEscapeHtml(String(topBusinessError.code || '').trim() || '-') + '</div><div class="collection-run-error-text">' + collectionEscapeHtml(topBusinessError.description || 'Sin descripcion.') + '</div></div></div>'
+      : '<div class="collection-run-error"><div class="collection-run-error-icon">❌</div><div><div class="collection-run-error-title">Error general</div><div class="collection-run-error-text">' + collectionEscapeHtml(data.message) + '</div></div></div>')
     : '';
 
-  el.className = 'collection-result show';
-  el.style.display = 'block';
-  el.innerHTML =
-    '<h4>Ventana de ejecucion' + (scenario ? ' - ' + collectionEscapeHtml(scenario.name) : '') + '</h4>' +
-    '<p>' + (data.ok ? 'El flujo se ejecuto correctamente. Los valores usados y devueltos quedaron disponibles para el historial confiable.' : 'La ejecucion se detuvo en el primer error. No se guardaron valores como historial.') + '</p>' +
+  if (title) title.textContent = scenario ? scenario.name : 'Ejecucion del flujo';
+  var html =
+    '<div class="collection-run-grid">' +
+      '<div class="collection-run-card"><div class="collection-run-card-label">Estado</div><div class="collection-run-card-value-sm">' + (data.ok ? 'Flujo completado correctamente' : 'La ejecucion se detuvo en el primer error') + '</div></div>' +
+      '<div class="collection-run-card"><div class="collection-run-card-label">Pasos OK</div><div class="collection-run-card-value">' + okCount + '</div></div>' +
+      '<div class="collection-run-card"><div class="collection-run-card-label">Pasos con error</div><div class="collection-run-card-value">' + errCount + '</div></div>' +
+      '<div class="collection-run-card"><div class="collection-run-card-label">Variables finales</div><div class="collection-run-card-value">' + Object.keys(runtimeValues).length + '</div></div>' +
+    '</div>' +
     topError +
     stepHtml +
-    '<h4 style="margin-top:12px">Variables finales</h4>' +
-    finalVars;
+    '<div class="collection-run-section"><div class="collection-run-section-title">Variables finales</div>' +
+    finalVars +
+    '</div>';
+  el.innerHTML = html;
+  if (inline) {
+    inline.innerHTML = html;
+    inline.style.display = 'block';
+  }
+  if (visibleResult) {
+    visibleResult.className = 'collection-result show';
+    visibleResult.innerHTML = html;
+  }
+  if (modal) modal.style.display = 'flex';
+  if (dock) dock.style.display = 'none';
+  if (openBtn) {
+    openBtn.style.display = '';
+    openBtn.disabled = false;
+  }
 }
 
 async function collectionExecuteFlow() {
@@ -1729,6 +2774,7 @@ async function collectionExecuteFlow() {
   }
   collectionShowStatus('ok', 'Ejecutando flujo JSON desde la app...');
   collectionResetExecution();
+  collectionRenderExecutionLoading();
 
   try {
     var r = await fetch('/api/collection/execute', {
@@ -1740,6 +2786,7 @@ async function collectionExecuteFlow() {
         platform: S.platform,
         db: typeof getDb === 'function' ? getDb() : {},
         api: getApi(),
+        authContext: collectionState.authContext,
         swaggerBaseUrl: collectionState.swaggerBaseUrl,
         swaggerAuthUrl: collectionState.swaggerAuthUrl,
         items: scenario.items,
@@ -1860,34 +2907,593 @@ async function collectionGenerate() {
   }
 }
 
-async function collectionMountPanel() {
-  var mount = document.getElementById('collection-mount');
-  if (!mount) return;
+function collectionRenderExecutionResult(data) {
+  var title = document.getElementById('collection-execution-title');
+  var openBtn = document.getElementById('btn-collection-open-console');
+  var dock = document.getElementById('collection-execution-dock');
+  var scenario = collectionGetActiveScenario();
+
   try {
-    var response = await fetch('/api/collection/panel');
-    if (!response.ok) throw new Error('No se pudo cargar el panel.');
-    mount.innerHTML = await response.text();
-    var mountedPanel = mount.querySelector('.panel');
-    if (mountedPanel && mountedPanel.parentElement === mount) {
-      mount.innerHTML = mountedPanel.innerHTML;
+    var steps = Array.isArray(data && data.steps) ? data.steps : [];
+    var runtimeValues = data && data.runtimeValues ? data.runtimeValues : {};
+    var okCount = steps.filter(function(step) { return !!step.ok; }).length;
+    var errCount = steps.filter(function(step) { return !step.ok; }).length;
+
+    function summarizeBusinessError(rawText) {
+      if (!rawText) return null;
+      try {
+        var parsed = typeof rawText === 'string' ? JSON.parse(rawText) : rawText;
+        var errors = parsed && parsed.BusinessErrors && parsed.BusinessErrors.BusinessError;
+        var first = Array.isArray(errors) ? errors[0] : errors;
+        if (!first) return null;
+        return {
+          code: first.Code || first.code || '',
+          description: first.Description || first.description || 'Business error'
+        };
+      } catch (e) {
+        return null;
+      }
     }
-    collectionUpgradeStudioLayout();
-    collectionEnsureScenario();
-    collectionBindButtons();
-    if (!collectionFlowResizeBound) {
-      window.addEventListener('resize', collectionRenderFlowConnections);
-      collectionFlowResizeBound = true;
+
+    function prettyPayload(text) {
+      if (!text) return '';
+      try {
+        return JSON.stringify(typeof text === 'string' ? JSON.parse(text) : text, null, 2);
+      } catch (e) {
+        return String(text);
+      }
     }
-    collectionRenderScenarios();
-    collectionRenderItems();
-    var jsonButton = document.getElementById('col-toolbar-format-json') || document.getElementById('col-format-json');
-    if (jsonButton) collectionPickChoice('format', 'json', jsonButton);
-    var postmanButton = document.getElementById('col-toolbar-target-postman') || document.getElementById('col-target-postman');
-    if (postmanButton) collectionPickChoice('target', 'postman', postmanButton);
-    collectionRefreshContext();
-  } catch (e) {
-    mount.innerHTML = '<div class="collection-block"><div class="collection-status show err">No se pudo cargar el builder de collections. ' + collectionEscapeHtml(e.message || '') + '</div></div>';
+
+    var finalVars = Object.keys(runtimeValues).length
+      ? '<div class="collection-run-vars">' + Object.keys(runtimeValues).map(function(key) {
+          return '<span class="collection-run-var"><strong>' + collectionEscapeHtml(key) + '</strong> ' + collectionEscapeHtml(runtimeValues[key]) + '</span>';
+        }).join('') + '</div>'
+      : '<p>Sin variables finales para mostrar.</p>';
+
+    var stepHtml = steps.map(function(step) {
+      var extracted = step && step.extractedValues ? step.extractedValues : {};
+      var businessError = summarizeBusinessError(step && step.error ? step.error : '');
+      var extractedHtml = Object.keys(extracted).length
+        ? '<div class="collection-run-vars">' + Object.keys(extracted).map(function(key) {
+            return '<span class="collection-run-var"><strong>' + collectionEscapeHtml(key) + '</strong> ' + collectionEscapeHtml(extracted[key]) + '</span>';
+          }).join('') + '</div>'
+        : '';
+      var requestPayload = step.requestJson || step.requestXml || step.requestBody || step.request || '';
+      var responsePayload = step.responseJson || step.responseXml || step.responseBody || step.response || '';
+      var requestBlock = requestPayload
+        ? '<details class="collection-run-toggle"><summary>Ver request</summary><div class="collection-run-pre">' + collectionEscapeHtml(prettyPayload(requestPayload)) + '</div></details>'
+        : '';
+      var responseBlock = responsePayload
+        ? '<details class="collection-run-toggle"><summary>Ver response</summary><div class="collection-run-pre">' + collectionEscapeHtml(prettyPayload(responsePayload)) + '</div></details>'
+        : '';
+      var errorBlock = '';
+      if (businessError) {
+        errorBlock = '<div class="collection-run-error"><div class="collection-run-error-icon">X</div><div><div class="collection-run-error-title">Error de negocio ' + collectionEscapeHtml(String(businessError.code || '').trim() || '-') + '</div><div class="collection-run-error-text">' + collectionEscapeHtml(businessError.description || 'Sin descripcion.') + '</div></div></div>';
+      } else if (step.error) {
+        errorBlock = '<div class="collection-run-error"><div class="collection-run-error-icon">X</div><div><div class="collection-run-error-title">Error de ejecucion</div><div class="collection-run-error-text">' + collectionEscapeHtml(step.error) + '</div></div></div>';
+      }
+
+      return '<div class="collection-run-step">' +
+        '<div class="collection-run-head">' +
+          '<div>' +
+            '<div class="collection-run-title">' + collectionEscapeHtml(step.name || ('Paso ' + step.index)) + '</div>' +
+            '<div class="collection-run-subtitle">Paso ' + collectionEscapeHtml(String(step.index || '')) + (step.responseStatus ? ' · HTTP ' + collectionEscapeHtml(String(step.responseStatus)) : '') + '</div>' +
+          '</div>' +
+          '<div class="' + (step.ok ? 'collection-run-ok' : 'collection-run-err') + '">' + (step.ok ? 'OK' : 'ERROR') + '</div>' +
+        '</div>' +
+        '<div class="collection-run-body">' +
+          '<div class="collection-run-meta"><strong>URL:</strong> ' + collectionEscapeHtml(step.requestUrl || '-') + (step.soapAction ? ' | <strong>SOAPAction:</strong> ' + collectionEscapeHtml(step.soapAction) : '') + '</div>' +
+          errorBlock +
+          (extractedHtml ? '<div class="collection-run-section"><div class="collection-run-section-title">Valores detectados</div>' + extractedHtml + '</div>' : '') +
+          requestBlock +
+          responseBlock +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    var topBusinessError = !data.ok ? summarizeBusinessError(data.message || '') : null;
+    var topError = !data.ok && data.message
+      ? (topBusinessError
+        ? '<div class="collection-run-error"><div class="collection-run-error-icon">X</div><div><div class="collection-run-error-title">Error general ' + collectionEscapeHtml(String(topBusinessError.code || '').trim() || '-') + '</div><div class="collection-run-error-text">' + collectionEscapeHtml(topBusinessError.description || 'Sin descripcion.') + '</div></div></div>'
+        : '<div class="collection-run-error"><div class="collection-run-error-icon">X</div><div><div class="collection-run-error-title">Error general</div><div class="collection-run-error-text">' + collectionEscapeHtml(data.message) + '</div></div></div>')
+      : '';
+
+    if (title) title.textContent = scenario ? scenario.name : 'Ejecucion del flujo';
+    collectionSetExecutionHtml(
+      '<div class="collection-run-grid">' +
+        '<div class="collection-run-card"><div class="collection-run-card-label">Estado</div><div class="collection-run-card-value-sm">' + (data.ok ? 'Flujo completado correctamente' : 'La ejecucion se detuvo en el primer error') + '</div></div>' +
+        '<div class="collection-run-card"><div class="collection-run-card-label">Pasos OK</div><div class="collection-run-card-value">' + okCount + '</div></div>' +
+        '<div class="collection-run-card"><div class="collection-run-card-label">Pasos con error</div><div class="collection-run-card-value">' + errCount + '</div></div>' +
+        '<div class="collection-run-card"><div class="collection-run-card-label">Variables finales</div><div class="collection-run-card-value">' + Object.keys(runtimeValues).length + '</div></div>' +
+      '</div>' +
+      topError +
+      stepHtml +
+      '<div class="collection-run-section"><div class="collection-run-section-title">Variables finales</div>' + finalVars + '</div>' +
+      '<div class="collection-run-section"><div class="collection-run-section-title">JSON de ejecucion</div><div class="collection-run-pre">' + collectionEscapeHtml(JSON.stringify(data, null, 2)) + '</div></div>',
+      data
+    );
+  } catch (error) {
+    collectionSetExecutionHtml(
+      '<div class="collection-run-error"><div class="collection-run-error-icon">X</div><div><div class="collection-run-error-title">No se pudo maquetar la consola</div><div class="collection-run-error-text">' + collectionEscapeHtml(error && error.message ? error.message : 'Sin detalle') + '</div></div></div>' +
+      '<div class="collection-run-section"><div class="collection-run-section-title">JSON de ejecucion</div><div class="collection-run-pre">' + collectionEscapeHtml(JSON.stringify(data, null, 2)) + '</div></div>',
+      data
+    );
   }
+
+  if (dock) dock.style.display = 'none';
+  if (openBtn) {
+    openBtn.style.display = '';
+    openBtn.disabled = false;
+  }
+}
+
+async function collectionExecuteFlow() {
+  if (!collectionPathSupported()) {
+    collectionShowStatus('err', 'Por ahora solo esta disponible JSON + Postman.');
+    return;
+  }
+  collectionSyncInspectorInputs();
+  collectionRefreshContext();
+  if (typeof S === 'undefined' || !S.version) {
+    collectionShowStatus('err', 'Completa primero version y ambiente en el wizard principal.');
+    return;
+  }
+  var scenario = collectionGetActiveScenario();
+  if (!scenario || !scenario.items.length) {
+    collectionShowStatus('err', 'Agrega al menos un metodo al caso de uso activo.');
+    return;
+  }
+
+  var btn = document.getElementById('btn-collection-execute');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin dk"></span>&nbsp;Probando...';
+  }
+  collectionShowStatus('ok', 'Ejecutando flujo JSON desde la app...');
+  collectionResetExecution();
+  collectionRenderExecutionLoading();
+
+  try {
+    var r = await fetch('/api/collection/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        format: collectionState.format,
+        version: S.version,
+        platform: S.platform,
+        db: typeof getDb === 'function' ? getDb() : {},
+        api: getApi(),
+        authContext: collectionState.authContext,
+        swaggerBaseUrl: collectionState.swaggerBaseUrl,
+        swaggerAuthUrl: collectionState.swaggerAuthUrl,
+        items: scenario.items,
+        variableOverrides: scenario.variableOverrides,
+        inputMappings: scenario.inputMappings,
+        outputAliases: scenario.outputAliases,
+        repeatableOverrides: scenario.repeatableOverrides
+      })
+    });
+    var d = await r.json();
+    if (!d.ok) collectionShowStatus('err', d.message || 'La ejecucion del flujo fallo.');
+    else collectionShowStatus('ok', 'Flujo ejecutado correctamente.');
+    collectionRenderExecutionResult(d);
+  } catch (e) {
+    collectionShowStatus('err', e.message || 'No se pudo ejecutar el flujo.');
+    collectionSetExecutionHtml(
+      '<div class="collection-run-error"><div class="collection-run-error-icon">X</div><div><div class="collection-run-error-title">Error general</div><div class="collection-run-error-text">' + collectionEscapeHtml(e.message || 'No se pudo ejecutar el flujo.') + '</div></div></div>',
+      { ok: false, message: e.message || 'No se pudo ejecutar el flujo.' }
+    );
+  }
+
+  if (btn) {
+    btn.disabled = false;
+    btn.innerHTML = 'Probar flujo';
+  }
+}
+
+// Adaptador de compatibilidad: desde aca delegamos la experiencia de ejecucion
+// al modulo especializado sin romper la API global que ya consume el builder.
+collectionRefreshContext = function collectionRefreshContextAdapter() {
+  // La sincronizacion del ambiente vive en un manager dedicado para separar UI de contexto.
+  collectionGetEnvironmentManager().refreshContext();
+};
+
+collectionUpdateSwaggerUrl = function collectionUpdateSwaggerUrlAdapter(value) {
+  // Guardamos la URL Swagger desde un unico punto del modulo de ambiente.
+  collectionGetEnvironmentManager().updateSwaggerUrl(value);
+};
+
+collectionTestDb = async function collectionTestDbAdapter() {
+  // La prueba de base ahora entra por la capa de ambiente y servicios.
+  return collectionGetEnvironmentManager().testDb();
+};
+
+collectionTestAuth = async function collectionTestAuthAdapter() {
+  // La prueba de autenticacion queda encapsulada fuera del bootstrap principal.
+  return collectionGetEnvironmentManager().testAuth();
+};
+
+collectionLoadServices = async function collectionLoadServicesEnvironmentAdapter() {
+  // La carga de Swagger y el authenticate posterior quedan centralizados en el manager de ambiente.
+  return collectionGetEnvironmentManager().loadServices();
+};
+
+collectionBindButtons = function collectionBindButtonsAdapter() {
+  // El binding inicial del panel queda centralizado en un bootstrap manager dedicado.
+  collectionGetBootstrapManager().bindButtons();
+};
+
+collectionEscapeHtml = function collectionEscapeHtmlAdapter(value) {
+  // Delegamos el escape HTML a la utilidad compartida para tener una sola implementacion.
+  return collectionUtils.escapeHtml(value);
+};
+
+collectionNormalizeToken = function collectionNormalizeTokenSharedAdapter(value) {
+  // Centralizamos la normalizacion para que preview, matching y filtros comparen igual.
+  return collectionUtils.normalizeToken(value);
+};
+
+collectionDomId = function collectionDomIdAdapter(key) {
+  // Generamos ids seguros para el DOM desde el helper puro compartido.
+  return collectionUtils.domId(key);
+};
+
+collectionFlowId = function collectionFlowIdAdapter(prefix, value) {
+  // Reutilizamos el helper de ids del canvas para no duplicar reglas de sanitizacion.
+  return collectionUtils.flowId(prefix, value);
+};
+
+collectionContextKey = function collectionContextKeyAdapter() {
+  // Esta clave resume el ambiente actual y sirve para invalidar estado cacheado.
+  return collectionUtils.contextKey();
+};
+
+collectionResolveV4AuthUrl = function collectionResolveV4AuthUrlAdapter(api) {
+  // La resolucion de Authenticate queda encapsulada en utilidades compartidas.
+  return collectionUtils.resolveV4AuthUrl(api);
+};
+
+collectionGuessSwaggerUrl = function collectionGuessSwaggerUrlAdapter(api) {
+  // La inferencia de Swagger se unifica para que todo el builder use la misma regla.
+  return collectionUtils.guessSwaggerUrl(api);
+};
+
+collectionResetExecution = function collectionResetExecutionAdapter() {
+  collectionGetExecutionCenter().reset();
+};
+
+collectionHandleExecutionBackdrop = function collectionHandleExecutionBackdropAdapter(event) {
+  collectionGetExecutionCenter().handleBackdrop(event);
+};
+
+collectionCloseExecutionConsole = function collectionCloseExecutionConsoleAdapter() {
+  collectionGetExecutionCenter().close();
+};
+
+collectionMinimizeExecutionConsole = function collectionMinimizeExecutionConsoleAdapter() {
+  collectionGetExecutionCenter().minimize();
+};
+
+collectionRestoreExecutionConsole = function collectionRestoreExecutionConsoleAdapter() {
+  collectionGetExecutionCenter().restore();
+};
+
+collectionSetExecutionHtml = function collectionSetExecutionHtmlAdapter(html, data) {
+  collectionGetExecutionCenter().setHtml(html, data, { showModal: false });
+};
+
+collectionBuildExecutionPopupShell = function collectionBuildExecutionPopupShellAdapter(content) {
+  return collectionGetExecutionCenter().buildPopupShell(content);
+};
+
+collectionOpenExecutionConsole = function collectionOpenExecutionConsoleAdapter() {
+  collectionGetExecutionCenter().open();
+};
+
+collectionRenderExecutionLoading = function collectionRenderExecutionLoadingAdapter() {
+  collectionGetExecutionCenter().renderLoading();
+};
+
+collectionRenderExecutionResult = function collectionRenderExecutionResultAdapter(data) {
+  collectionGetExecutionCenter().renderResult(data);
+};
+
+collectionExecuteFlow = async function collectionExecuteFlowAdapter() {
+  return collectionGetExecutionCenter().executeFlow();
+};
+
+collectionBuildCanvasLinkText = function collectionBuildCanvasLinkTextAdapter(sourceItem, sourceIndex, targetItem, targetIndex, scenario) {
+  return collectionGetCanvasManager().buildCanvasLinkText(sourceItem, sourceIndex, targetItem, targetIndex, scenario);
+};
+
+collectionBuildOrthogonalCanvasPath = function collectionBuildOrthogonalCanvasPathAdapter(sourceElement, targetElement) {
+  return collectionGetCanvasManager().buildOrthogonalCanvasPath(sourceElement, targetElement);
+};
+
+collectionRenderCanvasConnections = function collectionRenderCanvasConnectionsAdapter() {
+  collectionGetCanvasManager().renderCanvasConnections();
+};
+
+collectionRenderInspector = function collectionRenderInspectorAdapter() {
+  collectionGetInspectorManager().renderInspector();
+};
+
+collectionRenderItems = function collectionRenderItemsAdapter() {
+  collectionGetCanvasManager().renderItems();
+};
+
+collectionCanvasNodeClick = function collectionCanvasNodeClickAdapter(index) {
+  // La seleccion de nodos vive ahora en el modulo especializado del canvas.
+  collectionGetCanvasInteractionManager().canvasNodeClick(index);
+};
+
+collectionUpdateDraggedNode = function collectionUpdateDraggedNodeAdapter() {
+  // Este adapter mantiene el nombre global mientras el manager nuevo redibuja el nodo.
+  collectionGetCanvasInteractionManager().updateDraggedNode();
+};
+
+collectionHandleCanvasDragMove = function collectionHandleCanvasDragMoveAdapter(event) {
+  // Encaminamos el movimiento del mouse al modulo que conoce el drag del canvas.
+  collectionGetCanvasInteractionManager().handleCanvasDragMove(event);
+};
+
+collectionHandleCanvasDragEnd = function collectionHandleCanvasDragEndAdapter() {
+  // Cerramos el drag del nodo desde el manager para refrescar dependencias visuales.
+  collectionGetCanvasInteractionManager().handleCanvasDragEnd();
+};
+
+collectionBuildTemporaryConnectionPath = function collectionBuildTemporaryConnectionPathAdapter(anchorX, anchorY, pointerX, pointerY, dragEnd) {
+  // La geometria temporal de la flecha se calcula en el modulo de interaccion.
+  return collectionGetCanvasInteractionManager().buildTemporaryConnectionPath(anchorX, anchorY, pointerX, pointerY, dragEnd);
+};
+
+collectionHandleConnectionDragMove = function collectionHandleConnectionDragMoveAdapter(event) {
+  // Redirigimos el drag de puntas de flecha al manager de interacciones.
+  collectionGetCanvasInteractionManager().handleConnectionDragMove(event);
+};
+
+collectionHandleConnectionDragEnd = function collectionHandleConnectionDragEndAdapter(event) {
+  // La reconexion final de flechas queda encapsulada en el modulo del canvas.
+  collectionGetCanvasInteractionManager().handleConnectionDragEnd(event);
+};
+
+collectionStartConnectionDrag = function collectionStartConnectionDragAdapter(fromId, toId, dragEnd, event) {
+  // Permite volver a editar una flecha existente sin acoplar el bootstrap al detalle del canvas.
+  collectionGetCanvasInteractionManager().startConnectionDrag(fromId, toId, dragEnd, event);
+};
+
+collectionStartNewConnectionDrag = function collectionStartNewConnectionDragAdapter(nodeId, event) {
+  // Inicia una flecha nueva desde un nodo concreto del flujo.
+  collectionGetCanvasInteractionManager().startNewConnectionDrag(nodeId, event);
+};
+
+collectionStartNodeDrag = function collectionStartNodeDragAdapter(index, event) {
+  // Encaminamos el drag de tarjetas del flujo al manager que conoce offsets y limites.
+  collectionGetCanvasInteractionManager().startNodeDrag(index, event);
+};
+
+collectionConnectNodes = function collectionConnectNodesAdapter(fromId, toId) {
+  // La creacion de conexiones y el reordenamiento asociado viven en el manager de canvas.
+  collectionGetCanvasInteractionManager().connectNodes(fromId, toId);
+};
+
+collectionRemoveConnection = function collectionRemoveConnectionAdapter(fromId, toId) {
+  // Eliminamos la flecha desde el modulo de interaccion para mantener consistente el flujo.
+  collectionGetCanvasInteractionManager().removeConnection(fromId, toId);
+};
+
+collectionAllowCanvasDrop = function collectionAllowCanvasDropAdapter(event) {
+  // El canvas acepta drops a traves del modulo especializado.
+  collectionGetCanvasInteractionManager().allowCanvasDrop(event);
+};
+
+collectionDropOperation = function collectionDropOperationAdapter(insertIndex, event) {
+  // El alta de un servicio soltado en el lienzo se centraliza en la capa de interaccion.
+  collectionGetCanvasInteractionManager().dropOperation(insertIndex, event);
+};
+
+collectionDragOperation = function collectionDragOperationAdapter(service, operationKey, event) {
+  // Serializamos el payload de drag desde el modulo nuevo para evitar logica duplicada.
+  collectionGetCanvasInteractionManager().dragOperation(service, operationKey, event);
+};
+
+collectionAddScenario = function collectionAddScenarioAdapter() {
+  collectionGetScenarioManager().addScenario();
+};
+
+collectionRenameScenario = function collectionRenameScenarioAdapter(id, value) {
+  collectionGetScenarioManager().renameScenario(id, value);
+};
+
+collectionRemoveScenario = function collectionRemoveScenarioAdapter(id) {
+  collectionGetScenarioManager().removeScenario(id);
+};
+
+collectionRenderScenarios = function collectionRenderScenariosAdapter() {
+  collectionGetScenarioManager().renderScenarios();
+};
+
+collectionVariableValue = function collectionVariableValueAdapter(key, fallback) {
+  return collectionGetPreviewManager().variableValue(key, fallback);
+};
+
+collectionSelectedItemInputValue = function collectionSelectedItemInputValueAdapter(key, fallback) {
+  return collectionGetPreviewManager().selectedItemInputValue(key, fallback);
+};
+
+collectionUpdateVar = function collectionUpdateVarAdapter(key, value) {
+  collectionGetPreviewManager().updateVar(key, value);
+};
+
+collectionSyncInspectorInputs = function collectionSyncInspectorInputsAdapter() {
+  collectionGetPreviewManager().syncInspectorInputs();
+};
+
+collectionBuildSelectedItemExecutionUrl = function collectionBuildSelectedItemExecutionUrlAdapter() {
+  return collectionGetPreviewManager().buildSelectedItemExecutionUrl();
+};
+
+collectionSaveSelectedStepInputs = function collectionSaveSelectedStepInputsAdapter() {
+  collectionGetPreviewManager().saveSelectedStepInputs();
+};
+
+collectionNormalizeMappingConfig = function collectionNormalizeMappingConfigAdapter(mapping) {
+  return collectionGetPreviewManager().normalizeMappingConfig(mapping);
+};
+
+collectionInputMappingConfig = function collectionInputMappingConfigAdapter(mappingKey) {
+  return collectionGetPreviewManager().inputMappingConfig(mappingKey);
+};
+
+collectionInputMappingValue = function collectionInputMappingValueAdapter(mappingKey) {
+  return collectionGetPreviewManager().inputMappingValue(mappingKey);
+};
+
+collectionUpdateInputMapping = function collectionUpdateInputMappingAdapter(mappingKey, value) {
+  collectionGetPreviewManager().updateInputMapping(mappingKey, value);
+};
+
+collectionUpdateInputMappingFilterField = function collectionUpdateInputMappingFilterFieldAdapter(mappingKey, value) {
+  collectionGetPreviewManager().updateInputMappingFilterField(mappingKey, value);
+};
+
+collectionUpdateInputMappingFilterValue = function collectionUpdateInputMappingFilterValueAdapter(mappingKey, value) {
+  collectionGetPreviewManager().updateInputMappingFilterValue(mappingKey, value);
+};
+
+collectionUpdateOutputAlias = function collectionUpdateOutputAliasAdapter(sourceVarKey, value) {
+  collectionGetPreviewManager().updateOutputAlias(sourceVarKey, value);
+};
+
+collectionOutputDisplayName = function collectionOutputDisplayNameAdapter(output) {
+  return collectionGetPreviewManager().outputDisplayName(output);
+};
+
+collectionSplitCollectionOutputPath = function collectionSplitCollectionOutputPathAdapter(pathLabel) {
+  return collectionGetPreviewManager().splitCollectionOutputPath(pathLabel);
+};
+
+collectionDecoratePreviewOutputs = function collectionDecoratePreviewOutputsAdapter(outputs) {
+  return collectionGetPreviewManager().decoratePreviewOutputs(outputs);
+};
+
+collectionFindSourceOption = function collectionFindSourceOptionAdapter(input, sourceVarKey) {
+  return collectionGetPreviewManager().findSourceOption(input, sourceVarKey);
+};
+
+collectionInputMappingFilterField = function collectionInputMappingFilterFieldAdapter(mappingKey) {
+  return collectionGetPreviewManager().inputMappingFilterField(mappingKey);
+};
+
+collectionInputMappingFilterValue = function collectionInputMappingFilterValueAdapter(mappingKey) {
+  return collectionGetPreviewManager().inputMappingFilterValue(mappingKey);
+};
+
+collectionNormalizeToken = function collectionNormalizeTokenFinalAdapter(value) {
+  // La ultima reasignacion tambien apunta al helper puro para evitar ambiguedades.
+  return collectionUtils.normalizeToken(value);
+};
+
+collectionBuildOutputVarKey = function collectionBuildOutputVarKeyAdapter(item, outputField) {
+  return collectionGetPreviewManager().buildOutputVarKey(item, outputField);
+};
+
+collectionBuildInputMappingKey = function collectionBuildInputMappingKeyAdapter(item, input) {
+  return collectionGetPreviewManager().buildInputMappingKey(item, input);
+};
+
+collectionSuggestMappingForInput = function collectionSuggestMappingForInputAdapter(input, sourceOptions) {
+  return collectionGetPreviewManager().suggestMappingForInput(input, sourceOptions);
+};
+
+collectionLoadPreview = async function collectionLoadPreviewAdapter() {
+  return collectionGetPreviewManager().loadPreview();
+};
+
+collectionFilterServices = function collectionFilterServicesAdapter() {
+  collectionGetServiceCatalogManager().filterServices();
+};
+
+collectionLoadMethods = function collectionLoadMethodsAdapter(service) {
+  collectionGetServiceCatalogManager().loadMethods(service);
+};
+
+collectionRenderServiceCatalog = function collectionRenderServiceCatalogAdapter() {
+  collectionGetServiceCatalogManager().renderServiceCatalog();
+};
+
+collectionGenerate = async function collectionGenerateAdapter() {
+  // La generacion final sigue validando estado en el bootstrap, pero delega la llamada HTTP al cliente comun.
+  if (!collectionPathSupported()) {
+    collectionShowStatus('err', 'Por ahora solo esta disponible JSON + Postman.');
+    return;
+  }
+
+  collectionSyncInspectorInputs();
+  collectionRefreshContext();
+  if (typeof S === 'undefined' || !S.version) {
+    collectionShowStatus('err', 'Completa primero version y ambiente en el wizard principal.');
+    return;
+  }
+
+  var scenarios = collectionState.scenarios.filter(function keepNonEmptyScenario(scenario) {
+    return scenario.items && scenario.items.length;
+  });
+  if (!scenarios.length) {
+    collectionShowStatus('err', 'Agrega al menos un metodo en algun caso de uso.');
+    return;
+  }
+
+  var button = document.getElementById('btn-collection-generate');
+  if (button) {
+    button.disabled = true;
+    button.innerHTML = '<span class="spin"></span>&nbsp;Generando...';
+  }
+
+  collectionShowStatus('ok', 'Generando collection Postman JSON...');
+  collectionResetResult();
+
+  try {
+    var data = await collectionApiClient.generateCollection({
+      format: collectionState.format,
+      target: collectionState.target,
+      version: S.version,
+      platform: S.platform,
+      db: typeof getDb === 'function' ? getDb() : {},
+      api: typeof getApi === 'function' ? getApi() : {},
+      swaggerBaseUrl: collectionState.swaggerBaseUrl,
+      swaggerAuthUrl: collectionState.swaggerAuthUrl,
+      collectionName: collectionState.collectionName,
+      scenarios: scenarios.map(function serializeScenario(scenario) {
+        return {
+          id: scenario.id,
+          name: scenario.name,
+          items: scenario.items,
+          variableOverrides: scenario.variableOverrides,
+          inputMappings: scenario.inputMappings,
+          outputAliases: scenario.outputAliases,
+          repeatableOverrides: scenario.repeatableOverrides
+        };
+      })
+    });
+
+    if (!data.ok) throw new Error(data.message);
+
+    collectionShowStatus('ok', 'Collection generada correctamente.');
+    collectionRenderResult(data);
+  } catch (error) {
+    collectionShowStatus('err', error.message || 'No se pudo generar la collection.');
+  }
+
+  if (button) {
+    button.disabled = false;
+    button.innerHTML = 'Generar collection';
+  }
+};
+
+async function collectionMountPanel() {
+  // El montaje del panel se delega al manager de bootstrap para reducir responsabilidad del coordinador.
+  return collectionGetBootstrapManager().mountPanel();
 }
 
 if (document.readyState === 'loading') {

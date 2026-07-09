@@ -60,6 +60,7 @@
             </div>
             <div class="collection-builder-actions">
               <button class="btn btn-outline" id="btn-collection-execute" onclick="collectionExecuteFlow()" disabled>Probar</button>
+              <button class="btn btn-outline" id="btn-collection-open-console" onclick="if(typeof collectionOpenExecutionConsole==='function'){collectionOpenExecutionConsole();}">Consola</button>
               <button class="btn btn-success" id="btn-collection-generate" onclick="collectionGenerate()" disabled>Generar JSON</button>
             </div>
           </div>
@@ -76,7 +77,7 @@
           </div>
 
           <div class="collection-builder-feedback">
-            <div id="collection-execution" class="collection-result" style="display:none"></div>
+            <div id="collection-execution-inline" class="collection-inline-console" style="display:none"></div>
             <div id="collection-result" class="collection-result"></div>
           </div>
 
@@ -116,3 +117,23 @@
         </div>
       </div>
     </div>
+
+    <div id="collection-execution-modal" class="collection-execution-modal" style="display:none" onclick="if(event && event.target && event.target.id==='collection-execution-modal'){this.style.display='none'; var d=document.getElementById('collection-execution-dock'); if(d){d.style.display='none';}} if(typeof collectionHandleExecutionBackdrop==='function'){collectionHandleExecutionBackdrop(event);}">
+      <div class="collection-execution-dialog">
+        <div class="collection-execution-header">
+          <div>
+            <div class="collection-execution-kicker">Consola de ejecucion</div>
+            <div id="collection-execution-title" class="collection-execution-title">Caso de uso</div>
+          </div>
+          <div class="collection-execution-actions">
+            <button type="button" class="btn btn-outline btn-sm" onclick="var m=document.getElementById('collection-execution-modal'); var d=document.getElementById('collection-execution-dock'); if(m){m.style.display='none';} if(d){d.style.display='block';} if(typeof collectionMinimizeExecutionConsole==='function'){collectionMinimizeExecutionConsole();}">Minimizar</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="var m=document.getElementById('collection-execution-modal'); var d=document.getElementById('collection-execution-dock'); if(m){m.style.display='none';} if(d){d.style.display='none';} if(typeof collectionCloseExecutionConsole==='function'){collectionCloseExecutionConsole();}">Cerrar</button>
+          </div>
+        </div>
+        <div id="collection-execution" class="collection-execution-body"></div>
+      </div>
+    </div>
+
+    <button id="collection-execution-dock" class="collection-execution-dock" type="button" style="display:none" onclick="var m=document.getElementById('collection-execution-modal'); if(m){m.style.display='flex';} this.style.display='none'; if(typeof collectionRestoreExecutionConsole==='function'){collectionRestoreExecutionConsole();}">
+      Abrir consola de ejecucion
+    </button>

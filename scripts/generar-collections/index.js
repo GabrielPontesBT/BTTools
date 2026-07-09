@@ -567,9 +567,10 @@ function createCollectionFeature(deps) {
   function buildFilteredRuntimeKey(mapping) {
     const config = normalizeInputMappingConfig(mapping);
     if (!config || !config.sourceVarKey) return '';
-    if (!config.filterField || !config.filterValue) return config.sourceVarKey;
+    const effectiveFilterField = config.filterField || (config.filterValue ? config.itemPathLabel : '');
+    if (!effectiveFilterField || !config.filterValue) return config.sourceVarKey;
     return sanitizeVariableKey(
-      config.sourceVarKey + '__filter__' + config.filterField + '__' + config.filterValue
+      config.sourceVarKey + '__filter__' + effectiveFilterField + '__' + config.filterValue
     );
   }
 
@@ -1150,6 +1151,57 @@ function createCollectionFeature(deps) {
     });
   }
 
+  function firstDefinedText() {
+    for (let i = 0; i < arguments.length; i++) {
+      const value = arguments[i];
+      if (value === undefined || value === null) continue;
+      const text = String(value);
+      if (text.trim()) return text;
+    }
+    return '';
+  }
+
+  function resolveExecutionAuthContext(config) {
+    const api = (config && config.api) || config || {};
+    const authContext = (config && config.authContext) || {};
+    return {
+      channel: firstDefinedText(authContext.channel, api.API_CANAL, 'BTDIGITAL'),
+      username: firstDefinedText(authContext.username, api.API_USER, 'INSTALADOR'),
+      device: firstDefinedText(authContext.device, api.API_DEVICE, 'INSTALADOR'),
+      requirement: firstDefinedText(authContext.requirement, api.API_REQUERIMIENTO, '1'),
+      password: firstDefinedText(authContext.password, api.API_PASSWORD, ''),
+      token: firstDefinedText(authContext.token, '')
+    };
+  }
+
+  function buildBantotalJsonHeaders(context, tokenOverride) {
+    const headers = {};
+    const channel = firstDefinedText(context && context.channel, 'BTDIGITAL');
+    const username = firstDefinedText(context && context.username, 'INSTALADOR');
+    const device = firstDefinedText(context && context.device, 'INSTALADOR');
+    const requirement = firstDefinedText(context && context.requirement, '1');
+    const token = firstDefinedText(tokenOverride, context && context.token, '');
+    headers.Canal = channel;
+    headers.Usuario = username;
+    headers.Device = device;
+    headers.Requerimiento = requirement;
+    headers.Token = token;
+    return headers;
+  }
+
+  function mergeExecutionStepValues(baseValues, stepOverrides) {
+    const merged = Object.assign({}, baseValues || {});
+    Object.keys(stepOverrides || {}).forEach(function(key) {
+      const nextValue = stepOverrides[key];
+      if (nextValue === undefined || nextValue === null) return;
+      if (String(nextValue) === '' && Object.prototype.hasOwnProperty.call(merged, key) && String(merged[key]) !== '') {
+        return;
+      }
+      merged[key] = nextValue;
+    });
+    return merged;
+  }
+
   function computeBindingsAndMappings(schemas) {
     const availableOutputs = new Map();
     const bindingsPerStep = [];
@@ -1627,7 +1679,8 @@ function createCollectionFeature(deps) {
     Object.keys(mappings).forEach(function(mappingKey) {
       const config = normalizeInputMappingConfig(mappings[mappingKey]);
       if (!config || !config.sourceVarKey || !availableOutputKeys.has(config.sourceVarKey)) return;
-      if (!config.filterField || !config.filterValue) return;
+      const effectiveFilterField = config.filterField || (config.filterValue ? config.itemPathLabel : '');
+      if (!effectiveFilterField || !config.filterValue) return;
       const outputField = (item.outputFields || []).find(function(field) {
         return buildOutputVarKey(item, field) === config.sourceVarKey;
       });
@@ -1636,7 +1689,7 @@ function createCollectionFeature(deps) {
         sourceVarKey: config.sourceVarKey,
         derivedVarKey: buildFilteredRuntimeKey(config),
         pathLabel: config.itemPathLabel ? ((config.collectionPathLabel ? config.collectionPathLabel + '.item.' : '') + config.itemPathLabel) : (outputField.pathLabel || ''),
-        filterField: config.filterField,
+        filterField: effectiveFilterField,
         filterValue: config.filterValue
       });
     });
@@ -1779,36 +1832,33 @@ function createCollectionFeature(deps) {
 
   async function authenticateSession(version, api) {
     const isV4 = version === 'V4';
+    const authContext = resolveExecutionAuthContext(api);
     const authUrl = version === 'V3'
       ? `${api.API_AUTH_URL}?Execute`
       : resolveJsonAuthUrl(api);
     const body = isV4
       ? JSON.stringify({
-          UserId: api.API_USER,
-          UserPassword: api.API_PASSWORD
+          UserId: authContext.username,
+          UserPassword: authContext.password
         })
       : JSON.stringify({
           Btinreq: {
-            Canal: api.API_CANAL || 'BTDIGITAL',
-            Usuario: api.API_USER,
-            Device: api.API_DEVICE || 'INSTALADOR',
-            Requerimiento: api.API_REQUERIMIENTO || '1',
+            Canal: authContext.channel,
+            Usuario: authContext.username,
+            Device: authContext.device,
+            Requerimiento: authContext.requirement,
             Token: ''
           },
-          UserId: api.API_USER,
-          UserPassword: api.API_PASSWORD
+          UserId: authContext.username,
+          UserPassword: authContext.password
         });
     const parsed = new URL(authUrl);
     const mod = parsed.protocol === 'https:' ? require('https') : require('http');
     const raw = await new Promise(function(resolve, reject) {
-      const btHeaders = isV4 ? {
-        Canal: api.API_CANAL || 'BTDIGITAL',
-        Device: api.API_DEVICE || 'INSTALADOR',
-        Usuario: api.API_USER,
-        Requerimiento: api.API_REQUERIMIENTO || '1',
-        Token: '',
-        'idempotency-key': '1'
-      } : {};
+      const btHeaders = isV4 ? Object.assign(
+        buildBantotalJsonHeaders(authContext, ''),
+        { 'idempotency-key': '1' }
+      ) : {};
       const options = {
         hostname: parsed.hostname,
         port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
@@ -1934,6 +1984,7 @@ function createCollectionFeature(deps) {
 
   async function executeCollectionFlow(body) {
     if (body.format === 'json') {
+      const authContext = resolveExecutionAuthContext(body);
       const steps = [{
         index: 0,
         name: 'Authenticate',
@@ -1941,10 +1992,10 @@ function createCollectionFeature(deps) {
         requestUrl: resolveJsonAuthUrl(body)
       }];
       const runtimeValues = Object.assign({}, body.variableOverrides || {}, {
-        channel: body.api.API_CANAL || 'BTDIGITAL',
-        username: body.api.API_USER || 'INSTALADOR',
-        device: body.api.API_DEVICE || 'INSTALADOR',
-        requirement: body.api.API_REQUERIMIENTO || '1'
+        channel: authContext.channel,
+        username: authContext.username,
+        device: authContext.device,
+        requirement: authContext.requirement
       });
       try {
         const auth = await authenticateSession(body.version, body);
@@ -1966,28 +2017,29 @@ function createCollectionFeature(deps) {
           name: item.method || item.path || ('Paso ' + (i + 1))
         };
         try {
+          const stepRuntimeValues = mergeExecutionStepValues(runtimeValues, item.inputOverrides || {});
           (item.manualInputs || []).forEach(function(input) {
             const hasItemOverride = item.inputOverrides && Object.prototype.hasOwnProperty.call(item.inputOverrides, input.key);
             if (hasItemOverride) {
-              runtimeValues[input.key] = item.inputOverrides[input.key];
+              stepRuntimeValues[input.key] = item.inputOverrides[input.key];
               return;
             }
             const mappedVar = resolveMappedVariableName(item, input, body);
-            if (mappedVar !== input.key && Object.prototype.hasOwnProperty.call(runtimeValues, mappedVar)) {
-              runtimeValues[input.key] = runtimeValues[mappedVar];
-            } else if (!Object.prototype.hasOwnProperty.call(runtimeValues, input.key) && input.defaultValue != null) {
-              runtimeValues[input.key] = input.defaultValue;
+            if (mappedVar !== input.key && Object.prototype.hasOwnProperty.call(stepRuntimeValues, mappedVar)) {
+              stepRuntimeValues[input.key] = stepRuntimeValues[mappedVar];
+            } else if (!Object.prototype.hasOwnProperty.call(stepRuntimeValues, input.key) && input.defaultValue != null) {
+              stepRuntimeValues[input.key] = input.defaultValue;
             }
           });
-          const requestUrl = buildJsonExecutionUrl(resolveJsonBaseUrl(body), item.path, item.manualInputs || [], runtimeValues);
-          const headers = {
-            Canal: runtimeValues.channel,
-            Device: runtimeValues.device,
-            Usuario: runtimeValues.username,
-            Requerimiento: runtimeValues.requirement,
-            Token: runtimeValues.token
-          };
-          const bodyValue = item.bodyTemplate ? fillJsonTemplate(item.bodyTemplate, runtimeValues) : null;
+          const requestUrl = buildJsonExecutionUrl(resolveJsonBaseUrl(body), item.path, item.manualInputs || [], stepRuntimeValues);
+          const headers = buildBantotalJsonHeaders({
+            channel: stepRuntimeValues.channel,
+            username: stepRuntimeValues.username,
+            device: stepRuntimeValues.device,
+            requirement: stepRuntimeValues.requirement
+          }, stepRuntimeValues.token);
+          const bodyValue = item.bodyTemplate ? fillJsonTemplate(item.bodyTemplate, stepRuntimeValues) : null;
+          Object.assign(runtimeValues, stepRuntimeValues);
           const response = await invokeJsonRequest(requestUrl, item.httpMethod, headers, bodyValue);
           step.requestUrl = requestUrl;
           step.responseStatus = response.statusCode;

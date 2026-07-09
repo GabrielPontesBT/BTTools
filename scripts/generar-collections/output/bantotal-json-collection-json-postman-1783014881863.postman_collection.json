@@ -1,0 +1,1232 @@
+{
+  "info": {
+    "name": "Bantotal JSON Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Coleccion generada desde Swagger para flujo JSON/Postman."
+  },
+  "variable": [
+    {
+      "key": "api_base_url",
+      "value": "http://10.0.0.5:8445/btv4core",
+      "type": "string"
+    },
+    {
+      "key": "public_api_url",
+      "value": "http://10.0.0.7:5101/api/publicapi",
+      "type": "string"
+    },
+    {
+      "key": "base_url",
+      "value": "http://10.0.0.7:5101/api/publicapi",
+      "type": "string"
+    },
+    {
+      "key": "auth_url",
+      "value": "http://10.0.0.7:5101/api/publicapi/Authenticate/v1/Execute",
+      "type": "string"
+    },
+    {
+      "key": "channel",
+      "value": "BTDIGITAL",
+      "type": "string"
+    },
+    {
+      "key": "username",
+      "value": "INSTALADOR",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "Bantotal2015",
+      "type": "string"
+    },
+    {
+      "key": "device",
+      "value": "INSTALADOR",
+      "type": "string"
+    },
+    {
+      "key": "requirement",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "lastSoapResponse",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "lastJsonResponse",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "counterpartyGUID",
+      "value": "74a94556-e0a9-4899-9007-b85e923aec45",
+      "type": "string"
+    },
+    {
+      "key": "Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_CountryId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_CountryDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_PersonGUID",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_PersonName",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_PersonType",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_DocumentNumber",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_CountryId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_CountryDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_PersonGUID",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_PersonName",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_PersonType",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_DocumentNumber",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_CustomFields_customField_item_Correlative",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_CustomFields_customField_item_Description",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_CustomFields_customField_item_Value",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_CustomFields_customField_item_Id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_CreationDate",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_CancellationDate",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_CompanyDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_CompanyId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_InternalClassificationDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_SegmentId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_InternalClassificationId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_EconomicActivityId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_BranchId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_ExecutiveId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_CounterpartyDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_ExecutiveDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_SegmentDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_CustomFields_customField_item_Correlative",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_CustomFields_customField_item_Description",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_CustomFields_customField_item_Value",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_CustomFields_customField_item_Id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_Employee",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_SectorDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_StatusDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_FinancialInstitution",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_EconomicActivityDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_Resident",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_StatusId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_SectorId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Counterparty_BranchDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_AssociatedToAnAddress",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Comment",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_AddressCorrelative",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Validated",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Priority",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Enabled",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Text",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_TelephoneCompanyDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_EndTimeRange2",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_EndTimeRange1",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Correlative",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_ContactTypeId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_TelephoneCompanyId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_StartTimeRange2",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_AddressId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_ContactTypeDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_ReceivesMails",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_StartTimeRange1",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_FinancialInstitution_CompanyId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_FinancialInstitution_EstablishmentCountryDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_FinancialInstitution_SwiftKey",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_FinancialInstitution_DocumentNumber",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_FinancialInstitution_HasSwiftKey",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_FinancialInstitution_DocumentTypeId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_FinancialInstitution_Name",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_FinancialInstitution_EntryStatusDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_FinancialInstitution_Type",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Correlative",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Description",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Value",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_FinancialInstitution_PersonId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_FinancialInstitution_DocumentTypeDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_FinancialInstitution_EntryStatusId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_FinancialInstitution_TypeDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_FinancialInstitution_IsCorrespondentAccount",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_FinancialInstitution_EstablishmentCountryId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_FinancialInstitution_CounterpartyId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Texts_SdtsBTPAWText_item_Description",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Texts_SdtsBTPAWText_item_Text",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_Texts_SdtsBTPAWText_item_Id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupName",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupTypeId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupTypeDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_MemberTypeId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Caso de uso 1",
+      "description": "Caso de uso generado desde Swagger.",
+      "item": [
+        {
+          "name": "0. Authenticate",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "pm.collectionVariables.set('lastSoapResponse', JSON.stringify(data));",
+                  "var sessionToken = data.SessionToken || data.Token || data.sessionToken || data.token;",
+                  "pm.test('Token disponible', function () { pm.expect(sessionToken, JSON.stringify(data)).to.exist; });",
+                  "if (sessionToken !== null && sessionToken !== undefined) {",
+                  "  pm.collectionVariables.set('token', String(sessionToken));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Canal",
+                "value": "{{channel}}",
+                "type": "text"
+              },
+              {
+                "key": "Device",
+                "value": "{{device}}",
+                "type": "text"
+              },
+              {
+                "key": "Usuario",
+                "value": "{{username}}",
+                "type": "text"
+              },
+              {
+                "key": "Requerimiento",
+                "value": "{{requirement}}",
+                "type": "text"
+              },
+              {
+                "key": "Token",
+                "value": "",
+                "type": "text"
+              },
+              {
+                "key": "idempotency-key",
+                "value": "1",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"UserId\": \"{{username}}\",\n  \"UserPassword\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{auth_url}}",
+              "protocol": "http",
+              "host": [
+                "10",
+                "0",
+                "0",
+                "7"
+              ],
+              "port": "5101",
+              "path": [
+                "api",
+                "publicapi",
+                "Authenticate",
+                "v1",
+                "Execute"
+              ],
+              "query": []
+            },
+            "description": "Obtiene el token de sesion para los requests del flujo."
+          },
+          "response": []
+        },
+        {
+          "name": "1. getMembers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 2xx', function () { pm.expect(pm.response.code).to.be.within(200, 299); });",
+                  "var text = pm.response.text();",
+                  "pm.collectionVariables.set('lastJsonResponse', text);",
+                  "var data = {};",
+                  "try { data = text ? JSON.parse(text) : {}; } catch (e) {}",
+                  "function pick(node, parts) {",
+                  "  if (node === null || node === undefined) return undefined;",
+                  "  if (!parts.length) return node;",
+                  "  var current = parts[0];",
+                  "  var rest = parts.slice(1);",
+                  "  if (Array.isArray(node)) {",
+                  "    if (current === 'item') {",
+                  "      for (var i = 0; i < node.length; i++) {",
+                  "        var foundItem = pick(node[i], rest);",
+                  "        if (foundItem !== undefined && foundItem !== null && foundItem !== '') return foundItem;",
+                  "      }",
+                  "      return undefined;",
+                  "    }",
+                  "    for (var j = 0; j < node.length; j++) {",
+                  "      var foundArray = pick(node[j], parts);",
+                  "      if (foundArray !== undefined && foundArray !== null && foundArray !== '') return foundArray;",
+                  "    }",
+                  "    return undefined;",
+                  "  }",
+                  "  if (typeof node !== 'object') return undefined;",
+                  "  return pick(node[current], rest);",
+                  "}",
+                  "var out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_CountryId = pick(data, [\"members\",\"SdtsBTCPWCounterpartyIntegration\",\"item\",\"CountryId\"]);",
+                  "if (out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_CountryId !== undefined && out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_CountryId !== null && typeof out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_CountryId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_CountryId\", String(out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_CountryId));",
+                  "}",
+                  "var out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_CountryDescription = pick(data, [\"members\",\"SdtsBTCPWCounterpartyIntegration\",\"item\",\"CountryDescription\"]);",
+                  "if (out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_CountryDescription !== undefined && out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_CountryDescription !== null && typeof out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_CountryDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_CountryDescription\", String(out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_CountryDescription));",
+                  "}",
+                  "var out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_PersonGUID = pick(data, [\"members\",\"SdtsBTCPWCounterpartyIntegration\",\"item\",\"PersonGUID\"]);",
+                  "if (out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_PersonGUID !== undefined && out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_PersonGUID !== null && typeof out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_PersonGUID !== 'object') {",
+                  "  pm.collectionVariables.set(\"Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_PersonGUID\", String(out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_PersonGUID));",
+                  "}",
+                  "var out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_PersonName = pick(data, [\"members\",\"SdtsBTCPWCounterpartyIntegration\",\"item\",\"PersonName\"]);",
+                  "if (out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_PersonName !== undefined && out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_PersonName !== null && typeof out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_PersonName !== 'object') {",
+                  "  pm.collectionVariables.set(\"Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_PersonName\", String(out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_PersonName));",
+                  "}",
+                  "var out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeDescription = pick(data, [\"members\",\"SdtsBTCPWCounterpartyIntegration\",\"item\",\"OwnershipTypeDescription\"]);",
+                  "if (out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeDescription !== undefined && out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeDescription !== null && typeof out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeDescription\", String(out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeDescription));",
+                  "}",
+                  "var out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeDescription = pick(data, [\"members\",\"SdtsBTCPWCounterpartyIntegration\",\"item\",\"DocumentTypeDescription\"]);",
+                  "if (out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeDescription !== undefined && out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeDescription !== null && typeof out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeDescription\", String(out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeDescription));",
+                  "}",
+                  "var out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeId = pick(data, [\"members\",\"SdtsBTCPWCounterpartyIntegration\",\"item\",\"OwnershipTypeId\"]);",
+                  "if (out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeId !== undefined && out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeId !== null && typeof out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeId\", String(out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeId));",
+                  "}",
+                  "var out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_PersonType = pick(data, [\"members\",\"SdtsBTCPWCounterpartyIntegration\",\"item\",\"PersonType\"]);",
+                  "if (out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_PersonType !== undefined && out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_PersonType !== null && typeof out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_PersonType !== 'object') {",
+                  "  pm.collectionVariables.set(\"Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_PersonType\", String(out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_PersonType));",
+                  "}",
+                  "var out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_DocumentNumber = pick(data, [\"members\",\"SdtsBTCPWCounterpartyIntegration\",\"item\",\"DocumentNumber\"]);",
+                  "if (out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_DocumentNumber !== undefined && out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_DocumentNumber !== null && typeof out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_DocumentNumber !== 'object') {",
+                  "  pm.collectionVariables.set(\"Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_DocumentNumber\", String(out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_DocumentNumber));",
+                  "}",
+                  "var out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeId = pick(data, [\"members\",\"SdtsBTCPWCounterpartyIntegration\",\"item\",\"DocumentTypeId\"]);",
+                  "if (out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeId !== undefined && out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeId !== null && typeof out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeId\", String(out_Customers_getMembers_members_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeId));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Canal",
+                "value": "{{channel}}",
+                "type": "text"
+              },
+              {
+                "key": "Device",
+                "value": "{{device}}",
+                "type": "text"
+              },
+              {
+                "key": "Usuario",
+                "value": "{{username}}",
+                "type": "text"
+              },
+              {
+                "key": "Requerimiento",
+                "value": "{{requirement}}",
+                "type": "text"
+              },
+              {
+                "key": "Token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/public/Customers/v1/getMembers?counterpartyGUID={{counterpartyGUID}}",
+              "protocol": "http",
+              "host": [
+                "10",
+                "0",
+                "0",
+                "7"
+              ],
+              "port": "5101",
+              "path": [
+                "api",
+                "publicapi",
+                "public",
+                "Customers",
+                "v1",
+                "getMembers"
+              ],
+              "query": [
+                {
+                  "key": "counterpartyGUID",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Enter a description"
+          },
+          "response": []
+        },
+        {
+          "name": "2. get",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 2xx', function () { pm.expect(pm.response.code).to.be.within(200, 299); });",
+                  "var text = pm.response.text();",
+                  "pm.collectionVariables.set('lastJsonResponse', text);",
+                  "var data = {};",
+                  "try { data = text ? JSON.parse(text) : {}; } catch (e) {}",
+                  "function pick(node, parts) {",
+                  "  if (node === null || node === undefined) return undefined;",
+                  "  if (!parts.length) return node;",
+                  "  var current = parts[0];",
+                  "  var rest = parts.slice(1);",
+                  "  if (Array.isArray(node)) {",
+                  "    if (current === 'item') {",
+                  "      for (var i = 0; i < node.length; i++) {",
+                  "        var foundItem = pick(node[i], rest);",
+                  "        if (foundItem !== undefined && foundItem !== null && foundItem !== '') return foundItem;",
+                  "      }",
+                  "      return undefined;",
+                  "    }",
+                  "    for (var j = 0; j < node.length; j++) {",
+                  "      var foundArray = pick(node[j], parts);",
+                  "      if (foundArray !== undefined && foundArray !== null && foundArray !== '') return foundArray;",
+                  "    }",
+                  "    return undefined;",
+                  "  }",
+                  "  if (typeof node !== 'object') return undefined;",
+                  "  return pick(node[current], rest);",
+                  "}",
+                  "var out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_CountryId = pick(data, [\"counterparty\",\"Integration\",\"SdtsBTCPWCounterpartyIntegration\",\"item\",\"CountryId\"]);",
+                  "if (out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_CountryId !== undefined && out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_CountryId !== null && typeof out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_CountryId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_CountryId\", String(out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_CountryId));",
+                  "}",
+                  "var out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_CountryDescription = pick(data, [\"counterparty\",\"Integration\",\"SdtsBTCPWCounterpartyIntegration\",\"item\",\"CountryDescription\"]);",
+                  "if (out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_CountryDescription !== undefined && out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_CountryDescription !== null && typeof out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_CountryDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_CountryDescription\", String(out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_CountryDescription));",
+                  "}",
+                  "var out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_PersonGUID = pick(data, [\"counterparty\",\"Integration\",\"SdtsBTCPWCounterpartyIntegration\",\"item\",\"PersonGUID\"]);",
+                  "if (out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_PersonGUID !== undefined && out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_PersonGUID !== null && typeof out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_PersonGUID !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_PersonGUID\", String(out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_PersonGUID));",
+                  "}",
+                  "var out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_PersonName = pick(data, [\"counterparty\",\"Integration\",\"SdtsBTCPWCounterpartyIntegration\",\"item\",\"PersonName\"]);",
+                  "if (out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_PersonName !== undefined && out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_PersonName !== null && typeof out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_PersonName !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_PersonName\", String(out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_PersonName));",
+                  "}",
+                  "var out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeDescription = pick(data, [\"counterparty\",\"Integration\",\"SdtsBTCPWCounterpartyIntegration\",\"item\",\"OwnershipTypeDescription\"]);",
+                  "if (out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeDescription !== undefined && out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeDescription !== null && typeof out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeDescription\", String(out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeDescription));",
+                  "}",
+                  "var out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeDescription = pick(data, [\"counterparty\",\"Integration\",\"SdtsBTCPWCounterpartyIntegration\",\"item\",\"DocumentTypeDescription\"]);",
+                  "if (out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeDescription !== undefined && out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeDescription !== null && typeof out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeDescription\", String(out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeDescription));",
+                  "}",
+                  "var out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeId = pick(data, [\"counterparty\",\"Integration\",\"SdtsBTCPWCounterpartyIntegration\",\"item\",\"OwnershipTypeId\"]);",
+                  "if (out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeId !== undefined && out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeId !== null && typeof out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeId\", String(out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_OwnershipTypeId));",
+                  "}",
+                  "var out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_PersonType = pick(data, [\"counterparty\",\"Integration\",\"SdtsBTCPWCounterpartyIntegration\",\"item\",\"PersonType\"]);",
+                  "if (out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_PersonType !== undefined && out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_PersonType !== null && typeof out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_PersonType !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_PersonType\", String(out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_PersonType));",
+                  "}",
+                  "var out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_DocumentNumber = pick(data, [\"counterparty\",\"Integration\",\"SdtsBTCPWCounterpartyIntegration\",\"item\",\"DocumentNumber\"]);",
+                  "if (out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_DocumentNumber !== undefined && out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_DocumentNumber !== null && typeof out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_DocumentNumber !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_DocumentNumber\", String(out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_DocumentNumber));",
+                  "}",
+                  "var out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeId = pick(data, [\"counterparty\",\"Integration\",\"SdtsBTCPWCounterpartyIntegration\",\"item\",\"DocumentTypeId\"]);",
+                  "if (out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeId !== undefined && out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeId !== null && typeof out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeId\", String(out_Persons_get_counterparty_Integration_SdtsBTCPWCounterpartyIntegration_item_DocumentTypeId));",
+                  "}",
+                  "var out_Persons_get_counterparty_CustomFields_customField_item_Correlative = pick(data, [\"counterparty\",\"CustomFields\",\"customField\",\"item\",\"Correlative\"]);",
+                  "if (out_Persons_get_counterparty_CustomFields_customField_item_Correlative !== undefined && out_Persons_get_counterparty_CustomFields_customField_item_Correlative !== null && typeof out_Persons_get_counterparty_CustomFields_customField_item_Correlative !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_CustomFields_customField_item_Correlative\", String(out_Persons_get_counterparty_CustomFields_customField_item_Correlative));",
+                  "}",
+                  "var out_Persons_get_counterparty_CustomFields_customField_item_Description = pick(data, [\"counterparty\",\"CustomFields\",\"customField\",\"item\",\"Description\"]);",
+                  "if (out_Persons_get_counterparty_CustomFields_customField_item_Description !== undefined && out_Persons_get_counterparty_CustomFields_customField_item_Description !== null && typeof out_Persons_get_counterparty_CustomFields_customField_item_Description !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_CustomFields_customField_item_Description\", String(out_Persons_get_counterparty_CustomFields_customField_item_Description));",
+                  "}",
+                  "var out_Persons_get_counterparty_CustomFields_customField_item_Value = pick(data, [\"counterparty\",\"CustomFields\",\"customField\",\"item\",\"Value\"]);",
+                  "if (out_Persons_get_counterparty_CustomFields_customField_item_Value !== undefined && out_Persons_get_counterparty_CustomFields_customField_item_Value !== null && typeof out_Persons_get_counterparty_CustomFields_customField_item_Value !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_CustomFields_customField_item_Value\", String(out_Persons_get_counterparty_CustomFields_customField_item_Value));",
+                  "}",
+                  "var out_Persons_get_counterparty_CustomFields_customField_item_Id = pick(data, [\"counterparty\",\"CustomFields\",\"customField\",\"item\",\"Id\"]);",
+                  "if (out_Persons_get_counterparty_CustomFields_customField_item_Id !== undefined && out_Persons_get_counterparty_CustomFields_customField_item_Id !== null && typeof out_Persons_get_counterparty_CustomFields_customField_item_Id !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_CustomFields_customField_item_Id\", String(out_Persons_get_counterparty_CustomFields_customField_item_Id));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_CreationDate = pick(data, [\"counterparty\",\"Counterparty\",\"CreationDate\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_CreationDate !== undefined && out_Persons_get_counterparty_Counterparty_CreationDate !== null && typeof out_Persons_get_counterparty_Counterparty_CreationDate !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_CreationDate\", String(out_Persons_get_counterparty_Counterparty_CreationDate));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_CancellationDate = pick(data, [\"counterparty\",\"Counterparty\",\"CancellationDate\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_CancellationDate !== undefined && out_Persons_get_counterparty_Counterparty_CancellationDate !== null && typeof out_Persons_get_counterparty_Counterparty_CancellationDate !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_CancellationDate\", String(out_Persons_get_counterparty_Counterparty_CancellationDate));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_CompanyDescription = pick(data, [\"counterparty\",\"Counterparty\",\"CompanyDescription\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_CompanyDescription !== undefined && out_Persons_get_counterparty_Counterparty_CompanyDescription !== null && typeof out_Persons_get_counterparty_Counterparty_CompanyDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_CompanyDescription\", String(out_Persons_get_counterparty_Counterparty_CompanyDescription));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_CompanyId = pick(data, [\"counterparty\",\"Counterparty\",\"CompanyId\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_CompanyId !== undefined && out_Persons_get_counterparty_Counterparty_CompanyId !== null && typeof out_Persons_get_counterparty_Counterparty_CompanyId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_CompanyId\", String(out_Persons_get_counterparty_Counterparty_CompanyId));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_InternalClassificationDescription = pick(data, [\"counterparty\",\"Counterparty\",\"InternalClassificationDescription\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_InternalClassificationDescription !== undefined && out_Persons_get_counterparty_Counterparty_InternalClassificationDescription !== null && typeof out_Persons_get_counterparty_Counterparty_InternalClassificationDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_InternalClassificationDescription\", String(out_Persons_get_counterparty_Counterparty_InternalClassificationDescription));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_SegmentId = pick(data, [\"counterparty\",\"Counterparty\",\"SegmentId\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_SegmentId !== undefined && out_Persons_get_counterparty_Counterparty_SegmentId !== null && typeof out_Persons_get_counterparty_Counterparty_SegmentId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_SegmentId\", String(out_Persons_get_counterparty_Counterparty_SegmentId));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_InternalClassificationId = pick(data, [\"counterparty\",\"Counterparty\",\"InternalClassificationId\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_InternalClassificationId !== undefined && out_Persons_get_counterparty_Counterparty_InternalClassificationId !== null && typeof out_Persons_get_counterparty_Counterparty_InternalClassificationId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_InternalClassificationId\", String(out_Persons_get_counterparty_Counterparty_InternalClassificationId));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_EconomicActivityId = pick(data, [\"counterparty\",\"Counterparty\",\"EconomicActivityId\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_EconomicActivityId !== undefined && out_Persons_get_counterparty_Counterparty_EconomicActivityId !== null && typeof out_Persons_get_counterparty_Counterparty_EconomicActivityId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_EconomicActivityId\", String(out_Persons_get_counterparty_Counterparty_EconomicActivityId));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_BranchId = pick(data, [\"counterparty\",\"Counterparty\",\"BranchId\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_BranchId !== undefined && out_Persons_get_counterparty_Counterparty_BranchId !== null && typeof out_Persons_get_counterparty_Counterparty_BranchId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_BranchId\", String(out_Persons_get_counterparty_Counterparty_BranchId));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_ExecutiveId = pick(data, [\"counterparty\",\"Counterparty\",\"ExecutiveId\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_ExecutiveId !== undefined && out_Persons_get_counterparty_Counterparty_ExecutiveId !== null && typeof out_Persons_get_counterparty_Counterparty_ExecutiveId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_ExecutiveId\", String(out_Persons_get_counterparty_Counterparty_ExecutiveId));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_CounterpartyDescription = pick(data, [\"counterparty\",\"Counterparty\",\"CounterpartyDescription\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_CounterpartyDescription !== undefined && out_Persons_get_counterparty_Counterparty_CounterpartyDescription !== null && typeof out_Persons_get_counterparty_Counterparty_CounterpartyDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_CounterpartyDescription\", String(out_Persons_get_counterparty_Counterparty_CounterpartyDescription));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_ExecutiveDescription = pick(data, [\"counterparty\",\"Counterparty\",\"ExecutiveDescription\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_ExecutiveDescription !== undefined && out_Persons_get_counterparty_Counterparty_ExecutiveDescription !== null && typeof out_Persons_get_counterparty_Counterparty_ExecutiveDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_ExecutiveDescription\", String(out_Persons_get_counterparty_Counterparty_ExecutiveDescription));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_SegmentDescription = pick(data, [\"counterparty\",\"Counterparty\",\"SegmentDescription\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_SegmentDescription !== undefined && out_Persons_get_counterparty_Counterparty_SegmentDescription !== null && typeof out_Persons_get_counterparty_Counterparty_SegmentDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_SegmentDescription\", String(out_Persons_get_counterparty_Counterparty_SegmentDescription));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_CustomFields_customField_item_Correlative = pick(data, [\"counterparty\",\"Counterparty\",\"CustomFields\",\"customField\",\"item\",\"Correlative\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_CustomFields_customField_item_Correlative !== undefined && out_Persons_get_counterparty_Counterparty_CustomFields_customField_item_Correlative !== null && typeof out_Persons_get_counterparty_Counterparty_CustomFields_customField_item_Correlative !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_CustomFields_customField_item_Correlative\", String(out_Persons_get_counterparty_Counterparty_CustomFields_customField_item_Correlative));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_CustomFields_customField_item_Description = pick(data, [\"counterparty\",\"Counterparty\",\"CustomFields\",\"customField\",\"item\",\"Description\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_CustomFields_customField_item_Description !== undefined && out_Persons_get_counterparty_Counterparty_CustomFields_customField_item_Description !== null && typeof out_Persons_get_counterparty_Counterparty_CustomFields_customField_item_Description !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_CustomFields_customField_item_Description\", String(out_Persons_get_counterparty_Counterparty_CustomFields_customField_item_Description));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_CustomFields_customField_item_Value = pick(data, [\"counterparty\",\"Counterparty\",\"CustomFields\",\"customField\",\"item\",\"Value\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_CustomFields_customField_item_Value !== undefined && out_Persons_get_counterparty_Counterparty_CustomFields_customField_item_Value !== null && typeof out_Persons_get_counterparty_Counterparty_CustomFields_customField_item_Value !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_CustomFields_customField_item_Value\", String(out_Persons_get_counterparty_Counterparty_CustomFields_customField_item_Value));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_CustomFields_customField_item_Id = pick(data, [\"counterparty\",\"Counterparty\",\"CustomFields\",\"customField\",\"item\",\"Id\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_CustomFields_customField_item_Id !== undefined && out_Persons_get_counterparty_Counterparty_CustomFields_customField_item_Id !== null && typeof out_Persons_get_counterparty_Counterparty_CustomFields_customField_item_Id !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_CustomFields_customField_item_Id\", String(out_Persons_get_counterparty_Counterparty_CustomFields_customField_item_Id));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_Employee = pick(data, [\"counterparty\",\"Counterparty\",\"Employee\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_Employee !== undefined && out_Persons_get_counterparty_Counterparty_Employee !== null && typeof out_Persons_get_counterparty_Counterparty_Employee !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_Employee\", String(out_Persons_get_counterparty_Counterparty_Employee));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_SectorDescription = pick(data, [\"counterparty\",\"Counterparty\",\"SectorDescription\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_SectorDescription !== undefined && out_Persons_get_counterparty_Counterparty_SectorDescription !== null && typeof out_Persons_get_counterparty_Counterparty_SectorDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_SectorDescription\", String(out_Persons_get_counterparty_Counterparty_SectorDescription));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_StatusDescription = pick(data, [\"counterparty\",\"Counterparty\",\"StatusDescription\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_StatusDescription !== undefined && out_Persons_get_counterparty_Counterparty_StatusDescription !== null && typeof out_Persons_get_counterparty_Counterparty_StatusDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_StatusDescription\", String(out_Persons_get_counterparty_Counterparty_StatusDescription));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_FinancialInstitution = pick(data, [\"counterparty\",\"Counterparty\",\"FinancialInstitution\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_FinancialInstitution !== undefined && out_Persons_get_counterparty_Counterparty_FinancialInstitution !== null && typeof out_Persons_get_counterparty_Counterparty_FinancialInstitution !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_FinancialInstitution\", String(out_Persons_get_counterparty_Counterparty_FinancialInstitution));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_EconomicActivityDescription = pick(data, [\"counterparty\",\"Counterparty\",\"EconomicActivityDescription\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_EconomicActivityDescription !== undefined && out_Persons_get_counterparty_Counterparty_EconomicActivityDescription !== null && typeof out_Persons_get_counterparty_Counterparty_EconomicActivityDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_EconomicActivityDescription\", String(out_Persons_get_counterparty_Counterparty_EconomicActivityDescription));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_Resident = pick(data, [\"counterparty\",\"Counterparty\",\"Resident\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_Resident !== undefined && out_Persons_get_counterparty_Counterparty_Resident !== null && typeof out_Persons_get_counterparty_Counterparty_Resident !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_Resident\", String(out_Persons_get_counterparty_Counterparty_Resident));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_StatusId = pick(data, [\"counterparty\",\"Counterparty\",\"StatusId\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_StatusId !== undefined && out_Persons_get_counterparty_Counterparty_StatusId !== null && typeof out_Persons_get_counterparty_Counterparty_StatusId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_StatusId\", String(out_Persons_get_counterparty_Counterparty_StatusId));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_SectorId = pick(data, [\"counterparty\",\"Counterparty\",\"SectorId\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_SectorId !== undefined && out_Persons_get_counterparty_Counterparty_SectorId !== null && typeof out_Persons_get_counterparty_Counterparty_SectorId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_SectorId\", String(out_Persons_get_counterparty_Counterparty_SectorId));",
+                  "}",
+                  "var out_Persons_get_counterparty_Counterparty_BranchDescription = pick(data, [\"counterparty\",\"Counterparty\",\"BranchDescription\"]);",
+                  "if (out_Persons_get_counterparty_Counterparty_BranchDescription !== undefined && out_Persons_get_counterparty_Counterparty_BranchDescription !== null && typeof out_Persons_get_counterparty_Counterparty_BranchDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Counterparty_BranchDescription\", String(out_Persons_get_counterparty_Counterparty_BranchDescription));",
+                  "}",
+                  "var out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_AssociatedToAnAddress = pick(data, [\"counterparty\",\"Contacts\",\"SdtsBTPEWContact\",\"item\",\"AssociatedToAnAddress\"]);",
+                  "if (out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_AssociatedToAnAddress !== undefined && out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_AssociatedToAnAddress !== null && typeof out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_AssociatedToAnAddress !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_AssociatedToAnAddress\", String(out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_AssociatedToAnAddress));",
+                  "}",
+                  "var out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Comment = pick(data, [\"counterparty\",\"Contacts\",\"SdtsBTPEWContact\",\"item\",\"Comment\"]);",
+                  "if (out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Comment !== undefined && out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Comment !== null && typeof out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Comment !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Comment\", String(out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Comment));",
+                  "}",
+                  "var out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_AddressCorrelative = pick(data, [\"counterparty\",\"Contacts\",\"SdtsBTPEWContact\",\"item\",\"AddressCorrelative\"]);",
+                  "if (out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_AddressCorrelative !== undefined && out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_AddressCorrelative !== null && typeof out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_AddressCorrelative !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_AddressCorrelative\", String(out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_AddressCorrelative));",
+                  "}",
+                  "var out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Validated = pick(data, [\"counterparty\",\"Contacts\",\"SdtsBTPEWContact\",\"item\",\"Validated\"]);",
+                  "if (out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Validated !== undefined && out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Validated !== null && typeof out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Validated !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Validated\", String(out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Validated));",
+                  "}",
+                  "var out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Priority = pick(data, [\"counterparty\",\"Contacts\",\"SdtsBTPEWContact\",\"item\",\"Priority\"]);",
+                  "if (out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Priority !== undefined && out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Priority !== null && typeof out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Priority !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Priority\", String(out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Priority));",
+                  "}",
+                  "var out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Enabled = pick(data, [\"counterparty\",\"Contacts\",\"SdtsBTPEWContact\",\"item\",\"Enabled\"]);",
+                  "if (out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Enabled !== undefined && out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Enabled !== null && typeof out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Enabled !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Enabled\", String(out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Enabled));",
+                  "}",
+                  "var out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Text = pick(data, [\"counterparty\",\"Contacts\",\"SdtsBTPEWContact\",\"item\",\"Text\"]);",
+                  "if (out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Text !== undefined && out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Text !== null && typeof out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Text !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Text\", String(out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Text));",
+                  "}",
+                  "var out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_TelephoneCompanyDescription = pick(data, [\"counterparty\",\"Contacts\",\"SdtsBTPEWContact\",\"item\",\"TelephoneCompanyDescription\"]);",
+                  "if (out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_TelephoneCompanyDescription !== undefined && out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_TelephoneCompanyDescription !== null && typeof out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_TelephoneCompanyDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_TelephoneCompanyDescription\", String(out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_TelephoneCompanyDescription));",
+                  "}",
+                  "var out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_EndTimeRange2 = pick(data, [\"counterparty\",\"Contacts\",\"SdtsBTPEWContact\",\"item\",\"EndTimeRange2\"]);",
+                  "if (out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_EndTimeRange2 !== undefined && out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_EndTimeRange2 !== null && typeof out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_EndTimeRange2 !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_EndTimeRange2\", String(out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_EndTimeRange2));",
+                  "}",
+                  "var out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_EndTimeRange1 = pick(data, [\"counterparty\",\"Contacts\",\"SdtsBTPEWContact\",\"item\",\"EndTimeRange1\"]);",
+                  "if (out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_EndTimeRange1 !== undefined && out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_EndTimeRange1 !== null && typeof out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_EndTimeRange1 !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_EndTimeRange1\", String(out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_EndTimeRange1));",
+                  "}",
+                  "var out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Correlative = pick(data, [\"counterparty\",\"Contacts\",\"SdtsBTPEWContact\",\"item\",\"Correlative\"]);",
+                  "if (out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Correlative !== undefined && out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Correlative !== null && typeof out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Correlative !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Correlative\", String(out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_Correlative));",
+                  "}",
+                  "var out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_ContactTypeId = pick(data, [\"counterparty\",\"Contacts\",\"SdtsBTPEWContact\",\"item\",\"ContactTypeId\"]);",
+                  "if (out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_ContactTypeId !== undefined && out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_ContactTypeId !== null && typeof out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_ContactTypeId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_ContactTypeId\", String(out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_ContactTypeId));",
+                  "}",
+                  "var out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_TelephoneCompanyId = pick(data, [\"counterparty\",\"Contacts\",\"SdtsBTPEWContact\",\"item\",\"TelephoneCompanyId\"]);",
+                  "if (out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_TelephoneCompanyId !== undefined && out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_TelephoneCompanyId !== null && typeof out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_TelephoneCompanyId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_TelephoneCompanyId\", String(out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_TelephoneCompanyId));",
+                  "}",
+                  "var out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_StartTimeRange2 = pick(data, [\"counterparty\",\"Contacts\",\"SdtsBTPEWContact\",\"item\",\"StartTimeRange2\"]);",
+                  "if (out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_StartTimeRange2 !== undefined && out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_StartTimeRange2 !== null && typeof out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_StartTimeRange2 !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_StartTimeRange2\", String(out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_StartTimeRange2));",
+                  "}",
+                  "var out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_AddressId = pick(data, [\"counterparty\",\"Contacts\",\"SdtsBTPEWContact\",\"item\",\"AddressId\"]);",
+                  "if (out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_AddressId !== undefined && out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_AddressId !== null && typeof out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_AddressId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_AddressId\", String(out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_AddressId));",
+                  "}",
+                  "var out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_ContactTypeDescription = pick(data, [\"counterparty\",\"Contacts\",\"SdtsBTPEWContact\",\"item\",\"ContactTypeDescription\"]);",
+                  "if (out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_ContactTypeDescription !== undefined && out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_ContactTypeDescription !== null && typeof out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_ContactTypeDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_ContactTypeDescription\", String(out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_ContactTypeDescription));",
+                  "}",
+                  "var out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_ReceivesMails = pick(data, [\"counterparty\",\"Contacts\",\"SdtsBTPEWContact\",\"item\",\"ReceivesMails\"]);",
+                  "if (out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_ReceivesMails !== undefined && out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_ReceivesMails !== null && typeof out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_ReceivesMails !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_ReceivesMails\", String(out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_ReceivesMails));",
+                  "}",
+                  "var out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_StartTimeRange1 = pick(data, [\"counterparty\",\"Contacts\",\"SdtsBTPEWContact\",\"item\",\"StartTimeRange1\"]);",
+                  "if (out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_StartTimeRange1 !== undefined && out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_StartTimeRange1 !== null && typeof out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_StartTimeRange1 !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_StartTimeRange1\", String(out_Persons_get_counterparty_Contacts_SdtsBTPEWContact_item_StartTimeRange1));",
+                  "}",
+                  "var out_Persons_get_counterparty_FinancialInstitution_CompanyId = pick(data, [\"counterparty\",\"FinancialInstitution\",\"CompanyId\"]);",
+                  "if (out_Persons_get_counterparty_FinancialInstitution_CompanyId !== undefined && out_Persons_get_counterparty_FinancialInstitution_CompanyId !== null && typeof out_Persons_get_counterparty_FinancialInstitution_CompanyId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_FinancialInstitution_CompanyId\", String(out_Persons_get_counterparty_FinancialInstitution_CompanyId));",
+                  "}",
+                  "var out_Persons_get_counterparty_FinancialInstitution_EstablishmentCountryDescription = pick(data, [\"counterparty\",\"FinancialInstitution\",\"EstablishmentCountryDescription\"]);",
+                  "if (out_Persons_get_counterparty_FinancialInstitution_EstablishmentCountryDescription !== undefined && out_Persons_get_counterparty_FinancialInstitution_EstablishmentCountryDescription !== null && typeof out_Persons_get_counterparty_FinancialInstitution_EstablishmentCountryDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_FinancialInstitution_EstablishmentCountryDescription\", String(out_Persons_get_counterparty_FinancialInstitution_EstablishmentCountryDescription));",
+                  "}",
+                  "var out_Persons_get_counterparty_FinancialInstitution_SwiftKey = pick(data, [\"counterparty\",\"FinancialInstitution\",\"SwiftKey\"]);",
+                  "if (out_Persons_get_counterparty_FinancialInstitution_SwiftKey !== undefined && out_Persons_get_counterparty_FinancialInstitution_SwiftKey !== null && typeof out_Persons_get_counterparty_FinancialInstitution_SwiftKey !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_FinancialInstitution_SwiftKey\", String(out_Persons_get_counterparty_FinancialInstitution_SwiftKey));",
+                  "}",
+                  "var out_Persons_get_counterparty_FinancialInstitution_DocumentNumber = pick(data, [\"counterparty\",\"FinancialInstitution\",\"DocumentNumber\"]);",
+                  "if (out_Persons_get_counterparty_FinancialInstitution_DocumentNumber !== undefined && out_Persons_get_counterparty_FinancialInstitution_DocumentNumber !== null && typeof out_Persons_get_counterparty_FinancialInstitution_DocumentNumber !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_FinancialInstitution_DocumentNumber\", String(out_Persons_get_counterparty_FinancialInstitution_DocumentNumber));",
+                  "}",
+                  "var out_Persons_get_counterparty_FinancialInstitution_HasSwiftKey = pick(data, [\"counterparty\",\"FinancialInstitution\",\"HasSwiftKey\"]);",
+                  "if (out_Persons_get_counterparty_FinancialInstitution_HasSwiftKey !== undefined && out_Persons_get_counterparty_FinancialInstitution_HasSwiftKey !== null && typeof out_Persons_get_counterparty_FinancialInstitution_HasSwiftKey !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_FinancialInstitution_HasSwiftKey\", String(out_Persons_get_counterparty_FinancialInstitution_HasSwiftKey));",
+                  "}",
+                  "var out_Persons_get_counterparty_FinancialInstitution_DocumentTypeId = pick(data, [\"counterparty\",\"FinancialInstitution\",\"DocumentTypeId\"]);",
+                  "if (out_Persons_get_counterparty_FinancialInstitution_DocumentTypeId !== undefined && out_Persons_get_counterparty_FinancialInstitution_DocumentTypeId !== null && typeof out_Persons_get_counterparty_FinancialInstitution_DocumentTypeId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_FinancialInstitution_DocumentTypeId\", String(out_Persons_get_counterparty_FinancialInstitution_DocumentTypeId));",
+                  "}",
+                  "var out_Persons_get_counterparty_FinancialInstitution_Name = pick(data, [\"counterparty\",\"FinancialInstitution\",\"Name\"]);",
+                  "if (out_Persons_get_counterparty_FinancialInstitution_Name !== undefined && out_Persons_get_counterparty_FinancialInstitution_Name !== null && typeof out_Persons_get_counterparty_FinancialInstitution_Name !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_FinancialInstitution_Name\", String(out_Persons_get_counterparty_FinancialInstitution_Name));",
+                  "}",
+                  "var out_Persons_get_counterparty_FinancialInstitution_EntryStatusDescription = pick(data, [\"counterparty\",\"FinancialInstitution\",\"EntryStatusDescription\"]);",
+                  "if (out_Persons_get_counterparty_FinancialInstitution_EntryStatusDescription !== undefined && out_Persons_get_counterparty_FinancialInstitution_EntryStatusDescription !== null && typeof out_Persons_get_counterparty_FinancialInstitution_EntryStatusDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_FinancialInstitution_EntryStatusDescription\", String(out_Persons_get_counterparty_FinancialInstitution_EntryStatusDescription));",
+                  "}",
+                  "var out_Persons_get_counterparty_FinancialInstitution_Type = pick(data, [\"counterparty\",\"FinancialInstitution\",\"Type\"]);",
+                  "if (out_Persons_get_counterparty_FinancialInstitution_Type !== undefined && out_Persons_get_counterparty_FinancialInstitution_Type !== null && typeof out_Persons_get_counterparty_FinancialInstitution_Type !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_FinancialInstitution_Type\", String(out_Persons_get_counterparty_FinancialInstitution_Type));",
+                  "}",
+                  "var out_Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Correlative = pick(data, [\"counterparty\",\"FinancialInstitution\",\"CustomFields\",\"customField\",\"item\",\"Correlative\"]);",
+                  "if (out_Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Correlative !== undefined && out_Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Correlative !== null && typeof out_Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Correlative !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Correlative\", String(out_Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Correlative));",
+                  "}",
+                  "var out_Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Description = pick(data, [\"counterparty\",\"FinancialInstitution\",\"CustomFields\",\"customField\",\"item\",\"Description\"]);",
+                  "if (out_Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Description !== undefined && out_Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Description !== null && typeof out_Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Description !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Description\", String(out_Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Description));",
+                  "}",
+                  "var out_Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Value = pick(data, [\"counterparty\",\"FinancialInstitution\",\"CustomFields\",\"customField\",\"item\",\"Value\"]);",
+                  "if (out_Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Value !== undefined && out_Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Value !== null && typeof out_Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Value !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Value\", String(out_Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Value));",
+                  "}",
+                  "var out_Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Id = pick(data, [\"counterparty\",\"FinancialInstitution\",\"CustomFields\",\"customField\",\"item\",\"Id\"]);",
+                  "if (out_Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Id !== undefined && out_Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Id !== null && typeof out_Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Id !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Id\", String(out_Persons_get_counterparty_FinancialInstitution_CustomFields_customField_item_Id));",
+                  "}",
+                  "var out_Persons_get_counterparty_FinancialInstitution_PersonId = pick(data, [\"counterparty\",\"FinancialInstitution\",\"PersonId\"]);",
+                  "if (out_Persons_get_counterparty_FinancialInstitution_PersonId !== undefined && out_Persons_get_counterparty_FinancialInstitution_PersonId !== null && typeof out_Persons_get_counterparty_FinancialInstitution_PersonId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_FinancialInstitution_PersonId\", String(out_Persons_get_counterparty_FinancialInstitution_PersonId));",
+                  "}",
+                  "var out_Persons_get_counterparty_FinancialInstitution_DocumentTypeDescription = pick(data, [\"counterparty\",\"FinancialInstitution\",\"DocumentTypeDescription\"]);",
+                  "if (out_Persons_get_counterparty_FinancialInstitution_DocumentTypeDescription !== undefined && out_Persons_get_counterparty_FinancialInstitution_DocumentTypeDescription !== null && typeof out_Persons_get_counterparty_FinancialInstitution_DocumentTypeDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_FinancialInstitution_DocumentTypeDescription\", String(out_Persons_get_counterparty_FinancialInstitution_DocumentTypeDescription));",
+                  "}",
+                  "var out_Persons_get_counterparty_FinancialInstitution_EntryStatusId = pick(data, [\"counterparty\",\"FinancialInstitution\",\"EntryStatusId\"]);",
+                  "if (out_Persons_get_counterparty_FinancialInstitution_EntryStatusId !== undefined && out_Persons_get_counterparty_FinancialInstitution_EntryStatusId !== null && typeof out_Persons_get_counterparty_FinancialInstitution_EntryStatusId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_FinancialInstitution_EntryStatusId\", String(out_Persons_get_counterparty_FinancialInstitution_EntryStatusId));",
+                  "}",
+                  "var out_Persons_get_counterparty_FinancialInstitution_TypeDescription = pick(data, [\"counterparty\",\"FinancialInstitution\",\"TypeDescription\"]);",
+                  "if (out_Persons_get_counterparty_FinancialInstitution_TypeDescription !== undefined && out_Persons_get_counterparty_FinancialInstitution_TypeDescription !== null && typeof out_Persons_get_counterparty_FinancialInstitution_TypeDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_FinancialInstitution_TypeDescription\", String(out_Persons_get_counterparty_FinancialInstitution_TypeDescription));",
+                  "}",
+                  "var out_Persons_get_counterparty_FinancialInstitution_IsCorrespondentAccount = pick(data, [\"counterparty\",\"FinancialInstitution\",\"IsCorrespondentAccount\"]);",
+                  "if (out_Persons_get_counterparty_FinancialInstitution_IsCorrespondentAccount !== undefined && out_Persons_get_counterparty_FinancialInstitution_IsCorrespondentAccount !== null && typeof out_Persons_get_counterparty_FinancialInstitution_IsCorrespondentAccount !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_FinancialInstitution_IsCorrespondentAccount\", String(out_Persons_get_counterparty_FinancialInstitution_IsCorrespondentAccount));",
+                  "}",
+                  "var out_Persons_get_counterparty_FinancialInstitution_EstablishmentCountryId = pick(data, [\"counterparty\",\"FinancialInstitution\",\"EstablishmentCountryId\"]);",
+                  "if (out_Persons_get_counterparty_FinancialInstitution_EstablishmentCountryId !== undefined && out_Persons_get_counterparty_FinancialInstitution_EstablishmentCountryId !== null && typeof out_Persons_get_counterparty_FinancialInstitution_EstablishmentCountryId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_FinancialInstitution_EstablishmentCountryId\", String(out_Persons_get_counterparty_FinancialInstitution_EstablishmentCountryId));",
+                  "}",
+                  "var out_Persons_get_counterparty_FinancialInstitution_CounterpartyId = pick(data, [\"counterparty\",\"FinancialInstitution\",\"CounterpartyId\"]);",
+                  "if (out_Persons_get_counterparty_FinancialInstitution_CounterpartyId !== undefined && out_Persons_get_counterparty_FinancialInstitution_CounterpartyId !== null && typeof out_Persons_get_counterparty_FinancialInstitution_CounterpartyId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_FinancialInstitution_CounterpartyId\", String(out_Persons_get_counterparty_FinancialInstitution_CounterpartyId));",
+                  "}",
+                  "var out_Persons_get_counterparty_Texts_SdtsBTPAWText_item_Description = pick(data, [\"counterparty\",\"Texts\",\"SdtsBTPAWText\",\"item\",\"Description\"]);",
+                  "if (out_Persons_get_counterparty_Texts_SdtsBTPAWText_item_Description !== undefined && out_Persons_get_counterparty_Texts_SdtsBTPAWText_item_Description !== null && typeof out_Persons_get_counterparty_Texts_SdtsBTPAWText_item_Description !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Texts_SdtsBTPAWText_item_Description\", String(out_Persons_get_counterparty_Texts_SdtsBTPAWText_item_Description));",
+                  "}",
+                  "var out_Persons_get_counterparty_Texts_SdtsBTPAWText_item_Text = pick(data, [\"counterparty\",\"Texts\",\"SdtsBTPAWText\",\"item\",\"Text\"]);",
+                  "if (out_Persons_get_counterparty_Texts_SdtsBTPAWText_item_Text !== undefined && out_Persons_get_counterparty_Texts_SdtsBTPAWText_item_Text !== null && typeof out_Persons_get_counterparty_Texts_SdtsBTPAWText_item_Text !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Texts_SdtsBTPAWText_item_Text\", String(out_Persons_get_counterparty_Texts_SdtsBTPAWText_item_Text));",
+                  "}",
+                  "var out_Persons_get_counterparty_Texts_SdtsBTPAWText_item_Id = pick(data, [\"counterparty\",\"Texts\",\"SdtsBTPAWText\",\"item\",\"Id\"]);",
+                  "if (out_Persons_get_counterparty_Texts_SdtsBTPAWText_item_Id !== undefined && out_Persons_get_counterparty_Texts_SdtsBTPAWText_item_Id !== null && typeof out_Persons_get_counterparty_Texts_SdtsBTPAWText_item_Id !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_Texts_SdtsBTPAWText_item_Id\", String(out_Persons_get_counterparty_Texts_SdtsBTPAWText_item_Id));",
+                  "}",
+                  "var out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupName = pick(data, [\"counterparty\",\"EconomicGroups\",\"SdtsBTEGWEconomicGroup\",\"item\",\"GroupName\"]);",
+                  "if (out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupName !== undefined && out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupName !== null && typeof out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupName !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupName\", String(out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupName));",
+                  "}",
+                  "var out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupTypeId = pick(data, [\"counterparty\",\"EconomicGroups\",\"SdtsBTEGWEconomicGroup\",\"item\",\"GroupTypeId\"]);",
+                  "if (out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupTypeId !== undefined && out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupTypeId !== null && typeof out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupTypeId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupTypeId\", String(out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupTypeId));",
+                  "}",
+                  "var out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupTypeDescription = pick(data, [\"counterparty\",\"EconomicGroups\",\"SdtsBTEGWEconomicGroup\",\"item\",\"GroupTypeDescription\"]);",
+                  "if (out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupTypeDescription !== undefined && out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupTypeDescription !== null && typeof out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupTypeDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupTypeDescription\", String(out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupTypeDescription));",
+                  "}",
+                  "var out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_MemberTypeId = pick(data, [\"counterparty\",\"EconomicGroups\",\"SdtsBTEGWEconomicGroup\",\"item\",\"MemberTypeId\"]);",
+                  "if (out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_MemberTypeId !== undefined && out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_MemberTypeId !== null && typeof out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_MemberTypeId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_MemberTypeId\", String(out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_MemberTypeId));",
+                  "}",
+                  "var out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupId = pick(data, [\"counterparty\",\"EconomicGroups\",\"SdtsBTEGWEconomicGroup\",\"item\",\"GroupId\"]);",
+                  "if (out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupId !== undefined && out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupId !== null && typeof out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupId\", String(out_Persons_get_counterparty_EconomicGroups_SdtsBTEGWEconomicGroup_item_GroupId));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Canal",
+                "value": "{{channel}}",
+                "type": "text"
+              },
+              {
+                "key": "Device",
+                "value": "{{device}}",
+                "type": "text"
+              },
+              {
+                "key": "Usuario",
+                "value": "{{username}}",
+                "type": "text"
+              },
+              {
+                "key": "Requerimiento",
+                "value": "{{requirement}}",
+                "type": "text"
+              },
+              {
+                "key": "Token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/public/Persons/v1/get?personGUID={{[object Object]}}",
+              "protocol": "http",
+              "host": [
+                "10",
+                "0",
+                "0",
+                "7"
+              ],
+              "port": "5101",
+              "path": [
+                "api",
+                "publicapi",
+                "public",
+                "Persons",
+                "v1",
+                "get"
+              ],
+              "query": [
+                {
+                  "key": "personGUID",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Enter a description"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
