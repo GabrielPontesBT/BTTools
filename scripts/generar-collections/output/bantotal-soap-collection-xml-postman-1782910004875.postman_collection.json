@@ -1,0 +1,244 @@
+{
+  "info": {
+    "name": "Bantotal SOAP Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Coleccion generada desde la app para flujo XML/Postman."
+  },
+  "variable": [
+    {
+      "key": "api_base_url",
+      "value": "http://10.0.0.5:8445/btv4core",
+      "type": "string"
+    },
+    {
+      "key": "public_api_url",
+      "value": "http://10.0.0.7:5101/api/publicapi",
+      "type": "string"
+    },
+    {
+      "key": "auth_url",
+      "value": "http://10.0.0.7:5101/api/publicapi/Authenticate/v1/Execute",
+      "type": "string"
+    },
+    {
+      "key": "channel",
+      "value": "BTDIGITAL",
+      "type": "string"
+    },
+    {
+      "key": "username",
+      "value": "INSTALADOR",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "Bantotal2015",
+      "type": "string"
+    },
+    {
+      "key": "device",
+      "value": "INSTALADOR",
+      "type": "string"
+    },
+    {
+      "key": "requirement",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "lastSoapResponse",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "orderId",
+      "value": "280",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Caso de uso 1",
+      "description": "Caso de uso generado desde la app.",
+      "item": [
+        {
+          "name": "0. Authenticate",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "pm.collectionVariables.set('lastSoapResponse', JSON.stringify(data));",
+                  "var sessionToken = data.SessionToken || data.Token || data.sessionToken || data.token;",
+                  "pm.test('Token disponible', function () { pm.expect(sessionToken, JSON.stringify(data)).to.exist; });",
+                  "if (sessionToken !== null && sessionToken !== undefined) {",
+                  "  pm.collectionVariables.set('token', String(sessionToken));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Canal",
+                "value": "{{channel}}",
+                "type": "text"
+              },
+              {
+                "key": "Device",
+                "value": "{{device}}",
+                "type": "text"
+              },
+              {
+                "key": "Usuario",
+                "value": "{{username}}",
+                "type": "text"
+              },
+              {
+                "key": "Requerimiento",
+                "value": "{{requirement}}",
+                "type": "text"
+              },
+              {
+                "key": "Token",
+                "value": "",
+                "type": "text"
+              },
+              {
+                "key": "idempotency-key",
+                "value": "1",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"UserId\": \"{{username}}\",\n  \"UserPassword\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{auth_url}}",
+              "protocol": "http",
+              "host": [
+                "10",
+                "0",
+                "0",
+                "7"
+              ],
+              "port": "5101",
+              "path": [
+                "api",
+                "publicapi",
+                "Authenticate",
+                "v1",
+                "Execute"
+              ],
+              "query": []
+            },
+            "description": "Obtiene el token de sesion para los requests del flujo."
+          },
+          "response": []
+        },
+        {
+          "name": "1. PublicCASHManagement.authorizeOrder",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var text = pm.response.text();",
+                  "var jsonData = xml2Json(text);",
+                  "pm.collectionVariables.set('lastSoapResponse', JSON.stringify(jsonData));",
+                  "function findNode(node, key) {",
+                  "  if (!node || typeof node !== 'object') return null;",
+                  "  if (Object.prototype.hasOwnProperty.call(node, key)) return node[key];",
+                  "  for (var k in node) {",
+                  "    if (!Object.prototype.hasOwnProperty.call(node, k)) continue;",
+                  "    var found = findNode(node[k], key);",
+                  "    if (found !== null && found !== undefined) return found;",
+                  "  }",
+                  "  return null;",
+                  "}",
+                  "var businessErrors = findNode(jsonData, 'BusinessErrors');",
+                  "var businessError = businessErrors ? (businessErrors.businessError || businessErrors.BusinessError) : null;",
+                  "pm.test('Sin errores de negocio', function () {",
+                  "  pm.expect(businessError, JSON.stringify(businessErrors)).to.not.exist;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/xml; charset=utf-8",
+                "type": "text"
+              },
+              {
+                "key": "SOAPAction",
+                "value": "http://uy.com.dlya.bantotal/BTSOA/action/APUBLICCASHMANAGEMENT.authorizeOrder",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:bts=\"http://uy.com.dlya.bantotal/BTSOA/\">\n  <soapenv:Header/>\n  <soapenv:Body>\n    <bts:PublicCASHManagement.authorizeOrder>\n      <bts:Btinreq>\n        <bts:Canal>{{channel}}</bts:Canal>\n        <bts:Usuario>{{username}}</bts:Usuario>\n        <bts:Device>{{device}}</bts:Device>\n        <bts:Requerimiento>{{requirement}}</bts:Requerimiento>\n        <bts:Token>{{token}}</bts:Token>\n      </bts:Btinreq>\n      <bts:orderId>{{orderId}}</bts:orderId>\n    </bts:PublicCASHManagement.authorizeOrder>\n  </soapenv:Body>\n</soapenv:Envelope>",
+              "options": {
+                "raw": {
+                  "language": "xml"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{api_base_url}}/servlet/com.dlya.bantotal.ardwsbt_PublicCASHManagement_v1?authorizeOrder",
+              "protocol": "http",
+              "host": [
+                "10",
+                "0",
+                "0",
+                "5"
+              ],
+              "port": "8445",
+              "path": [
+                "btv4core",
+                "servlet",
+                "com.dlya.bantotal.ardwsbt_PublicCASHManagement_v1"
+              ],
+              "query": [
+                {
+                  "key": "authorizeOrder",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Método para autorizar una orden determinada."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

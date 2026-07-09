@@ -5,6 +5,7 @@ const path   = require('path');
 const os     = require('os');
 const crypto = require('crypto');
 const { exec, spawn } = require('child_process');
+const { createCollectionFeature } = require('./scripts/generar-collections');
 
 const PORT = 3777;
 const ROOT = __dirname;
@@ -70,6 +71,17 @@ function readBody(req) {
     req.on('data', c => (s += c));
     req.on('end', () => { try { resolve(JSON.parse(s)); } catch (e) { reject(e); } });
   });
+}
+
+function resolveV4AuthUrl(api) {
+  const publicBaseUrl = String((api && api.BASE_URL) || '').replace(/\/+$/g, '');
+  const apiBaseUrl = String((api && api.API_BASE_URL) || '').replace(/\/+$/g, '');
+  if (publicBaseUrl) return `${publicBaseUrl}/Authenticate/v1/Execute`;
+  if (apiBaseUrl) {
+    const normalized = apiBaseUrl.replace(/\/api\/publicapi$/i, '');
+    return `${normalized}/api/publicapi/Authenticate/v1/Execute`;
+  }
+  return '/Authenticate/v1/Execute';
 }
 
 async function testSqlServer(db) {
@@ -698,6 +710,174 @@ function sg_validateOne(mtdNom, svcNom, method, params) {
   return w;
 }
 
+function mapMethodSchemaRow(row) {
+  const name = (row.BTISRVPARNOM || '').trim();
+  const type = (row.BTISRVVARTIPO || '').trim();
+  const direction = (row.BTISRVPARDIR || '').trim();
+  const category = (row.BTISRVCATIT || '').trim();
+  const itemType = (row.BTISRVPARITTIPO || '').trim();
+  const itemName = (row.BTISRVPARITNOM || '').trim();
+  const sdtType = itemType || (type.startsWith('Sdt') ? type : '');
+  return {
+    name,
+    type,
+    direction,
+    category,
+    itemType,
+    itemName,
+    sdtType,
+    isComplex: !!sdtType,
+    isCollection: category === 'C' || (category === 'S' && !!itemType),
+    description: (row.BTISRVPARDSC || '').trim(),
+    length: row.BTISRVPARLARGO,
+    decimals: row.BTISRVPARDECI
+  };
+}
+
+function mapBti026SchemaRow(row) {
+  const type = (row.BTISDTELEMTIPO || '').trim();
+  const category = (row.BTISDTELEMCAT || '').trim();
+  const sdtType = (row.BTISDTELEMSDT && row.BTISDTELEMSDT.trim()) ||
+                  (type.startsWith('Sdt') ? type : '');
+  return {
+    name: (row.BTISDTELEMNOM || '').trim(),
+    type,
+    category,
+    sdtType,
+    isComplex: !!sdtType,
+    isCollection: category === 'C',
+    description: (row.BTISDTELEMDSC || '').trim(),
+    length: row.BTISDTELEMLARGO,
+    decimals: row.BTISDTELEMDECI
+  };
+}
+
+async function queryMethodSchema(platform, db, service, method) {
+  if (platform === 'sqlserver') {
+    const mod = path.join(ROOT, 'V3', 'node_modules', 'mssql');
+    if (!fs.existsSync(mod)) throw new Error('mssql no instalado - ejecuta npm install en V3/');
+    const mssql = require(mod);
+    const pool = new mssql.ConnectionPool({
+      server: db.DB_SERVER,
+      port: Number(db.DB_PORT) || 1433,
+      database: db.DB_DATABASE,
+      user: db.DB_USER,
+      password: db.DB_PASSWORD,
+      options: { trustServerCertificate: true },
+      connectionTimeout: 8000,
+    });
+    await pool.connect();
+    try {
+      const meta = await pool.request()
+        .input('svc', mssql.VarChar(100), service)
+        .input('mtd', mssql.VarChar(100), method)
+        .query(`SELECT BTISRVPARNOM, BTISRVVARTIPO, BTISRVPARDIR, BTISRVPARDSC, BTISRVPARLARGO, BTISRVPARDECI, BTISRVCATIT, BTISRVPARITTIPO, BTISRVPARITNOM
+                  FROM BTI019
+                 WHERE BTISRVNOM = @svc AND BTIMTDNOM = @mtd
+                 ORDER BY BTISRVPARPOSI`);
+
+      const info = await pool.request()
+        .input('svc', mssql.VarChar(100), service)
+        .input('mtd', mssql.VarChar(100), method)
+        .query('SELECT BTIMTDDSC FROM BTI014 WHERE BTISRVNOM = @svc AND BTIMTDNOM = @mtd');
+
+      const sdts = {};
+      async function loadSdt(sdtName) {
+        if (!sdtName || sdts[sdtName]) return;
+        const r26 = await pool.request()
+          .input('sdt', mssql.VarChar(100), sdtName)
+          .query(`SELECT BTISDTELEMNOM, BTISDTELEMTIPO, BTISDTELEMLARGO, BTISDTELEMDECI, BTISDTELEMCAT, BTISDTELEMDSC, BTISDTELEMSDT
+                    FROM BTI026
+                   WHERE BTISDTNOM = @sdt
+                   ORDER BY BTISDTELEMNOM`);
+        sdts[sdtName] = r26.recordset.map(mapBti026SchemaRow).filter(function(field) { return field.name; });
+        for (const field of sdts[sdtName]) {
+          if (field.sdtType) await loadSdt(field.sdtType);
+        }
+      }
+
+      const params = meta.recordset.map(mapMethodSchemaRow).filter(function(param) { return param.name; });
+      for (const param of params) {
+        if (param.sdtType) await loadSdt(param.sdtType);
+      }
+
+      return {
+        service,
+        method,
+        description: info.recordset[0] && info.recordset[0].BTIMTDDSC ? info.recordset[0].BTIMTDDSC.trim() : '',
+        inputs: params.filter(function(param) { return param.direction === 'I'; }),
+        outputs: params.filter(function(param) { return param.direction === 'O' || param.direction === 'R'; }),
+        sdts
+      };
+    } finally {
+      await pool.close();
+    }
+  }
+
+  const mod = path.join(ROOT, 'V4', 'node_modules', 'oracledb');
+  if (!fs.existsSync(mod)) throw new Error('oracledb no instalado - ejecuta npm install en V4/');
+  const oracledb = require(mod);
+  const conn = await oracledb.getConnection({
+    user: db.DB_USER,
+    password: db.DB_PASSWORD,
+    connectString: db.DB_CONNECT_STRING,
+  });
+  try {
+    const meta = await conn.execute(
+      `SELECT BTISRVPARNOM, BTISRVVARTIPO, BTISRVPARDIR, BTISRVPARDSC, BTISRVPARLARGO, BTISRVPARDECI, BTISRVCATIT, BTISRVPARITTIPO, BTISRVPARITNOM
+         FROM BTI019
+        WHERE BTISRVNOM = :1 AND BTIMTDNOM = :2
+        ORDER BY BTISRVPARPOSI`,
+      [service, method],
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+
+    const info = await conn.execute(
+      'SELECT BTIMTDDSC FROM BTI014 WHERE BTISRVNOM = :1 AND BTIMTDNOM = :2',
+      [service, method],
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+
+    const sdts = {};
+    async function loadSdt(sdtName) {
+      if (!sdtName || sdts[sdtName]) return;
+      const r26 = await conn.execute(
+        `SELECT BTISDTELEMNOM, BTISDTELEMTIPO, BTISDTELEMLARGO, BTISDTELEMDECI, BTISDTELEMCAT, BTISDTELEMDSC, BTISDTELEMSDT
+           FROM BTI026
+          WHERE BTISDTNOM = :1
+          ORDER BY BTISDTELEMNOM`,
+        [sdtName],
+        { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      );
+      sdts[sdtName] = r26.rows.map(mapBti026SchemaRow).filter(function(field) { return field.name; });
+      for (const field of sdts[sdtName]) {
+        if (field.sdtType) await loadSdt(field.sdtType);
+      }
+    }
+
+    const params = meta.rows.map(mapMethodSchemaRow).filter(function(param) { return param.name; });
+    for (const param of params) {
+      if (param.sdtType) await loadSdt(param.sdtType);
+    }
+
+    return {
+      service,
+      method,
+      description: info.rows[0] && info.rows[0].BTIMTDDSC ? info.rows[0].BTIMTDDSC.trim() : '',
+      inputs: params.filter(function(param) { return param.direction === 'I'; }),
+      outputs: params.filter(function(param) { return param.direction === 'O' || param.direction === 'R'; }),
+      sdts
+    };
+  } finally {
+    await conn.close();
+  }
+}
+
+const collectionFeature = createCollectionFeature({
+  ROOT,
+  queryMethodSchema
+});
+
 // -- server ------------------------------------------------
 
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -735,6 +915,10 @@ http.createServer(async (req, res) => {
     const full = path.resolve(PUBLIC_DIR, rel);
     if (!full.startsWith(PUBLIC_DIR)) { res.writeHead(403); res.end(); return; }
     serveStatic(res, full);
+    return;
+  }
+
+  if (await collectionFeature.handleApi(req, res, { readBody, json })) {
     return;
   }
 
@@ -777,11 +961,11 @@ http.createServer(async (req, res) => {
 
   if (req.method === 'POST' && req.url === '/api/test-auth') {
     try {
-      const { version, api } = await readBody(req);
+      const { version, api, authUrl: explicitAuthUrl } = await readBody(req);
       const https = require('https');
-      const authUrl = version === 'V3'
+      const authUrl = explicitAuthUrl || (version === 'V3'
         ? `${api.API_AUTH_URL}?Execute`
-        : `${api.BASE_URL}/Authenticate/v1/Execute`;
+        : resolveV4AuthUrl(api));
       const isV4 = version === 'V4';
       const body = isV4
         ? JSON.stringify({ UserId: api.API_USER, UserPassword: api.API_PASSWORD })
@@ -817,7 +1001,17 @@ http.createServer(async (req, res) => {
       try { parsed2 = JSON.parse(raw); } catch { throw new Error('Respuesta inesperada: ' + raw.slice(0, 200)); }
       const token = parsed2.SessionToken;
       if (!token) throw new Error(parsed2.Btoutreq?.Mensaje || parsed2.Mensaje || JSON.stringify(parsed2).slice(0, 200));
-      json(200, { ok: true });
+      json(200, {
+        ok: true,
+        token,
+        authContext: {
+          channel: api.API_CANAL || 'BTDIGITAL',
+          username: api.API_USER || '',
+          device: api.API_DEVICE || 'INSTALADOR',
+          requirement: api.API_REQUERIMIENTO || '1',
+          token
+        }
+      });
     } catch(e) {
       json(200, { ok: false, message: e.message });
     }

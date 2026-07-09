@@ -6,6 +6,7 @@
 <title>BTAPI</title>
 <link rel="icon" type="image/png" href="/public/isotipo.png">
 <link rel="stylesheet" href="/public/styles.css">
+<link rel="stylesheet" href="/public/collections.css">
 </head>
 <body>
 <div class="wizard">
@@ -310,16 +311,10 @@
       <pre id="fix-output" style="display:none;border:1.5px solid var(--border);border-radius:0.7em;padding:12px 16px;font-size:var(--fs-sm);font-family:Consolas,monospace;background:var(--code-bg);white-space:pre-wrap;word-break:break-word;overflow-y:auto;line-height:1.5;margin-top:var(--sp-2)"></pre>
     </div>
 
-    <!-- Generar Collections -->
-    <div class="panel" id="p4c">
-      <div class="ptitle">Generar Collections</div>
-      <div class="psub">Genera casos de uso a partir de la información de los servicios del ambiente.</div>
-      <div style="text-align:center;padding:48px 0 32px;color:var(--muted)">
-        <div style="font-size:56px;margin-bottom:var(--sp-5)">&#9993;</div>
-        <div style="font-size:var(--fs-base);font-weight:600;color:var(--text);margin-bottom:var(--sp-2)">Próximamente</div>
-        <div style="font-size:var(--fs-sm);line-height:1.6;max-width:360px;margin:0 auto">Esta herramienta está en desarrollo. Cuando esté lista, permitirá generar colecciones de requests listos para importar en herramientas de prueba.</div>
+      <!-- Generar Collections -->
+      <div class="panel" id="p4c">
+        <div id="collection-mount"></div>
       </div>
-    </div>
 
   </div>
 
@@ -348,5 +343,6 @@
   </div>
 </div>
 <script src="/public/wizard-doc.js"></script>
+<script src="/public/collections/collections-entry.js"></script>
 </body>
 </html>
