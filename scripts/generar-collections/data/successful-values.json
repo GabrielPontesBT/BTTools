@@ -1,0 +1,398 @@
+{
+  "V4::oracle::10.0.0.4:1521/btv4db::http://10.0.0.5:8445/btv4core": {
+    "channel": [
+      "BTDIGITAL"
+    ],
+    "username": [
+      "INSTALADOR"
+    ],
+    "device": [
+      "FC",
+      "INSTALADOR"
+    ],
+    "requirement": [
+      "1"
+    ],
+    "token": [
+      "71FD9C96684B7CF5BDFEBDB8",
+      "B240259FC0A0A579CBBA123B",
+      "3505B4911CE1B50A29F2780C",
+      "1B7BFDBA451B497072FA30F4",
+      "59F602BCFC51C0EF69650CD8",
+      "973D36B3B3558A47EFCC83BD",
+      "E8B23FF2E2D8A9DCB23BFF61",
+      "8F93FA3048C9B909A0822626"
+    ],
+    "ProductGUID": [
+      "d6328022-6f93-4afc-b59b-a29f435aba41"
+    ],
+    "CurrencyDescription": [
+      "Pesos Uruguayos"
+    ],
+    "KindDescription": [
+      "Billete"
+    ],
+    "CurrencySign": [
+      "$"
+    ],
+    "KindId": [
+      "0"
+    ],
+    "ProductDescription": [
+      "COMPRA DE VIVIENDA"
+    ],
+    "CurrencyId": [
+      "0"
+    ],
+    "offset": [
+      "0"
+    ],
+    "limit": [
+      "200"
+    ],
+    "groupId": [
+      "14",
+      "2"
+    ],
+    "groupName": [
+      "PRUEBA GRUPO SOAP 20",
+      "LAS PODEROSAS DEL RIMAC"
+    ],
+    "statusDescription": [
+      "Cancelada"
+    ],
+    "cycleId": [
+      "0",
+      "2"
+    ],
+    "lastCycleStatusId": [
+      "0"
+    ],
+    "status": [
+      "99"
+    ],
+    "hasNext": [
+      "true"
+    ],
+    "Loans_getGroups_groups_group_item_groupName": [
+      "LAS PODEROSAS DEL RIMAC"
+    ],
+    "Loans_getGroups_groups_group_item_statusDescription": [
+      "Cancelada"
+    ],
+    "Loans_getGroups_groups_group_item_groupId": [
+      "2"
+    ],
+    "Loans_getGroups_groups_group_item_cycleId": [
+      "2"
+    ],
+    "Loans_getGroups_groups_group_item_lastCycleStatusId": [
+      "3"
+    ],
+    "Loans_getGroups_groups_group_item_status": [
+      "99"
+    ],
+    "Loans_getGroups_hasNext": [
+      "true"
+    ],
+    "Loans_getGroups_groups_group_item_groupId_filter_groupId_14": [
+      "14"
+    ],
+    "branchId": [
+      "1"
+    ],
+    "savingAccountGUID": [
+      "00000000-0000-0000-0000-000000000000",
+      "95f6c6fb-6028-4ec5-b6c5-41612225ae15"
+    ],
+    "executiveId": [
+      "4"
+    ],
+    "meetingDomicileCorrelative": [
+      "1",
+      "0"
+    ],
+    "executiveDescription": [
+      "GRUPO 2"
+    ],
+    "meetingDayOfWeek": [
+      "1",
+      "3"
+    ],
+    "counterpartyOfDomicile": [
+      "4788",
+      "0"
+    ],
+    "latePenaltyAmount": [
+      "0",
+      "100"
+    ],
+    "meetingTime": [
+      "13:45",
+      "20:00"
+    ],
+    "meetingDomicile": [
+      "1",
+      "Av italia 1231"
+    ],
+    "branchDescription": [
+      "Sucursal Beta"
+    ],
+    "isAMemberDomicile": [
+      "true",
+      "false"
+    ],
+    "savingAccountExternalId": [
+      "0"
+    ],
+    "absencePenaltyAmount": [
+      "0",
+      "20"
+    ],
+    "isAccountOpenInInstitution": [
+      "false",
+      "true"
+    ],
+    "Loans_getGroup_group_branchId": [
+      "1"
+    ],
+    "Loans_getGroup_group_savingAccountGUID": [
+      "00000000-0000-0000-0000-000000000000",
+      "95f6c6fb-6028-4ec5-b6c5-41612225ae15"
+    ],
+    "Loans_getGroup_group_executiveId": [
+      "4"
+    ],
+    "Loans_getGroup_group_meetingDomicileCorrelative": [
+      "1",
+      "0"
+    ],
+    "Loans_getGroup_group_groupId": [
+      "14",
+      "2"
+    ],
+    "Loans_getGroup_group_cycleId": [
+      "0",
+      "2"
+    ],
+    "Loans_getGroup_group_executiveDescription": [
+      "GRUPO 2"
+    ],
+    "Loans_getGroup_group_meetingDayOfWeek": [
+      "1",
+      "3"
+    ],
+    "Loans_getGroup_group_counterpartyOfDomicile": [
+      "4788",
+      "0"
+    ],
+    "Loans_getGroup_group_latePenaltyAmount": [
+      "0",
+      "100"
+    ],
+    "Loans_getGroup_group_meetingTime": [
+      "13:45",
+      "20:00"
+    ],
+    "Loans_getGroup_group_groupName": [
+      "PRUEBA GRUPO SOAP 20",
+      "LAS PODEROSAS DEL RIMAC"
+    ],
+    "Loans_getGroup_group_meetingDomicile": [
+      "1",
+      "Av italia 1231"
+    ],
+    "Loans_getGroup_group_branchDescription": [
+      "Sucursal Beta"
+    ],
+    "Loans_getGroup_group_isAMemberDomicile": [
+      "true",
+      "false"
+    ],
+    "Loans_getGroup_group_savingAccountExternalId": [
+      "0"
+    ],
+    "Loans_getGroup_group_lastCycleStatusId": [
+      "0"
+    ],
+    "Loans_getGroup_group_absencePenaltyAmount": [
+      "0",
+      "20"
+    ],
+    "Loans_getGroup_group_isAccountOpenInInstitution": [
+      "false",
+      "true"
+    ]
+  },
+  "V4::oracle::10.0.0.4:1521/btv4db::": {
+    "offset": [
+      "0"
+    ],
+    "limit": [
+      "200"
+    ],
+    "groupId": [
+      "14"
+    ],
+    "channel": [
+      "BTDIGITAL"
+    ],
+    "username": [
+      "INSTALADOR"
+    ],
+    "device": [
+      "INSTALADOR"
+    ],
+    "requirement": [
+      "1"
+    ],
+    "token": [
+      "8FA9B98D40B3D24EBF55FA54",
+      "4D0FC2D7558DD84573EB5C28"
+    ],
+    "groupName": [
+      "PRUEBA GRUPO SOAP 20"
+    ],
+    "statusDescription": [
+      "Cancelada"
+    ],
+    "cycleId": [
+      "0"
+    ],
+    "lastCycleStatusId": [
+      "0"
+    ],
+    "status": [
+      "99"
+    ],
+    "hasNext": [
+      "true"
+    ],
+    "Loans_getGroups_groups_group_item_groupName": [
+      "LAS PODEROSAS DEL RIMAC"
+    ],
+    "Loans_getGroups_groups_group_item_statusDescription": [
+      "Cancelada"
+    ],
+    "Loans_getGroups_groups_group_item_groupId": [
+      "2"
+    ],
+    "Loans_getGroups_groups_group_item_cycleId": [
+      "2"
+    ],
+    "Loans_getGroups_groups_group_item_lastCycleStatusId": [
+      "3"
+    ],
+    "Loans_getGroups_groups_group_item_status": [
+      "99"
+    ],
+    "Loans_getGroups_hasNext": [
+      "true"
+    ],
+    "Loans_getGroups_groups_group_item_groupId_filter_groupId_14": [
+      "14"
+    ],
+    "branchId": [
+      "1"
+    ],
+    "savingAccountGUID": [
+      "00000000-0000-0000-0000-000000000000"
+    ],
+    "executiveId": [
+      "4"
+    ],
+    "meetingDomicileCorrelative": [
+      "1"
+    ],
+    "executiveDescription": [
+      "GRUPO 2"
+    ],
+    "meetingDayOfWeek": [
+      "1"
+    ],
+    "counterpartyOfDomicile": [
+      "4788"
+    ],
+    "latePenaltyAmount": [
+      "0"
+    ],
+    "meetingTime": [
+      "13:45"
+    ],
+    "meetingDomicile": [
+      "1"
+    ],
+    "branchDescription": [
+      "Sucursal Beta"
+    ],
+    "isAMemberDomicile": [
+      "true"
+    ],
+    "savingAccountExternalId": [
+      "0"
+    ],
+    "absencePenaltyAmount": [
+      "0"
+    ],
+    "isAccountOpenInInstitution": [
+      "false"
+    ],
+    "Loans_getGroup_group_branchId": [
+      "1"
+    ],
+    "Loans_getGroup_group_savingAccountGUID": [
+      "00000000-0000-0000-0000-000000000000"
+    ],
+    "Loans_getGroup_group_executiveId": [
+      "4"
+    ],
+    "Loans_getGroup_group_meetingDomicileCorrelative": [
+      "1"
+    ],
+    "Loans_getGroup_group_groupId": [
+      "14"
+    ],
+    "Loans_getGroup_group_cycleId": [
+      "0"
+    ],
+    "Loans_getGroup_group_executiveDescription": [
+      "GRUPO 2"
+    ],
+    "Loans_getGroup_group_meetingDayOfWeek": [
+      "1"
+    ],
+    "Loans_getGroup_group_counterpartyOfDomicile": [
+      "4788"
+    ],
+    "Loans_getGroup_group_latePenaltyAmount": [
+      "0"
+    ],
+    "Loans_getGroup_group_meetingTime": [
+      "13:45"
+    ],
+    "Loans_getGroup_group_groupName": [
+      "PRUEBA GRUPO SOAP 20"
+    ],
+    "Loans_getGroup_group_meetingDomicile": [
+      "1"
+    ],
+    "Loans_getGroup_group_branchDescription": [
+      "Sucursal Beta"
+    ],
+    "Loans_getGroup_group_isAMemberDomicile": [
+      "true"
+    ],
+    "Loans_getGroup_group_savingAccountExternalId": [
+      "0"
+    ],
+    "Loans_getGroup_group_lastCycleStatusId": [
+      "0"
+    ],
+    "Loans_getGroup_group_absencePenaltyAmount": [
+      "0"
+    ],
+    "Loans_getGroup_group_isAccountOpenInInstitution": [
+      "false"
+    ]
+  }
+}
