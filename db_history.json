@@ -1,5 +1,20 @@
 [
   {
+    "id": "1783437902685",
+    "key": "V3|ss|SQLSERVER1|ProductoGx16|productogx16",
+    "version": "V3",
+    "platform": "sqlserver",
+    "label": "Producto GX16",
+    "db": {
+      "server": "SQLSERVER1",
+      "port": "1433",
+      "database": "ProductoGx16",
+      "user": "productogx16",
+      "password": "prodGx16"
+    },
+    "savedAt": "2026-07-07T15:25:02.879Z"
+  },
+  {
     "id": "1782167130470",
     "key": "V4|ora|10.0.0.4:1521/btv4db|BTDESAV23CPA",
     "version": "V4",
@@ -10,6 +25,6 @@
       "password": "CPAbtv23",
       "connectString": "10.0.0.4:1521/btv4db"
     },
-    "savedAt": "2026-07-01T22:59:39.546Z"
+    "savedAt": "2026-07-02T21:03:53.449Z"
   }
 ]

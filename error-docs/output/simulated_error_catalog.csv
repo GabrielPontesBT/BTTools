@@ -1,4 +1,8 @@
 ﻿root_program,program,model,part,line,code,message,catalog_program,catalog_model,reason,condition,source_line,returning_programs
-BTCYPA0001,BTCYPA0001,BTV4Core3,Procedure,25,500,,,,root_program,root program,&errorCode = 500,BTCYPA0001
-BTCYPA0001,BTA0000017,BTV4Core3,ProcedureSource,36,50050003,No existe la empresa ingresada,BTERACYES,BTV4Core3,when_none,when none,&ErrId = 50050003,BTA0000017
-BTCYPA0001,BTSCA00006,BTV4Core3,ProcedureSource,34,99990010006,No se pudo resolver el usuario,BTERAPAES,BTV4Core3,when_none,when none,&ErrId = 99990010006,BTSCA00006
+BTLOPA0021,BTLOPA0021,BTV4Loans3,Procedure,58,500,,,,invalid_params:&productguid,&productGUID = NullValue(&productGUID),&errorCode = 500,BTLOPA0021
+BTLOPA0021,BTPHA00003,BTV4Core3,ProcedureSource,54,980083,La moneda y/o papel no está asociada al producto,BTERAPHES,BTV4Core3,when_none,when none,&errId = 980083,BTPHA00003
+BTLOPA0021,BTCFA02000,BTV4Core3,ProcedureSource,85,990070,El sistema no se encuentra definido,BTERACFES,BTV4Core3,when_none,when none,&errId  = 990070,"BTCFA01000, BTCFA02000"
+BTLOPA0021,BTCFA02000,BTV4Core3,ProcedureSource,321,990071,El parámetro no se encuentra definido,BTERACFES,BTV4Core3,when_none,when none,if &errId = 990071 or &errId = 990070,"BTCFA01000, BTCFA02000"
+BTLOPA0021,BTA0000017,BTV4Core3,ProcedureSource,36,50050003,No existe la empresa ingresada,BTERACYES,BTV4Core3,when_none,when none,&ErrId = 50050003,BTA0000017
+BTLOPA0021,BTLOPA0021,BTV4Loans3,Procedure,35,120050009,Debe ingresar el GUID de producto.,BTERAPALOES,BTV4Loans3,invalid_params:&productguid,&productGUID = NullValue(&productGUID),&errorCode = 120050009,BTLOPA0021
+BTLOPA0021,BTSCA00006,BTV4Core3,ProcedureSource,34,99990010006,No se pudo resolver el usuario,BTERAPAES,BTV4Core3,when_none,when none,&ErrId = 99990010006,BTSCA00006
