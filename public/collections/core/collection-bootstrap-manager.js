@@ -19,32 +19,11 @@
     bindButtons() {
       if (this.options.isButtonsBound()) return;
 
-      var buttonTestDb = document.getElementById('btn-collection-test-db');
-      var buttonTestAuth = document.getElementById('btn-collection-test-auth');
       var buttonLoadServices = document.getElementById('btn-collection-load-services');
-      if (!buttonTestDb || !buttonTestAuth || !buttonLoadServices) return;
-
-      buttonTestDb.addEventListener('click', this.handleTestDbClick.bind(this));
-      buttonTestAuth.addEventListener('click', this.handleTestAuthClick.bind(this));
+      if (!buttonLoadServices) return;
       buttonLoadServices.addEventListener('click', this.handleLoadServicesClick.bind(this));
 
       this.options.setButtonsBound(true);
-    }
-
-    /**
-     * Wrapper del click de prueba de BD.
-     */
-    handleTestDbClick(event) {
-      event.preventDefault();
-      this.options.testDb();
-    }
-
-    /**
-     * Wrapper del click de prueba de autenticacion.
-     */
-    handleTestAuthClick(event) {
-      event.preventDefault();
-      this.options.testAuth();
     }
 
     /**
@@ -107,9 +86,11 @@
     pickDefaultChoices() {
       var jsonButton = document.getElementById('col-toolbar-format-json') || document.getElementById('col-format-json');
       if (jsonButton) this.options.pickChoice('format', 'json', jsonButton);
+      else this.options.pickChoice('format', 'json', null);
 
       var postmanButton = document.getElementById('col-toolbar-target-postman') || document.getElementById('col-target-postman');
       if (postmanButton) this.options.pickChoice('target', 'postman', postmanButton);
+      else this.options.pickChoice('target', 'postman', null);
     }
   }
 

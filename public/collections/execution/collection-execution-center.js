@@ -1,333 +1,161 @@
-(function bootstrapCollectionExecutionCenter(global) {
+﻿(function bootstrapCollectionExecutionCenter(global) {
   'use strict';
 
   /**
-   * Orquesta toda la experiencia de ejecución del builder: estado visual,
-   * popup auxiliar, fallback inline y llamada al endpoint `/api/collection/execute`.
-   * La idea es que esta pieza evolucione hacia el Execution Center sin mezclar
-   * responsabilidades con el resto del diseñador de cadenas.
+   * Orquesta el nuevo Execution Mode.
+   * Esta clase no contiene HTML complejo: delega dataset mock y renderizado
+   * a mÃ³dulos especÃ­ficos para mantener una arquitectura empresarial.
    */
   class CollectionExecutionCenter {
     /**
-     * Recibe todas las dependencias externas por inyección.
-     * Esto permite reutilizar el módulo sin acoplarlo a variables globales duras.
+     * Recibe todas las dependencias externas necesarias para operar.
      */
     constructor(options) {
       this.options = options || {};
-      // Se conserva la referencia de la ventana popup para reusarla entre aperturas.
-      this.popupWindow = null;
+      this.mockBuilder = new global.BTCollectionModules.CollectionExecutionMockDataBuilder({
+        ensureScenarioConnections: this.options.ensureScenarioConnections,
+        buildConnectionLabel: this.options.buildConnectionLabel
+      });
+      this.renderer = new global.BTCollectionModules.CollectionExecutionViewRenderer({
+        escapeHtml: this.options.escapeHtml,
+        getServiceFilter: this.getServiceFilter.bind(this),
+        getMethodFilter: this.getMethodFilter.bind(this),
+        getVariablesFilter: this.getVariablesFilter.bind(this),
+        getLeftPanelCollapsed: this.getLeftPanelCollapsed.bind(this),
+        isTimelineOpen: this.isTimelineOpen.bind(this)
+      });
+      this.executionState = {
+        active: false,
+        loading: false,
+        run: null,
+        serviceFilter: '',
+        methodFilter: '',
+        variablesFilter: '',
+        playbackToken: 0,
+        leftPanelCollapsed: true,
+        timelineOpen: false
+      };
     }
 
     /**
-     * Limpia todos los contenedores visuales relacionados con la ejecución.
-     * También borra el último resultado cacheado para evitar datos viejos.
+     * Limpia la corrida mock almacenada y devuelve la vista al estado base.
      */
     reset() {
-      var body = document.getElementById('collection-execution');
-      var inline = document.getElementById('collection-execution-inline');
-      var result = document.getElementById('collection-result');
-      var modal = document.getElementById('collection-execution-modal');
-      var dock = document.getElementById('collection-execution-dock');
-      var openButton = document.getElementById('btn-collection-open-console');
-      var state = this.options.getState();
-
-      // Se limpia el cuerpo principal del modal.
-      if (body) body.innerHTML = '';
-      if (inline) {
-        // Se vacía y oculta el fallback inline dentro del builder.
-        inline.innerHTML = '';
-        inline.style.display = 'none';
-      }
-      if (result) {
-        // Se reinicia el bloque de resultado visual para no mezclar ejecuciones.
-        result.className = 'collection-result';
-        result.innerHTML = '';
-      }
-      // Modal y dock quedan ocultos porque la ejecución vuelve a arrancar de cero.
-      if (modal) modal.style.display = 'none';
-      if (dock) dock.style.display = 'none';
-      if (openButton) {
-        // El botón se deja visible y habilitado para futuras aperturas.
-        openButton.style.display = '';
-        openButton.disabled = false;
-      }
-
-      // El estado comparte el último HTML y JSON renderizado para poder reabrir la vista.
-      state.lastExecutionHtml = '';
-      state.lastExecutionData = null;
+      this.stopPlayback();
+      this.executionState.active = false;
+      this.executionState.loading = false;
+      this.executionState.run = null;
+      this.executionState.serviceFilter = '';
+      this.executionState.methodFilter = '';
+      this.executionState.variablesFilter = '';
+      this.executionState.leftPanelCollapsed = true;
+      this.executionState.timelineOpen = false;
+      this.syncButtons(false);
+      this.render();
     }
 
     /**
-     * Permite cerrar la capa modal cuando el usuario hace clic sobre el fondo.
+     * Cierra el modo ejecucion y vuelve al builder.
      */
-    handleBackdrop(event) {
-      if (!event || event.target.id !== 'collection-execution-modal') return;
+    close() {
+      this.stopPlayback();
+      this.executionState.active = false;
+      this.executionState.loading = false;
+      this.executionState.timelineOpen = false;
+      this.render();
+      this.syncButtons(false);
+      this.options.showStatus('ok', 'Volviste al modo edicion del constructor.');
+    }
+
+    /**
+     * Compatibilidad: en el nuevo enfoque minimizar equivale a cerrar la vista
+     * de ejecucion y dejar el builder visible.
+     */
+    minimize() {
       this.close();
     }
 
     /**
-     * Cierra por completo la ventana de ejecución visible.
-     */
-    close() {
-      var modal = document.getElementById('collection-execution-modal');
-      var dock = document.getElementById('collection-execution-dock');
-      if (modal) modal.style.display = 'none';
-      if (dock) dock.style.display = 'none';
-    }
-
-    /**
-     * Minimiza la ejecución dejando un acceso rápido flotante.
-     */
-    minimize() {
-      var modal = document.getElementById('collection-execution-modal');
-      var dock = document.getElementById('collection-execution-dock');
-      if (modal) modal.style.display = 'none';
-      if (dock) dock.style.display = 'block';
-    }
-
-    /**
-     * Restaura la ejecución ya renderizada.
-     * Si existe contenido, vuelve a mostrarse inline y en modal.
+     * Compatibilidad: restore vuelve a abrir la vista si ya existe una corrida.
      */
     restore() {
-      var inline = document.getElementById('collection-execution-inline');
-      var dock = document.getElementById('collection-execution-dock');
-      var modal = document.getElementById('collection-execution-modal');
-      if (inline) {
-        // Se vuelve a mostrar el panel dentro del builder.
-        inline.style.display = 'block';
-        if (typeof inline.scrollIntoView === 'function') {
-          // Se lleva la vista hacia la consola para que el usuario no la tenga que buscar.
-          inline.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }
-      if (modal && inline && inline.innerHTML) modal.style.display = 'flex';
-      if (dock) dock.style.display = 'none';
+      if (!this.executionState.run) return;
+      this.executionState.active = true;
+      this.executionState.timelineOpen = false;
+      this.render();
     }
 
     /**
-     * Escribe el mismo HTML de ejecución en todas las superficies visibles.
-     * Así modal, panel inline y caché interna siempre quedan sincronizados.
-     */
-    setHtml(html, data, options) {
-      var settings = options || {};
-      var safeHtml = String(html || '');
-      var body = document.getElementById('collection-execution');
-      var inline = document.getElementById('collection-execution-inline');
-      var result = document.getElementById('collection-result');
-      var modal = document.getElementById('collection-execution-modal');
-      var dock = document.getElementById('collection-execution-dock');
-      var state = this.options.getState();
-
-      // Se cachea el último contenido para poder reabrirlo sin volver a ejecutar.
-      state.lastExecutionHtml = safeHtml;
-      state.lastExecutionData = data || null;
-
-      // Se actualiza el cuerpo del modal.
-      if (body) body.innerHTML = safeHtml;
-      if (inline) {
-        // Se actualiza también el panel inline dentro del builder.
-        inline.innerHTML = safeHtml;
-        inline.style.display = 'block';
-      }
-      if (result) {
-        // Este bloque funciona como fallback visible aun si el popup no abre.
-        result.className = 'collection-result show';
-        result.innerHTML = safeHtml;
-      }
-      if (modal) modal.style.display = settings.showModal ? 'flex' : 'none';
-      if (dock) dock.style.display = 'none';
-    }
-
-    /**
-     * Abre el Execution Center.
-     * Primero intenta popup, y si el navegador lo bloquea usa la vista embebida.
+     * Compatibilidad con el boton antiguo "Consola".
+     * Ahora simplemente abre el Execution Mode actual.
      */
     open() {
-      var inline = document.getElementById('collection-execution-inline');
-      var state = this.options.getState();
-      var html = state.lastExecutionHtml || '';
-
-      if (!html && state.lastExecutionData) {
-        // Si no existe HTML previo, se arma una vista mínima desde el JSON cacheado.
-        html = this.buildJsonSection(state.lastExecutionData);
+      if (!this.executionState.run) {
+        this.options.showStatus('err', 'Todavia no hay una ejecucion para mostrar.');
+        return;
       }
-      if (!html) {
-        // Si todavía no hubo ejecución, se muestra un mensaje amigable.
-        html = '<div class="collection-run-section"><div class="collection-run-section-title">Execution Center</div><div class="collection-run-card"><div class="collection-run-card-value-sm">Todavia no hay una ejecucion para mostrar.</div></div></div>';
-      }
-
-      if (inline) {
-        // Se renderiza inline para asegurar visibilidad aunque el popup falle.
-        inline.innerHTML = html;
-        inline.style.display = 'block';
-        if (typeof inline.scrollIntoView === 'function') {
-          inline.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }
-
-      try {
-        if (!this.popupWindow || this.popupWindow.closed) {
-          // Se crea o recrea la ventana dedicada para reutilizarla entre aperturas.
-          this.popupWindow = window.open('', 'bttools_execution_center', 'width=1280,height=860,resizable=yes,scrollbars=yes');
-        }
-        if (this.popupWindow) {
-          // Se escribe el documento completo del popup en cada apertura para refrescarlo.
-          this.popupWindow.document.open();
-          this.popupWindow.document.write(this.buildPopupShell(html));
-          this.popupWindow.document.close();
-          this.popupWindow.focus();
-          return;
-        }
-      } catch (error) {}
-
-      // Si el popup falla o es bloqueado, se cae elegantemente al modo embebido.
-      this.restore();
+      this.executionState.active = true;
+      this.render();
     }
 
     /**
-     * Renderiza el estado intermedio de "ejecutando" antes de recibir respuesta del backend.
+     * Se conserva por compatibilidad con markup previo.
+     * Ya no existe backdrop modal real, por eso queda como no-op controlado.
+     */
+    handleBackdrop() {
+      return;
+    }
+
+    /**
+     * Se conserva por compatibilidad con adapters existentes.
+     * El nuevo modo no consume HTML externo directo.
+     */
+    setHtml() {
+      return;
+    }
+
+    /**
+     * Se conserva por compatibilidad con adapters existentes.
+     */
+    buildPopupShell(content) {
+      return String(content || '');
+    }
+
+    /**
+     * Renderiza un estado breve de carga antes de la corrida final mock.
      */
     renderLoading() {
-      var scenario = this.options.getActiveScenario();
-      var title = document.getElementById('collection-execution-title');
-      if (title) title.textContent = scenario ? scenario.name : 'Ejecucion del flujo';
-
-      this.setHtml(
-        '<div class="collection-run-grid">' +
-          '<div class="collection-run-card"><div class="collection-run-card-label">Estado</div><div class="collection-run-card-value-sm">Ejecutando flujo desde la app...</div></div>' +
-        '</div>' +
-        '<div class="collection-run-section">' +
-          '<div class="collection-run-section-title">Execution Center</div>' +
-          '<div class="collection-run-card"><div class="collection-run-card-value-sm">Preparando autenticacion, headers y requests del caso activo.</div></div>' +
-        '</div>',
-        { loading: true },
-        { showModal: false }
-      );
+      this.executionState.active = true;
+      this.executionState.loading = true;
+      this.render();
     }
 
     /**
-     * Transforma el resultado bruto de ejecución en una vista legible.
-     * Esta versión actual todavía es una consola enriquecida y será la base del
-     * futuro Execution Center visual.
+     * Toma un run ya armado y lo vuelve visible.
      */
     renderResult(data) {
-      var scenario = this.options.getActiveScenario();
-      var title = document.getElementById('collection-execution-title');
-      var openButton = document.getElementById('btn-collection-open-console');
-      var dock = document.getElementById('collection-execution-dock');
-      var escapeHtml = this.options.escapeHtml;
-
-      try {
-        // Se normaliza la estructura base para evitar chequeos repetidos más abajo.
-        var steps = Array.isArray(data && data.steps) ? data.steps : [];
-        var runtimeValues = data && data.runtimeValues ? data.runtimeValues : {};
-        // Estas métricas alimentan el dashboard superior del resumen de ejecución.
-        var okCount = steps.filter(function isOk(step) { return !!step.ok; }).length;
-        var errCount = steps.filter(function isError(step) { return !step.ok; }).length;
-        var finalVars = Object.keys(runtimeValues).length
-          ? '<div class="collection-run-vars">' + Object.keys(runtimeValues).map(function buildVarChip(key) {
-              return '<span class="collection-run-var"><strong>' + escapeHtml(key) + '</strong> ' + escapeHtml(runtimeValues[key]) + '</span>';
-            }).join('') + '</div>'
-          : '<p>Sin variables finales para mostrar.</p>';
-
-        // Se convierte cada paso del backend en una tarjeta visual independiente.
-        var stepHtml = steps.map(function renderStep(step) {
-          var extracted = step && step.extractedValues ? step.extractedValues : {};
-          var extractedHtml = Object.keys(extracted).length
-            ? '<div class="collection-run-vars">' + Object.keys(extracted).map(function buildExtractedChip(key) {
-                return '<span class="collection-run-var"><strong>' + escapeHtml(key) + '</strong> ' + escapeHtml(extracted[key]) + '</span>';
-              }).join('') + '</div>'
-            : '';
-          var requestPayload = step.requestJson || step.requestXml || step.requestBody || step.request || '';
-          var responsePayload = step.responseJson || step.responseXml || step.responseBody || step.response || '';
-          var requestBlock = requestPayload
-            ? '<details class="collection-run-toggle"><summary>Ver request</summary><div class="collection-run-pre">' + escapeHtml(this.prettyPayload(requestPayload)) + '</div></details>'
-            : '';
-          var responseBlock = responsePayload
-            ? '<details class="collection-run-toggle"><summary>Ver response</summary><div class="collection-run-pre">' + escapeHtml(this.prettyPayload(responsePayload)) + '</div></details>'
-            : '';
-          var businessError = this.summarizeBusinessError(step && step.error ? step.error : '');
-          var errorBlock = '';
-
-          // Se prioriza el error de negocio resumido porque es el formato estándar de la empresa.
-          if (businessError) {
-            errorBlock = '<div class="collection-run-error"><div class="collection-run-error-icon">X</div><div><div class="collection-run-error-title">Error de negocio ' + escapeHtml(String(businessError.code || '').trim() || '-') + '</div><div class="collection-run-error-text">' + escapeHtml(businessError.description || 'Sin descripcion.') + '</div></div></div>';
-          } else if (step.error) {
-            errorBlock = '<div class="collection-run-error"><div class="collection-run-error-icon">X</div><div><div class="collection-run-error-title">Error de ejecucion</div><div class="collection-run-error-text">' + escapeHtml(step.error) + '</div></div></div>';
-          }
-
-          return '<div class="collection-run-step">' +
-            '<div class="collection-run-head">' +
-              '<div>' +
-                '<div class="collection-run-title">' + escapeHtml(step.name || ('Paso ' + step.index)) + '</div>' +
-                '<div class="collection-run-subtitle">Paso ' + escapeHtml(String(step.index || '')) + (step.responseStatus ? ' · HTTP ' + escapeHtml(String(step.responseStatus)) : '') + '</div>' +
-              '</div>' +
-              '<div class="' + (step.ok ? 'collection-run-ok' : 'collection-run-err') + '">' + (step.ok ? 'OK' : 'ERROR') + '</div>' +
-            '</div>' +
-            '<div class="collection-run-body">' +
-              '<div class="collection-run-meta"><strong>URL:</strong> ' + escapeHtml(step.requestUrl || '-') + (step.soapAction ? ' | <strong>SOAPAction:</strong> ' + escapeHtml(step.soapAction) : '') + '</div>' +
-              errorBlock +
-              (extractedHtml ? '<div class="collection-run-section"><div class="collection-run-section-title">Valores detectados</div>' + extractedHtml + '</div>' : '') +
-              requestBlock +
-              responseBlock +
-            '</div>' +
-          '</div>';
-        }, this).join('');
-
-        // Se arma un error general arriba si el flujo completo terminó en fallo.
-        var topBusinessError = !data.ok ? this.summarizeBusinessError(data.message || '') : null;
-        var topError = !data.ok && data.message
-          ? (topBusinessError
-            ? '<div class="collection-run-error"><div class="collection-run-error-icon">X</div><div><div class="collection-run-error-title">Error general ' + escapeHtml(String(topBusinessError.code || '').trim() || '-') + '</div><div class="collection-run-error-text">' + escapeHtml(topBusinessError.description || 'Sin descripcion.') + '</div></div></div>'
-            : '<div class="collection-run-error"><div class="collection-run-error-icon">X</div><div><div class="collection-run-error-title">Error general</div><div class="collection-run-error-text">' + escapeHtml(data.message) + '</div></div></div>')
-          : '';
-
-        if (title) title.textContent = scenario ? scenario.name : 'Ejecucion del flujo';
-        // Todo el HTML final se centraliza en un solo punto de escritura.
-        this.setHtml(
-          '<div class="collection-run-grid">' +
-            '<div class="collection-run-card"><div class="collection-run-card-label">Estado</div><div class="collection-run-card-value-sm">' + (data.ok ? 'Flujo completado correctamente' : 'La ejecucion se detuvo en el primer error') + '</div></div>' +
-            '<div class="collection-run-card"><div class="collection-run-card-label">Pasos OK</div><div class="collection-run-card-value">' + okCount + '</div></div>' +
-            '<div class="collection-run-card"><div class="collection-run-card-label">Pasos con error</div><div class="collection-run-card-value">' + errCount + '</div></div>' +
-            '<div class="collection-run-card"><div class="collection-run-card-label">Variables finales</div><div class="collection-run-card-value">' + Object.keys(runtimeValues).length + '</div></div>' +
-          '</div>' +
-          topError +
-          stepHtml +
-          '<div class="collection-run-section"><div class="collection-run-section-title">Variables finales</div>' + finalVars + '</div>' +
-          this.buildJsonSection(data),
-          data,
-          { showModal: false }
-        );
-      } catch (error) {
-        // Si algo falla durante el render, se conserva al menos el JSON completo.
-        this.setHtml(
-          '<div class="collection-run-error"><div class="collection-run-error-icon">X</div><div><div class="collection-run-error-title">No se pudo maquetar el Execution Center</div><div class="collection-run-error-text">' + escapeHtml(error && error.message ? error.message : 'Sin detalle') + '</div></div></div>' +
-          this.buildJsonSection(data),
-          data,
-          { showModal: false }
-        );
-      }
-
-      // Al terminar el render se apaga el dock porque ya quedó la vista disponible.
-      if (dock) dock.style.display = 'none';
-      if (openButton) {
-        openButton.style.display = '';
-        openButton.disabled = false;
-      }
+      this.executionState.run = data || null;
+      this.executionState.loading = false;
+      this.executionState.active = !!data;
+      this.render();
     }
 
     /**
-     * Ejecuta el flujo activo contra el backend.
-     * Esta es la puerta de entrada principal del botón "Probar flujo".
+     * Entrada principal del boton Probar.
+     * Ejecuta el flujo real contra el backend local y luego traduce el resultado
+     * al mismo formato visual que ya consume el Execution Mode.
      */
     async executeFlow() {
+      var scenario = null;
+      var payload = null;
+      var result = null;
+      var run = null;
+
       if (!this.options.isPathSupported()) {
         this.options.showStatus('err', 'Por ahora solo esta disponible JSON + Postman.');
         return;
       }
 
-      // Antes de ejecutar, se sincroniza lo que el usuario haya escrito en el inspector.
       this.options.syncInspectorInputs();
       this.options.refreshContext();
 
@@ -336,124 +164,1008 @@
         return;
       }
 
-      var scenario = this.options.getActiveScenario();
-      if (!scenario || !scenario.items.length) {
+      scenario = this.options.getActiveScenario();
+      if (!scenario || !scenario.items || !scenario.items.length) {
         this.options.showStatus('err', 'Agrega al menos un metodo al caso de uso activo.');
         return;
       }
 
-      // Se bloquea el botón para evitar dobles clics mientras el backend está procesando.
-      var button = document.getElementById('btn-collection-execute');
-      if (button) {
-        button.disabled = true;
-        button.innerHTML = '<span class="spin dk"></span>&nbsp;Probando...';
-      }
-
-      this.options.showStatus('ok', 'Ejecutando flujo JSON desde la app...');
-      this.reset();
+      this.syncButtons(true);
+      this.options.showStatus('ok', 'Ejecutando flujo real contra el ambiente actual...');
       this.renderLoading();
 
       try {
-        // Se envía al backend todo lo necesario para reconstruir el flujo activo.
-        var data = await this.options.executeFlowRequest({
-          format: this.options.getFormat(),
-          version: this.options.getVersion(),
-          platform: this.options.getPlatform(),
-          db: this.options.getDb(),
-          api: this.options.getApi(),
-          authContext: this.options.getAuthContext(),
-          swaggerBaseUrl: this.options.getSwaggerBaseUrl(),
-          swaggerAuthUrl: this.options.getSwaggerAuthUrl(),
-          items: scenario.items,
-          variableOverrides: scenario.variableOverrides,
-          inputMappings: scenario.inputMappings,
-          outputAliases: scenario.outputAliases,
-          repeatableOverrides: scenario.repeatableOverrides
-        });
-        // El status superior y el render principal se actualizan con el mismo payload.
-        if (!data.ok) this.options.showStatus('err', data.message || 'La ejecucion del flujo fallo.');
-        else this.options.showStatus('ok', 'Flujo ejecutado correctamente.');
-        this.renderResult(data);
+        payload = this.buildExecutionPayload(scenario);
+        result = await this.options.executeFlowRequest(payload);
+        run = this.buildRunFromExecutionResult(result, scenario);
+        this.preparePlaybackRun(run);
+        this.renderResult(run);
+        await this.playRun(run);
+        this.syncButtons(false);
+        this.options.showStatus(result && result.ok ? 'ok' : 'err', result && result.ok
+          ? 'El flujo se ejecuto correctamente contra el ambiente.'
+          : this.buildExecutionErrorMessage(result));
       } catch (error) {
-        // Cualquier excepción de red o parseo también se refleja en la UI de ejecución.
-        this.options.showStatus('err', error.message || 'No se pudo ejecutar el flujo.');
-        this.setHtml(
-          '<div class="collection-run-error"><div class="collection-run-error-icon">X</div><div><div class="collection-run-error-title">Error general</div><div class="collection-run-error-text">' + this.options.escapeHtml(error.message || 'No se pudo ejecutar el flujo.') + '</div></div></div>',
-          { ok: false, message: error.message || 'No se pudo ejecutar el flujo.' },
-          { showModal: false }
+        run = this.buildRunFromExecutionResult(error || {}, scenario);
+        this.preparePlaybackRun(run);
+        this.renderResult(run);
+        await this.playRun(run);
+        this.syncButtons(false);
+        this.options.showStatus('err', error && error.message ? error.message : 'No se pudo ejecutar el flujo.');
+      }
+    }
+
+    /**
+     * Reejecuta la corrida completa manteniendo el mismo caso de uso activo.
+     */
+    async rerunFlow() {
+      return this.executeFlow();
+    }
+
+    /**
+     * Reejecuta desde el paso seleccionado.
+     * Como los datos son mock, hoy reutiliza el mismo pipeline pero deja
+     * seleccionado el paso actual en la corrida nueva.
+     */
+    async rerunFromSelectedStep() {
+      var currentStepId = this.executionState.run ? this.executionState.run.selectedStepId : '';
+      await this.executeFlow();
+      if (currentStepId) this.selectStep(currentStepId);
+    }
+
+    /**
+     * Exporta la corrida mock actual como JSON descargable.
+     */
+    exportRun() {
+      if (!this.executionState.run) {
+        this.options.showStatus('err', 'Todavia no hay una ejecucion para exportar.');
+        return;
+      }
+
+      var blob = new Blob([JSON.stringify(this.executionState.run, null, 2)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var link = document.createElement('a');
+
+      link.href = url;
+      link.download = 'bttools-execution-run-' + this.executionState.run.id + '.json';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      this.options.showStatus('ok', 'La corrida se exporto en JSON.');
+    }
+
+    /**
+     * Selecciona un paso dentro de la corrida visible.
+     */
+    selectStep(stepId) {
+      if (!this.executionState.run) return;
+      this.executionState.run.selectedStepId = stepId;
+      this.render();
+    }
+
+    /**
+     * Cambia el tab activo del panel inferior.
+     */
+    setTab(tabKey) {
+      if (!this.executionState.run) return;
+      this.executionState.run.selectedTab = tabKey || 'details';
+      this.render();
+    }
+
+    /**
+     * Actualiza el filtro de servicio del lateral izquierdo.
+     */
+    updateServiceFilter(value) {
+      this.executionState.serviceFilter = String(value || '');
+      this.render();
+    }
+
+    /**
+     * Actualiza el filtro de metodo del lateral izquierdo.
+     */
+    updateMethodFilter(value) {
+      this.executionState.methodFilter = String(value || '');
+      this.render();
+    }
+
+    /**
+     * Actualiza el filtro de variables globales.
+     */
+    updateVariablesFilter(value) {
+      this.executionState.variablesFilter = String(value || '');
+      this.render();
+    }
+
+    /**
+     * Devuelve el filtro de servicio actual.
+     */
+    getServiceFilter() {
+      return this.executionState.serviceFilter || '';
+    }
+
+    /**
+     * Devuelve el filtro de metodo actual.
+     */
+    getMethodFilter() {
+      return this.executionState.methodFilter || '';
+    }
+
+    /**
+     * Devuelve el filtro de variables actual.
+     */
+    getVariablesFilter() {
+      return this.executionState.variablesFilter || '';
+    }
+
+    /**
+     * Devuelve si el panel izquierdo del modo ejecucion esta colapsado.
+     */
+    getLeftPanelCollapsed() {
+      return !!this.executionState.leftPanelCollapsed;
+    }
+
+    /**
+     * Informa si el drawer de linea de tiempo esta visible.
+     */
+    isTimelineOpen() {
+      return !!this.executionState.timelineOpen;
+    }
+
+    /**
+     * Alterna la visibilidad del catalogo lateral para darle mas foco al flujo.
+     */
+    toggleLeftPanelCollapsed() {
+      this.executionState.leftPanelCollapsed = !this.executionState.leftPanelCollapsed;
+      this.render();
+    }
+
+    /**
+     * Alterna el panel de linea de tiempo.
+     * En desktop se comporta como panel contextual; en notebook queda listo
+     * para ser tratado visualmente como drawer.
+     */
+    toggleTimelineOpen() {
+      this.executionState.timelineOpen = !this.executionState.timelineOpen;
+      this.render();
+    }
+
+    /**
+     * Cierra explicitamente la linea de tiempo contextual.
+     */
+    closeTimelineOpen() {
+      this.executionState.timelineOpen = false;
+      this.render();
+    }
+
+    /**
+     * Cancela una corrida en reproduccion sin perder los resultados parciales
+     * ya visibles en el panel.
+     */
+    cancelExecution() {
+      var run = this.executionState.run;
+
+      this.stopPlayback();
+      this.executionState.loading = false;
+
+      if (!run) {
+        this.render();
+        this.syncButtons(false);
+        this.options.showStatus('ok', 'La ejecucion se cancelo.');
+        return;
+      }
+
+      if (run.authStep && run.authStep.status === 'running') {
+        run.authStep.status = 'skipped';
+        run.authStep.statusLabel = 'Cancelado';
+        run.authStep.durationLabel = '--';
+      }
+
+      (run.steps || []).forEach(function markPendingOrRunning(step) {
+        if (!step) return;
+        if (step.status === 'running') {
+          step.status = 'skipped';
+          step.statusLabel = 'Cancelado';
+          step.durationLabel = '--';
+          return;
+        }
+        if (step.status === 'idle') {
+          step.status = 'skipped';
+          step.statusLabel = 'Saltado';
+          step.durationLabel = '--';
+        }
+      });
+
+      run.wasCancelled = true;
+      run.status = 'skipped';
+      run.statusLabel = 'Cancelada';
+      this.refreshRunPresentation(run);
+      this.render();
+      this.syncButtons(false);
+      this.options.showStatus('ok', 'La ejecucion se cancelo y se conservaron los resultados parciales.');
+    }
+
+    /**
+     * Ejecuta una accion rapida disparada desde el menu de un nodo del flujo.
+     */
+    async handleNodeAction(actionKey, stepId) {
+      var run = this.executionState.run;
+      var step = null;
+
+      if (!run) return;
+
+      this.selectStep(stepId);
+      step = this.findStepById(stepId);
+      if (!step) return;
+
+      if (actionKey === 'request') {
+        this.setTab('request');
+        return;
+      }
+      if (actionKey === 'response') {
+        this.setTab('response');
+        return;
+      }
+      if (actionKey === 'copy-url') {
+        await this.copyText(step.requestUrl || '');
+        this.options.showStatus('ok', 'La URL del paso se copio al portapapeles.');
+        return;
+      }
+      if (actionKey === 'rerun-step') {
+        await this.rerunFromSelectedStep();
+      }
+    }
+
+    /**
+     * Construye el payload exacto que espera el backend real de ejecucion.
+     * Se reutiliza la misma estructura del escenario activo para no duplicar reglas.
+     */
+    buildExecutionPayload(scenario) {
+      var safeScenario = scenario || {};
+      return {
+        format: this.options.getFormat ? this.options.getFormat() : 'json',
+        target: 'postman',
+        version: this.options.getVersion(),
+        platform: this.options.getPlatform ? this.options.getPlatform() : '',
+        db: this.options.getDb ? this.options.getDb() : {},
+        api: this.options.getApi ? this.options.getApi() : {},
+        authContext: this.options.getAuthContext ? this.options.getAuthContext() : null,
+        swaggerBaseUrl: this.options.getSwaggerBaseUrl ? this.options.getSwaggerBaseUrl() : '',
+        swaggerAuthUrl: this.options.getSwaggerAuthUrl ? this.options.getSwaggerAuthUrl() : '',
+        items: Array.isArray(safeScenario.items) ? safeScenario.items : [],
+        variableOverrides: safeScenario.variableOverrides || {},
+        inputMappings: safeScenario.inputMappings || {},
+        outputAliases: safeScenario.outputAliases || {},
+        repeatableOverrides: safeScenario.repeatableOverrides || {}
+      };
+    }
+
+    /**
+     * Traduce la respuesta del backend real a la forma visual que ya usa el panel.
+     * Se apoya en el builder mock solo como scaffold de layout y catalogos.
+     */
+    buildRunFromExecutionResult(result, scenario) {
+      var baseRun = this.mockBuilder.buildRun({
+        scenario: scenario,
+        state: this.options.getState()
+      });
+      var rawSteps = Array.isArray(result && result.steps) ? result.steps : [];
+      var split = this.splitExecutionSteps(rawSteps);
+      var runtimeValues = result && result.runtimeValues ? result.runtimeValues : {};
+      var hasFailure = !!(result && result.ok === false);
+      var selectedStepId = '';
+      var i = 0;
+
+      baseRun.authStep = this.hydrateAuthStep(baseRun.authStep, split.authStep, runtimeValues, hasFailure);
+      for (i = 0; i < baseRun.steps.length; i++) {
+        baseRun.steps[i] = this.hydrateFlowStep(
+          baseRun.steps[i],
+          scenario && scenario.items ? scenario.items[i] : null,
+          split.flowSteps[i],
+          i,
+          split.flowSteps.length,
+          hasFailure,
+          runtimeValues
         );
       }
 
-      // Se restablece el botón al finalizar, sin importar si hubo éxito o error.
-      if (button) {
-        button.disabled = false;
-        button.innerHTML = 'Probar flujo';
-      }
+      selectedStepId = this.pickSelectedExecutionStep(baseRun);
+      baseRun.status = hasFailure ? 'error' : 'success';
+      baseRun.statusLabel = hasFailure ? 'Con errores' : 'Completada';
+      baseRun.selectedStepId = selectedStepId;
+      baseRun.selectedTab = hasFailure ? 'response' : 'details';
+      baseRun.runtimeValues = runtimeValues;
+      return baseRun;
     }
 
     /**
-     * Intenta extraer el primer BusinessError del formato estándar de Bantotal.
-     * Devuelve una versión resumida para mostrar algo limpio en la UI.
+     * Separa Authenticate del resto de los pasos devueltos por el backend.
      */
-    summarizeBusinessError(rawText) {
-      if (!rawText) return null;
-      try {
-        var parsed = typeof rawText === 'string' ? JSON.parse(rawText) : rawText;
-        var errors = parsed && parsed.BusinessErrors && parsed.BusinessErrors.BusinessError;
-        var first = Array.isArray(errors) ? errors[0] : errors;
-        if (!first) return null;
+    splitExecutionSteps(stepRows) {
+      var rows = Array.isArray(stepRows) ? stepRows : [];
+      var authStep = null;
+      var flowSteps = [];
+
+      rows.forEach(function mapRow(step) {
+        if (!step) return;
+        if (step.index === 0 || String(step.name || '').toLowerCase() === 'authenticate') {
+          authStep = step;
+          return;
+        }
+        flowSteps.push(step);
+      });
+
+      return {
+        authStep: authStep,
+        flowSteps: flowSteps
+      };
+    }
+
+    /**
+     * Completa el paso de Authenticate con informacion real del backend.
+     */
+    hydrateAuthStep(baseStep, authStep, runtimeValues, hasFailure) {
+      var step = Object.assign({}, baseStep || {});
+      var createdVariables = this.buildAuthCreatedVariables(runtimeValues || {});
+      var parsedResponse = this.parseExecutionPayload(authStep && authStep.responseXml);
+      var isOk = !!(authStep && authStep.ok);
+
+      step.requestUrl = authStep && authStep.requestUrl ? authStep.requestUrl : step.requestUrl;
+      step.responseStatus = authStep && authStep.responseStatus ? authStep.responseStatus : (isOk ? 200 : 0);
+      step.status = isOk ? 'success' : (hasFailure ? 'error' : 'success');
+      step.statusLabel = this.buildStepStatusLabel(authStep, step.status);
+      step.requestBody = step.requestBody || {};
+      step.responseBody = parsedResponse;
+      step.createdVariables = createdVariables;
+      step.warnings = !isOk && authStep && authStep.error ? [authStep.error] : [];
+      step.logs = this.buildExecutionLogs(authStep, step.status);
+      return step;
+    }
+
+    /**
+     * Completa cada paso del canvas con el resultado real o con estado saltado.
+     */
+    hydrateFlowStep(baseStep, item, backendStep, stepIndex, executedCount, hasFailure, runtimeValues) {
+      var step = Object.assign({}, baseStep || {});
+      var parsedRequest = this.parseExecutionPayload(backendStep && backendStep.requestXml);
+      var parsedResponse = this.parseExecutionPayload(backendStep && backendStep.responseXml);
+      var wasExecuted = !!backendStep;
+      var finalStatus = wasExecuted
+        ? (backendStep.ok ? 'success' : 'error')
+        : (hasFailure && stepIndex >= executedCount ? 'skipped' : 'idle');
+
+      step.name = item && item.method ? item.method : step.name;
+      step.service = item && item.service ? item.service : step.service;
+      step.httpMethod = String(item && item.httpMethod || step.httpMethod || 'GET').toUpperCase();
+      step.summary = item && (item.summary || item.path) ? (item.summary || item.path) : step.summary;
+      step.requestUrl = backendStep && backendStep.requestUrl ? backendStep.requestUrl : step.requestUrl;
+      step.responseStatus = backendStep && backendStep.responseStatus ? backendStep.responseStatus : step.responseStatus;
+      step.requestHeaders = this.buildRequestHeaders(runtimeValues || {});
+      step.requestBody = parsedRequest;
+      step.responseBody = parsedResponse;
+      step.createdVariables = this.buildStepCreatedVariables(backendStep, item);
+      step.status = finalStatus;
+      step.statusLabel = this.buildStepStatusLabel(backendStep, finalStatus);
+      step.warnings = finalStatus === 'error' && backendStep && backendStep.error ? [backendStep.error] : [];
+      step.logs = this.buildExecutionLogs(backendStep, finalStatus);
+      return step;
+    }
+
+    /**
+     * Genera las variables visibles iniciales que deja Authenticate.
+     */
+    buildAuthCreatedVariables(runtimeValues) {
+      var rows = [];
+      var orderedKeys = ['token', 'channel', 'username', 'device', 'requirement'];
+      var self = this;
+
+      orderedKeys.forEach(function appendKey(key) {
+        if (!Object.prototype.hasOwnProperty.call(runtimeValues || {}, key)) return;
+        if (runtimeValues[key] == null || runtimeValues[key] === '') return;
+        rows.push({
+          name: key,
+          value: String(runtimeValues[key]),
+          type: self.inferValueType(runtimeValues[key]),
+          source: 'Authenticate'
+        });
+      });
+
+      return rows;
+    }
+
+    /**
+     * Traduce extractedValues del backend a la lista de variables creadas por paso.
+     */
+    buildStepCreatedVariables(backendStep, item) {
+      var extracted = backendStep && backendStep.extractedValues ? backendStep.extractedValues : {};
+      var keys = Object.keys(extracted || {});
+      var self = this;
+
+      return keys.map(function mapVariable(key) {
         return {
-          code: first.Code || first.code || '',
-          description: first.Description || first.description || 'Business error'
+          name: key,
+          value: String(extracted[key]),
+          type: self.inferValueType(extracted[key], item, key),
+          source: item && item.method ? item.method : (backendStep && backendStep.name ? backendStep.name : 'Paso')
         };
-      } catch (error) {
-        return null;
-      }
+      });
     }
 
     /**
-     * Formatea cualquier payload a un texto legible.
-     * Si llega JSON válido, lo pretty-print; si no, deja el contenido textual original.
+     * Reconstuye headers Bantotal legibles para el request mostrado en detalle.
      */
-    prettyPayload(text) {
-      if (!text) return '';
+    buildRequestHeaders(runtimeValues) {
+      return {
+        Canal: String(runtimeValues && runtimeValues.channel || ''),
+        Usuario: String(runtimeValues && runtimeValues.username || ''),
+        Device: String(runtimeValues && runtimeValues.device || ''),
+        Requerimiento: String(runtimeValues && runtimeValues.requirement || ''),
+        Token: String(runtimeValues && runtimeValues.token || '')
+      };
+    }
+
+    /**
+     * Normaliza el payload textual del backend para que el panel muestre JSON cuando existe.
+     */
+    parseExecutionPayload(rawValue) {
+      var rawText = String(rawValue == null ? '' : rawValue).trim();
+      if (!rawText) return {};
       try {
-        return JSON.stringify(typeof text === 'string' ? JSON.parse(text) : text, null, 2);
-      } catch (error) {
-        return String(text);
+        return JSON.parse(rawText);
+      } catch (_) {
+        return { raw: rawText };
       }
     }
 
     /**
-     * Construye la sección de respaldo con el JSON completo de ejecución.
-     * Sirve tanto para debugging como para fallback visual.
+     * Resuelve el label visible del estado a partir del resultado real del backend.
      */
-    buildJsonSection(data) {
-      return '<div class="collection-run-section"><div class="collection-run-section-title">JSON de ejecucion</div><div class="collection-run-pre">' +
-        this.options.escapeHtml(JSON.stringify(data, null, 2)) +
-        '</div></div>';
+    buildStepStatusLabel(backendStep, finalStatus) {
+      if (finalStatus === 'skipped') return 'Saltado';
+      if (finalStatus === 'idle') return 'Pendiente';
+      if (backendStep && backendStep.responseStatus) {
+        if (finalStatus === 'success') return String(backendStep.responseStatus) + ' OK';
+        return 'HTTP ' + String(backendStep.responseStatus);
+      }
+      if (finalStatus === 'success') return 'OK';
+      if (backendStep && backendStep.error) return backendStep.error;
+      return finalStatus === 'error' ? 'Con error' : 'Pendiente';
     }
 
     /**
-     * Arma el documento HTML completo que se escribe dentro del popup.
-     * Se mantiene separado para que la apertura de la ventana sea sencilla de seguir.
+     * Genera logs cortos y reales a partir de la respuesta del backend.
      */
-    buildPopupShell(content) {
-      return '<!doctype html><html lang="es"><head><meta charset="utf-8">' +
-        '<title>Execution Center</title>' +
-        '<style>' +
-          'body{margin:0;padding:24px;background:#f8fafc;color:#0f172a;font-family:Segoe UI,Arial,sans-serif}' +
-          '.wrap{max-width:1180px;margin:0 auto}' +
-          '.head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px}' +
-          '.title{font-size:28px;font-weight:800}' +
-          '.sub{font-size:12px;color:#64748b;margin-top:6px}' +
-          '.panel{background:#fff;border:1px solid #e5e7eb;border-radius:22px;box-shadow:0 20px 44px rgba(15,23,42,.10);padding:20px}' +
-        '</style></head><body><div class="wrap"><div class="head"><div><div class="title">Execution Center</div><div class="sub">Salida del flujo ejecutado desde BTTools</div></div></div><div class="panel">' +
-        content +
-        '</div></div></body></html>';
+    buildExecutionLogs(backendStep, finalStatus) {
+      var logs = [];
+      if (backendStep && backendStep.requestUrl) logs.push('Se ejecuto la URL: ' + backendStep.requestUrl);
+      if (backendStep && backendStep.responseStatus) logs.push('El backend devolvio HTTP ' + backendStep.responseStatus + '.');
+      if (finalStatus === 'error' && backendStep && backendStep.error) logs.push('Se detecto error de negocio o de transporte: ' + backendStep.error);
+      if (finalStatus === 'success') logs.push('El paso finalizo correctamente contra el ambiente.');
+      if (finalStatus === 'skipped') logs.push('El paso no llego a ejecutarse porque el flujo se detuvo antes.');
+      return logs.length ? logs : ['Sin logs disponibles para este paso.'];
+    }
+
+    /**
+     * Prioriza el primer error real; si no hay, deja seleccionado el primer paso de negocio.
+     */
+    pickSelectedExecutionStep(run) {
+      var i = 0;
+      if (!run) return 'auth';
+      if (run.authStep && run.authStep.status === 'error') return run.authStep.id;
+      for (i = 0; i < (run.steps || []).length; i++) {
+        if (run.steps[i].status === 'error') return run.steps[i].id;
+      }
+      return this.pickFirstStepId(run);
+    }
+
+    /**
+     * Construye un mensaje de error legible para la barra superior.
+     */
+    buildExecutionErrorMessage(result) {
+      if (result && result.message) return result.message;
+      return 'La ejecucion termino con errores. Revisa el detalle del flujo.';
+    }
+
+    /**
+     * Intenta inferir un tipo simple para mantener coherente la UI de variables.
+     */
+    inferValueType(value, item, key) {
+      var text = String(value == null ? '' : value).trim();
+      var normalizedKey = String(key || '').toLowerCase();
+      if (/^(true|false)$/i.test(text)) return 'boolean';
+      if (/^-?\d+$/.test(text)) return 'integer';
+      if (/^-?\d+[\.,]\d+$/.test(text)) return 'number';
+      if (normalizedKey.indexOf('guid') >= 0) return 'string';
+      return 'string';
+    }
+
+/**
+     * Reaplica los filtros laterales sobre el catalogo del run.
+     */
+    applyFiltersToRun(run) {
+      if (!run) return;
+      var sourceState = this.options.getState();
+      var services = Array.isArray(sourceState.services) ? sourceState.services : [];
+      var operationsByService = sourceState.serviceOperations || {};
+      var serviceFilter = String(this.executionState.serviceFilter || '').toLowerCase().trim();
+      var methodFilter = String(this.executionState.methodFilter || '').toLowerCase().trim();
+
+      run.serviceCatalog = services.filter(function keepService(service) {
+        if (serviceFilter && String(service).toLowerCase().indexOf(serviceFilter) < 0) return false;
+        if (!methodFilter) return true;
+
+        return (operationsByService[service] || []).some(function matchMethod(operation) {
+          return String(operation.methodName || '').toLowerCase().indexOf(methodFilter) >= 0;
+        });
+      }).slice(0, 6).map(function mapService(service) {
+        return {
+          name: service,
+          operations: (operationsByService[service] || []).filter(function keepOperation(operation) {
+            if (!methodFilter) return true;
+            return String(operation.methodName || '').toLowerCase().indexOf(methodFilter) >= 0;
+          }).slice(0, 6).map(function mapOperation(operation) {
+            return {
+              name: operation.methodName || 'Metodo',
+              meta: String(operation.httpMethod || 'GET').toUpperCase() + ' | ' + (operation.summary || operation.path || 'Sin descripcion')
+            };
+          })
+        };
+      });
+    }
+
+    /**
+     * Vuelve a dibujar el Execution Mode o el builder segun el estado actual.
+     */
+    render() {
+      var executionContainer = document.getElementById('collection-execution-mode');
+      var builderContainer = document.getElementById('collection-builder-mode');
+      var result = document.getElementById('collection-result');
+
+      if (!executionContainer || !builderContainer) return;
+
+      if (!this.executionState.active) {
+        executionContainer.style.display = 'none';
+        executionContainer.innerHTML = '';
+        builderContainer.style.display = '';
+        if (result && !result.innerHTML) result.className = 'collection-result';
+        return;
+      }
+
+      builderContainer.style.display = 'none';
+      executionContainer.style.display = 'block';
+
+      if (this.executionState.loading) {
+        executionContainer.innerHTML =
+          '<div class="collection-exec-loading">' +
+            '<div class="collection-exec-loading-card">' +
+              '<div class="collection-exec-loading-spinner"></div>' +
+              '<div class="collection-exec-loading-title">Preparando Execution Mode</div>' +
+              '<div class="collection-exec-loading-copy">Armando timeline, resumen, variables y vista del flujo a partir del caso activo.</div>' +
+            '</div>' +
+          '</div>';
+        return;
+      }
+
+      this.applyFiltersToRun(this.executionState.run);
+      executionContainer.innerHTML = this.renderer.render(this.executionState.run);
+    }
+
+    /**
+     * Prepara una corrida recien construida para reproducirla de forma secuencial.
+     * Se guarda el estado final y se reinicia la presentacion visible.
+     */
+    preparePlaybackRun(run) {
+      var self = this;
+
+      if (!run) return;
+
+      this.decorateEntityForPlayback(run.authStep);
+      (run.steps || []).forEach(function decorateStep(step) {
+        self.decorateEntityForPlayback(step);
+      });
+      (run.connections || []).forEach(function decorateConnection(connection) {
+        connection.finalStatus = connection.status || 'idle';
+        connection.status = 'idle';
+      });
+
+      run.finalStatus = run.status || 'success';
+      run.finalStatusLabel = run.statusLabel || 'Completada';
+      run.finalDurationMs = run.durationMs || 0;
+      run.finalDurationLabel = run.durationLabel || this.formatDuration(run.durationMs || 0);
+      run.selectedStepId = run.authStep ? run.authStep.id : this.pickFirstStepId(run);
+      run.selectedTab = run.finalStatus === 'error' ? 'response' : 'details';
+
+      this.resetEntityPresentation(run.authStep);
+      (run.steps || []).forEach(function resetStep(step) {
+        self.resetEntityPresentation(step);
+      });
+
+      this.refreshRunPresentation(run);
+    }
+
+    /**
+     * Copia el estado final de una entidad para poder animar sin perder
+     * la informacion real que luego debe mostrarse al terminar.
+     */
+    decorateEntityForPlayback(entity) {
+      if (!entity) return;
+      entity.finalStatus = entity.status || 'idle';
+      entity.finalStatusLabel = entity.statusLabel || 'Pendiente';
+      entity.finalDurationMs = entity.durationMs || 0;
+      entity.finalDurationLabel = entity.durationLabel || this.formatDuration(entity.durationMs || 0);
+    }
+
+    /**
+     * Vuelve una entidad al estado inicial previo a la reproduccion visual.
+     */
+    resetEntityPresentation(entity) {
+      if (!entity) return;
+      entity.status = 'idle';
+      entity.statusLabel = 'Pendiente';
+      entity.durationLabel = '--';
+    }
+
+    /**
+     * Ejecuta una reproduccion simple paso a paso.
+     * Cada request pasa por amarillo y luego cierra en verde o rojo.
+     */
+    async playRun(run) {
+      var token = ++this.executionState.playbackToken;
+      var steps = [];
+      var i = 0;
+
+      if (!run) return;
+
+      if (run.authStep) steps.push(run.authStep);
+      steps = steps.concat(Array.isArray(run.steps) ? run.steps : []);
+
+      for (i = 0; i < steps.length; i++) {
+        if (this.wasPlaybackInterrupted(run, token)) return;
+
+        this.activateStep(run, steps[i]);
+        this.render();
+        await this.delay(i === 0 ? 460 : 540);
+
+        if (this.wasPlaybackInterrupted(run, token)) return;
+
+        this.finalizeStep(run, steps[i]);
+
+        if (steps[i].finalStatus === 'error') {
+          this.markPendingStepsAsSkipped(run, i + 1, steps);
+          this.refreshRunPresentation(run);
+          this.render();
+          return;
+        }
+
+        this.refreshRunPresentation(run);
+        this.render();
+        await this.delay(180);
+      }
+
+      this.refreshRunPresentation(run);
+      this.render();
+    }
+
+    /**
+     * Marca visualmente el paso que se esta ejecutando en este instante.
+     */
+    activateStep(run, step) {
+      if (!run || !step) return;
+      step.status = 'running';
+      step.statusLabel = step.id === 'auth' ? 'Autenticando' : 'Ejecutando';
+      run.selectedStepId = step.id;
+      this.refreshRunPresentation(run);
+    }
+
+    /**
+     * Restaura el estado final real de un paso una vez que termina su turno.
+     */
+    finalizeStep(run, step) {
+      if (!run || !step) return;
+      step.status = step.finalStatus;
+      step.statusLabel = step.finalStatusLabel;
+      step.durationLabel = step.finalDurationLabel;
+      this.refreshRunPresentation(run);
+    }
+
+    /**
+     * Si la corrida termina en error, todo lo pendiente queda marcado como saltado
+     * para que la lectura del flujo sea mas clara.
+     */
+    markPendingStepsAsSkipped(run, startIndex, steps) {
+      var stepList = Array.isArray(steps) ? steps : [];
+      for (var i = startIndex; i < stepList.length; i++) {
+        if (!stepList[i] || stepList[i].status !== 'idle') continue;
+        stepList[i].status = 'skipped';
+        stepList[i].statusLabel = 'Saltado';
+        stepList[i].durationLabel = '--';
+      }
+    }
+
+    /**
+     * Recalcula resumen, timeline, variables globales y estados de conexiones
+     * segun el estado visible actual de la reproduccion.
+     */
+    refreshRunPresentation(run) {
+      if (!run) return;
+
+      this.refreshConnectionStatuses(run);
+      run.globalVariables = this.buildVisibleGlobalVariables(run);
+      run.timeline = this.buildVisibleTimeline(run);
+      run.stats = this.buildVisibleStats(run);
+      run.durationMs = run.stats.durationMs;
+      run.durationLabel = this.formatDuration(run.durationMs);
+
+      if (this.hasVisibleStatus(run, 'running')) {
+        run.status = 'running';
+        run.statusLabel = 'Ejecutando';
+        return;
+      }
+
+      if (run.wasCancelled) {
+        run.status = 'skipped';
+        run.statusLabel = 'Cancelada';
+        return;
+      }
+
+      if (this.hasVisibleStatus(run, 'error')) {
+        run.status = 'error';
+        run.statusLabel = 'Con errores';
+        return;
+      }
+
+      run.status = 'success';
+      run.statusLabel = 'Completada';
+    }
+
+    /**
+     * Ajusta el color de cada flecha segun el paso origen/destino que se vea activo.
+     */
+    refreshConnectionStatuses(run) {
+      var stepsById = {};
+
+      if (!run) return;
+
+      (run.steps || []).forEach(function indexStep(step) {
+        stepsById[step.id] = step;
+      });
+      if (run.authStep) stepsById[run.authStep.id] = run.authStep;
+
+      (run.connections || []).forEach(function updateConnection(connection) {
+        var source = stepsById[connection.fromStepId];
+        var target = stepsById[connection.toStepId];
+
+        if (!source || !target) {
+          connection.status = 'idle';
+          return;
+        }
+
+        if (target.status === 'running' || source.status === 'running') {
+          connection.status = 'running';
+          return;
+        }
+
+        if (target.status === 'error') {
+          connection.status = 'error';
+          return;
+        }
+
+        if (source.status === 'success' && target.status === 'success') {
+          connection.status = 'success';
+          return;
+        }
+
+        connection.status = target.status === 'skipped' ? 'skipped' : 'idle';
+      });
+    }
+
+    /**
+     * Devuelve solo las variables que ya existen segun el progreso actual.
+     */
+    buildVisibleGlobalVariables(run) {
+      var rows = [];
+      var appendVariables = function appendVariablesFromEntity(entity) {
+        if (!entity) return;
+        if (entity.status !== 'success' && entity.status !== 'error') return;
+        (entity.createdVariables || []).forEach(function appendVariable(variable) {
+          rows.push(variable);
+        });
+      };
+
+      appendVariables(run.authStep);
+      (run.steps || []).forEach(appendVariables);
+
+      return rows;
+    }
+
+    /**
+     * Reconstruye la linea de tiempo con el estado visible de cada evento.
+     */
+    buildVisibleTimeline(run) {
+      var events = [];
+      var authReady = run && run.authStep && run.authStep.status !== 'idle';
+
+      events.push({
+        id: 'timeline_start',
+        stepId: run && run.authStep ? run.authStep.id : 'auth',
+        timeLabel: run.startedAtLabel || '--',
+        title: 'Iniciando ejecucion',
+        status: authReady ? 'success' : 'running',
+        statusLabel: authReady ? 'Preparado' : 'Preparando',
+        durationLabel: authReady ? this.formatDuration(0) : '--'
+      });
+
+      if (run && run.authStep) {
+        events.push(this.buildTimelineStepEvent(run.authStep));
+      }
+
+      (run.steps || []).forEach(function appendStep(step) {
+        events.push(this.buildTimelineStepEvent(step));
+      }, this);
+
+      return events;
+    }
+
+    /**
+     * Traduce un paso al formato visual de la linea de tiempo.
+     */
+    buildTimelineStepEvent(step) {
+      return {
+        id: 'timeline_' + step.id,
+        stepId: step.id,
+        timeLabel: step.happenedAtLabel,
+        title: step.name,
+        status: step.status,
+        statusLabel: step.status === 'idle' ? 'Pendiente' : step.statusLabel,
+        durationLabel: step.durationLabel
+      };
+    }
+
+    /**
+     * Recalcula los KPI superiores segun el avance visible.
+     */
+    buildVisibleStats(run) {
+      var allSteps = [];
+      var successCount = 0;
+      var errorCount = 0;
+      var warningCount = 0;
+      var requestCount = 0;
+      var durationMs = 0;
+
+      if (run && run.authStep) allSteps.push(run.authStep);
+      allSteps = allSteps.concat(Array.isArray(run && run.steps) ? run.steps : []);
+
+      allSteps.forEach(function countStep(step) {
+        if (step.status === 'success') successCount += 1;
+        if (step.status === 'error') errorCount += 1;
+        if (step.status === 'success' || step.status === 'error') {
+          requestCount += 1;
+          durationMs += step.finalDurationMs || step.durationMs || 0;
+        }
+        if (step.status === 'error') warningCount += (step.warnings || []).length;
+      });
+
+      return {
+        totalSteps: allSteps.length,
+        successCount: successCount,
+        errorCount: errorCount,
+        requestCount: requestCount,
+        variableCount: (run.globalVariables || []).length,
+        warningCount: warningCount,
+        durationMs: durationMs
+      };
+    }
+
+    /**
+     * Responde si el run visible tiene algun paso en el estado consultado.
+     */
+    hasVisibleStatus(run, status) {
+      var allSteps = [];
+      if (run && run.authStep) allSteps.push(run.authStep);
+      allSteps = allSteps.concat(Array.isArray(run && run.steps) ? run.steps : []);
+
+      return allSteps.some(function matchStatus(step) {
+        return step.status === status;
+      });
+    }
+
+    /**
+     * Devuelve el primer paso visible para fallbacks simples.
+     */
+    pickFirstStepId(run) {
+      if (run && run.steps && run.steps.length) return run.steps[0].id;
+      return 'auth';
+    }
+
+    /**
+     * Busca un paso del flujo o Authenticate por id.
+     */
+    findStepById(stepId) {
+      var run = this.executionState.run;
+      var steps = [];
+      var i = 0;
+
+      if (!run) return null;
+      if (run.authStep && run.authStep.id === stepId) return run.authStep;
+
+      steps = Array.isArray(run.steps) ? run.steps : [];
+      for (i = 0; i < steps.length; i++) {
+        if (steps[i].id === stepId) return steps[i];
+      }
+      return null;
+    }
+
+    /**
+     * Copia texto usando la API del navegador cuando esta disponible.
+     */
+    async copyText(textValue) {
+      if (navigator && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(String(textValue || ''));
+        return;
+      }
+
+      throw new Error('Clipboard no disponible');
+    }
+
+    /**
+     * Cancela la reproduccion actual invalidando cualquier secuencia async pendiente.
+     */
+    stopPlayback() {
+      this.executionState.playbackToken += 1;
+    }
+
+    /**
+     * Detecta si una reproduccion quedo vieja por cierre, reset o nueva corrida.
+     */
+    wasPlaybackInterrupted(run, token) {
+      return token !== this.executionState.playbackToken || this.executionState.run !== run;
+    }
+
+    /**
+     * Actualiza el estado visual del boton principal mientras corre el mock.
+     */
+    syncButtons(isBusy) {
+      var executeButton = document.getElementById('btn-collection-execute');
+      var fillButton = document.getElementById('btn-collection-fill-data');
+      var openButton = document.getElementById('btn-collection-open-console');
+
+      if (executeButton) {
+        executeButton.disabled = !!isBusy;
+        executeButton.innerHTML = isBusy ? '<span class="spin dk"></span>&nbsp;Probando...' : 'Probar';
+        executeButton.classList.toggle('btn-soft-disabled', executeButton.disabled);
+      }
+      if (fillButton) {
+        fillButton.disabled = !!isBusy;
+        fillButton.innerHTML = isBusy ? '<span class="spin dk"></span>&nbsp;Esperando...' : 'Rellenar datos';
+        fillButton.classList.toggle('btn-soft-disabled', fillButton.disabled);
+      }
+      if (openButton) {
+        openButton.disabled = !this.executionState.run && !isBusy;
+        openButton.textContent = 'Ver ejecucion';
+        openButton.classList.toggle('btn-soft-disabled', openButton.disabled);
+      }
+    }
+
+    /**
+     * Helper asincronico simple para dar sensacion de progresion durante el mock.
+     */
+    delay(milliseconds) {
+      return new Promise(function wait(resolve) {
+        setTimeout(resolve, milliseconds || 0);
+      });
+    }
+
+    /**
+     * Devuelve una duracion breve consistente con el resto del modulo.
+     */
+    formatDuration(milliseconds) {
+      return String(milliseconds || 0) + ' ms';
     }
   }
 
   global.BTCollectionModules = global.BTCollectionModules || {};
   global.BTCollectionModules.CollectionExecutionCenter = CollectionExecutionCenter;
 })(window);
+
+

@@ -454,13 +454,10 @@
         });
 
         (scenario.previewVariables || []).forEach(function resolveInputMappings(input) {
-          var sourceNodeId = input.sourceNodeId || '';
-
+          // Cualquier paso anterior en el orden de ejecucion puede usarse como origen,
+          // no solo el conectado por una flecha directa (asi funciona el chaining real de Postman).
           input.sourceOptions = (input.sourceOptions || []).map(function refreshSourceOption(option) {
             return outputsByKey[option.sourceVarKey] || option;
-          }).filter(function enforceConnectedSource(option) {
-            if (!sourceNodeId) return true;
-            return option.sourceNodeId === sourceNodeId;
           });
 
           if (!this.inputMappingValue(input.mappingKey)) {

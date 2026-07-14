@@ -1,4 +1,4 @@
-(function bootstrapCollectionApiClient(global) {
+﻿(function bootstrapCollectionApiClient(global) {
   'use strict';
 
   /**
@@ -72,10 +72,31 @@
     }
 
     /**
+     * Resuelve servicios y metadata desde BTI014/BTI019 para usar base de datos como origen.
+     */
+    async loadDatabaseServices(payload) {
+      return this.postJson('/api/collection/database/load', payload);
+    }
+
+    /**
+     * Pide el detalle completo de un metodo puntual cuando el origen es Base de datos.
+     */
+    async loadDatabaseOperation(payload) {
+      return this.postJson('/api/collection/database/operation', payload);
+    }
+
+    /**
      * Ejecuta un flujo armado en el builder contra el backend local.
      */
     async executeFlow(payload) {
       return this.postJson('/api/collection/execute', payload);
+    }
+
+    /**
+     * Pide al backend completar datos encadenados y autogenerables sin ejecutar requests.
+     */
+    async fillRequestData(payload) {
+      return this.postJson('/api/collection/fill-data', payload);
     }
 
     /**
@@ -89,3 +110,4 @@
   global.BTCollectionModules = global.BTCollectionModules || {};
   global.BTCollectionModules.CollectionApiClient = CollectionApiClient;
 })(window);
+

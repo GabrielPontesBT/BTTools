@@ -7,21 +7,21 @@
       "INSTALADOR"
     ],
     "device": [
-      "FC",
-      "INSTALADOR"
+      "INSTALADOR",
+      "FC"
     ],
     "requirement": [
       "1"
     ],
     "token": [
-      "71FD9C96684B7CF5BDFEBDB8",
-      "B240259FC0A0A579CBBA123B",
-      "3505B4911CE1B50A29F2780C",
-      "1B7BFDBA451B497072FA30F4",
-      "59F602BCFC51C0EF69650CD8",
-      "973D36B3B3558A47EFCC83BD",
-      "E8B23FF2E2D8A9DCB23BFF61",
-      "8F93FA3048C9B909A0822626"
+      "B9C8BBACB42E3F1A3807134E",
+      "EBFFF60602342318CB5DE4BB",
+      "E1C5986C13F6E2D42B51A396",
+      "9AEA546ED1B8DDD84D15B767",
+      "4399B40E88D74EACCB108447",
+      "A4C36870A77BA6A901333789",
+      "1E9ED0ECAF4F0E41DD8B9EBE",
+      "D5F1E6AA17505A1E19EAA489"
     ],
     "ProductGUID": [
       "d6328022-6f93-4afc-b59b-a29f435aba41"
@@ -48,13 +48,16 @@
       "0"
     ],
     "limit": [
+      "10",
       "200"
     ],
     "groupId": [
+      "1",
       "14",
       "2"
     ],
     "groupName": [
+      "LAS VENDEDORAS DEL SIGLO",
       "PRUEBA GRUPO SOAP 20",
       "LAS PODEROSAS DEL RIMAC"
     ],
@@ -62,16 +65,19 @@
       "Cancelada"
     ],
     "cycleId": [
+      "3",
       "0",
       "2"
     ],
     "lastCycleStatusId": [
+      "3",
       "0"
     ],
     "status": [
       "99"
     ],
     "hasNext": [
+      "false",
       "true"
     ],
     "Loans_getGroups_groups_group_item_groupName": [
@@ -102,36 +108,42 @@
       "1"
     ],
     "savingAccountGUID": [
+      "02dab08a-eb40-4f26-b527-64a8bd8ea2b9",
       "00000000-0000-0000-0000-000000000000",
       "95f6c6fb-6028-4ec5-b6c5-41612225ae15"
     ],
     "executiveId": [
+      "1",
       "4"
     ],
     "meetingDomicileCorrelative": [
-      "1",
-      "0"
+      "0",
+      "1"
     ],
     "executiveDescription": [
+      "INSTALADOR",
       "GRUPO 2"
     ],
     "meetingDayOfWeek": [
+      "2",
       "1",
       "3"
     ],
     "counterpartyOfDomicile": [
-      "4788",
-      "0"
+      "0",
+      "4788"
     ],
     "latePenaltyAmount": [
       "0",
       "100"
     ],
     "meetingTime": [
+      "12:50",
       "13:45",
       "20:00"
     ],
     "meetingDomicile": [
+      "Pasaje Los Robles C14",
       "1",
       "Av italia 1231"
     ],
@@ -139,10 +151,11 @@
       "Sucursal Beta"
     ],
     "isAMemberDomicile": [
-      "true",
-      "false"
+      "false",
+      "true"
     ],
     "savingAccountExternalId": [
+      "47859613645",
       "0"
     ],
     "absencePenaltyAmount": [
@@ -150,8 +163,8 @@
       "20"
     ],
     "isAccountOpenInInstitution": [
-      "false",
-      "true"
+      "true",
+      "false"
     ],
     "Loans_getGroup_group_branchId": [
       "1"
@@ -222,6 +235,274 @@
     "Loans_getGroup_group_isAccountOpenInInstitution": [
       "false",
       "true"
+    ],
+    "PublicLoans_getGroups_hasNext": [
+      "true",
+      "false"
+    ],
+    "PublicLoans_getGroup_group_absencePenaltyAmount": [
+      "0"
+    ],
+    "PublicLoans_getGroup_group_branchDescription": [
+      "Sucursal Beta"
+    ],
+    "PublicLoans_getGroup_group_branchId": [
+      "1"
+    ],
+    "PublicLoans_getGroup_group_counterpartyOfDomicile": [
+      "0"
+    ],
+    "PublicLoans_getGroup_group_cycleId": [
+      "3"
+    ],
+    "PublicLoans_getGroup_group_executiveDescription": [
+      "INSTALADOR"
+    ],
+    "PublicLoans_getGroup_group_executiveId": [
+      "1"
+    ],
+    "PublicLoans_getGroup_group_groupId": [
+      "1"
+    ],
+    "PublicLoans_getGroup_group_groupName": [
+      "LAS VENDEDORAS DEL SIGLO"
+    ],
+    "PublicLoans_getGroup_group_isAccountOpenInInstitution": [
+      "true"
+    ],
+    "PublicLoans_getGroup_group_isAMemberDomicile": [
+      "false"
+    ],
+    "PublicLoans_getGroup_group_lastCycleStatusId": [
+      "3"
+    ],
+    "PublicLoans_getGroup_group_latePenaltyAmount": [
+      "0"
+    ],
+    "PublicLoans_getGroup_group_meetingDayOfWeek": [
+      "2"
+    ],
+    "PublicLoans_getGroup_group_meetingDomicile": [
+      "Pasaje Los Robles C14"
+    ],
+    "PublicLoans_getGroup_group_meetingDomicileCorrelative": [
+      "0"
+    ],
+    "PublicLoans_getGroup_group_meetingTime": [
+      "12:50"
+    ],
+    "PublicLoans_getGroup_group_savingAccountExternalId": [
+      "47859613645"
+    ],
+    "PublicLoans_getGroup_group_savingAccountGUID": [
+      "02dab08a-eb40-4f26-b527-64a8bd8ea2b9"
+    ],
+    "totalOfCompensatoryInterest": [
+      "0"
+    ],
+    "totalOfInsurances": [
+      "0"
+    ],
+    "totalOfCapital": [
+      "0"
+    ],
+    "totalOfCompensatoryInterestFees": [
+      "0"
+    ],
+    "totalOfInterestTaxes": [
+      "0"
+    ],
+    "totalOfDeferredInterest": [
+      "0"
+    ],
+    "totalOfDistributedInterest": [
+      "0"
+    ],
+    "totalOfCapitalTaxes": [
+      "0"
+    ],
+    "kindValue": [
+      "0"
+    ],
+    "totalOfInterest": [
+      "0"
+    ],
+    "daysInArrears": [
+      "0"
+    ],
+    "totalOfDeferredInterestTaxes": [
+      "0"
+    ],
+    "totalOfCapitalConcessional": [
+      "0"
+    ],
+    "totalOfDistributedInsurances": [
+      "0"
+    ],
+    "totalOfConcessional": [
+      "0"
+    ],
+    "totalOfTaxes": [
+      "0"
+    ],
+    "totalOfRoundOff": [
+      "0"
+    ],
+    "totalOfPunitiveInterest": [
+      "0"
+    ],
+    "totalTaxesOnFeesInQuotas": [
+      "0"
+    ],
+    "totalOfPunitiveInterestFees": [
+      "0"
+    ],
+    "totalOfCancelationFee": [
+      "0"
+    ],
+    "totalDebt": [
+      "0"
+    ],
+    "totalOfDistributedInterestTaxes": [
+      "0"
+    ],
+    "totalOfFees": [
+      "0"
+    ],
+    "totalOfInterestArrearsFees": [
+      "0"
+    ],
+    "totalOfInterestArrears": [
+      "0"
+    ],
+    "totalOfInterestArrearsTaxes": [
+      "0"
+    ],
+    "totalOfTaxesInCancelationFee": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalOfCompensatoryInterest": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalOfInsurances": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalOfCapital": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalOfCompensatoryInterestFees": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalOfInterestTaxes": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalOfDeferredInterest": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalOfDistributedInterest": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalOfCapitalTaxes": [
+      "0"
+    ],
+    "Loans_getGroupQuery_kindValue": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalOfInterest": [
+      "0"
+    ],
+    "Loans_getGroupQuery_daysInArrears": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalOfDeferredInterestTaxes": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalOfCapitalConcessional": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalOfDistributedInsurances": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalOfConcessional": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalOfTaxes": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalOfRoundOff": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalOfPunitiveInterest": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalTaxesOnFeesInQuotas": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalOfPunitiveInterestFees": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalOfCancelationFee": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalDebt": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalOfDistributedInterestTaxes": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalOfFees": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalOfInterestArrearsFees": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalOfInterestArrears": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalOfInterestArrearsTaxes": [
+      "0"
+    ],
+    "Loans_getGroupQuery_totalOfTaxesInCancelationFee": [
+      "0"
+    ],
+    "personName": [
+      "BENAVENTE GARCIA YADIRA"
+    ],
+    "cycleIdOfMember": [
+      "1"
+    ],
+    "documentTypeDescription": [
+      "D.N.I."
+    ],
+    "personGUID": [
+      "4a47ca9e-fb87-4555-8f3d-0cca5758cc9e"
+    ],
+    "countryDescription": [
+      "Perú"
+    ],
+    "documentNumber": [
+      "71336785"
+    ],
+    "memberTypeId": [
+      "3"
+    ],
+    "documentTypeId": [
+      "11"
+    ],
+    "counterpartyName": [
+      "BENAVENTE GARCIA YADIRA"
+    ],
+    "counterpartyGUID": [
+      "a0f1dc41-1624-49dd-91a5-f28bf91e5d2c"
+    ],
+    "memberTypeDescription": [
+      "Integrante"
+    ],
+    "countryId": [
+      "604"
+    ],
+    "PublicLoans_getMembersOfGroup_hasNext": [
+      "false"
     ]
   },
   "V4::oracle::10.0.0.4:1521/btv4db::": {

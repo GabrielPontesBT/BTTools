@@ -28,7 +28,7 @@
      */
     stageLabel(stage) {
       if (stage === 'define') return 'Definicion';
-      if (stage === 'setup') return 'Ambiente';
+      if (stage === 'setup') return 'Catalogo';
       if (stage === 'builder') return 'Builder';
       return stage;
     }
@@ -89,7 +89,9 @@
       var services = document.getElementById('collection-services');
       var stageButtons = document.querySelectorAll('.collection-stage-btn');
       var shell = document.querySelector('.collection-shell-studio');
-      var stage = this.state.studioStage || 'define';
+      var studioTitle = document.getElementById('collection-studio-title');
+      var studioSubtitle = document.getElementById('collection-studio-subtitle');
+      var stage = this.state.studioStage || 'setup';
 
       Array.prototype.forEach.call(stageButtons, function updateStageButton(button) {
         var isActive = button.dataset.stage === stage;
@@ -97,12 +99,23 @@
       });
 
       if (shell) {
+        shell.classList.remove('collection-studio-stage-define', 'collection-studio-stage-setup', 'collection-studio-stage-builder');
+        shell.classList.add('collection-studio-stage-' + stage);
         shell.classList.toggle('collection-shell-studio-builder', stage === 'builder');
+      }
+
+      if (studioTitle) {
+        studioTitle.textContent = 'Casos de uso';
+      }
+
+      if (studioSubtitle) {
+        studioSubtitle.textContent = '';
+        studioSubtitle.style.display = 'none';
       }
 
       if (intro) intro.style.display = stage === 'define' ? 'block' : 'none';
       if (config) config.style.display = stage === 'setup' ? 'block' : 'none';
-      if (services) services.style.display = stage === 'builder' ? 'block' : 'none';
+      if (services) services.style.display = stage === 'builder' ? 'flex' : 'none';
 
       var summary = document.getElementById('collection-studio-summary');
       if (summary) {
@@ -110,9 +123,6 @@
         var targetText = this.state.target ? this.state.target : 'Sin destino';
         summary.textContent = 'Camino seleccionado: ' + formatText + ' + ' + targetText + '.';
       }
-
-      var defineContinue = document.getElementById('collection-stage-continue');
-      if (defineContinue) defineContinue.disabled = !this.pathSupported();
 
       if (stage === 'setup' && this.callbacks.refreshContext) {
         this.callbacks.refreshContext();

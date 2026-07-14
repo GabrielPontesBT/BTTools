@@ -1,9 +1,34 @@
 (function bootstrapCollectionServiceCatalogManager(global) {
   'use strict';
 
+  var GENERIC_DESCRIPTIONS = ['', 'enter a description', 'sin descripcion', 'sin descripcion.', 'sin descripción'];
+
   /**
-   * Encapsula la carga de Swagger y el catálogo visible de servicios/métodos.
-   * También concentra la lógica de filtrado y poblamiento de selects.
+   * Filtra descripciones vacias o placeholders tecnicos (ej. "Enter a description").
+   */
+  function describeOperation(operation) {
+    var raw = String((operation && (operation.summary || operation.path)) || '').trim();
+    if (!raw || GENERIC_DESCRIPTIONS.indexOf(raw.toLowerCase()) >= 0) return '';
+    return raw;
+  }
+
+  /**
+   * Devuelve el sufijo de clase CSS para el badge de verbo HTTP.
+   */
+  function httpMethodBadgeClass(verb) {
+    switch (String(verb || '').toUpperCase()) {
+      case 'GET': return 'get';
+      case 'POST': return 'post';
+      case 'PUT': return 'put';
+      case 'PATCH': return 'patch';
+      case 'DELETE': return 'delete';
+      default: return 'default';
+    }
+  }
+
+  /**
+   * Encapsula la carga de Swagger y el catalogo visible de servicios/metodos.
+   * Tambien concentra la logica de filtrado y poblamiento de selects.
    */
   class CollectionServiceCatalogManager {
     /**
@@ -14,7 +39,7 @@
     }
 
     /**
-     * Pide al backend la definición Swagger, actualiza el estado y resuelve auth.
+     * Pide al backend la definicion Swagger, actualiza el estado y resuelve auth.
      */
     async loadServices() {
       this.options.refreshContext();
@@ -49,7 +74,6 @@
         var data = await response.json();
         if (!data.ok) throw new Error(data.message);
 
-        // Se persiste la metadata Swagger dentro del estado principal del builder.
         state.services = data.services || [];
         state.serviceOperations = data.operationsByService || {};
         state.swaggerResolvedUrl = data.resolvedUrl || '';
@@ -84,47 +108,15 @@
     }
 
     /**
-     * Aplica los filtros actuales al catálogo y sincroniza los selects legacy si existen.
+     * Dispara un repintado del catalogo cuando cambia el termino de busqueda.
+     * El repintado real del drawer ocurre dentro de renderItems (ver collection-canvas-manager).
      */
     filterServices() {
-      var serviceFilterElement = document.getElementById('col-svc-filter');
-      var methodFilterElement = document.getElementById('col-method-filter');
-      var serviceFilter = ((serviceFilterElement && serviceFilterElement.value) || '').toLowerCase().trim();
-      var methodFilter = ((methodFilterElement && methodFilterElement.value) || '').toLowerCase().trim();
-      var serviceSelect = document.getElementById('col-sel-svc');
-      var state = this.options.getState();
-
-      if (serviceSelect) {
-        var previousValue = serviceSelect.value;
-        serviceSelect.innerHTML = '<option value="">-- Seleccionar --</option>';
-
-        state.services.filter(function keepVisibleService(service) {
-          if (serviceFilter && service.toLowerCase().indexOf(serviceFilter) < 0) return false;
-          if (!methodFilter) return true;
-
-          return (state.serviceOperations[service] || []).some(function matchMethod(operation) {
-            var methodName = String(operation.methodName || '').toLowerCase();
-            return methodName.indexOf(methodFilter) >= 0;
-          });
-        }).forEach(function appendServiceOption(service) {
-          var option = document.createElement('option');
-          option.value = service;
-          option.textContent = service;
-          if (service === previousValue) option.selected = true;
-          serviceSelect.appendChild(option);
-        });
-
-        if (previousValue && serviceSelect.value !== previousValue) {
-          var methodSelect = document.getElementById('col-sel-mtd');
-          if (methodSelect) methodSelect.innerHTML = '<option value="">-- Seleccionar --</option>';
-        }
-      }
-
       this.options.renderItems();
     }
 
     /**
-     * Carga los métodos de un servicio puntual en el select legacy.
+     * Carga los metodos de un servicio puntual en el select legacy.
      */
     loadMethods(service) {
       var methodSelect = document.getElementById('col-sel-mtd');
@@ -146,52 +138,89 @@
     }
 
     /**
-     * Dibuja el catálogo lateral de servicios agrupado por módulo.
+     * Dibuja el catalogo del drawer izquierdo agrupado por servicio.
      */
     renderServiceCatalog() {
       var container = document.getElementById('collection-service-list');
       if (!container) return;
 
-      var serviceFilter = ((document.getElementById('col-svc-filter') || {}).value || '').toLowerCase().trim();
-      var methodFilter = ((document.getElementById('col-method-filter') || {}).value || '').toLowerCase().trim();
       var state = this.options.getState();
+      var shellManager = typeof collectionGetBuilderShellManager === 'function' ? collectionGetBuilderShellManager() : null;
+
+      if (!state.services.length) {
+        container.innerHTML = '<div class="collection-service-empty-state">No hay servicios disponibles.</div>';
+        if (typeof collectionSyncBuilderShellState === 'function') collectionSyncBuilderShellState();
+        return;
+      }
+
+      var searchTerm = ((document.getElementById('collection-service-search') || {}).value || '').toLowerCase().trim();
 
       var groups = state.services.map(function mapServiceToGroup(service) {
-        if (serviceFilter && service.toLowerCase().indexOf(serviceFilter) < 0) {
-          return { service: service, operations: [] };
-        }
-
         var operations = (state.serviceOperations[service] || []).filter(function keepVisibleOperation(operation) {
-          var methodName = String(operation.methodName || '').toLowerCase();
-          var summary = String(operation.summary || operation.path || '').toLowerCase();
-          if (methodFilter && methodName.indexOf(methodFilter) < 0 && summary.indexOf(methodFilter) < 0) return false;
-          return true;
+          if (!searchTerm) return true;
+          var haystack = [service, operation.methodName, operation.httpMethod, operation.summary, operation.path]
+            .join(' ').toLowerCase();
+          return haystack.indexOf(searchTerm) >= 0;
         });
-
         return { service: service, operations: operations };
       }).filter(function removeEmptyGroups(group) {
         return group.operations.length > 0;
       });
 
       if (!groups.length) {
-        container.innerHTML = '<div class="collection-step-empty">Todavia no hay servicios cargados o el filtro no encontro resultados.</div>';
+        container.innerHTML = '<div class="collection-service-empty-state">' +
+          'No encontramos servicios o metodos con ese criterio.' +
+          '<button type="button" class="collection-service-clear-search" onclick="collectionClearServiceSearch()">Limpiar busqueda</button>' +
+        '</div>';
+        if (typeof collectionSyncBuilderShellState === 'function') collectionSyncBuilderShellState();
         return;
       }
 
-      container.innerHTML = groups.map(function renderGroup(group) {
-        return '<div class="collection-service-group">' +
-          '<div class="collection-service-group-title">' + this.options.escapeHtml(group.service) + '</div>' +
-          group.operations.map(function renderOperation(operation) {
-            return '<div class="collection-service-card" draggable="true" onclick="collectionInsertOperation(' + "'" + this.options.escapeHtml(group.service) + "'" + ', ' + "'" + this.options.escapeHtml(operation.operationKey) + "'" + ')" ondragstart="collectionDragOperation(' + "'" + this.options.escapeHtml(group.service) + "'" + ', ' + "'" + this.options.escapeHtml(operation.operationKey) + "'" + ', event)">' +
-              '<div class="collection-service-card-main">' +
-                '<div class="collection-service-card-name">' + this.options.escapeHtml(operation.methodName) + '</div>' +
-                '<div class="collection-service-card-meta">' + this.options.escapeHtml(String(operation.httpMethod || 'GET').toUpperCase() + ' | ' + (operation.summary || operation.path || 'Sin descripcion')) + '</div>' +
-              '</div>' +
-              '<span class="collection-service-card-tag">+</span>' +
-            '</div>';
-          }, this).join('') +
+      var isSearching = !!searchTerm;
+      var selectionCount = shellManager ? shellManager.getCatalogSelectionCount() : 0;
+
+      container.innerHTML = '<div class="collection-service-drawer-scroll">' + groups.map(function renderGroup(group) {
+        var escapedService = this.options.escapeHtml(group.service);
+        var isCollapsed = !isSearching && !!(shellManager && shellManager.isServiceGroupCollapsed(group.service));
+
+        return '<div class="collection-service-group' + (isCollapsed ? ' collection-service-group-collapsed' : '') + '">' +
+          '<button type="button" class="collection-service-group-title" aria-expanded="' + (isCollapsed ? 'false' : 'true') + '" onclick="collectionToggleServiceGroup(\'' + escapedService + '\')">' +
+            '<span class="collection-service-group-chevron" aria-hidden="true">&#9656;</span>' +
+            '<span class="collection-service-group-name">' + escapedService + '</span>' +
+            '<span class="collection-service-group-count">' + group.operations.length + '</span>' +
+          '</button>' +
+          '<div class="collection-service-group-body">' +
+            group.operations.map(function renderOperation(operation) {
+              var isSelected = !!(shellManager && shellManager.isCatalogOperationSelected(group.service, operation.operationKey));
+              var escapedOperationKey = this.options.escapeHtml(operation.operationKey);
+              var verb = String(operation.httpMethod || 'GET').toUpperCase();
+              var description = describeOperation(operation);
+
+              return '<div class="collection-service-card' + (isSelected ? ' collection-service-card-selected' : '') + '" onclick="collectionInsertCatalogOperation(\'' + escapedService + '\', \'' + escapedOperationKey + '\')">' +
+                '<label class="collection-service-card-check" onclick="event.stopPropagation()">' +
+                  '<input type="checkbox" ' + (isSelected ? 'checked ' : '') + 'onchange="collectionToggleCatalogSelection(\'' + escapedService + '\', \'' + escapedOperationKey + '\', this.checked)">' +
+                  '<span></span>' +
+                '</label>' +
+                '<div class="collection-service-card-main">' +
+                  '<div class="collection-service-card-name">' + this.options.escapeHtml(operation.methodName) + '</div>' +
+                  (description ? '<div class="collection-service-card-meta">' + this.options.escapeHtml(description) + '</div>' : '') +
+                '</div>' +
+                '<span class="collection-service-card-tag collection-service-card-tag-' + httpMethodBadgeClass(verb) + '">' + verb + '</span>' +
+                '<span class="collection-service-drag-handle" draggable="true" title="Arrastrar al flujo" onclick="event.stopPropagation()" ondragstart="collectionDragOperation(\'' + escapedService + '\', \'' + escapedOperationKey + '\', event)">&#8942;&#8942;</span>' +
+              '</div>';
+            }, this).join('') +
+          '</div>' +
         '</div>';
-      }, this).join('');
+      }, this).join('') + '</div>' +
+      '<div class="collection-service-drawer-footer">' +
+        '<div id="collection-builder-selection-count" class="collection-service-selection-count">' + selectionCount + ' seleccionado' + (selectionCount === 1 ? '' : 's') + '</div>' +
+        '<div class="collection-service-drawer-actions">' +
+          (selectionCount ? '<button type="button" class="collection-service-clear-selection" onclick="collectionClearCatalogSelection()">Limpiar</button>' : '') +
+          '<button type="button" class="btn btn-primary" id="btn-collection-add-selected" onclick="collectionAddSelectedCatalogOperations()" disabled>Agregar al flujo</button>' +
+        '</div>' +
+      '</div>';
+
+      if (typeof collectionSyncBuilderShellState === 'function') collectionSyncBuilderShellState();
     }
   }
 

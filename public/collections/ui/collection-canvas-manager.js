@@ -1,9 +1,9 @@
-(function bootstrapCollectionCanvasManager(global) {
+﻿(function bootstrapCollectionCanvasManager(global) {
   'use strict';
 
   /**
-   * Encapsula toda la construcción visual del canvas de cadenas.
-   * Este módulo no decide reglas de negocio profundas: se apoya en callbacks
+   * Encapsula toda la construcciÃ³n visual del canvas de cadenas.
+   * Este mÃ³dulo no decide reglas de negocio profundas: se apoya en callbacks
    * del builder principal para leer estado, mappings y acciones.
    */
   class CollectionCanvasManager {
@@ -16,7 +16,7 @@
 
     /**
      * Construye el texto que aparece sobre una flecha del canvas.
-     * Resume qué outputs del paso origen están siendo usados por el paso destino.
+     * Resume quÃ© outputs del paso origen estÃ¡n siendo usados por el paso destino.
      */
     buildCanvasLinkText(sourceItem, sourceIndex, targetItem, targetIndex, scenario) {
       if (!scenario) return 'Flujo';
@@ -25,7 +25,7 @@
       var targetGroupKey = this.options.buildCanvasGroupKey(targetItem, targetIndex);
       var outputsByKey = {};
 
-      // Se indexan las salidas por su clave técnica para poder resolver mappings rápido.
+      // Se indexan las salidas por su clave tÃ©cnica para poder resolver mappings rÃ¡pido.
       (scenario.previewOutputs || []).forEach(function indexOutput(output) {
         outputsByKey[output.sourceVarKey] = output;
       });
@@ -52,7 +52,7 @@
 
     /**
      * Calcula una ruta ortogonal simple entre dos nodos del canvas.
-     * Esto mantiene las flechas prolijas y más cercanas a un diagrama tipo MER.
+     * Esto mantiene las flechas prolijas y mÃ¡s cercanas a un diagrama tipo MER.
      */
     buildOrthogonalCanvasPath(sourceElement, targetElement) {
       var sourceRect = {
@@ -73,7 +73,7 @@
       var targetCenterX = targetRect.left + (targetRect.width / 2);
       var targetCenterY = targetRect.top + (targetRect.height / 2);
 
-      // Se compara el desvío horizontal contra el vertical para elegir la mejor forma.
+      // Se compara el desvÃ­o horizontal contra el vertical para elegir la mejor forma.
       var horizontalBias = Math.abs(targetCenterX - sourceCenterX) > Math.abs(targetCenterY - sourceCenterY);
 
       if (horizontalBias) {
@@ -113,7 +113,7 @@
 
     /**
      * Renderiza todas las flechas del canvas dentro del SVG superpuesto.
-     * También agrega los handles de edición y el ícono para borrar enlaces.
+     * TambiÃ©n agrega los handles de ediciÃ³n y el Ã­cono para borrar enlaces.
      */
     renderCanvasConnections() {
       var scenario = this.options.getActiveScenario();
@@ -125,7 +125,7 @@
       var stageWidth = surface.offsetWidth || 0;
       var stageHeight = surface.offsetHeight || 0;
 
-      // El SVG toma exactamente el tamaño del área renderizada del canvas.
+      // El SVG toma exactamente el tamaÃ±o del Ã¡rea renderizada del canvas.
       svg.setAttribute('viewBox', '0 0 ' + stageWidth + ' ' + stageHeight);
       svg.setAttribute('width', String(stageWidth));
       svg.setAttribute('height', String(stageHeight));
@@ -168,7 +168,7 @@
         );
       }
 
-      // Si el usuario está arrastrando una conexión nueva, se dibuja la ruta temporal.
+      // Si el usuario estÃ¡ arrastrando una conexiÃ³n nueva, se dibuja la ruta temporal.
       if (this.options.getConnectionDragState() && this.options.getConnectionDragState().tempPath) {
         rows.push('<path class="collection-canvas-link collection-canvas-link-temp" d="' + this.options.getConnectionDragState().tempPath + '"></path>');
       }
@@ -192,11 +192,11 @@
         return total + ((current.items || []).length);
       }, 0);
 
-      // El catálogo lateral siempre se refresca junto con el canvas principal.
+      // El panel lateral de servicios siempre se refresca junto con el canvas principal.
       this.options.renderServiceCatalog();
 
       if (!items.length) {
-        container.innerHTML = '<div class="collection-canvas-stage" ondragover="collectionAllowCanvasDrop(event)" ondrop="collectionDropOperation(0, event)"><div class="collection-canvas-empty">Arrastra un servicio desde la izquierda o haz clic sobre uno para empezar a construir la cadena.</div></div>';
+        container.innerHTML = '<div class="collection-canvas-stage" ondragover="collectionAllowCanvasDrop(event)" ondragenter="collectionCanvasDragEnter(event)" ondragleave="collectionCanvasDragLeave(event)" ondrop="collectionDropOperation(0, event)"><div class="collection-canvas-empty"><div class="collection-canvas-empty-icon">⊞</div><div class="collection-canvas-empty-title">Todavia no agregaste servicios</div><div class="collection-canvas-empty-copy">Agrega un servicio para comenzar a construir la cadena.</div><button type="button" class="btn btn-outline" onclick="collectionOpenServiceDrawer()"><span class="collection-btn-icon">＋</span><span>Agregar servicio</span></button></div></div>';
       } else {
         var selectedIndex = this.options.getSelectedItemIndex();
         var blocks = [];
@@ -236,7 +236,7 @@
         var surfaceHeight = Math.max(540, maxY + 220);
 
         container.innerHTML =
-          '<div class="collection-canvas-stage" ondragover="collectionAllowCanvasDrop(event)" ondrop="collectionDropOperation(' + items.length + ', event)">' +
+          '<div class="collection-canvas-stage" ondragover="collectionAllowCanvasDrop(event)" ondragenter="collectionCanvasDragEnter(event)" ondragleave="collectionCanvasDragLeave(event)" ondrop="collectionDropOperation(' + items.length + ', event)">' +
             '<svg id="collection-canvas-svg" class="collection-canvas-svg"></svg>' +
             '<div id="collection-canvas-surface" class="collection-canvas-surface" style="width:' + surfaceWidth + 'px;height:' + surfaceHeight + 'px">' +
               blocks.join('') +
@@ -247,15 +247,26 @@
         setTimeout(this.renderCanvasConnections.bind(this), 0);
       }
 
-      // Después del canvas se refrescan inspector y botones de acción.
+      // DespuÃ©s del canvas se refrescan inspector y botones de acciÃ³n.
       this.options.renderInspector();
       var generateButton = document.getElementById('btn-collection-generate');
       if (generateButton) generateButton.disabled = !totalItems || !this.options.pathSupported();
       var executeButton = document.getElementById('btn-collection-execute');
       if (executeButton) executeButton.disabled = !items.length || !this.options.pathSupported();
+      var fillButton = document.getElementById('btn-collection-fill-data');
+      if (fillButton) fillButton.disabled = !items.length || !this.options.pathSupported();
+      var addServiceWrap = document.getElementById('collection-builder-add-service-wrap');
+      if (addServiceWrap) addServiceWrap.style.display = items.length ? 'flex' : 'none';
+      if (generateButton) generateButton.classList.toggle('btn-soft-disabled', generateButton.disabled);
+      if (executeButton) executeButton.classList.toggle('btn-soft-disabled', executeButton.disabled);
+      if (fillButton) fillButton.classList.toggle('btn-soft-disabled', fillButton.disabled);
+      var openConsoleButton = document.getElementById('btn-collection-open-console');
+      if (openConsoleButton) openConsoleButton.classList.toggle('btn-soft-disabled', openConsoleButton.disabled);
+      if (typeof collectionSyncBuilderShellState === 'function') collectionSyncBuilderShellState();
     }
   }
 
   global.BTCollectionModules = global.BTCollectionModules || {};
   global.BTCollectionModules.CollectionCanvasManager = CollectionCanvasManager;
 })(window);
+

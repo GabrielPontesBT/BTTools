@@ -3,7 +3,7 @@
 
   /**
    * Centraliza la lectura del ambiente actual, la prueba de credenciales
-   * y la carga de servicios desde Swagger.
+   * y la carga de servicios desde Swagger o Base de datos.
    */
   class CollectionEnvironmentManager {
     /**
@@ -11,6 +11,29 @@
      */
     constructor(options) {
       this.options = options || {};
+    }
+
+    /**
+     * Devuelve el origen de servicios activo, usando Swagger por defecto.
+     */
+    getSelectedSource() {
+      return String((this.options.getState().serviceSource || 'swagger')).toLowerCase() === 'database'
+        ? 'database'
+        : 'swagger';
+    }
+
+    /**
+     * Sincroniza visibilidad y textos del paso Ambiente según el origen elegido.
+     */
+    syncSourceUi() {
+      var source = this.getSelectedSource();
+      var swaggerField = document.getElementById('collection-swagger-field');
+      var loadButton = document.getElementById('btn-collection-load-services');
+      var sourceSelect = document.getElementById('collection-source-select');
+
+      if (swaggerField) swaggerField.style.display = source === 'swagger' ? 'block' : 'none';
+      if (loadButton) loadButton.textContent = 'Cargar servicios';
+      if (sourceSelect) sourceSelect.value = source;
     }
 
     /**
@@ -59,6 +82,8 @@
         }
       }
 
+      this.syncSourceUi();
+
       summary.textContent =
         'Version: ' + (wizardState.version || '-') +
         ' | Plataforma: ' + (wizardState.platform || '-') +
@@ -73,6 +98,21 @@
      */
     updateSwaggerUrl(value) {
       this.options.getState().swaggerUrl = String(value || '').trim();
+    }
+
+    /**
+     * Guarda el origen de catálogo elegido por el usuario y refresca la UI local.
+     */
+    updateServiceSource(value) {
+      var nextSource = String(value || '').trim().toLowerCase() === 'database'
+        ? 'database'
+        : 'swagger';
+      var state = this.options.getState();
+      if (String(state.serviceSource || 'swagger').toLowerCase() !== nextSource) {
+        this.options.resetLoadedData();
+      }
+      state.serviceSource = nextSource;
+      this.syncSourceUi();
     }
 
     /**
@@ -132,7 +172,7 @@
     }
 
     /**
-     * Lee Swagger, resuelve base/auth y autentica automaticamente contra ese ambiente.
+     * Lee servicios desde el origen activo y deja el builder listo para armar el flujo.
      */
     async loadServices() {
       this.refreshContext();
@@ -149,13 +189,24 @@
         return;
       }
 
+      if (this.getSelectedSource() === 'database') {
+        return this.loadServicesFromDatabase(wizardState, state);
+      }
+
+      return this.loadServicesFromSwagger(wizardState, state);
+    }
+
+    /**
+     * Mantiene el flujo actual de Swagger/OpenAPI como origen principal.
+     */
+    async loadServicesFromSwagger(wizardState, state) {
       state.swaggerUrl = String(state.swaggerUrl || ((document.getElementById('collection-swagger-url') || {}).value || '')).trim();
       if (!state.swaggerUrl) {
         this.options.showStatus('err', 'Indica primero la ruta Swagger del ambiente.');
         return;
       }
 
-      this.options.showStatus('ok', 'Leyendo Swagger del ambiente...');
+      this.options.showStatus('ok', 'Cargando servicios desde Swagger...');
 
       try {
         var swaggerData = await this.options.apiClient.loadSwaggerServices({
@@ -173,7 +224,7 @@
         var servicesPanel = document.getElementById('collection-services');
         if (servicesPanel) servicesPanel.style.display = 'block';
 
-        this.options.showStatus('ok', 'Swagger resuelto. Autenticando contra ese mismo ambiente...');
+        this.options.showStatus('ok', 'Swagger resuelto. Validando autenticacion del ambiente...');
 
         var authData = await this.options.apiClient.testAuthentication({
           version: wizardState.version,
@@ -187,9 +238,55 @@
         this.options.filterServices();
         this.options.renderVariableEditor();
         this.options.setStudioStage('builder');
-        this.options.showStatus('ok', 'Swagger cargado y autenticacion resuelta usando ese mismo Swagger. Ahora arma el flujo.');
+        this.options.showStatus('ok', 'Servicios cargados correctamente. Entrando al builder...');
       } catch (error) {
         this.options.showStatus('err', error.message || 'No se pudieron cargar los servicios.');
+      }
+    }
+
+    /**
+     * Carga servicios desde BTI014/BTI019 y los normaliza al mismo contrato del builder.
+     */
+    async loadServicesFromDatabase(wizardState, state) {
+      this.options.showStatus('ok', 'Cargando servicios desde Base de datos...');
+
+      try {
+        var databaseData = await this.options.apiClient.loadDatabaseServices({
+          version: wizardState.version,
+          platform: wizardState.platform,
+          db: this.options.getDb(),
+          api: this.options.getApi()
+        });
+        if (!databaseData.ok) throw new Error(databaseData.message);
+
+        state.services = databaseData.services || [];
+        state.serviceOperations = databaseData.operationsByService || {};
+        state.swaggerResolvedUrl = '';
+        state.swaggerBaseUrl = String((this.options.getApi().BASE_URL || '')).trim();
+        state.swaggerAuthUrl = wizardState.version === 'V4'
+          ? this.options.resolveV4AuthUrl(this.options.getApi())
+          : String((this.options.getApi().API_AUTH_URL || '')).trim();
+
+        this.options.showStatus('ok', 'Catalogo BTI resuelto. Validando autenticacion del ambiente...');
+
+        var authData = await this.options.apiClient.testAuthentication({
+          version: wizardState.version,
+          api: this.options.getApi(),
+          authUrl: state.swaggerAuthUrl
+        });
+        if (!authData.ok) throw new Error(authData.message || 'No se pudo autenticar usando la API publica del ambiente.');
+
+        state.authContext = authData.authContext || null;
+
+        var servicesPanel = document.getElementById('collection-services');
+        if (servicesPanel) servicesPanel.style.display = 'block';
+
+        this.options.filterServices();
+        this.options.renderVariableEditor();
+        this.options.setStudioStage('builder');
+        this.options.showStatus('ok', (databaseData.warning || 'Servicios cargados desde Base de datos.') + ' Entrando al builder...');
+      } catch (error) {
+        this.options.showStatus('err', error.message || 'No se pudieron cargar los servicios desde Base de datos.');
       }
     }
   }

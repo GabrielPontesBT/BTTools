@@ -20,6 +20,7 @@
       var scenario = this.options.getActiveScenario();
       if (!scenario || !scenario.items[index]) return;
       this.options.setSelectedItem(index);
+      if (this.options.openInspector) this.options.openInspector();
     }
 
     /**
@@ -253,6 +254,7 @@
       var item = scenario.items[index];
       this.options.ensureItemLayout(item, index);
       scenario.selectedItemIndex = index;
+      if (this.options.openInspector) this.options.openInspector();
       this.options.renderInspector();
 
       var rect = node.getBoundingClientRect();
@@ -332,18 +334,60 @@
     }
 
     /**
+     * Resalta el canvas mientras un servicio se arrastra por encima.
+     */
+    dragEnterCanvas(event) {
+      if (event && event.currentTarget) event.currentTarget.classList.add('collection-canvas-stage-dragover');
+    }
+
+    /**
+     * Quita el resaltado al salir del canvas (ignora pasajes entre hijos internos).
+     */
+    dragLeaveCanvas(event) {
+      if (!event || !event.currentTarget) return;
+      if (event.relatedTarget && event.currentTarget.contains(event.relatedTarget)) return;
+      event.currentTarget.classList.remove('collection-canvas-stage-dragover');
+    }
+
+    /**
+     * Muestra un indicador breve mientras se resuelve el alta (puede tardar si
+     * el servicio todavia necesita hidratarse desde Base de datos).
+     */
+    showPendingInsertPill(stage) {
+      if (!stage) return null;
+      var pill = document.createElement('div');
+      pill.className = 'collection-canvas-pending-pill';
+      pill.textContent = 'Agregando servicio...';
+      stage.appendChild(pill);
+      return pill;
+    }
+
+    /**
      * Inserta un servicio en el flujo a partir del payload del drag.
      */
-    dropOperation(insertIndex, event) {
+    async dropOperation(insertIndex, event) {
       if (!event) return;
       event.preventDefault();
 
+      var stage = event.currentTarget;
+      if (stage) stage.classList.remove('collection-canvas-stage-dragover');
+
+      var payload;
       try {
-        var payload = JSON.parse(event.dataTransfer.getData('text/plain') || '{}');
-        if (payload.service && payload.operationKey) {
-          this.options.insertOperation(payload.service, payload.operationKey, insertIndex);
-        }
-      } catch (error) {}
+        payload = JSON.parse(event.dataTransfer.getData('text/plain') || '{}');
+      } catch (error) {
+        return;
+      }
+      if (!payload.service || !payload.operationKey) return;
+
+      var pill = this.showPendingInsertPill(stage);
+      try {
+        await this.options.insertOperation(payload.service, payload.operationKey, insertIndex);
+      } catch (error) {
+        if (this.options.showStatus) this.options.showStatus('err', (error && error.message) || 'No se pudo agregar el servicio al flujo.');
+      } finally {
+        if (pill && pill.parentElement) pill.remove();
+      }
     }
 
     /**
@@ -353,6 +397,10 @@
       if (!event || !event.dataTransfer) return;
       event.dataTransfer.setData('text/plain', JSON.stringify({ service: service, operationKey: operationKey }));
       event.dataTransfer.effectAllowed = 'copy';
+      if (event.dataTransfer.setDragImage && event.target) {
+        var card = event.target.closest ? event.target.closest('.collection-service-card') : null;
+        if (card) event.dataTransfer.setDragImage(card, 14, 14);
+      }
     }
   }
 

@@ -873,10 +873,12 @@ async function queryMethodSchema(platform, db, service, method) {
   }
 }
 
-const collectionFeature = createCollectionFeature({
-  ROOT,
-  queryMethodSchema
-});
+  const collectionFeature = createCollectionFeature({
+    ROOT,
+    queryServices,
+    queryMethods,
+    queryMethodSchema
+  });
 
 // -- server ------------------------------------------------
 

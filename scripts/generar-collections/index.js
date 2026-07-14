@@ -1,7 +1,8 @@
-'use strict';
+﻿'use strict';
 
 const fs = require('fs');
 const path = require('path');
+const { resolveCollectionRequestData } = require('./request-data-resolver');
 
 function loadAsset(fileName) {
   return fs.readFileSync(path.join(__dirname, fileName), 'utf8');
@@ -9,6 +10,8 @@ function loadAsset(fileName) {
 
 function createCollectionFeature(deps) {
   const ROOT = deps.ROOT;
+  const queryServices = deps.queryServices;
+  const queryMethods = deps.queryMethods;
   const queryMethodSchema = deps.queryMethodSchema;
 
   const styles = loadAsset('styles.css');
@@ -324,6 +327,260 @@ function createCollectionFeature(deps) {
       'idempotency-key',
       'content-type'
     ].includes(normalized);
+  }
+
+  function inferHttpMethodFromMethodName(methodName) {
+    const normalized = String(methodName || '').trim().toLowerCase();
+    if (!normalized) return 'POST';
+    if (normalized.startsWith('get') || normalized.startsWith('list') || normalized.startsWith('find') || normalized.startsWith('search')) return 'GET';
+    if (normalized.startsWith('delete') || normalized.startsWith('remove')) return 'DELETE';
+    if (normalized.startsWith('update') || normalized.startsWith('edit')) return 'PUT';
+    if (normalized.startsWith('patch')) return 'PATCH';
+    return 'POST';
+  }
+
+  /**
+   * Ajusta el nombre del servicio cargado desde BTI para la URL REST publica.
+   * En BTI suelen venir nombres como "PublicLoans", mientras que la API JSON
+   * publica espera el segmento "Loans". Este helper se usa solo en el flujo
+   * Base de datos para no alterar el comportamiento que ya funciona con Swagger.
+   */
+  function normalizeDatabaseServicePathName(serviceName) {
+    const normalized = String(serviceName || '').trim();
+    if (!normalized) return '';
+    return normalized.replace(/^Public(?=[A-Z0-9_])/i, '');
+  }
+
+  function buildDbTypeLabel(type) {
+    const normalized = String(type || '').trim().toLowerCase();
+    if (!normalized) return '';
+    if (normalized === 'n' || normalized === 'int') return 'integer';
+    if (normalized === 'short' || normalized === 'long') return normalized;
+    if (normalized === 'b' || normalized === 'bool') return 'boolean';
+    if (normalized === 'd') return 'date';
+    return normalized;
+  }
+
+  function isDbCollectionField(field) {
+    const normalizedType = String(field && field.type || '').trim().toLowerCase();
+    return !!(field && (field.isCollection || normalizedType === 'collection' || String(field.itemType || '').trim()));
+  }
+
+  function isDbComplexField(field) {
+    return !!(field && (field.isComplex || String(field.sdtType || '').trim() || isDbCollectionField(field)));
+  }
+
+  function buildDbSdtMap(schema) {
+      const map = {};
+      const rawSdts = schema ? schema.sdts : null;
+
+      if (!rawSdts) return map;
+
+      if (Array.isArray(rawSdts)) {
+        rawSdts.forEach(function registerArraySdt(entry) {
+          if (!entry || !entry.name) return;
+          map[String(entry.name).trim()] = Array.isArray(entry.fields) ? entry.fields : [];
+        });
+        return map;
+      }
+
+      Object.keys(rawSdts).forEach(function registerObjectSdt(sdtName) {
+        map[String(sdtName).trim()] = Array.isArray(rawSdts[sdtName]) ? rawSdts[sdtName] : [];
+      });
+
+      return map;
+    }
+
+  function buildDbFieldTemplate(field, sdtMap, trail, manualInputs, state) {
+    const pathTrail = Array.isArray(trail) ? trail : [];
+    const mode = state || { collectInputs: true, location: 'body' };
+    const fieldName = String(field && field.name || '').trim();
+    if (!fieldName || isReservedAuthInput(fieldName)) return null;
+
+    const inputKey = sanitizeVariableKey(pathTrail.concat(fieldName).join('_'));
+    const pathLabel = pathTrail.concat(fieldName).join('.');
+    const fieldType = buildDbTypeLabel(field && field.type);
+
+    if (mode.collectInputs && Array.isArray(manualInputs)) {
+      manualInputs.push({
+        key: inputKey,
+        pathLabel,
+        type: fieldType,
+        description: field && field.description ? String(field.description) : '',
+        defaultValue: exampleValue(fieldType),
+        location: mode.location || 'body'
+      });
+    }
+
+      if (isDbCollectionField(field) && field.sdtType) {
+        const sdtFields = sdtMap[String(field.sdtType).trim()] || [];
+        return [
+          sdtFields.reduce(function buildCollectionItem(accumulator, childField) {
+            accumulator[String(childField.name).trim()] = buildDbFieldTemplate(childField, sdtMap, pathTrail.concat(fieldName), manualInputs, mode);
+            return accumulator;
+          }, {})
+        ];
+      }
+
+      if (isDbComplexField(field) && field.sdtType) {
+        const sdtFields = sdtMap[String(field.sdtType).trim()] || [];
+        return sdtFields.reduce(function buildComplexObject(accumulator, childField) {
+          accumulator[String(childField.name).trim()] = buildDbFieldTemplate(childField, sdtMap, pathTrail.concat(fieldName), manualInputs, mode);
+          return accumulator;
+        }, {});
+    }
+
+    return '{{' + inputKey + '}}';
+  }
+
+  function buildDbBodyTemplate(schema, httpMethod) {
+    if (String(httpMethod || '').toUpperCase() === 'GET' || String(httpMethod || '').toUpperCase() === 'DELETE') {
+      return null;
+    }
+
+    const manualInputs = [];
+    const sdtMap = buildDbSdtMap(schema);
+    const inputs = (schema && Array.isArray(schema.inputs) ? schema.inputs : []).filter(function keepInput(input) {
+      return !isReservedAuthInput(input.name);
+    });
+
+    const bodyTemplate = inputs.reduce(function buildBody(accumulator, input) {
+      accumulator[String(input.name).trim()] = buildDbFieldTemplate(input, sdtMap, [], manualInputs, {
+        collectInputs: true,
+        location: 'body'
+      });
+      return accumulator;
+    }, {});
+
+    return {
+      template: bodyTemplate,
+      manualInputs
+    };
+  }
+
+  function collectDbOutputFields(fields, sdtMap, trail, outputs) {
+    (fields || []).forEach(function appendOutput(field) {
+      const fieldName = String(field && field.name || '').trim();
+      if (!fieldName || isReservedAuthInput(fieldName)) return;
+
+      const nextTrail = trail.concat(fieldName);
+        if (isDbCollectionField(field) && field.sdtType) {
+          const childFields = sdtMap[String(field.sdtType).trim()] || [];
+          if (!childFields.length) {
+            outputs.push({
+              key: fieldName,
+              pathLabel: nextTrail.join('.'),
+              type: buildDbTypeLabel(field && field.type) || 'collection',
+              description: field && field.description ? String(field.description) : ''
+            });
+            return;
+          }
+          collectDbOutputFields(childFields, sdtMap, nextTrail.concat('item'), outputs);
+          return;
+        }
+
+        if (isDbComplexField(field) && field.sdtType) {
+          const childFields = sdtMap[String(field.sdtType).trim()] || [];
+          if (!childFields.length) {
+            outputs.push({
+              key: fieldName,
+              pathLabel: nextTrail.join('.'),
+              type: buildDbTypeLabel(field && field.type) || 'object',
+              description: field && field.description ? String(field.description) : ''
+            });
+            return;
+          }
+          collectDbOutputFields(childFields, sdtMap, nextTrail, outputs);
+          return;
+        }
+
+      outputs.push({
+        key: fieldName,
+        pathLabel: nextTrail.join('.'),
+        type: buildDbTypeLabel(field && field.type),
+        description: field && field.description ? String(field.description) : ''
+      });
+    });
+  }
+
+  async function buildDatabaseOperations(platform, db, version) {
+    if (typeof queryServices !== 'function' || typeof queryMethods !== 'function' || typeof queryMethodSchema !== 'function') {
+      throw new Error('El origen Base de datos no esta disponible en esta version del servidor.');
+    }
+
+    const services = await queryServices(platform, db);
+    const operationsByService = {};
+
+    for (const service of services) {
+      const methods = await queryMethods(platform, db, service);
+      operationsByService[service] = [];
+
+      for (const methodName of methods) {
+        const httpMethod = inferHttpMethodFromMethodName(methodName);
+        const servicePathName = normalizeDatabaseServicePathName(service);
+        operationsByService[service].push({
+          operationKey: 'DB ' + service + '.' + methodName,
+          service,
+          methodName,
+          httpMethod,
+          path: '/public/' + servicePathName + '/v1/' + String(methodName || '').trim(),
+          summary: 'Metodo cargado desde BTI014/BTI019.',
+          manualInputs: [],
+          bodyTemplate: null,
+          outputFields: [],
+          needsHydration: true
+        });
+      }
+    }
+
+    return {
+      services: services || [],
+      operationsByService
+    };
+  }
+
+  async function buildDatabaseOperationDetails(platform, db, service, methodName) {
+    if (typeof queryMethodSchema !== 'function') {
+      throw new Error('No se pudo resolver el schema del metodo desde Base de datos.');
+    }
+
+    const schema = await queryMethodSchema(platform, db, service, methodName);
+    const httpMethod = inferHttpMethodFromMethodName(methodName);
+    const servicePathName = normalizeDatabaseServicePathName(service);
+    const sdtMap = buildDbSdtMap(schema);
+    const outputFields = [];
+    const scalarManualInputs = [];
+
+    (schema && Array.isArray(schema.inputs) ? schema.inputs : []).forEach(function appendInput(input) {
+      if (isReservedAuthInput(input.name)) return;
+
+      if (String(httpMethod).toUpperCase() === 'GET' || String(httpMethod).toUpperCase() === 'DELETE') {
+        scalarManualInputs.push({
+          key: sanitizeVariableKey(input.name),
+          pathLabel: String(input.name || '').trim(),
+          type: buildDbTypeLabel(input.type),
+          description: input && input.description ? String(input.description) : '',
+          defaultValue: exampleValue(buildDbTypeLabel(input.type)),
+          location: 'query'
+        });
+      }
+    });
+
+    const bodyData = buildDbBodyTemplate(schema, httpMethod);
+    collectDbOutputFields(schema && Array.isArray(schema.outputs) ? schema.outputs : [], sdtMap, [], outputFields);
+
+    return {
+      operationKey: 'DB ' + service + '.' + methodName,
+      service,
+      methodName,
+      httpMethod,
+      path: '/public/' + servicePathName + '/v1/' + String(methodName || '').trim(),
+      summary: (schema && schema.description) || 'Metodo cargado desde BTI014/BTI019.',
+      manualInputs: scalarManualInputs.concat(bodyData && Array.isArray(bodyData.manualInputs) ? bodyData.manualInputs : []),
+      bodyTemplate: bodyData ? bodyData.template : null,
+      outputFields,
+      needsHydration: false
+    };
   }
 
   function buildSwaggerCandidateUrls(rawUrl, api) {
@@ -1251,6 +1508,7 @@ function createCollectionFeature(deps) {
         items: Array.isArray(scenario.items) ? scenario.items : [],
         variableOverrides: scenario.variableOverrides || {},
         inputMappings: scenario.inputMappings || {},
+        inputAliases: scenario.inputAliases || {},
         outputAliases: scenario.outputAliases || {},
         repeatableOverrides: scenario.repeatableOverrides || {}
       };
@@ -1265,6 +1523,7 @@ function createCollectionFeature(deps) {
       items: Array.isArray(body.items) ? body.items : [],
       variableOverrides: body.variableOverrides || {},
       inputMappings: body.inputMappings || {},
+      inputAliases: body.inputAliases || {},
       outputAliases: body.outputAliases || {},
       repeatableOverrides: body.repeatableOverrides || {}
     }].filter(function(scenario) {
@@ -2197,6 +2456,34 @@ function createCollectionFeature(deps) {
       return true;
     }
 
+    if (req.method === 'POST' && req.url === '/api/collection/database/load') {
+      try {
+        const body = await readBody(req);
+        const loaded = await buildDatabaseOperations(body.platform, body.db, body.version);
+        json(200, {
+          ok: true,
+          services: loaded.services,
+          operationsByService: loaded.operationsByService,
+          source: 'database',
+          warning: 'Los endpoints y bodies se inferieron desde BTI014/BTI019. Si el ambiente JSON difiere del convenio estandar, puede requerir ajustes manuales.'
+        });
+      } catch (e) {
+        json(200, { ok: false, message: e.message });
+      }
+      return true;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/collection/database/operation') {
+      try {
+        const body = await readBody(req);
+        const operation = await buildDatabaseOperationDetails(body.platform, body.db, body.service, body.method);
+        json(200, { ok: true, operation });
+      } catch (e) {
+        json(200, { ok: false, message: e.message });
+      }
+      return true;
+    }
+
     if (req.method === 'POST' && req.url === '/api/collection/generate') {
       try {
         const body = await readBody(req);
@@ -2219,7 +2506,13 @@ function createCollectionFeature(deps) {
 
         let result;
         if (body.format === 'json') {
-          result = await buildJsonPostmanCollection(body);
+          const resolution = resolveCollectionRequestData(body, { mode: 'collection-generation' });
+          const resolvedBody = Object.assign({}, body, {
+            scenarios: resolution.scenarios
+          });
+          result = await buildJsonPostmanCollection(resolvedBody);
+          result.resolutionSummary = resolution.summary;
+          result.resolutionWarnings = resolution.warnings;
         } else if (body.format === 'xml') {
           if (!body.platform || !body.db) {
             json(200, { ok: false, message: 'Faltan datos de base para generar la collection XML.' });
@@ -2236,7 +2529,9 @@ function createCollectionFeature(deps) {
           downloadUrl: '/api/collection/artifact?file=' + encodeURIComponent(result.fileName),
           mappings: result.mappings,
           requestCount: result.requestCount,
-          scenarioCount: result.scenarioCount
+          scenarioCount: result.scenarioCount,
+          resolutionSummary: result.resolutionSummary || null,
+          resolutionWarnings: result.resolutionWarnings || []
         });
       } catch (e) {
         json(200, { ok: false, message: e.message });
@@ -2244,6 +2539,33 @@ function createCollectionFeature(deps) {
       return true;
     }
 
+    if (req.method === 'POST' && req.url === '/api/collection/fill-data') {
+      try {
+        const body = await readBody(req);
+        const hasScenarioItems = Array.isArray(body.scenarios) && body.scenarios.some(function(scenario) {
+          return Array.isArray(scenario.items) && scenario.items.length > 0;
+        });
+        const hasLegacyItems = Array.isArray(body.items) && body.items.length > 0;
+        if (!hasScenarioItems && !hasLegacyItems) {
+          json(200, { ok: false, message: 'Agrega al menos un metodo antes de rellenar datos.' });
+          return true;
+        }
+
+        const resolution = resolveCollectionRequestData(body, { mode: 'preview' });
+        json(200, {
+          ok: true,
+          scenarios: resolution.scenarios,
+          summary: resolution.summary,
+          warnings: resolution.warnings,
+          linkedFields: resolution.linkedFields,
+          generatedFields: resolution.generatedFields,
+          unresolvedFields: resolution.unresolvedFields
+        });
+      } catch (e) {
+        json(200, { ok: false, message: e.message });
+      }
+      return true;
+    }
     if (req.method === 'POST' && req.url === '/api/collection/record-success') {
       try {
         const body = await readBody(req);
@@ -2344,3 +2666,6 @@ function createCollectionFeature(deps) {
 }
 
 module.exports = { createCollectionFeature };
+
+
+
