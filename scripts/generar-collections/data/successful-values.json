@@ -14,19 +14,21 @@
       "1"
     ],
     "token": [
-      "B9C8BBACB42E3F1A3807134E",
-      "EBFFF60602342318CB5DE4BB",
-      "E1C5986C13F6E2D42B51A396",
-      "9AEA546ED1B8DDD84D15B767",
-      "4399B40E88D74EACCB108447",
-      "A4C36870A77BA6A901333789",
-      "1E9ED0ECAF4F0E41DD8B9EBE",
-      "D5F1E6AA17505A1E19EAA489"
+      "63D0CA37B38C0EED0A402EDB",
+      "5EAE95A72D0518716FA9A818",
+      "40DD98A47E9606AA3D0B5F98",
+      "C063D18F0829F272D0918BAA",
+      "EA3B3DBC5544791B789A47D8",
+      "B8321A9B8D1CB92421067843",
+      "AEDF1598915046A1F35C6750",
+      "9E0D4BB4060958BABBD361B2"
     ],
     "ProductGUID": [
+      "4eb463cd-eb9d-4c80-9092-7e70ad881968",
       "d6328022-6f93-4afc-b59b-a29f435aba41"
     ],
     "CurrencyDescription": [
+      "PESO COLOMBIANO",
       "Pesos Uruguayos"
     ],
     "KindDescription": [
@@ -52,33 +54,38 @@
       "200"
     ],
     "groupId": [
+      "130",
       "1",
       "14",
       "2"
     ],
     "groupName": [
+      "GRUPOFBBVA1",
       "LAS VENDEDORAS DEL SIGLO",
       "PRUEBA GRUPO SOAP 20",
       "LAS PODEROSAS DEL RIMAC"
     ],
     "statusDescription": [
+      "PRUEBA",
       "Cancelada"
     ],
     "cycleId": [
-      "3",
       "0",
+      "3",
       "2"
     ],
     "lastCycleStatusId": [
+      "1",
       "3",
       "0"
     ],
     "status": [
+      "1",
       "99"
     ],
     "hasNext": [
-      "false",
-      "true"
+      "true",
+      "false"
     ],
     "Loans_getGroups_groups_group_item_groupName": [
       "LAS PODEROSAS DEL RIMAC"
@@ -108,11 +115,13 @@
       "1"
     ],
     "savingAccountGUID": [
+      "44e24740-0d76-4a2e-970a-98b37e1f5929",
       "02dab08a-eb40-4f26-b527-64a8bd8ea2b9",
       "00000000-0000-0000-0000-000000000000",
       "95f6c6fb-6028-4ec5-b6c5-41612225ae15"
     ],
     "executiveId": [
+      "1957",
       "1",
       "4"
     ],
@@ -121,6 +130,7 @@
       "1"
     ],
     "executiveDescription": [
+      "NESTORFRANCO",
       "INSTALADOR",
       "GRUPO 2"
     ],
@@ -134,15 +144,18 @@
       "4788"
     ],
     "latePenaltyAmount": [
+      "20",
       "0",
       "100"
     ],
     "meetingTime": [
+      "10:30",
       "12:50",
       "13:45",
       "20:00"
     ],
     "meetingDomicile": [
+      "Ciudad de México",
       "Pasaje Los Robles C14",
       "1",
       "Av italia 1231"
@@ -159,6 +172,7 @@
       "0"
     ],
     "absencePenaltyAmount": [
+      "30",
       "0",
       "20"
     ],
@@ -241,6 +255,7 @@
       "false"
     ],
     "PublicLoans_getGroup_group_absencePenaltyAmount": [
+      "30",
       "0"
     ],
     "PublicLoans_getGroup_group_branchDescription": [
@@ -253,18 +268,23 @@
       "0"
     ],
     "PublicLoans_getGroup_group_cycleId": [
+      "0",
       "3"
     ],
     "PublicLoans_getGroup_group_executiveDescription": [
+      "NESTORFRANCO",
       "INSTALADOR"
     ],
     "PublicLoans_getGroup_group_executiveId": [
+      "1957",
       "1"
     ],
     "PublicLoans_getGroup_group_groupId": [
+      "130",
       "1"
     ],
     "PublicLoans_getGroup_group_groupName": [
+      "GRUPOFBBVA1",
       "LAS VENDEDORAS DEL SIGLO"
     ],
     "PublicLoans_getGroup_group_isAccountOpenInInstitution": [
@@ -274,27 +294,32 @@
       "false"
     ],
     "PublicLoans_getGroup_group_lastCycleStatusId": [
+      "1",
       "3"
     ],
     "PublicLoans_getGroup_group_latePenaltyAmount": [
+      "20",
       "0"
     ],
     "PublicLoans_getGroup_group_meetingDayOfWeek": [
       "2"
     ],
     "PublicLoans_getGroup_group_meetingDomicile": [
+      "Ciudad de México",
       "Pasaje Los Robles C14"
     ],
     "PublicLoans_getGroup_group_meetingDomicileCorrelative": [
       "0"
     ],
     "PublicLoans_getGroup_group_meetingTime": [
+      "10:30",
       "12:50"
     ],
     "PublicLoans_getGroup_group_savingAccountExternalId": [
       "47859613645"
     ],
     "PublicLoans_getGroup_group_savingAccountGUID": [
+      "44e24740-0d76-4a2e-970a-98b37e1f5929",
       "02dab08a-eb40-4f26-b527-64a8bd8ea2b9"
     ],
     "totalOfCompensatoryInterest": [
@@ -503,6 +528,48 @@
     ],
     "PublicLoans_getMembersOfGroup_hasNext": [
       "false"
+    ],
+    "productGUID": [
+      "4eb463cd-eb9d-4c80-9092-7e70ad881968"
+    ],
+    "defaultValue": [
+      "100000"
+    ],
+    "maximum": [
+      "999999999"
+    ],
+    "minimum": [
+      "10000"
+    ],
+    "PublicLoanParameters_getCapital_minimum": [
+      "10000"
+    ],
+    "PublicLoanParameters_getCapital_maximum": [
+      "999999999"
+    ],
+    "PublicLoanParameters_getCapital_defaultValue": [
+      "100000"
+    ],
+    "PublicLoans_getProducts_products_item_CurrencyDescription": [
+      "PESO COLOMBIANO"
+    ],
+    "PublicLoans_getProducts_products_item_CurrencyId": [
+      "0"
+    ],
+    "PublicLoans_getProducts_products_item_CurrencySign": [
+      "$"
+    ],
+    "PublicLoans_getProducts_products_item_KindDescription": [
+      "Billete"
+    ],
+    "PublicLoans_getProducts_products_item_KindId": [
+      "0"
+    ],
+    "PublicLoans_getProducts_products_item_ProductDescription": [
+      "COMPRA DE VIVIENDA"
+    ],
+    "PublicLoans_getProducts_products_item_ProductGUID": [
+      "4eb463cd-eb9d-4c80-9092-7e70ad881968"
     ]
   },
   "V4::oracle::10.0.0.4:1521/btv4db::": {
@@ -674,6 +741,451 @@
     ],
     "Loans_getGroup_group_isAccountOpenInInstitution": [
       "false"
+    ]
+  },
+  "V4::oracle::10.0.0.4:1521/btv4db::http://10.0.0.5:8485/BTV4DESA_CloudOracle/": {
+    "limit": [
+      "10",
+      "0"
+    ],
+    "channel": [
+      "BTDIGITAL"
+    ],
+    "username": [
+      "INSTALADOR"
+    ],
+    "device": [
+      "INSTALADOR",
+      "FC"
+    ],
+    "requirement": [
+      "1"
+    ],
+    "token": [
+      "D1915E1F663E1870303387BA",
+      "B768BEA34028EDA12428867D",
+      "194B3D2D395223E1EF50582B",
+      "844ADFBBA47B55CFA110E140",
+      "E1D9E08334D448C1D8E29004",
+      "467F37B99198596EFB306FA8",
+      "3023607A280D0388F8A2049F",
+      "BDD055A3A7F8BB2D9C415C64"
+    ],
+    "groupId": [
+      "139",
+      "130",
+      "2",
+      "6"
+    ],
+    "groupName": [
+      "GRUPO PEPE",
+      "GRUPOFBBVA1",
+      "LAS PODEROSAS DEL RIMAC",
+      "GRUPO 6"
+    ],
+    "statusDescription": [
+      "PRUEBA",
+      "Cancelada"
+    ],
+    "cycleId": [
+      "0",
+      "2"
+    ],
+    "lastCycleStatusId": [
+      "0",
+      "1",
+      "3"
+    ],
+    "status": [
+      "1",
+      "99"
+    ],
+    "hasNext": [
+      "true"
+    ],
+    "Loans_getGroups_groups_group_item_groupName": [
+      "LAS PODEROSAS DEL RIMAC"
+    ],
+    "Loans_getGroups_groups_group_item_statusDescription": [
+      "Cancelada"
+    ],
+    "Loans_getGroups_groups_group_item_groupId": [
+      "2"
+    ],
+    "Loans_getGroups_groups_group_item_cycleId": [
+      "2"
+    ],
+    "Loans_getGroups_groups_group_item_lastCycleStatusId": [
+      "3"
+    ],
+    "Loans_getGroups_groups_group_item_status": [
+      "99"
+    ],
+    "Loans_getGroups_hasNext": [
+      "true"
+    ],
+    "branchId": [
+      "1"
+    ],
+    "savingAccountGUID": [
+      "00000000-0000-0000-0000-000000000000",
+      "44e24740-0d76-4a2e-970a-98b37e1f5929",
+      "95f6c6fb-6028-4ec5-b6c5-41612225ae15"
+    ],
+    "executiveId": [
+      "1957",
+      "4",
+      "2"
+    ],
+    "meetingDomicileCorrelative": [
+      "0"
+    ],
+    "executiveDescription": [
+      "NESTORFRANCO",
+      "GRUPO 2",
+      "BANTOTAL"
+    ],
+    "meetingDayOfWeek": [
+      "2",
+      "3",
+      "0"
+    ],
+    "counterpartyOfDomicile": [
+      "0"
+    ],
+    "latePenaltyAmount": [
+      "100",
+      "20",
+      "0"
+    ],
+    "meetingTime": [
+      "10:00",
+      "10:30",
+      "20:00",
+      "08:30"
+    ],
+    "meetingDomicile": [
+      "Casa",
+      "Ciudad de México",
+      "Av italia 1231",
+      "prueba"
+    ],
+    "branchDescription": [
+      "Sucursal Beta"
+    ],
+    "isAMemberDomicile": [
+      "false"
+    ],
+    "absencePenaltyAmount": [
+      "100",
+      "30",
+      "20",
+      "0"
+    ],
+    "isAccountOpenInInstitution": [
+      "false",
+      "true"
+    ],
+    "Loans_getGroup_group_branchId": [
+      "1"
+    ],
+    "Loans_getGroup_group_savingAccountGUID": [
+      "95f6c6fb-6028-4ec5-b6c5-41612225ae15",
+      "00000000-0000-0000-0000-000000000000"
+    ],
+    "Loans_getGroup_group_executiveId": [
+      "4",
+      "2"
+    ],
+    "Loans_getGroup_group_meetingDomicileCorrelative": [
+      "0"
+    ],
+    "Loans_getGroup_group_groupId": [
+      "2",
+      "6"
+    ],
+    "Loans_getGroup_group_cycleId": [
+      "2"
+    ],
+    "Loans_getGroup_group_executiveDescription": [
+      "GRUPO 2",
+      "BANTOTAL"
+    ],
+    "Loans_getGroup_group_meetingDayOfWeek": [
+      "3",
+      "0"
+    ],
+    "Loans_getGroup_group_counterpartyOfDomicile": [
+      "0"
+    ],
+    "Loans_getGroup_group_latePenaltyAmount": [
+      "100",
+      "0"
+    ],
+    "Loans_getGroup_group_meetingTime": [
+      "20:00",
+      "08:30"
+    ],
+    "Loans_getGroup_group_groupName": [
+      "LAS PODEROSAS DEL RIMAC",
+      "GRUPO 6"
+    ],
+    "Loans_getGroup_group_meetingDomicile": [
+      "Av italia 1231",
+      "prueba"
+    ],
+    "Loans_getGroup_group_branchDescription": [
+      "Sucursal Beta"
+    ],
+    "Loans_getGroup_group_isAMemberDomicile": [
+      "false"
+    ],
+    "Loans_getGroup_group_lastCycleStatusId": [
+      "0",
+      "3"
+    ],
+    "Loans_getGroup_group_absencePenaltyAmount": [
+      "20",
+      "0"
+    ],
+    "Loans_getGroup_group_isAccountOpenInInstitution": [
+      "true",
+      "false"
+    ],
+    "Loans_getGroups_groups_group_item_groupId_filter_groupName_GRUPO_6": [
+      "6"
+    ],
+    "savingAccountExternalId": [
+      "0",
+      "145235645458"
+    ],
+    "Loans_getGroup_group_savingAccountExternalId": [
+      "145235645458"
+    ],
+    "PublicLoans_getGroup_group_absencePenaltyAmount": [
+      "100",
+      "30",
+      "20"
+    ],
+    "PublicLoans_getGroup_group_branchDescription": [
+      "Sucursal Beta"
+    ],
+    "PublicLoans_getGroup_group_branchId": [
+      "1"
+    ],
+    "PublicLoans_getGroup_group_counterpartyOfDomicile": [
+      "0"
+    ],
+    "PublicLoans_getGroup_group_cycleId": [
+      "0",
+      "2"
+    ],
+    "PublicLoans_getGroup_group_executiveDescription": [
+      "NESTORFRANCO",
+      "GRUPO 2"
+    ],
+    "PublicLoans_getGroup_group_executiveId": [
+      "1957",
+      "4"
+    ],
+    "PublicLoans_getGroup_group_groupId": [
+      "139",
+      "130",
+      "2"
+    ],
+    "PublicLoans_getGroup_group_groupName": [
+      "GRUPO PEPE",
+      "GRUPOFBBVA1",
+      "LAS PODEROSAS DEL RIMAC"
+    ],
+    "PublicLoans_getGroup_group_isAccountOpenInInstitution": [
+      "false",
+      "true"
+    ],
+    "PublicLoans_getGroup_group_isAMemberDomicile": [
+      "false"
+    ],
+    "PublicLoans_getGroup_group_lastCycleStatusId": [
+      "0",
+      "1"
+    ],
+    "PublicLoans_getGroup_group_latePenaltyAmount": [
+      "100",
+      "20"
+    ],
+    "PublicLoans_getGroup_group_meetingDayOfWeek": [
+      "2",
+      "3"
+    ],
+    "PublicLoans_getGroup_group_meetingDomicile": [
+      "Casa",
+      "Ciudad de México",
+      "Av italia 1231"
+    ],
+    "PublicLoans_getGroup_group_meetingDomicileCorrelative": [
+      "0"
+    ],
+    "PublicLoans_getGroup_group_meetingTime": [
+      "10:00",
+      "10:30",
+      "20:00"
+    ],
+    "PublicLoans_getGroup_group_savingAccountGUID": [
+      "00000000-0000-0000-0000-000000000000",
+      "44e24740-0d76-4a2e-970a-98b37e1f5929",
+      "95f6c6fb-6028-4ec5-b6c5-41612225ae15"
+    ],
+    "offset": [
+      "0"
+    ],
+    "PublicLoans_getGroups_hasNext": [
+      "true"
+    ],
+    "PublicLoans_getGroups_groups_item_cycleId": [
+      "0",
+      "2"
+    ],
+    "PublicLoans_getGroups_groups_item_groupId": [
+      "130",
+      "2"
+    ],
+    "PublicLoans_getGroups_groups_item_groupName": [
+      "GRUPOFBBVA1",
+      "LAS PODEROSAS DEL RIMAC"
+    ],
+    "PublicLoans_getGroups_groups_item_lastCycleStatusId": [
+      "1",
+      "3"
+    ],
+    "PublicLoans_getGroups_groups_item_status": [
+      "1",
+      "99"
+    ],
+    "PublicLoans_getGroups_groups_item_statusDescription": [
+      "PRUEBA",
+      "Cancelada"
+    ],
+    "PublicLoans_getGroups_groups_item_groupId_filter_groupName_GRUPO_PEPE": [
+      "139"
+    ],
+    "PublicLoans_getGroup_group_savingAccountExternalId": [
+      "0"
+    ]
+  },
+  "V3::sqlserver::SQLSERVER1|1433|ProductoGx16::https://pioneroapp2:6004/productogx16": {
+    "channel": [
+      "BTDIGITAL"
+    ],
+    "username": [
+      "INSTALADOR"
+    ],
+    "device": [
+      "INSTALADOR"
+    ],
+    "requirement": [
+      "1"
+    ],
+    "token": [
+      "A59F078F661591D1BE7ABF6B",
+      "2A187A009D2C6A6749E28EEB",
+      "E48BB33BE09FD96E06361ECF",
+      "A726B9A7AE46E10C1A0AD1C4",
+      "7723DECEBDEF88A5B6204B08",
+      "CB80AE1B8E9BAB78CFF74A5C",
+      "A14C743EC94F294DE458F508",
+      "B19F8FAC95592B0408D02B74"
+    ],
+    "BTPartners_ObtenerPartners_sdtPartners_item_clienteUId": [
+      "0"
+    ],
+    "BTPartners_ObtenerPartners_sdtPartners_item_codigoComision": [
+      "0"
+    ],
+    "BTPartners_ObtenerPartners_sdtPartners_item_nivelUId": [
+      "0"
+    ],
+    "BTPartners_ObtenerPartners_sdtPartners_item_nombre": [
+      "Prueba"
+    ],
+    "BTPartners_ObtenerPartners_sdtPartners_item_partnerUId": [
+      "1"
+    ],
+    "BTPartners_ObtenerPartners_sdtPartners_item_sucursal": [
+      "0"
+    ],
+    "BTPartners_ObtenerPartners_sdtPartners_item_tipoUId": [
+      "0"
+    ],
+    "BTPartners_ObtenerVendedores_sdtVendedores_item_clienteUId": [
+      "0"
+    ],
+    "BTPartners_ObtenerVendedores_sdtVendedores_item_codigoComision": [
+      "0"
+    ],
+    "BTPartners_ObtenerVendedores_sdtVendedores_item_partnerUId": [
+      "0"
+    ],
+    "BTPartners_ObtenerVendedores_sdtVendedores_item_personaUId": [
+      "0"
+    ],
+    "BTPartners_ObtenerVendedores_sdtVendedores_item_puntoVentaUId": [
+      "1"
+    ],
+    "BTPartners_ObtenerVendedores_sdtVendedores_item_vendedorUId": [
+      "1"
+    ]
+  },
+  "V3::sqlserver::SQLSERVER1|1433|ProductoGx16::https://pioneroapp2:6004/productogx16/servlet/": {
+    "channel": [
+      "BTDIGITAL"
+    ],
+    "username": [
+      "INSTALADOR"
+    ],
+    "device": [
+      "INSTALADOR"
+    ],
+    "requirement": [
+      "1"
+    ],
+    "token": [
+      "D286F7545681D0263E7D204B"
+    ],
+    "BTPartners_ObtenerPartners_sdtPartners_item_clienteUId": [
+      "0"
+    ],
+    "BTPartners_ObtenerPartners_sdtPartners_item_codigoComision": [
+      "0"
+    ],
+    "BTPartners_ObtenerPartners_sdtPartners_item_nivelUId": [
+      "0"
+    ],
+    "BTPartners_ObtenerPartners_sdtPartners_item_nombre": [
+      "Prueba"
+    ],
+    "BTPartners_ObtenerPartners_sdtPartners_item_partnerUId": [
+      "1"
+    ],
+    "BTPartners_ObtenerPartners_sdtPartners_item_sucursal": [
+      "0"
+    ],
+    "BTPartners_ObtenerPartners_sdtPartners_item_tipoUId": [
+      "0"
+    ],
+    "BTPartners_ObtenerPuntosDeVenta_sdtPuntosVenta_item_codigoComision": [
+      "0"
+    ],
+    "BTPartners_ObtenerPuntosDeVenta_sdtPuntosVenta_item_nombre": [
+      "Punto de Venta 2"
+    ],
+    "BTPartners_ObtenerPuntosDeVenta_sdtPuntosVenta_item_partnerUId": [
+      "1"
+    ],
+    "BTPartners_ObtenerPuntosDeVenta_sdtPuntosVenta_item_puntoVentaUId": [
+      "2"
+    ],
+    "BTPartners_ObtenerPuntosDeVenta_sdtPuntosVenta_item_sucursal": [
+      "0"
     ]
   }
 }

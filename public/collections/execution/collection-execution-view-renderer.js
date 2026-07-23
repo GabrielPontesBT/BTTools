@@ -2,6 +2,27 @@
   'use strict';
 
   /**
+   * Agrupa los pasos en filas de a lo sumo perRow y alterna la direccion de
+   * lectura (zig-zag) para que una cadena larga no dependa de una unica fila
+   * horizontal infinita. Es una funcion pura, sin dependencias del DOM, para
+   * poder ajustar el algoritmo de layout sin tocar el renderizado.
+   */
+  function computeFlowRows(steps, perRow) {
+    var list = Array.isArray(steps) ? steps : [];
+    var size = perRow > 0 ? perRow : 3;
+    var rows = [];
+
+    for (var i = 0; i < list.length; i += size) {
+      rows.push({
+        reversed: (rows.length % 2) === 1,
+        steps: list.slice(i, i + size)
+      });
+    }
+
+    return rows;
+  }
+
+  /**
    * Renderiza la experiencia visual del panel de ejecucion.
    * La logica de requests, playback y estados vive en el coordinador;
    * este renderer solo transforma un run ya armado en HTML.
@@ -24,23 +45,27 @@
         return '<div class="collection-step-empty">Todavia no hay una ejecucion para mostrar.</div>';
       }
 
+      var timelineOpen = this.options.isTimelineOpen ? this.options.isTimelineOpen() : false;
+      var flowExpanded = this.options.isFlowExpanded ? this.options.isFlowExpanded() : true;
+      var layoutClass = 'collection-exec-main-layout' +
+        (timelineOpen ? ' collection-exec-main-layout-with-timeline' : '') +
+        (flowExpanded ? '' : ' collection-exec-main-layout-flow-collapsed');
+
       return '' +
         '<div class="collection-exec-shell collection-exec-shell-redesign">' +
           this.renderHeader(run) +
-          this.renderMetrics(run) +
-          '<div class="collection-exec-main-layout">' +
-            '<div class="collection-exec-main-column">' +
-              this.renderFlowPanel(run) +
-              this.renderInspector(run) +
-            '</div>' +
-            this.renderTimelinePanel(run) +
+          '<div class="' + layoutClass + '">' +
+            this.renderFlowPanel(run, timelineOpen, flowExpanded) +
+            this.renderInspector(run) +
+            (timelineOpen ? this.renderTimelinePanel(run) : '') +
           '</div>' +
         '</div>';
     }
 
     /**
      * Dibuja una cabecera compacta solo con informacion y acciones
-     * propias de la corrida actual.
+     * propias de la corrida actual. Titulo y metricas van en una sola linea
+     * para no gastar una fila entera solo en estado.
      */
     renderHeader(run) {
       var statusClass = 'collection-exec-header-line';
@@ -48,38 +73,47 @@
       if (run.status === 'success') statusClass += ' collection-exec-header-line-success';
       if (run.status === 'running') statusClass += ' collection-exec-header-line-running';
 
+      var stats = run.stats || {};
+      var metaParts = [
+        run.statusLabel || 'Sin estado',
+        run.durationLabel || '--',
+        (stats.totalSteps || 0) + ' pasos',
+        (stats.successCount || 0) + ' correcto' + (stats.successCount === 1 ? '' : 's'),
+        (stats.errorCount || 0) + ' error' + (stats.errorCount === 1 ? '' : 'es')
+      ];
+
       return '' +
         '<section class="collection-exec-header-simple">' +
+          '<button type="button" class="collection-exec-back-link" onclick="collectionCloseExecutionMode()">' +
+            '<span aria-hidden="true">&#8592;</span><span>Volver</span>' +
+          '</button>' +
           '<div class="collection-exec-header-simple-copy">' +
-            '<div class="collection-exec-header-title">Ejecucion #' + this.escape(run.id) + '</div>' +
-            '<div class="collection-exec-header-meta">' +
-              '<span class="' + statusClass + '">' +
-                this.escape(run.statusLabel || 'Sin estado') +
-                '<span class="collection-exec-inline-separator">&middot;</span>' +
-                this.escape(run.durationLabel || '--') +
-                '<span class="collection-exec-inline-separator">&middot;</span>' +
-                this.escape(((run.stats && run.stats.totalSteps) || 0) + ' pasos') +
-              '</span>' +
-            '</div>' +
+            '<span class="collection-exec-header-title">Ejecucion #' + this.escape(run.id) + '</span>' +
+            '<span class="collection-exec-inline-separator">&middot;</span>' +
+            '<span class="' + statusClass + '">' +
+              metaParts.map(function escapePart(part) { return this.escape(part); }, this).join('<span class="collection-exec-inline-separator">&middot;</span>') +
+            '</span>' +
           '</div>' +
           '<div class="collection-exec-header-simple-actions">' +
             (run.status === 'running'
               ? '<button type="button" class="btn btn-outline" onclick="collectionCancelExecutionRun()">Cancelar ejecucion</button>'
-              : '<button type="button" class="btn btn-outline" onclick="collectionRerunExecutionFlow()">Reejecutar</button>') +
+              : '') +
             this.renderHeaderMenu(run) +
           '</div>' +
         '</section>';
     }
 
     /**
-     * Agrupa acciones globales de la corrida para evitar una barra
-     * sobrecargada de botones con igual prioridad visual.
+     * Agrupa acciones globales de la corrida (incluida la reejecucion) para
+     * evitar una barra sobrecargada de botones con igual prioridad visual.
      */
     renderHeaderMenu(run) {
       return '' +
         '<details class="collection-exec-menu">' +
           '<summary class="collection-exec-menu-trigger" onclick="event.stopPropagation()">&#8942;</summary>' +
           '<div class="collection-exec-menu-popover" onclick="event.stopPropagation()">' +
+            (run.status !== 'running' ? '<button type="button" class="collection-exec-menu-item" onclick="collectionRerunExecutionFlow()">Reejecutar flujo</button>' : '') +
+            (run.status !== 'running' ? '<button type="button" class="collection-exec-menu-item" onclick="collectionRerunExecutionFromSelectedStep()">Reejecutar desde el paso seleccionado</button>' : '') +
             '<button type="button" class="collection-exec-menu-item" onclick="collectionExportExecutionRun()">Exportar ejecucion</button>' +
             '<button type="button" class="collection-exec-menu-item" onclick="navigator.clipboard && navigator.clipboard.writeText(' + "'" + this.escape(String(run.id || '')) + "'" + ')">Copiar identificador</button>' +
             '<button type="button" class="collection-exec-menu-item" onclick="collectionCloseExecutionMode()">Volver al Builder</button>' +
@@ -88,57 +122,109 @@
     }
 
     /**
-     * Resume la corrida con solo tres metricas primarias.
+     * Renderiza el flujo de ejecucion. La cabecera (titulo + controles) es la
+     * misma en ambos modos; solo cambia el cuerpo: tarjetas en grilla (max. 3
+     * por fila, zig-zag) cuando esta expandido, o una lista compacta cuando
+     * esta colapsado (deja mas ancho/alto disponible sin perder navegacion).
      */
-    renderMetrics(run) {
-      var stats = run.stats || {};
-      var metrics = [
-        { label: 'Pasos totales', value: stats.totalSteps || 0, tone: 'neutral', icon: '[]' },
-        { label: 'Correctos', value: stats.successCount || 0, tone: 'success', icon: 'OK' },
-        { label: 'Con error', value: stats.errorCount || 0, tone: (stats.errorCount || 0) > 0 ? 'error' : 'neutral', icon: 'X' }
-      ];
-
-      return '' +
-        '<section class="collection-exec-metrics-strip">' +
-          metrics.map(function renderMetric(metric) {
-            return '' +
-              '<div class="collection-exec-metric-card collection-exec-metric-card-' + this.escape(metric.tone) + '">' +
-                '<div class="collection-exec-metric-icon">' + this.escape(metric.icon) + '</div>' +
-                '<div class="collection-exec-metric-copy">' +
-                  '<div class="collection-exec-metric-value">' + this.escape(metric.value) + '</div>' +
-                  '<div class="collection-exec-metric-label">' + this.escape(metric.label) + '</div>' +
-                '</div>' +
-              '</div>';
-          }, this).join('') +
-        '</section>';
-    }
-
-    /**
-     * Renderiza el canvas del flujo como protagonista visual de la pantalla.
-     */
-    renderFlowPanel(run) {
+    renderFlowPanel(run, timelineOpen, flowExpanded) {
       var steps = this.buildFlowSteps(run);
+      var zoomLevel = this.options.getZoomLevel ? this.options.getZoomLevel() : 1;
+      var zoomPercent = Math.round(zoomLevel * 100);
 
       return '' +
         '<section class="collection-exec-panel collection-exec-flow-panel">' +
           '<div class="collection-exec-panel-head collection-exec-panel-head-flow">' +
             '<div class="collection-exec-panel-title">Flujo de ejecucion</div>' +
             '<div class="collection-exec-panel-tools">' +
-              '<button type="button" class="collection-exec-tool-btn" onclick="collectionCenterExecutionFlow()">Centrar flujo</button>' +
-              '<button type="button" class="collection-exec-tool-btn collection-exec-tool-btn-timeline" onclick="collectionToggleExecutionTimeline()">Linea de tiempo</button>' +
+              (flowExpanded ? this.renderFlowToolsMenu(zoomPercent) : '') +
+              (timelineOpen ? '' : '<button type="button" class="collection-exec-tool-btn collection-exec-tool-btn-timeline" onclick="collectionToggleExecutionTimeline()">Linea de tiempo</button>') +
+              '<button type="button" class="collection-exec-tool-btn" onclick="collectionToggleExecutionFlowExpanded()">' + (flowExpanded ? 'Colapsar' : 'Expandir') + '</button>' +
             '</div>' +
           '</div>' +
-          '<div class="collection-exec-flow-stage collection-exec-flow-stage-linear">' +
-            '<div class="collection-exec-flow-track">' +
-              steps.map(function renderStep(step, index) {
-                var connector = index < (steps.length - 1)
-                  ? '<div class="collection-exec-flow-arrow" aria-hidden="true">&rarr;</div>'
-                  : '';
-                return this.renderExecutionNode(step, run.selectedStepId === step.id) + connector;
-              }, this).join('') +
-            '</div>' +
-          '</div>' +
+          (flowExpanded ? this.renderFlowGrid(run, steps, zoomLevel) : this.renderFlowBreadcrumbList(run, steps)) +
         '</section>';
+    }
+
+    /**
+     * Organiza los pasos en filas de a lo sumo tres, alternando la direccion
+     * (zig-zag) para que el orden de ejecucion se siga leyendo con claridad
+     * sin depender de una unica fila horizontal infinita.
+     */
+    renderFlowGrid(run, steps, zoomLevel) {
+      var rows = computeFlowRows(steps, 3);
+
+      return '' +
+        '<div class="collection-exec-flow-stage collection-exec-flow-stage-linear">' +
+          '<div class="collection-exec-flow-rows" style="transform:scale(' + zoomLevel + ')">' +
+            rows.map(function renderRow(row, rowIndex) {
+              var rowClass = 'collection-exec-flow-row' + (row.reversed ? ' collection-exec-flow-row-reversed' : '');
+              var rowHtml = '' +
+                '<div class="' + rowClass + '">' +
+                  row.steps.map(function renderStep(step, colIndex) {
+                    var isLastInRow = colIndex === row.steps.length - 1;
+                    var connector = (!isLastInRow)
+                      ? '<div class="collection-exec-flow-arrow" aria-hidden="true">' + (row.reversed ? '&larr;' : '&rarr;') + '</div>'
+                      : '';
+                    return this.renderExecutionNode(step, run.selectedStepId === step.id) + connector;
+                  }, this).join('') +
+                '</div>';
+
+              var connectorHtml = '';
+              if (rowIndex < rows.length - 1) {
+                var side = row.reversed ? 'left' : 'right';
+                connectorHtml = '<div class="collection-exec-flow-row-connector collection-exec-flow-row-connector-' + side + '" aria-hidden="true">&darr;</div>';
+              }
+              return rowHtml + connectorHtml;
+            }, this).join('') +
+          '</div>' +
+        '</div>';
+    }
+
+    /**
+     * Vista compacta del flujo (modo colapsado): lista vertical con indice,
+     * estado y nombre, sin metodo/duracion (eso ya se ve en el inspector).
+     */
+    renderFlowBreadcrumbList(run, steps) {
+      return '' +
+        '<div class="collection-exec-flow-stage collection-exec-flow-breadcrumb-stage">' +
+          '<div class="collection-exec-flow-breadcrumb">' +
+            steps.map(function renderCrumb(step, index) {
+              var connector = index < (steps.length - 1) ? '<span class="collection-exec-flow-breadcrumb-arrow" aria-hidden="true">&darr;</span>' : '';
+              return this.renderFlowBreadcrumbItem(step, run.selectedStepId === step.id) + connector;
+            }, this).join('') +
+          '</div>' +
+        '</div>';
+    }
+
+    /**
+     * Agrupa Ajustar/Centrar/zoom en un menu: son controles de navegacion del
+     * canvas, no necesitan ocupar espacio fijo en la barra de herramientas.
+     */
+    renderFlowToolsMenu(zoomPercent) {
+      return '' +
+        '<details class="collection-exec-menu">' +
+          '<summary class="collection-exec-tool-btn" onclick="event.stopPropagation()">Zoom ' + zoomPercent + '%</summary>' +
+          '<div class="collection-exec-menu-popover" onclick="event.stopPropagation()">' +
+            '<button type="button" class="collection-exec-menu-item" onclick="collectionZoomToFitExecutionFlow()">Ajustar al ancho</button>' +
+            '<button type="button" class="collection-exec-menu-item" onclick="collectionCenterExecutionFlow()">Centrar</button>' +
+            '<button type="button" class="collection-exec-menu-item" onclick="collectionZoomOutExecutionFlow()">Alejar (&minus;)</button>' +
+            '<button type="button" class="collection-exec-menu-item" onclick="collectionZoomInExecutionFlow()">Acercar (+)</button>' +
+          '</div>' +
+        '</details>';
+    }
+
+    /**
+     * Item compacto del breadcrumb de flujo colapsado: indice, icono de estado
+     * y nombre, sin metodo/duracion (eso ya se ve en el inspector).
+     */
+    renderFlowBreadcrumbItem(step, selected) {
+      var selectedClass = selected ? ' collection-exec-flow-breadcrumb-item-selected' : '';
+      return '' +
+        '<button type="button" class="collection-exec-flow-breadcrumb-item collection-exec-flow-breadcrumb-item-' + this.escape(step.status || 'idle') + selectedClass + '" onclick="collectionSelectExecutionStep(' + "'" + this.escape(step.id) + "'" + ')">' +
+          '<span class="collection-exec-flow-breadcrumb-index">' + this.escape(step.index) + '</span>' +
+          '<span class="collection-exec-flow-breadcrumb-name">' + this.escape(step.name) + '</span>' +
+        '</button>';
     }
 
     /**
@@ -202,14 +288,20 @@
     renderInspector(run) {
       var step = this.findSelectedStep(run);
       if (!step) {
-        return '<section class="collection-exec-panel"><div class="collection-step-empty">Selecciona un paso de la ejecucion para ver su detalle.</div></section>';
+        return '' +
+          '<section class="collection-exec-panel collection-exec-detail-panel">' +
+            '<div class="collection-step-empty">' +
+              '<div class="collection-exec-empty-title">Seleccioná un paso del flujo</div>' +
+              '<div>Podrás revisar su Request, Response y detalles.</div>' +
+            '</div>' +
+          '</section>';
       }
 
       return '' +
         '<section class="collection-exec-panel collection-exec-detail-panel">' +
           '<div class="collection-exec-detail-head-simple">' +
             '<div class="collection-exec-detail-head-copy">' +
-              '<div class="collection-exec-detail-title">Paso ' + this.escape(step.index) + ' &middot; ' + this.escape(step.name) + '</div>' +
+              '<div class="collection-exec-detail-title">' + this.escape(step.name) + '</div>' +
               '<div class="collection-exec-detail-subline">' + this.escape(step.statusLabel || '-') + ' &middot; ' + this.escape(step.durationLabel || '--') + '</div>' +
             '</div>' +
             '<div class="collection-exec-detail-head-actions">' +
@@ -274,50 +366,84 @@
     renderRequestTab(step) {
       var urlInfo = this.parseUrl(step.requestUrl || '');
       var sections = [
-        this.renderKeyValueAccordion('Query params', urlInfo.queryRows, true),
-        this.renderKeyValueAccordion('Headers', this.objectToRows(step.requestHeaders), true),
-        this.renderCodeAccordion('Body', step.requestBody, true)
+        this.renderKeyValueAccordion('Query params', urlInfo.queryRows, false),
+        this.renderKeyValueAccordion('Headers', this.objectToRows(step.requestHeaders), false)
       ].filter(Boolean).join('');
-      var previewBlock = this.hasContent(step.requestBody)
-        ? this.renderPrimaryCodeViewer('Body del request', step.requestBody)
-        : this.renderPrimaryTextViewer('URL ejecutada', step.requestUrl || 'Sin URL disponible');
+      var hasBody = this.hasContent(step.requestBody);
+      var format = step.format || 'json';
 
       return '' +
-        '<div class="collection-exec-tab-panel">' +
-          this.renderInfoCard([
-            this.renderInfoRow('Metodo', step.httpMethod || '-'),
-            this.renderInfoRow('URL', step.requestUrl || '-')
-          ]) +
-          previewBlock +
-          '<div class="collection-exec-accordion-stack">' +
-            (sections || '<div class="collection-step-empty">Este paso no genero datos de request visibles.</div>') +
+        '<div class="collection-exec-response-view">' +
+          '<div class="collection-exec-response-toolbar collection-exec-response-toolbar-slim">' +
+            '<span class="collection-exec-response-meta collection-exec-response-url" title="' + this.escape(step.requestUrl || '') + '">' + this.escape(step.httpMethod || '-') + ' &middot; ' + this.escape(step.requestUrl || 'Sin URL disponible') + '</span>' +
+            (hasBody ? this.renderCodeToolbarActions(step.requestBody, format) : '') +
+          '</div>' +
+          '<div class="collection-exec-response-body">' +
+            (hasBody ? this.renderCodeViewer(step.requestBody, format) : '<div class="collection-step-empty">Este paso no genero un body de request visible.</div>') +
+          '</div>' +
+          (sections ? '<div class="collection-exec-accordion-stack">' + sections + '</div>' : '') +
+        '</div>';
+    }
+
+    /**
+     * Muestra la respuesta priorizando estado, duracion y body: el body es
+     * lo mas importante para diagnosticar, asi que ocupa casi todo el alto.
+     */
+    renderResponseTab(step) {
+      var hasBody = this.hasContent(step.responseBody);
+      var format = step.format || 'json';
+
+      return '' +
+        '<div class="collection-exec-response-view">' +
+          (hasBody
+            ? '<div class="collection-exec-response-toolbar collection-exec-response-toolbar-slim">' +
+                '<span class="collection-exec-response-meta">' + this.escape(this.byteSizeLabel(step.responseBody, format)) + '</span>' +
+                this.renderCodeToolbarActions(step.responseBody, format) +
+              '</div>'
+            : '') +
+          '<div class="collection-exec-response-body">' +
+            (hasBody ? this.renderCodeViewer(step.responseBody, format) : '<div class="collection-step-empty">Este paso no devolvio un body visible.</div>') +
           '</div>' +
         '</div>';
     }
 
     /**
-     * Muestra la respuesta priorizando estado, duracion y body.
+     * Acciones compactas del visor de codigo: copiar el payload real (no el
+     * texto renderizado, que ya tiene numeros de linea mezclados).
+     * `format` decide si el texto copiado se formatea como JSON o como XML
+     * (ver formatPayload).
      */
-    renderResponseTab(step) {
-      var sections = [
-        this.renderCodeAccordion('Body', step.responseBody, true),
-        this.renderKeyValueAccordion('Headers', this.objectToRows(step.responseHeaders), true)
-      ].filter(Boolean).join('');
-      var previewBlock = this.hasContent(step.responseBody)
-        ? this.renderPrimaryCodeViewer('Body de la response', step.responseBody)
-        : this.renderPrimaryTextViewer('Resultado', 'Este paso no devolvio un body visible.');
+    renderCodeToolbarActions(payload, format) {
+      return '' +
+        '<div class="collection-exec-response-actions">' +
+          '<button type="button" class="collection-exec-tool-btn" onclick="collectionCopyExecutionCodeSource(this)">Copiar</button>' +
+          '<textarea class="collection-exec-code-source" tabindex="-1" aria-hidden="true">' + this.escape(this.formatPayload(payload, format)) + '</textarea>' +
+        '</div>';
+    }
+
+    /**
+     * Visor de codigo con numeracion de linea y scroll interno propio.
+     */
+    renderCodeViewer(payload, format) {
+      var text = this.formatPayload(payload, format);
+      var lines = text.split('\n');
 
       return '' +
-        '<div class="collection-exec-tab-panel">' +
-          this.renderInfoCard([
-            this.renderInfoRow('Estado', step.statusLabel || '-'),
-            this.renderInfoRow('Tiempo de respuesta', step.durationLabel || '--')
-          ]) +
-          previewBlock +
-          '<div class="collection-exec-accordion-stack">' +
-            (sections || '<div class="collection-step-empty">Este paso no devolvio datos de response visibles.</div>') +
-          '</div>' +
-        '</div>';
+        '<pre class="collection-exec-code collection-exec-code-primary"><code>' +
+          lines.map(function renderLine(line, index) {
+            return '<span class="collection-exec-code-line"><span class="collection-exec-code-line-number">' + (index + 1) + '</span><span class="collection-exec-code-line-text">' + this.escape(line) + '</span></span>';
+          }, this).join('\n') +
+        '</code></pre>';
+    }
+
+    /**
+     * Calcula un tamano legible (KB) para el body mostrado.
+     */
+    byteSizeLabel(payload, format) {
+      var text = this.formatPayload(payload, format);
+      var bytes = typeof Blob !== 'undefined' ? new Blob([text]).size : text.length;
+      if (bytes < 1024) return bytes + ' B';
+      return (bytes / 1024).toFixed(2) + ' KB';
     }
 
     /**
@@ -336,54 +462,12 @@
               { label: 'Paso', value: String(step.index || '-') }
             ], true) +
             this.renderKeyValueAccordion('Variables creadas', this.variablesToRows(step.createdVariables), false) +
+            (step.connectionLabelFromPrevious ? this.renderKeyValueAccordion('Mappings', [
+              { label: 'Origen', value: step.connectionLabelFromPrevious }
+            ], false) : '') +
             this.renderListAccordion('Logs', step.logs, false) +
             this.renderListAccordion('Warnings', step.warnings, false) +
           '</div>' +
-        '</div>';
-    }
-
-    /**
-     * Dibuja una tarjeta simple de informacion para resumenes cortos.
-     */
-    renderInfoCard(rowsHtml) {
-      return '' +
-        '<div class="collection-exec-info-card">' +
-          '<div class="collection-exec-info-list">' + rowsHtml.join('') + '</div>' +
-        '</div>';
-    }
-
-    /**
-     * Muestra un visor principal de codigo para que request/response
-     * vuelvan a tener protagonismo inmediato.
-     */
-    renderPrimaryCodeViewer(title, payload) {
-      return '' +
-        '<section class="collection-exec-primary-viewer">' +
-          '<div class="collection-exec-primary-viewer-title">' + this.escape(title) + '</div>' +
-          '<pre class="collection-exec-code collection-exec-code-primary">' + this.escape(this.formatPayload(payload)) + '</pre>' +
-        '</section>';
-    }
-
-    /**
-     * Muestra un visor textual principal cuando no hay body pero igualmente
-     * conviene mostrar algo central y no solo accordions.
-     */
-    renderPrimaryTextViewer(title, textValue) {
-      return '' +
-        '<section class="collection-exec-primary-viewer">' +
-          '<div class="collection-exec-primary-viewer-title">' + this.escape(title) + '</div>' +
-          '<div class="collection-exec-primary-text">' + this.escape(textValue) + '</div>' +
-        '</section>';
-    }
-
-    /**
-     * Dibuja una fila label/valor dentro de una tarjeta compacta.
-     */
-    renderInfoRow(label, value) {
-      return '' +
-        '<div class="collection-exec-info-row">' +
-          '<div class="collection-exec-info-label">' + this.escape(label) + '</div>' +
-          '<div class="collection-exec-info-value">' + this.escape(value) + '</div>' +
         '</div>';
     }
 
@@ -417,21 +501,6 @@
     /**
      * Renderiza un bloque de codigo con scroll interno para body request/response.
      */
-    renderCodeAccordion(title, payload, openByDefault) {
-      if (!this.hasContent(payload)) return '';
-
-      return '' +
-        '<details class="collection-exec-accordion"' + (openByDefault ? ' open' : '') + '>' +
-          '<summary class="collection-exec-accordion-trigger">' +
-            '<span>' + this.escape(title) + '</span>' +
-            '<span class="collection-exec-accordion-chevron">v</span>' +
-          '</summary>' +
-          '<div class="collection-exec-accordion-body">' +
-            '<pre class="collection-exec-code">' + this.escape(this.formatPayload(payload)) + '</pre>' +
-          '</div>' +
-        '</details>';
-    }
-
     /**
      * Renderiza listas simples para logs y warnings.
      */
@@ -460,24 +529,23 @@
      * contextual en notebook.
      */
     renderTimelinePanel(run) {
-      var open = this.options.isTimelineOpen ? this.options.isTimelineOpen() : false;
       var timelineRows = (run.timeline || []).map(function renderEvent(event) {
         return this.renderTimelineEvent(run, event);
       }, this).join('');
 
       return '' +
-        '<aside class="collection-exec-timeline-drawer' + (open ? ' collection-exec-timeline-drawer-open' : '') + '">' +
+        '<aside class="collection-exec-timeline-drawer collection-exec-timeline-drawer-open">' +
           '<section class="collection-exec-side-panel collection-exec-side-panel-timeline">' +
             '<div class="collection-exec-timeline-head">' +
               '<div class="collection-exec-panel-title">Linea de tiempo</div>' +
-              '<button type="button" class="collection-exec-timeline-close" onclick="collectionCloseExecutionTimeline()">&times;</button>' +
+              '<button type="button" class="collection-exec-timeline-close" onclick="collectionCloseExecutionTimeline()" aria-label="Plegar linea de tiempo">&times;</button>' +
             '</div>' +
             '<div class="collection-exec-timeline collection-exec-scroll-list collection-exec-scroll-list-timeline">' +
-              timelineRows +
+              (timelineRows || '<div class="collection-step-empty">Todavia no hay eventos.</div>') +
             '</div>' +
           '</section>' +
         '</aside>' +
-        '<button type="button" class="collection-exec-timeline-backdrop' + (open ? ' show' : '') + '" onclick="collectionCloseExecutionTimeline()"></button>';
+        '<button type="button" class="collection-exec-timeline-backdrop show" onclick="collectionCloseExecutionTimeline()"></button>';
     }
 
     /**
@@ -584,10 +652,112 @@
 
     /**
      * Serializa cualquier payload en un formato legible para el bloque de codigo.
+     *
+     * Despacha segun `format` ('json' por defecto, o 'xml' para el camino
+     * SOAP de V3) a una funcion dedicada por formato. Mantenerlas separadas
+     * evita que un ajuste de formato pensado para XML termine, por accidente,
+     * cambiando como se ve un JSON (y viceversa) — ver formatJsonPayload /
+     * formatXmlPayload mas abajo.
      */
-    formatPayload(payload) {
-      if (typeof payload === 'string') return payload;
+    formatPayload(payload, format) {
+      if (format === 'xml') return this.formatXmlPayload(payload);
+      return this.formatJsonPayload(payload);
+    }
+
+    /**
+     * JSON: comportamiento historico, sin cambios de fondo (solo se le puso
+     * nombre propio al separarlo de XML). Si el payload es un string que no es
+     * JSON valido, se devuelve tal cual; si es un objeto, se pretty-printea.
+     */
+    formatJsonPayload(payload) {
+      if (typeof payload === 'string') {
+        var trimmed = payload.trim();
+        if (!trimmed) return payload;
+
+        try {
+          return JSON.stringify(JSON.parse(trimmed), null, 2);
+        } catch (error) {
+          return payload;
+        }
+      }
+
       return JSON.stringify(payload == null ? {} : payload, null, 2);
+    }
+
+    /**
+     * XML/SOAP: el payload que llega aca ya es el texto XML real devuelto por
+     * el servidor (ver parseXmlExecutionPayload en collection-execution-center.js),
+     * nunca un objeto — a diferencia del camino JSON. Si el servidor ya mando
+     * el XML con saltos de linea lo dejamos tal cual (no arriesgamos arruinar
+     * un formato que ya es legible); si vino todo en una sola linea (comun en
+     * respuestas SOAP reales), lo indentamos para que se pueda leer.
+     */
+    formatXmlPayload(payload) {
+      var raw = String(payload == null ? '' : payload);
+      var trimmed = raw.trim();
+      if (!trimmed) return raw;
+      if (/\r?\n/.test(trimmed)) return raw;
+      return this.indentXml(trimmed);
+    }
+
+    /**
+     * Indentador de XML minimo y sin dependencias: separa por "><" y lleva un
+     * contador de profundidad segun sea tag de apertura, cierre, autocontenido
+     * o un elemento hoja completo en una sola linea (`<Tag>valor</Tag>`, el
+     * caso mas comun en las respuestas SOAP reales). No es un parser XML
+     * completo — no hace falta, porque este resultado solo se usa para
+     * MOSTRAR el XML, nunca para interpretarlo.
+     */
+    indentXml(xml) {
+      var STEP = '  ';
+      var depth = 0;
+      var lines = xml.replace(/></g, '>\n<').split('\n');
+
+      return lines.map(function renderIndentedLine(line) {
+        var trimmedLine = line.trim();
+        var kind = this.classifyXmlLine(trimmedLine);
+
+        if (kind === 'closing' && depth > 0) depth--;
+        var renderedLine = new Array(depth + 1).join(STEP) + trimmedLine;
+        if (kind === 'opening') depth++;
+        return renderedLine;
+      }, this).join('\n');
+    }
+
+    /**
+     * Clasifica una linea de XML (ya recortada) para el indentador de arriba:
+     * 'opening' | 'closing' | 'neutral'.
+     *
+     * El caso que hay que distinguir con cuidado es el elemento hoja completo
+     * en una sola linea (`<Tag>valor</Tag>`, o vacio `<Tag></Tag>`): tiene una
+     * apertura Y un cierre, asi que NO debe cambiar la profundidad (si se
+     * clasificara como 'opening' sin mas, el indentador nunca la compensaria
+     * con su propio cierre y toda la indentacion de ahi en mas quedaria
+     * corrida — ese fue exactamente el bug de la primera version de esto).
+     */
+    classifyXmlLine(line) {
+      if (/^<\?/.test(line) || /^<!/.test(line)) return 'neutral';
+      if (/\/>$/.test(line)) return 'neutral';
+
+      var tagNameMatch = line.match(/^<([A-Za-z_][\w:.-]*)/);
+      if (tagNameMatch) {
+        var escapedName = this.escapeRegExpLiteral(tagNameMatch[1]);
+        var fullLeafPattern = new RegExp('^<' + escapedName + '(?:[^>]*)>[\\s\\S]*</' + escapedName + '>$');
+        if (fullLeafPattern.test(line)) return 'neutral';
+      }
+
+      if (/^<\//.test(line)) return 'closing';
+      if (/^</.test(line)) return 'opening';
+      return 'neutral';
+    }
+
+    /**
+     * Escapa caracteres especiales de regex en un nombre de tag XML (puede
+     * traer '.' o ':', como `BTPartners.ObtenerPartnersResponse`) antes de
+     * usarlo dentro de un `new RegExp(...)` armado dinamicamente.
+     */
+    escapeRegExpLiteral(value) {
+      return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
     /**

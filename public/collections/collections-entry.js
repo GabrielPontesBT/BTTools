@@ -19,6 +19,8 @@
     '/public/collections/scenarios/collection-flow-lifecycle-manager.js',
     '/public/collections/scenarios/collection-scenario-manager.js',
     '/public/collections/services/collection-service-catalog-manager.js',
+    '/public/collections/services/collection-chain-suggestion-manager.js',
+    '/public/collections/services/collection-import-manager.js',
     '/public/collections/ui/collection-feedback-manager.js',
     '/public/collections/ui/collection-request-data-manager.js',
     '/public/collections/ui/collection-result-manager.js',

@@ -6,6 +6,11 @@
 
         <div id="collection-path-note" class="collection-path" style="display:none"></div>
 
+        <!-- Vive fuera de collection-config/collection-services a proposito: ambos
+             bloques se ocultan segun el stage (setup/builder), pero el feedback de
+             error debe verse en cualquiera de los dos (ver collection-feedback-manager.js). -->
+        <div id="collection-status" class="collection-status"></div>
+
         <div id="collection-config" class="collection-block" style="display:none">
           <h3>Cargar servicios</h3>
           <div class="collection-catalog-grid">
@@ -14,6 +19,16 @@
             <select id="collection-source-select" onchange="collectionUpdateServiceSource(this.value)">
               <option value="swagger" selected>Swagger</option>
               <option value="database">Base de datos</option>
+            </select>
+          </div>
+          <!-- Solo visible para V3 (V4 siempre usa JSON): ver
+               CollectionEnvironmentManager.syncSourceUi(), que la muestra/oculta
+               y fija el valor inicial segun la version activa del wizard. -->
+          <div class="field" id="collection-format-field" style="margin-bottom:12px; display:none">
+            <label>Formato</label>
+            <select id="collection-format-select" onchange="collectionUpdateFormat(this.value)">
+              <option value="xml">XML (SOAP)</option>
+              <option value="json">JSON (experimental)</option>
             </select>
           </div>
           <div class="field" id="collection-swagger-field" style="margin-bottom:12px">
@@ -28,35 +43,48 @@
             <summary>Ver detalles tecnicos</summary>
             <div id="collection-env-summary" class="collection-tech-content">Todavia no hay configuracion cargada desde el wizard.</div>
           </details>
-          <div id="collection-status" class="collection-status"></div>
         </div>
 
         <div id="collection-services" class="collection-block" style="display:none">
           <div class="collection-builder-v2">
             <div class="collection-builder-top">
-              <div class="collection-builder-actions">
-                <button class="btn btn-outline" id="btn-collection-execute" onclick="collectionExecuteFlow()" disabled title="Agrega y configura al menos un servicio para probar."><span class="collection-btn-icon">▶</span><span>Probar</span></button>
-                <button class="btn btn-outline" id="btn-collection-fill-data" onclick="collectionFillData()" disabled title="Agrega servicios para completar datos de entrada."><span class="collection-btn-icon">◫</span><span>Rellenar datos</span></button>
-                <button class="btn btn-outline" id="btn-collection-open-console" onclick="if(typeof collectionOpenExecutionConsole==='function'){collectionOpenExecutionConsole();}" disabled title="Ejecuta la cadena para ver los resultados."><span class="collection-btn-icon">◉</span><span>Ver ejecucion</span></button>
-                <button class="btn btn-success" id="btn-collection-generate" onclick="collectionGenerate()" disabled title="Agrega y configura al menos un servicio."><span class="collection-btn-icon">{ }</span><span>Generar JSON</span></button>
+              <div class="collection-builder-header">
+                <div class="collection-builder-context-fields">
+                  <div class="collection-builder-field-inline">
+                    <label for="collection-name">Nombre</label>
+                    <input type="text" id="collection-name" value="Bantotal JSON Collection" placeholder="Ej. CASH Management" oninput="collectionUpdateName(this.value)">
+                  </div>
+                  <div class="collection-builder-field-inline">
+                    <label for="collection-scenario-name">Cadena</label>
+                    <input type="text" id="collection-scenario-name" value="Caso de uso 1" placeholder="Ej. Alta de operacion" oninput="collectionRenameActiveScenario(this.value)">
+                  </div>
+                </div>
+                <div class="collection-builder-actions">
+                  <button class="btn btn-outline" id="btn-collection-add-service-top" onclick="collectionOpenServiceDrawer()"><span class="collection-btn-icon">＋</span><span>Agregar servicio</span></button>
+                  <button class="btn btn-outline" id="btn-collection-execute" onclick="collectionExecuteFlow()" disabled title="Agrega y configura al menos un servicio para probar."><span class="collection-btn-icon">▶</span><span>Probar</span></button>
+                  <button class="btn btn-outline" id="btn-collection-suggest-chain" onclick="collectionOpenChainSuggestionDrawer()" title="Descubre metodos que se conectan por sus datos."><span class="collection-btn-icon">&#10024;</span><span>Sugerir cadena</span></button>
+                  <details class="collection-builder-menu">
+                    <summary class="collection-builder-menu-trigger" onclick="event.stopPropagation()"><span>Más</span><span aria-hidden="true">&#9662;</span></summary>
+                    <div class="collection-builder-menu-popover" onclick="event.stopPropagation()">
+                      <button type="button" class="collection-builder-menu-item" id="btn-collection-fill-data" onclick="collectionFillData()" disabled title="Agrega servicios para completar datos de entrada."><span class="collection-btn-icon">◫</span><span>Rellenar datos</span></button>
+                      <button type="button" class="collection-builder-menu-item" id="btn-collection-open-console" onclick="if(typeof collectionOpenExecutionConsole==='function'){collectionOpenExecutionConsole();}" disabled title="Ejecuta la cadena para ver los resultados."><span class="collection-btn-icon">◉</span><span>Ver ejecucion</span></button>
+                      <button type="button" class="collection-builder-menu-item" id="btn-collection-import" onclick="collectionTriggerImportCollection()" title="Reconstruye casos de uso a partir de una collection generada antes por esta app. Requiere tener los servicios del ambiente ya cargados."><span class="collection-btn-icon">&#8593;</span><span>Importar collection</span></button>
+                    </div>
+                  </details>
+                  <!-- Oculto: dispara collectionImportCollectionFile al elegir un
+                       archivo. Vive fuera del <details> para no perder el valor
+                       del input si el popover se cierra al hacer foco en el dialogo
+                       nativo del sistema operativo. -->
+                  <input type="file" id="collection-import-file" accept=".json,application/json" style="display:none" onchange="collectionImportCollectionFile(this.files[0])">
+                  <!-- El texto es generico a proposito: el formato real (JSON o
+                       XML/SOAP) depende de collectionState.format (ver el selector
+                       "Formato" en el paso Cargar servicios para V3). -->
+                  <button class="btn btn-primary" id="btn-collection-generate" onclick="collectionGenerate()" disabled title="Agrega y configura al menos un servicio."><span class="collection-btn-icon">{ }</span><span>Generar collection</span></button>
+                </div>
               </div>
             </div>
 
             <div id="collection-builder-mode" class="collection-builder-mode-v2">
-                <div class="collection-builder-meta collection-builder-meta-v2">
-                  <div class="field" style="margin:0">
-                    <label>Nombre de la coleccion</label>
-                    <input type="text" id="collection-name" value="Bantotal JSON Collection" placeholder="Ej. CASH Management" oninput="collectionUpdateName(this.value)">
-                  </div>
-                  <div class="field" style="margin:0">
-                    <label>Cadena activa</label>
-                    <input type="text" id="collection-scenario-name" value="Caso de uso 1" placeholder="Ej. Alta de operacion" oninput="collectionRenameActiveScenario(this.value)">
-                </div>
-                <div class="collection-builder-meta-actions" id="collection-builder-add-service-wrap">
-                  <button type="button" class="btn btn-outline" id="btn-collection-add-service-top" onclick="collectionOpenServiceDrawer()"><span class="collection-btn-icon">＋</span><span>Agregar servicio</span></button>
-                </div>
-              </div>
-
               <div class="collection-builder-feedback">
                 <div id="collection-execution-inline" class="collection-inline-console" style="display:none"></div>
                 <div id="collection-result" class="collection-result"></div>
@@ -69,7 +97,6 @@
                   <div class="collection-service-selector-head">
                     <div>
                       <div class="collection-service-selector-title">Agregar servicios</div>
-                      <div class="collection-service-selector-subtitle">Selecciona uno o mas metodos para agregarlos al flujo.</div>
                     </div>
                     <button type="button" class="collection-service-selector-close" onclick="collectionCloseServiceDrawer()" aria-label="Cerrar">&times;</button>
                   </div>
@@ -98,6 +125,17 @@
                   <div id="collection-inspector-tabs" class="collection-inspector-tabs"></div>
                   <div id="collection-step-config" class="collection-step-config"></div>
                   <div id="collection-inspector-footer" class="collection-inspector-footer"></div>
+                </aside>
+
+                <aside id="collection-chain-suggestion-drawer" class="collection-chain-suggestion-drawer">
+                  <div class="collection-chain-suggestion-head">
+                    <div>
+                      <div class="collection-chain-suggestion-title">&#10024; Sugerir cadena</div>
+                      <div class="collection-chain-suggestion-subtitle">Encuentra metodos que se conectan por sus datos.</div>
+                    </div>
+                    <button type="button" class="collection-chain-suggestion-close" onclick="collectionCloseChainSuggestionDrawer()" aria-label="Cerrar">&times;</button>
+                  </div>
+                  <div id="collection-chain-suggestion-body" class="collection-chain-suggestion-body"></div>
                 </aside>
               </div>
 

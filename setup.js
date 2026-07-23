@@ -144,6 +144,57 @@ async function queryServices(platform, db) {
   }
 }
 
+/**
+ * Trae TODOS los servicios y metodos de BTI014 en una sola consulta y una
+ * sola conexion, en vez de una consulta por servicio. Pensado para el
+ * builder de Collections, que necesita el catalogo completo de una vez y
+ * puede apuntar a ambientes de produccion: minimizar la cantidad de golpes
+ * a la base es mas importante que la simplicidad del codigo por servicio.
+ */
+async function queryServicesWithMethods(platform, db) {
+  function groupRows(rows) {
+    const services = [];
+    const methodsByService = {};
+    (rows || []).forEach(function(row) {
+      const service = String(row.BTISRVNOM || '').trim();
+      const method = String(row.BTIMTDNOM || '').trim();
+      if (!service || !method) return;
+      if (!methodsByService[service]) { methodsByService[service] = []; services.push(service); }
+      methodsByService[service].push(method);
+    });
+    return { services, methodsByService };
+  }
+
+  if (platform === 'sqlserver') {
+    const mod = path.join(ROOT, 'V3', 'node_modules', 'mssql');
+    if (!fs.existsSync(mod)) throw new Error('mssql no instalado - ejecuta npm install en V3/');
+    const mssql = require(mod);
+    const pool = new mssql.ConnectionPool({
+      server: db.DB_SERVER, port: Number(db.DB_PORT) || 1433,
+      database: db.DB_DATABASE, user: db.DB_USER, password: db.DB_PASSWORD,
+      options: { trustServerCertificate: true }, connectionTimeout: 8000,
+    });
+    await pool.connect();
+    const r = await pool.request()
+      .query('SELECT BTISRVNOM, BTIMTDNOM FROM BTI014 ORDER BY BTISRVNOM, BTIMTDNOM');
+    await pool.close();
+    return groupRows(r.recordset);
+  } else {
+    const mod = path.join(ROOT, 'V4', 'node_modules', 'oracledb');
+    if (!fs.existsSync(mod)) throw new Error('oracledb no instalado - ejecuta npm install en V4/');
+    const oracledb = require(mod);
+    const conn = await oracledb.getConnection({
+      user: db.DB_USER, password: db.DB_PASSWORD, connectString: db.DB_CONNECT_STRING,
+    });
+    const r = await conn.execute(
+      'SELECT BTISRVNOM, BTIMTDNOM FROM BTI014 ORDER BY BTISRVNOM, BTIMTDNOM', [],
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    await conn.close();
+    return groupRows(r.rows);
+  }
+}
+
 async function queryMethods(platform, db, service) {
   if (platform === 'sqlserver') {
     const mod = path.join(ROOT, 'V3', 'node_modules', 'mssql');
@@ -710,6 +761,13 @@ function sg_validateOne(mtdNom, svcNom, method, params) {
   return w;
 }
 
+// Mapea una fila de BTI019 (parametro de un metodo) al shape comun que
+// consume el resto del codigo, sin importar si vino de la rama V3 (SQL
+// Server) o V4 (Oracle) de queryMethodSchema.
+// Nota V3: BTI019 en V3 no tiene columna de descripcion por parametro,
+// asi que el SELECT de la rama V3 no la selecciona; `row.BTISRVPARDSC`
+// llega como `undefined` y `description` queda en '' para esos casos.
+// Esto es intencional, no un dato faltante por error.
 function mapMethodSchemaRow(row) {
   const name = (row.BTISRVPARNOM || '').trim();
   const type = (row.BTISRVVARTIPO || '').trim();
@@ -752,8 +810,53 @@ function mapBti026SchemaRow(row) {
   };
 }
 
+// ================================================================
+// queryMethodSchema
+// ----------------------------------------------------------------
+// Punto de entrada UNICO para leer el esquema (inputs/outputs/SDTs)
+// de un metodo puntual, usado por el flujo "Casos de uso" (Collections)
+// cuando el catalogo se carga desde Base de datos.
+//
+// La funcion se bifurca por `platform` ('sqlserver' vs 'oracle'), y en
+// este proyecto esa bifurcacion YA equivale 1 a 1 a la version de
+// Bantotal: V3 siempre corre sobre SQL Server, V4 siempre sobre
+// Oracle (ver db_history.json y el resto de setup.js). Por eso no
+// hace falta un parametro `version` extra aca: cada rama de abajo
+// es, en la practica, el codigo de una sola version, y estan
+// completamente separadas (ni comparten el texto del SELECT ni
+// ninguna variable intermedia). Tocar una rama NUNCA debe requerir
+// tocar la otra.
+// ================================================================
 async function queryMethodSchema(platform, db, service, method) {
   if (platform === 'sqlserver') {
+    // ==============================================================
+    // RAMA V3 (SQL Server / GeneXus BT clasico - tablas BTI014/BTI019/BTI026)
+    // ==============================================================
+    // IMPORTANTE - diferencia real de esquema entre V3 y V4:
+    // El nombre de columnas de V3 esta en PascalCase (ej. BTISrvParNom)
+    // mientras que V4 (Oracle) las tiene en MAYUSCULAS (BTISRVPARNOM).
+    // Eso NO requiere ningun cambio aca: SQL Server compara nombres de
+    // columna sin distinguir mayusculas/minusculas con el collation por
+    // defecto, asi que "BTISRVPARNOM" en el SELECT matchea sin problema
+    // contra la columna real "BTISrvParNom".
+    //
+    // Lo que SI es una diferencia real (no solo de casing) es que la
+    // tabla BTI019 de V3 NO tiene ninguna columna de descripcion por
+    // parametro (no existe un equivalente a BTISRVPARDSC de V4 en este
+    // esquema). Por eso el SELECT de abajo omite esa columna para V3;
+    // mapMethodSchemaRow ya tolera su ausencia (linea ~782: usa
+    // `row.BTISRVPARDSC || ''`) y deja `description` en '' para los
+    // parametros de V3, sin romper el shape que espera el resto del
+    // codigo. BTI026 (descripcion a nivel de campo de un SDT) SI tiene
+    // su columna equivalente (BTISDTElemDsc) en V3, por eso esa query
+    // no cambia.
+    //
+    // Confirmado contra el esquema real de V3 (INFORMATION_SCHEMA.COLUMNS
+    // de BTI014/BTI019/BTI026, provisto por el usuario) el 2026-07-22.
+    // Si en el futuro aparece otro "Invalid column name" para V3, hay
+    // que volver a pedir el esquema real de esa tabla puntual antes de
+    // adivinar nombres de columna: NO restaurar columnas de la rama V4
+    // "por las dudas", porque eso reintroduce este mismo bug.
     const mod = path.join(ROOT, 'V3', 'node_modules', 'mssql');
     if (!fs.existsSync(mod)) throw new Error('mssql no instalado - ejecuta npm install en V3/');
     const mssql = require(mod);
@@ -771,7 +874,8 @@ async function queryMethodSchema(platform, db, service, method) {
       const meta = await pool.request()
         .input('svc', mssql.VarChar(100), service)
         .input('mtd', mssql.VarChar(100), method)
-        .query(`SELECT BTISRVPARNOM, BTISRVVARTIPO, BTISRVPARDIR, BTISRVPARDSC, BTISRVPARLARGO, BTISRVPARDECI, BTISRVCATIT, BTISRVPARITTIPO, BTISRVPARITNOM
+        // Sin BTISRVPARDSC: en V3 esa columna no existe en BTI019 (ver nota arriba).
+        .query(`SELECT BTISRVPARNOM, BTISRVVARTIPO, BTISRVPARDIR, BTISRVPARLARGO, BTISRVPARDECI, BTISRVCATIT, BTISRVPARITTIPO, BTISRVPARITNOM
                   FROM BTI019
                  WHERE BTISRVNOM = @svc AND BTIMTDNOM = @mtd
                  ORDER BY BTISRVPARPOSI`);
@@ -784,6 +888,8 @@ async function queryMethodSchema(platform, db, service, method) {
       const sdts = {};
       async function loadSdt(sdtName) {
         if (!sdtName || sdts[sdtName]) return;
+        // BTI026 si tiene descripcion por campo (BTISDTElemDsc) en V3:
+        // este SELECT queda identico al de la rama V4, sin cambios.
         const r26 = await pool.request()
           .input('sdt', mssql.VarChar(100), sdtName)
           .query(`SELECT BTISDTELEMNOM, BTISDTELEMTIPO, BTISDTELEMLARGO, BTISDTELEMDECI, BTISDTELEMCAT, BTISDTELEMDSC, BTISDTELEMSDT
@@ -814,6 +920,16 @@ async function queryMethodSchema(platform, db, service, method) {
     }
   }
 
+  // ==================================================================
+  // RAMA V4 (Oracle). A proposito DEBAJO del `return`/`if` de arriba y
+  // sin ningun `else`: si `platform === 'sqlserver'` la funcion ya
+  // termino y retorno en el bloque de arriba (V3). Este bloque de aca
+  // abajo es exclusivamente para V4/Oracle y quedo BYTE A BYTE igual
+  // que antes de resolver el bug de columnas de V3 (no se le toco una
+  // sola linea): la separacion entre versiones es completa a proposito,
+  // para que un cambio de esquema de V3 nunca pueda afectar a V4 y
+  // viceversa.
+  // ==================================================================
   const mod = path.join(ROOT, 'V4', 'node_modules', 'oracledb');
   if (!fs.existsSync(mod)) throw new Error('oracledb no instalado - ejecuta npm install en V4/');
   const oracledb = require(mod);
@@ -875,8 +991,7 @@ async function queryMethodSchema(platform, db, service, method) {
 
   const collectionFeature = createCollectionFeature({
     ROOT,
-    queryServices,
-    queryMethods,
+    queryServicesWithMethods,
     queryMethodSchema
   });
 
@@ -965,9 +1080,13 @@ http.createServer(async (req, res) => {
     try {
       const { version, api, authUrl: explicitAuthUrl } = await readBody(req);
       const https = require('https');
-      const authUrl = explicitAuthUrl || (version === 'V3'
-        ? `${api.API_AUTH_URL}?Execute`
-        : resolveV4AuthUrl(api));
+      let authUrl = explicitAuthUrl || (version === 'V3' ? api.API_AUTH_URL : resolveV4AuthUrl(api));
+      if (version === 'V3') {
+        authUrl = String(authUrl || '').trim();
+        if (!/[?&]Execute$/i.test(authUrl)) {
+          authUrl += (authUrl.indexOf('?') >= 0 ? '&' : '?') + 'Execute';
+        }
+      }
       const isV4 = version === 'V4';
       const body = isV4
         ? JSON.stringify({ UserId: api.API_USER, UserPassword: api.API_PASSWORD })

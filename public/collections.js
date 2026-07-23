@@ -42,6 +42,8 @@ var collectionCanvasInteractionManager = null;
 var collectionInspectorManager = null;
 var collectionScenarioManager = null;
 var collectionServiceCatalogManager = null;
+var collectionChainSuggestionManager = null;
+var collectionImportManager = null;
 var collectionPreviewManager = null;
 var collectionExecutionCenter = null;
 var collectionRequestDataManager = null;
@@ -156,6 +158,40 @@ function collectionGetServiceCatalogManager() {
     escapeHtml: collectionEscapeHtml
   });
   return collectionServiceCatalogManager;
+}
+
+function collectionGetChainSuggestionManager() {
+  if (collectionChainSuggestionManager) return collectionChainSuggestionManager;
+  collectionChainSuggestionManager = new window.BTCollectionModules.CollectionChainSuggestionManager({
+    getState: function() { return collectionState; },
+    getActiveScenario: collectionGetActiveScenario,
+    getSelectedItem: collectionGetSelectedItem,
+    getPreviewManager: collectionGetPreviewManager,
+    apiClient: collectionApiClient,
+    insertOperation: collectionInsertOperation,
+    updateInputMapping: collectionUpdateInputMapping,
+    selectItem: collectionCanvasNodeClick,
+    showStatus: collectionShowStatus,
+    escapeHtml: collectionEscapeHtml
+  });
+  return collectionChainSuggestionManager;
+}
+
+function collectionGetImportManager() {
+  if (collectionImportManager) return collectionImportManager;
+  collectionImportManager = new window.BTCollectionModules.CollectionImportManager({
+    getState: function() { return collectionState; },
+    createScenario: collectionCreateScenario,
+    insertOperation: collectionInsertOperation,
+    getPreviewManager: collectionGetPreviewManager,
+    updateInputMapping: collectionUpdateInputMapping,
+    showStatus: collectionShowStatus,
+    renderScenarios: collectionRenderScenarios,
+    renderItems: collectionRenderItems,
+    renderVariableEditor: collectionRenderVariableEditor,
+    loadPreview: collectionLoadPreview
+  });
+  return collectionImportManager;
 }
 
 function collectionGetPreviewManager() {
@@ -303,7 +339,8 @@ function collectionGetBuilderShellManager() {
     insertOperation: collectionInsertOperation,
     renderItems: collectionRenderItems,
     renderServiceCatalog: function() { return collectionGetServiceCatalogManager().renderServiceCatalog(); },
-    renderInspector: function() { return collectionGetInspectorManager().renderInspector(); }
+    renderInspector: function() { return collectionGetInspectorManager().renderInspector(); },
+    showStatus: collectionShowStatus
   });
   return collectionBuilderShellManager;
 }
@@ -1229,6 +1266,12 @@ collectionUpdateServiceSource = function collectionUpdateServiceSourceAdapter(va
   collectionGetEnvironmentManager().updateServiceSource(value);
 };
 
+collectionUpdateFormat = function collectionUpdateFormatAdapter(value) {
+  // Formato (XML/JSON) solo elegible para V3; vive en el manager de ambiente
+  // junto al resto de la sincronizacion de UI de "Cargar servicios".
+  collectionGetEnvironmentManager().updateFormat(value);
+};
+
 collectionTestDb = async function collectionTestDbAdapter() {
   // La prueba de base ahora entra por la capa de ambiente y servicios.
   return collectionGetEnvironmentManager().testDb();
@@ -1447,30 +1490,27 @@ collectionExportExecutionRun = function collectionExportExecutionRunAdapter() {
   collectionGetExecutionCenter().exportRun();
 };
 
-collectionUpdateExecutionServiceFilter = function collectionUpdateExecutionServiceFilterAdapter(value) {
-  collectionGetExecutionCenter().updateServiceFilter(value);
-};
-
-collectionUpdateExecutionMethodFilter = function collectionUpdateExecutionMethodFilterAdapter(value) {
-  collectionGetExecutionCenter().updateMethodFilter(value);
-};
-
-collectionUpdateExecutionVariableFilter = function collectionUpdateExecutionVariableFilterAdapter(value) {
-  collectionGetExecutionCenter().updateVariablesFilter(value);
-};
-
-collectionToggleExecutionLeftPanel = function collectionToggleExecutionLeftPanelAdapter() {
-  collectionGetExecutionCenter().toggleLeftPanelCollapsed();
-};
-
 collectionHandleExecutionNodeAction = async function collectionHandleExecutionNodeActionAdapter(actionKey, stepId) {
   return collectionGetExecutionCenter().handleNodeAction(actionKey, stepId);
 };
 
 collectionCenterExecutionFlow = function collectionCenterExecutionFlowAdapter() {
+  collectionGetExecutionCenter().resetZoom();
   var stage = document.querySelector('.collection-exec-flow-stage');
   if (!stage) return;
   stage.scrollTo({ left: 0, top: 0, behavior: 'smooth' });
+};
+
+collectionZoomInExecutionFlow = function collectionZoomInExecutionFlowAdapter() {
+  collectionGetExecutionCenter().zoomIn();
+};
+
+collectionZoomOutExecutionFlow = function collectionZoomOutExecutionFlowAdapter() {
+  collectionGetExecutionCenter().zoomOut();
+};
+
+collectionZoomToFitExecutionFlow = function collectionZoomToFitExecutionFlowAdapter() {
+  collectionGetExecutionCenter().zoomToFit();
 };
 
 collectionToggleExecutionTimeline = function collectionToggleExecutionTimelineAdapter() {
@@ -1481,8 +1521,24 @@ collectionCloseExecutionTimeline = function collectionCloseExecutionTimelineAdap
   collectionGetExecutionCenter().closeTimelineOpen();
 };
 
+collectionToggleExecutionFlowExpanded = function collectionToggleExecutionFlowExpandedAdapter() {
+  collectionGetExecutionCenter().toggleFlowExpanded();
+};
+
 collectionCancelExecutionRun = function collectionCancelExecutionRunAdapter() {
   collectionGetExecutionCenter().cancelExecution();
+};
+
+collectionCopyExecutionCodeSource = function collectionCopyExecutionCodeSourceAdapter(buttonEl) {
+  var wrap = buttonEl && buttonEl.parentElement;
+  var source = wrap ? wrap.querySelector('.collection-exec-code-source') : null;
+  if (!source || !navigator.clipboard) return;
+
+  navigator.clipboard.writeText(source.value).then(function showCopied() {
+    var originalLabel = buttonEl.textContent;
+    buttonEl.textContent = 'Copiado';
+    setTimeout(function restoreLabel() { buttonEl.textContent = originalLabel; }, 1500);
+  }).catch(function ignoreCopyError() {});
 };
 
 collectionRenderResult = function collectionRenderResultAdapter(data) {
@@ -1755,7 +1811,7 @@ collectionGenerate = async function collectionGenerateAdapter() {
     button.innerHTML = '<span class="spin"></span>&nbsp;Generando...';
   }
 
-  collectionShowStatus('ok', 'Generando collection Postman JSON...');
+  collectionShowStatus('ok', 'Generando collection Postman (' + String(collectionState.format || 'json').toUpperCase() + ')...');
   collectionResetResult();
 
   try {
@@ -1819,6 +1875,7 @@ if (document.readyState === 'loading') {
 
 
 collectionOpenServiceDrawer = function collectionOpenServiceDrawerAdapter() {
+  collectionGetChainSuggestionManager().close();
   collectionGetBuilderShellManager().openServiceDrawer();
 };
 
@@ -1836,6 +1893,7 @@ collectionCloseInspectorDrawer = function collectionCloseInspectorDrawerAdapter(
 
 collectionHandleBuilderBackdropClick = function collectionHandleBuilderBackdropClickAdapter() {
   collectionGetBuilderShellManager().handleBackdropClick();
+  collectionGetChainSuggestionManager().close();
 };
 
 collectionToggleCatalogSelection = function collectionToggleCatalogSelectionAdapter(service, operationKey, checked) {
@@ -1866,6 +1924,12 @@ collectionToggleInspectorInput = function collectionToggleInspectorInputAdapter(
   collectionGetBuilderShellManager().toggleInspectorInput(mappingKey);
 };
 
+collectionToggleInspectorInputGroup = function collectionToggleInspectorInputGroupAdapter(groupKey) {
+  // Grupo visual de entradas (campos de un mismo SDT/coleccion) — ver
+  // renderInputsTab en collection-inspector-manager.js.
+  collectionGetBuilderShellManager().toggleInspectorInputGroup(groupKey);
+};
+
 collectionToggleInspectorOutput = function collectionToggleInspectorOutputAdapter(sourceVarKey) {
   collectionGetBuilderShellManager().toggleInspectorOutput(sourceVarKey);
 };
@@ -1885,6 +1949,42 @@ collectionToggleSourceGroup = function collectionToggleSourceGroupAdapter(mappin
 collectionSelectInputSource = function collectionSelectInputSourceAdapter(mappingKey, value) {
   collectionGetBuilderShellManager().closeSourcePicker();
   collectionUpdateInputMapping(mappingKey, value);
+};
+
+collectionTriggerImportCollection = function collectionTriggerImportCollectionAdapter() {
+  collectionGetImportManager().triggerFileDialog();
+};
+
+collectionImportCollectionFile = function collectionImportCollectionFileAdapter(file) {
+  collectionGetImportManager().handleFileSelected(file);
+};
+
+collectionOpenChainSuggestionDrawer = function collectionOpenChainSuggestionDrawerAdapter() {
+  collectionGetChainSuggestionManager().open();
+};
+
+collectionCloseChainSuggestionDrawer = function collectionCloseChainSuggestionDrawerAdapter() {
+  collectionGetChainSuggestionManager().close();
+};
+
+collectionSetSuggestStartMethod = function collectionSetSuggestStartMethodAdapter(value) {
+  collectionGetChainSuggestionManager().setStartMethod(value);
+};
+
+collectionSetSuggestScope = function collectionSetSuggestScopeAdapter(scope) {
+  collectionGetChainSuggestionManager().setScope(scope);
+};
+
+collectionRunChainSuggestionSearch = function collectionRunChainSuggestionSearchAdapter() {
+  return collectionGetChainSuggestionManager().search();
+};
+
+collectionToggleChainSuggestion = function collectionToggleChainSuggestionAdapter(index) {
+  collectionGetChainSuggestionManager().toggleExpand(index);
+};
+
+collectionConfirmChainSuggestion = function collectionConfirmChainSuggestionAdapter(index) {
+  return collectionGetChainSuggestionManager().confirmInsert(index);
 };
 
 collectionCopyExecutionUrl = function collectionCopyExecutionUrlAdapter(button) {

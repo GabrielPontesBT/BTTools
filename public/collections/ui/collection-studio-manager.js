@@ -17,10 +17,13 @@
 
     /**
      * Indica si el camino actualmente elegido está soportado por el builder.
-     * Hoy el único camino activo es JSON + Postman.
+     * El destino sigue siendo siempre Postman (no hay UI para elegir otro).
+     * El formato puede ser JSON (V4, y V3 experimental) o XML/SOAP (V3, el
+     * camino real probado contra un ambiente — ver [[project-v3-v4-protocol-conventions]]).
      */
     pathSupported() {
-      return this.state.format === 'json' && this.state.target === 'postman';
+      var formatSupported = this.state.format === 'json' || this.state.format === 'xml';
+      return formatSupported && this.state.target === 'postman';
     }
 
     /**

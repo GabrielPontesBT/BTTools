@@ -105,6 +105,13 @@
     async generateCollection(payload) {
       return this.postJson('/api/collection/generate', payload);
     }
+
+    /**
+     * Pide sugerencias de cadena a partir de un metodo inicial y un pool de operaciones ya acotado por alcance.
+     */
+    async suggestChains(payload) {
+      return this.postJson('/api/collection/suggest-chain', payload);
+    }
   }
 
   global.BTCollectionModules = global.BTCollectionModules || {};

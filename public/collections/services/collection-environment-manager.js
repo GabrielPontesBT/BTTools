@@ -34,6 +34,51 @@
       if (swaggerField) swaggerField.style.display = source === 'swagger' ? 'block' : 'none';
       if (loadButton) loadButton.textContent = 'Cargar servicios';
       if (sourceSelect) sourceSelect.value = source;
+
+      this.syncFormatUi();
+    }
+
+    /**
+     * Sincroniza el selector de formato (XML/JSON), que solo tiene sentido
+     * para V3 (V4 siempre genera JSON, sin eleccion posible en la UI).
+     *
+     * Por que XML por defecto en V3: la version SOAP/WSDL de los servlets de
+     * V3 es la que quedo probada funcionando contra un ambiente real (ver
+     * memoria del proyecto "V3 vs V4 protocol conventions"); JSON para V3
+     * queda solo como opcion experimental, no como default.
+     *
+     * `state.v3FormatInitialized` evita pisarle la eleccion al usuario: el
+     * default a 'xml' se aplica una sola vez por sesion la primera vez que
+     * se detecta version V3, no en cada refresco de la pantalla.
+     */
+    syncFormatUi() {
+      var state = this.options.getState();
+      var wizardState = this.options.getWizardState ? this.options.getWizardState() : {};
+      var isV3 = wizardState.version === 'V3';
+      var formatField = document.getElementById('collection-format-field');
+      var formatSelect = document.getElementById('collection-format-select');
+
+      if (!isV3) {
+        // V4 no tiene UI para elegir formato: siempre JSON.
+        state.format = 'json';
+      } else if (!state.v3FormatInitialized) {
+        state.format = 'xml';
+        state.v3FormatInitialized = true;
+      }
+
+      if (formatField) formatField.style.display = isV3 ? 'block' : 'none';
+      if (formatSelect) formatSelect.value = state.format || 'xml';
+    }
+
+    /**
+     * Guarda el formato elegido por el usuario para V3 (XML u JSON) y
+     * refresca la UI. No tiene efecto para V4 (queda siempre en 'json').
+     */
+    updateFormat(value) {
+      var state = this.options.getState();
+      state.format = String(value || '').trim().toLowerCase() === 'json' ? 'json' : 'xml';
+      state.v3FormatInitialized = true;
+      this.syncSourceUi();
     }
 
     /**
@@ -181,7 +226,7 @@
       var wizardState = this.options.getWizardState();
 
       if (!this.options.isPathSupported()) {
-        this.options.showStatus('err', 'Por ahora solo esta disponible el camino JSON + Postman.');
+        this.options.showStatus('err', 'Por ahora solo esta disponible el destino Postman (formato JSON o XML).');
         return;
       }
       if (!wizardState.platform) {
@@ -224,21 +269,26 @@
         var servicesPanel = document.getElementById('collection-services');
         if (servicesPanel) servicesPanel.style.display = 'block';
 
+        // La autenticacion solo hace falta para ejecutar de verdad (Probar,
+        // rellenar datos); el catalogo ya se resolvio leyendo el Swagger, asi
+        // que una falla aca es una advertencia y no debe bloquear el builder.
         this.options.showStatus('ok', 'Swagger resuelto. Validando autenticacion del ambiente...');
-
-        var authData = await this.options.apiClient.testAuthentication({
-          version: wizardState.version,
-          api: this.options.getApi(),
-          authUrl: state.swaggerAuthUrl
-        });
-        if (!authData.ok) throw new Error(authData.message || 'No se pudo autenticar usando el Authenticate del Swagger.');
-
-        state.authContext = authData.authContext || null;
+        try {
+          var authData = await this.options.apiClient.testAuthentication({
+            version: wizardState.version,
+            api: this.options.getApi(),
+            authUrl: state.swaggerAuthUrl
+          });
+          if (authData.ok) state.authContext = authData.authContext || null;
+          else this.options.showStatus('err', (authData.message || 'No se pudo autenticar usando el Authenticate del Swagger.') + ' Los servicios ya estan cargados; podes revisar la autenticacion mas tarde.');
+        } catch (authError) {
+          this.options.showStatus('err', 'No se pudo validar la autenticacion del ambiente. Los servicios ya estan cargados; podes revisar la autenticacion mas tarde.');
+        }
 
         this.options.filterServices();
         this.options.renderVariableEditor();
         this.options.setStudioStage('builder');
-        this.options.showStatus('ok', 'Servicios cargados correctamente. Entrando al builder...');
+        if (state.authContext) this.options.showStatus('ok', 'Servicios cargados correctamente. Entrando al builder...');
       } catch (error) {
         this.options.showStatus('err', error.message || 'No se pudieron cargar los servicios.');
       }

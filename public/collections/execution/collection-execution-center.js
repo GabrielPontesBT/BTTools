@@ -18,23 +18,27 @@
       });
       this.renderer = new global.BTCollectionModules.CollectionExecutionViewRenderer({
         escapeHtml: this.options.escapeHtml,
-        getServiceFilter: this.getServiceFilter.bind(this),
-        getMethodFilter: this.getMethodFilter.bind(this),
-        getVariablesFilter: this.getVariablesFilter.bind(this),
-        getLeftPanelCollapsed: this.getLeftPanelCollapsed.bind(this),
-        isTimelineOpen: this.isTimelineOpen.bind(this)
+        isTimelineOpen: this.isTimelineOpen.bind(this),
+        getZoomLevel: this.getZoomLevel.bind(this),
+        isFlowExpanded: this.isFlowExpanded.bind(this)
       });
       this.executionState = {
         active: false,
         loading: false,
         run: null,
-        serviceFilter: '',
-        methodFilter: '',
-        variablesFilter: '',
         playbackToken: 0,
-        leftPanelCollapsed: true,
-        timelineOpen: false
+        timelineOpen: false,
+        zoomLevel: 1,
+        flowExpanded: true
       };
+      this.boundHandleTimelineKeydown = this.handleTimelineKeydown.bind(this);
+    }
+
+    /**
+     * Cierra la linea de tiempo con Escape, como cualquier drawer superpuesto.
+     */
+    handleTimelineKeydown(event) {
+      if (event.key === 'Escape') this.closeTimelineOpen();
     }
 
     /**
@@ -45,11 +49,9 @@
       this.executionState.active = false;
       this.executionState.loading = false;
       this.executionState.run = null;
-      this.executionState.serviceFilter = '';
-      this.executionState.methodFilter = '';
-      this.executionState.variablesFilter = '';
-      this.executionState.leftPanelCollapsed = true;
       this.executionState.timelineOpen = false;
+      this.executionState.zoomLevel = 1;
+      this.syncTimelineKeydownListener();
       this.syncButtons(false);
       this.render();
     }
@@ -62,6 +64,7 @@
       this.executionState.active = false;
       this.executionState.loading = false;
       this.executionState.timelineOpen = false;
+      this.syncTimelineKeydownListener();
       this.render();
       this.syncButtons(false);
       this.options.showStatus('ok', 'Volviste al modo edicion del constructor.');
@@ -134,10 +137,39 @@
      * Toma un run ya armado y lo vuelve visible.
      */
     renderResult(data) {
+      var wasActive = this.executionState.active;
       this.executionState.run = data || null;
       this.executionState.loading = false;
       this.executionState.active = !!data;
+
+      if (data && !wasActive) {
+        // En notebook la timeline arranca plegada; en pantallas grandes, visible.
+        var isWideScreen = typeof window !== 'undefined' && window.innerWidth > 1440;
+        this.executionState.timelineOpen = isWideScreen;
+        // En notebook el flujo arranca colapsado (breadcrumb) para darle mas alto al inspector.
+        this.executionState.flowExpanded = isWideScreen;
+        this.executionState.zoomLevel = 1;
+      }
+
+      this.syncTimelineKeydownListener();
       this.render();
+
+      if (data && !wasActive) this.centerSelectedNode();
+    }
+
+    /**
+     * Centra el nodo seleccionado dentro del flujo al abrir una corrida nueva,
+     * asi el paso relevante (error o ultimo ejecutado) queda visible sin que
+     * el usuario tenga que buscarlo manualmente.
+     */
+    centerSelectedNode() {
+      var run = this.executionState.run;
+      if (!run) return;
+
+      setTimeout(function scrollIntoView() {
+        var node = document.querySelector('.collection-exec-node-selected');
+        if (node && node.scrollIntoView) node.scrollIntoView({ block: 'center', inline: 'center' });
+      }, 0);
     }
 
     /**
@@ -255,58 +287,6 @@
     }
 
     /**
-     * Actualiza el filtro de servicio del lateral izquierdo.
-     */
-    updateServiceFilter(value) {
-      this.executionState.serviceFilter = String(value || '');
-      this.render();
-    }
-
-    /**
-     * Actualiza el filtro de metodo del lateral izquierdo.
-     */
-    updateMethodFilter(value) {
-      this.executionState.methodFilter = String(value || '');
-      this.render();
-    }
-
-    /**
-     * Actualiza el filtro de variables globales.
-     */
-    updateVariablesFilter(value) {
-      this.executionState.variablesFilter = String(value || '');
-      this.render();
-    }
-
-    /**
-     * Devuelve el filtro de servicio actual.
-     */
-    getServiceFilter() {
-      return this.executionState.serviceFilter || '';
-    }
-
-    /**
-     * Devuelve el filtro de metodo actual.
-     */
-    getMethodFilter() {
-      return this.executionState.methodFilter || '';
-    }
-
-    /**
-     * Devuelve el filtro de variables actual.
-     */
-    getVariablesFilter() {
-      return this.executionState.variablesFilter || '';
-    }
-
-    /**
-     * Devuelve si el panel izquierdo del modo ejecucion esta colapsado.
-     */
-    getLeftPanelCollapsed() {
-      return !!this.executionState.leftPanelCollapsed;
-    }
-
-    /**
      * Informa si el drawer de linea de tiempo esta visible.
      */
     isTimelineOpen() {
@@ -314,10 +294,56 @@
     }
 
     /**
-     * Alterna la visibilidad del catalogo lateral para darle mas foco al flujo.
+     * Devuelve el nivel de zoom actual del flujo (1 = 100%).
      */
-    toggleLeftPanelCollapsed() {
-      this.executionState.leftPanelCollapsed = !this.executionState.leftPanelCollapsed;
+    getZoomLevel() {
+      return this.executionState.zoomLevel || 1;
+    }
+
+    /**
+     * Acerca el flujo un escalon, sin pasar el maximo permitido.
+     */
+    zoomIn() {
+      this.executionState.zoomLevel = Math.min(1.5, Math.round((this.getZoomLevel() + 0.1) * 100) / 100);
+      this.render();
+    }
+
+    /**
+     * Aleja el flujo un escalon, sin bajar del minimo permitido.
+     */
+    zoomOut() {
+      this.executionState.zoomLevel = Math.max(0.5, Math.round((this.getZoomLevel() - 0.1) * 100) / 100);
+      this.render();
+    }
+
+    /**
+     * Ajusta el zoom para que todas las filas del flujo entren en el area
+     * visible, tanto a lo ancho como a lo alto (ahora puede haber mas de
+     * una fila de tarjetas).
+     */
+    zoomToFit() {
+      var stage = document.querySelector('.collection-exec-flow-stage');
+      var rows = document.querySelector('.collection-exec-flow-rows');
+      if (!stage || !rows) { this.executionState.zoomLevel = 1; this.render(); return; }
+
+      var currentZoom = this.getZoomLevel();
+      var naturalWidth = rows.scrollWidth / currentZoom;
+      var naturalHeight = rows.scrollHeight / currentZoom;
+      var availableWidth = stage.clientWidth - 8;
+      var availableHeight = stage.clientHeight - 8;
+      var fittedByWidth = naturalWidth > 0 ? availableWidth / naturalWidth : 1;
+      var fittedByHeight = naturalHeight > 0 ? availableHeight / naturalHeight : 1;
+      var fitted = Math.min(fittedByWidth, fittedByHeight);
+
+      this.executionState.zoomLevel = Math.max(0.5, Math.min(1, Math.round(fitted * 100) / 100));
+      this.render();
+    }
+
+    /**
+     * Vuelve el zoom a 100% (se usa junto con "Centrar").
+     */
+    resetZoom() {
+      this.executionState.zoomLevel = 1;
       this.render();
     }
 
@@ -328,6 +354,7 @@
      */
     toggleTimelineOpen() {
       this.executionState.timelineOpen = !this.executionState.timelineOpen;
+      this.syncTimelineKeydownListener();
       this.render();
     }
 
@@ -336,6 +363,30 @@
      */
     closeTimelineOpen() {
       this.executionState.timelineOpen = false;
+      this.syncTimelineKeydownListener();
+      this.render();
+    }
+
+    /**
+     * Escucha Escape solo mientras la linea de tiempo esta abierta.
+     */
+    syncTimelineKeydownListener() {
+      document.removeEventListener('keydown', this.boundHandleTimelineKeydown);
+      if (this.executionState.timelineOpen) document.addEventListener('keydown', this.boundHandleTimelineKeydown);
+    }
+
+    /**
+     * Informa si el flujo se muestra expandido (tarjetas) o colapsado (breadcrumb).
+     */
+    isFlowExpanded() {
+      return !!this.executionState.flowExpanded;
+    }
+
+    /**
+     * Alterna entre el flujo expandido (tarjetas + pan/zoom) y el breadcrumb compacto.
+     */
+    toggleFlowExpanded() {
+      this.executionState.flowExpanded = !this.executionState.flowExpanded;
       this.render();
     }
 
@@ -474,7 +525,9 @@
       baseRun.status = hasFailure ? 'error' : 'success';
       baseRun.statusLabel = hasFailure ? 'Con errores' : 'Completada';
       baseRun.selectedStepId = selectedStepId;
-      baseRun.selectedTab = hasFailure ? 'response' : 'details';
+      // Con error se abre el paso que fallo; si todo salio bien se abre el
+      // ultimo paso ejecutado. En ambos casos interesa ver la Response primero.
+      baseRun.selectedTab = 'response';
       baseRun.runtimeValues = runtimeValues;
       return baseRun;
     }
@@ -507,15 +560,17 @@
      */
     hydrateAuthStep(baseStep, authStep, runtimeValues, hasFailure) {
       var step = Object.assign({}, baseStep || {});
+      var format = this.options.getFormat ? this.options.getFormat() : 'json';
       var createdVariables = this.buildAuthCreatedVariables(runtimeValues || {});
       var parsedResponse = this.parseExecutionPayload(authStep && authStep.responseXml);
       var isOk = !!(authStep && authStep.ok);
 
+      step.format = format;
       step.requestUrl = authStep && authStep.requestUrl ? authStep.requestUrl : step.requestUrl;
       step.responseStatus = authStep && authStep.responseStatus ? authStep.responseStatus : (isOk ? 200 : 0);
       step.status = isOk ? 'success' : (hasFailure ? 'error' : 'success');
       step.statusLabel = this.buildStepStatusLabel(authStep, step.status);
-      step.requestBody = step.requestBody || {};
+      step.requestBody = step.requestBody || (format === 'xml' ? '' : {});
       step.responseBody = parsedResponse;
       step.createdVariables = createdVariables;
       step.warnings = !isOk && authStep && authStep.error ? [authStep.error] : [];
@@ -528,6 +583,7 @@
      */
     hydrateFlowStep(baseStep, item, backendStep, stepIndex, executedCount, hasFailure, runtimeValues) {
       var step = Object.assign({}, baseStep || {});
+      var format = this.options.getFormat ? this.options.getFormat() : 'json';
       var parsedRequest = this.parseExecutionPayload(backendStep && backendStep.requestXml);
       var parsedResponse = this.parseExecutionPayload(backendStep && backendStep.responseXml);
       var wasExecuted = !!backendStep;
@@ -535,6 +591,7 @@
         ? (backendStep.ok ? 'success' : 'error')
         : (hasFailure && stepIndex >= executedCount ? 'skipped' : 'idle');
 
+      step.format = format;
       step.name = item && item.method ? item.method : step.name;
       step.service = item && item.service ? item.service : step.service;
       step.httpMethod = String(item && item.httpMethod || step.httpMethod || 'GET').toUpperCase();
@@ -606,9 +663,39 @@
     }
 
     /**
-     * Normaliza el payload textual del backend para que el panel muestre JSON cuando existe.
+     * Normaliza el payload textual (request/response crudo) que manda el backend
+     * para un paso, segun el formato del camino activo (JSON o XML/SOAP).
+     *
+     * Cada formato tiene su propia funcion de parseo (parseJsonExecutionPayload /
+     * parseXmlExecutionPayload) para que un ajuste pensado para uno no pueda
+     * afectar por accidente al otro. El panel de ejecucion (collection-execution-
+     * view-renderer.js) usa `step.format` para elegir, a su vez, como formatear
+     * y mostrar lo que esta funcion devuelve.
      */
     parseExecutionPayload(rawValue) {
+      var format = this.options.getFormat ? this.options.getFormat() : 'json';
+      return format === 'xml'
+        ? this.parseXmlExecutionPayload(rawValue)
+        : this.parseJsonExecutionPayload(rawValue);
+    }
+
+    /**
+     * XML/SOAP: el body que manda executeCollectionFlow ya es el XML real de
+     * la request/response (ver authenticateSessionSoap/invokeSoapXml en
+     * scripts/generar-collections/index.js). No hace falta parsearlo a objeto
+     * para mostrarlo — el renderer lo indenta como texto XML tal cual.
+     */
+    parseXmlExecutionPayload(rawValue) {
+      return String(rawValue == null ? '' : rawValue).trim();
+    }
+
+    /**
+     * JSON: comportamiento historico sin cambios (solo se le puso nombre propio
+     * al separarlo del XML). Si el texto no es JSON valido, se envuelve en
+     * {raw: texto} para no perder informacion — esto es exclusivo del camino
+     * JSON, el camino XML nunca pasa por esta funcion.
+     */
+    parseJsonExecutionPayload(rawValue) {
       var rawText = String(rawValue == null ? '' : rawValue).trim();
       if (!rawText) return {};
       try {
@@ -647,7 +734,8 @@
     }
 
     /**
-     * Prioriza el primer error real; si no hay, deja seleccionado el primer paso de negocio.
+     * Prioriza el primer error real; si no hay, deja seleccionado el ultimo
+     * paso ejecutado (el mas reciente es el que mas contexto aporta).
      */
     pickSelectedExecutionStep(run) {
       var i = 0;
@@ -656,7 +744,7 @@
       for (i = 0; i < (run.steps || []).length; i++) {
         if (run.steps[i].status === 'error') return run.steps[i].id;
       }
-      return this.pickFirstStepId(run);
+      return this.pickLastStepId(run);
     }
 
     /**
@@ -681,46 +769,13 @@
     }
 
 /**
-     * Reaplica los filtros laterales sobre el catalogo del run.
-     */
-    applyFiltersToRun(run) {
-      if (!run) return;
-      var sourceState = this.options.getState();
-      var services = Array.isArray(sourceState.services) ? sourceState.services : [];
-      var operationsByService = sourceState.serviceOperations || {};
-      var serviceFilter = String(this.executionState.serviceFilter || '').toLowerCase().trim();
-      var methodFilter = String(this.executionState.methodFilter || '').toLowerCase().trim();
-
-      run.serviceCatalog = services.filter(function keepService(service) {
-        if (serviceFilter && String(service).toLowerCase().indexOf(serviceFilter) < 0) return false;
-        if (!methodFilter) return true;
-
-        return (operationsByService[service] || []).some(function matchMethod(operation) {
-          return String(operation.methodName || '').toLowerCase().indexOf(methodFilter) >= 0;
-        });
-      }).slice(0, 6).map(function mapService(service) {
-        return {
-          name: service,
-          operations: (operationsByService[service] || []).filter(function keepOperation(operation) {
-            if (!methodFilter) return true;
-            return String(operation.methodName || '').toLowerCase().indexOf(methodFilter) >= 0;
-          }).slice(0, 6).map(function mapOperation(operation) {
-            return {
-              name: operation.methodName || 'Metodo',
-              meta: String(operation.httpMethod || 'GET').toUpperCase() + ' | ' + (operation.summary || operation.path || 'Sin descripcion')
-            };
-          })
-        };
-      });
-    }
-
-    /**
      * Vuelve a dibujar el Execution Mode o el builder segun el estado actual.
      */
     render() {
       var executionContainer = document.getElementById('collection-execution-mode');
       var builderContainer = document.getElementById('collection-builder-mode');
       var result = document.getElementById('collection-result');
+      var shell = document.querySelector('.collection-shell-studio');
 
       if (!executionContainer || !builderContainer) return;
 
@@ -728,12 +783,14 @@
         executionContainer.style.display = 'none';
         executionContainer.innerHTML = '';
         builderContainer.style.display = '';
+        if (shell) shell.classList.remove('collection-execution-active');
         if (result && !result.innerHTML) result.className = 'collection-result';
         return;
       }
 
       builderContainer.style.display = 'none';
-      executionContainer.style.display = 'block';
+      executionContainer.style.display = 'flex';
+      if (shell) shell.classList.add('collection-execution-active');
 
       if (this.executionState.loading) {
         executionContainer.innerHTML =
@@ -747,7 +804,6 @@
         return;
       }
 
-      this.applyFiltersToRun(this.executionState.run);
       executionContainer.innerHTML = this.renderer.render(this.executionState.run);
     }
 
@@ -984,22 +1040,9 @@
      */
     buildVisibleTimeline(run) {
       var events = [];
-      var authReady = run && run.authStep && run.authStep.status !== 'idle';
 
-      events.push({
-        id: 'timeline_start',
-        stepId: run && run.authStep ? run.authStep.id : 'auth',
-        timeLabel: run.startedAtLabel || '--',
-        title: 'Iniciando ejecucion',
-        status: authReady ? 'success' : 'running',
-        statusLabel: authReady ? 'Preparado' : 'Preparando',
-        durationLabel: authReady ? this.formatDuration(0) : '--'
-      });
-
-      if (run && run.authStep) {
-        events.push(this.buildTimelineStepEvent(run.authStep));
-      }
-
+      // La linea de tiempo se concentra en los pasos de negocio: el arranque
+      // y el Authenticate son detalle tecnico, no aportan al diagnostico.
       (run.steps || []).forEach(function appendStep(step) {
         events.push(this.buildTimelineStepEvent(step));
       }, this);
@@ -1076,6 +1119,15 @@
     pickFirstStepId(run) {
       if (run && run.steps && run.steps.length) return run.steps[0].id;
       return 'auth';
+    }
+
+    /**
+     * Devuelve el ultimo paso de negocio ejecutado (o Authenticate si todavia
+     * no hay ninguno), para dejarlo seleccionado cuando la corrida fue exitosa.
+     */
+    pickLastStepId(run) {
+      if (run && run.steps && run.steps.length) return run.steps[run.steps.length - 1].id;
+      return run && run.authStep ? run.authStep.id : 'auth';
     }
 
     /**

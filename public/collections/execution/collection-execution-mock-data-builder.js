@@ -169,7 +169,6 @@
           httpMethod: String(item.httpMethod || 'GET').toUpperCase(),
           summary: item.summary || item.path || 'Sin descripcion disponible.',
           path: item.path || '',
-          layout: item.layout ? { x: item.layout.x, y: item.layout.y } : { x: 54 + ((index % 2) * 420), y: 42 + (Math.floor(index / 2) * 190) },
           status: stepStatus.key,
           statusLabel: stepStatus.label,
           responseStatus: stepStatus.httpStatus,

@@ -1,16 +1,18 @@
 [
   {
-    "id": "1782167130470",
-    "key": "V4|ora|10.0.0.4:1521/btv4db|BTDESAV23CPA",
-    "version": "V4",
-    "platform": "oracle",
-    "label": "POC - LOCAL",
+    "id": "1784665280221",
+    "key": "V3|ss|SQLSERVER1|ProductoGx16|productogx16",
+    "version": "V3",
+    "platform": "sqlserver",
+    "label": "ProductoGx16 · SQLSERVER1 (SQL Server)",
     "db": {
-      "user": "BTDESAV23CPA",
-      "password": "CPAbtv23",
-      "connectString": "10.0.0.4:1521/btv4db"
+      "server": "SQLSERVER1",
+      "port": "1433",
+      "database": "ProductoGx16",
+      "user": "productogx16",
+      "password": "prodGx16"
     },
-    "savedAt": "2026-07-14T17:34:32.320Z"
+    "savedAt": "2026-07-23T19:46:50.484Z"
   },
   {
     "id": "1783454243711",
@@ -23,6 +25,19 @@
       "password": "Bantotal$2020",
       "connectString": "10.0.0.4:1521/btv4db"
     },
-    "savedAt": "2026-07-14T12:16:25.947Z"
+    "savedAt": "2026-07-23T19:45:53.794Z"
+  },
+  {
+    "id": "1782167130470",
+    "key": "V4|ora|10.0.0.4:1521/btv4db|BTDESAV23CPA",
+    "version": "V4",
+    "platform": "oracle",
+    "label": "POC - LOCAL",
+    "db": {
+      "user": "BTDESAV23CPA",
+      "password": "CPAbtv23",
+      "connectString": "10.0.0.4:1521/btv4db"
+    },
+    "savedAt": "2026-07-20T19:25:28.159Z"
   }
 ]

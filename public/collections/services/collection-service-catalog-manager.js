@@ -45,7 +45,7 @@
       this.options.refreshContext();
 
       if (!this.options.pathSupported()) {
-        this.options.showStatus('err', 'Por ahora solo esta disponible el camino JSON + Postman.');
+        this.options.showStatus('err', 'Por ahora solo esta disponible el destino Postman (formato JSON o XML).');
         return;
       }
       if (!this.options.getPlatform()) {

@@ -124,6 +124,15 @@
 
     /**
      * Tab Entradas: acordeon compacto, una entrada abierta a la vez.
+     *
+     * Los campos que pertenecen a un mismo SDT/coleccion (comparten el primer
+     * segmento del path, ej. "sdtPartner.partnerUId", "sdtPartner.vendedorUId")
+     * se agrupan bajo un acordeon exterior con el nombre del SDT, en vez de
+     * listarse sueltos repitiendo el prefijo en cada fila. Esto es PURAMENTE
+     * visual: agruparInputsPorPadre solo decide como se dibujan; el
+     * mappingKey/input.key de cada campo (y por lo tanto la asignacion de
+     * valor, el mapeo a otra salida, etc.) sigue siendo exactamente el mismo
+     * que sin agrupar — ver renderInputAccordionRow, que no cambio su logica.
      */
     renderInputsTab(scalarInputs, repeatableInputs, scenario, shellManager) {
       if (!scalarInputs.length) {
@@ -131,9 +140,87 @@
           this.renderRepeatableNotice(repeatableInputs);
       }
 
-      return scalarInputs.map(function renderRow(input) {
-        return this.renderInputAccordionRow(input, scenario, shellManager);
+      var entries = this.groupScalarInputsByParent(scalarInputs);
+
+      return entries.map(function renderEntry(entry) {
+        if (entry.type === 'group') {
+          return this.renderInputGroupAccordion(entry, scenario, shellManager);
+        }
+        return this.renderInputAccordionRow(entry.input, scenario, shellManager);
       }, this).join('') + this.renderRepeatableNotice(repeatableInputs);
+    }
+
+    /**
+     * Agrupa las entradas simples por el primer segmento de su path
+     * (ej. "sdtPartner" para "sdtPartner.partnerUId"). Un segmento con un
+     * unico input (un escalar comun, sin nada anidado debajo) se deja tal
+     * cual, sin envolverlo en un grupo de un solo elemento. El orden de
+     * aparicion original (el que ya trae `scalarInputs`) se conserva.
+     */
+    groupScalarInputsByParent(scalarInputs) {
+      var order = [];
+      var bySegment = {};
+
+      scalarInputs.forEach(function bucketInput(input) {
+        var path = String((input && (input.pathLabel || input.key)) || '');
+        var dotIndex = path.indexOf('.');
+        var segment = dotIndex >= 0 ? path.slice(0, dotIndex) : path;
+
+        if (!bySegment[segment]) {
+          bySegment[segment] = { segment: segment, inputs: [] };
+          order.push(segment);
+        }
+        bySegment[segment].inputs.push(input);
+      });
+
+      return order.map(function buildEntry(segment) {
+        var bucket = bySegment[segment];
+        if (bucket.inputs.length <= 1) {
+          return { type: 'single', input: bucket.inputs[0] };
+        }
+        return { type: 'group', segment: segment, inputs: bucket.inputs };
+      });
+    }
+
+    /**
+     * Acordeon exterior de un grupo de entradas (un SDT o coleccion completo).
+     * Varios grupos pueden estar abiertos a la vez (ver
+     * isInspectorInputGroupExpanded), a diferencia de las filas individuales
+     * de adentro, que siguen siendo "una a la vez" como antes.
+     */
+    renderInputGroupAccordion(entry, scenario, shellManager) {
+      var isExpanded = !!(shellManager && shellManager.isInspectorInputGroupExpanded(entry.segment));
+      var headerType = this.findGroupHeaderType(entry.inputs, entry.segment);
+      var escapedSegment = this.options.escapeHtml(entry.segment);
+
+      return '<div class="collection-inspector-accordion collection-inspector-input-group' + (isExpanded ? ' collection-inspector-accordion-open' : '') + '">' +
+        '<button type="button" class="collection-inspector-accordion-head" aria-expanded="' + (isExpanded ? 'true' : 'false') + '" onclick="collectionToggleInspectorInputGroup(\'' + escapedSegment + '\')">' +
+          '<span class="collection-inspector-accordion-title">' +
+            '<span class="collection-inspector-accordion-name">' + escapedSegment + '</span>' +
+            (headerType ? '<span class="collection-inspector-type-tag">' + this.options.escapeHtml(headerType) + '</span>' : '') +
+          '</span>' +
+          '<span class="collection-inspector-accordion-chevron" aria-hidden="true">&#9656;</span>' +
+        '</button>' +
+        (isExpanded ? '<div class="collection-inspector-input-group-children">' +
+          entry.inputs.map(function renderChild(input) {
+            return this.renderInputAccordionRow(input, scenario, shellManager, entry.segment);
+          }, this).join('') +
+        '</div>' : '') +
+      '</div>';
+    }
+
+    /**
+     * Si el propio segmento raiz existe como input independiente (ej. un
+     * input "sdtPartner" a secas, ademas de sus hijos "sdtPartner.campo"),
+     * usa su tipo declarado (ej. "sdtsbtpartnerinreq") como subtitulo del
+     * grupo. Ese input sigue renderizandose como una fila normal adentro del
+     * grupo — esto solo elige que texto mostrar en la cabecera exterior.
+     */
+    findGroupHeaderType(inputs, segment) {
+      var headerInput = inputs.filter(function matchesSegment(input) {
+        return String((input && (input.pathLabel || input.key)) || '') === segment;
+      })[0];
+      return headerInput ? String(headerInput.type || '') : '';
     }
 
     /**
@@ -146,8 +233,15 @@
 
     /**
      * Una fila-acordeon de entrada: cerrada muestra nombre + tipo, abierta expone origen del valor.
+     *
+     * `groupPrefix` es opcional y puramente cosmetico: cuando la fila se
+     * dibuja adentro de un grupo (ver renderInputGroupAccordion), recorta ese
+     * prefijo del nombre mostrado para no repetirlo (ej. "sdtPartner.partnerUId"
+     * se ve como "partnerUId" dentro del grupo "sdtPartner"). No afecta
+     * mappingKey, input.key, ni ningun otro dato usado para asignar o mapear
+     * el valor — todo eso sigue leyendo del `input` real, sin cambios.
      */
-    renderInputAccordionRow(input, scenario, shellManager) {
+    renderInputAccordionRow(input, scenario, shellManager, groupPrefix) {
       var mappingKey = input.mappingKey || '';
       var isExpanded = !!(shellManager && shellManager.isInspectorInputExpanded(mappingKey));
       var mappingConfig = mappingKey ? this.options.inputMappingConfig(mappingKey) : null;
@@ -171,7 +265,7 @@
       return '<div class="collection-inspector-accordion' + (isExpanded ? ' collection-inspector-accordion-open' : '') + '">' +
         '<button type="button" class="collection-inspector-accordion-head" aria-expanded="' + (isExpanded ? 'true' : 'false') + '" onclick="collectionToggleInspectorInput(\'' + escapedMappingKey + '\')">' +
           '<span class="collection-inspector-accordion-title">' +
-            '<span class="collection-inspector-accordion-name">' + this.options.escapeHtml(this.options.inputDisplayName(input)) + '</span>' +
+            '<span class="collection-inspector-accordion-name">' + this.options.escapeHtml(this.buildGroupedInputLabel(input, groupPrefix)) + '</span>' +
             (input.type ? '<span class="collection-inspector-type-tag">' + this.options.escapeHtml(input.type) + '</span>' : '') +
           '</span>' +
           '<span class="collection-inspector-accordion-chevron" aria-hidden="true">&#9656;</span>' +
@@ -193,6 +287,24 @@
           '</div>' +
         '</div>' : '') +
       '</div>';
+    }
+
+    /**
+     * Nombre visible de un input adentro de un grupo: si el input coincide
+     * exactamente con el segmento del grupo (el propio SDT, sin hijos), o no
+     * hay grupo, se muestra igual que siempre (this.options.inputDisplayName).
+     * Si es un hijo real ("grupo.campo"), se recorta el prefijo "grupo." ya
+     * que el nombre del grupo ya se ve en la cabecera exterior.
+     *
+     * Si el input tiene un alias funcional definido, inputDisplayName ya
+     * devuelve ese alias (no el path tecnico) — en ese caso el prefijo no
+     * matchea y esta funcion lo deja pasar sin tocarlo, como corresponde.
+     */
+    buildGroupedInputLabel(input, groupPrefix) {
+      var fullLabel = this.options.inputDisplayName(input);
+      if (!groupPrefix) return fullLabel;
+      var prefixWithDot = groupPrefix + '.';
+      return fullLabel.indexOf(prefixWithDot) === 0 ? fullLabel.slice(prefixWithDot.length) : fullLabel;
     }
 
     /**

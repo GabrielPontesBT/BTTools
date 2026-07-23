@@ -210,6 +210,18 @@
 
     /**
      * Actualiza el valor esperado del filtro aplicado sobre una salida de colección.
+     *
+     * A proposito NO vuelve a dibujar el inspector (a diferencia de
+     * updateInputMappingFilterField, que reacciona a un <select> onchange
+     * de un solo evento): este campo es un <input type="text"> con oninput,
+     * o sea que se llama en CADA tecla tipeada. Reconstruir el HTML del
+     * acordeon en cada tecla reemplaza el <input> por uno nuevo y el
+     * usuario pierde foco/cursor a mitad de escribir (tiene que reabrir el
+     * acordeon y volver a tocar el campo). El navegador ya muestra lo que
+     * se tipea sin ayuda; nada mas en pantalla depende de este valor en
+     * tiempo real, asi que alcanza con guardarlo en memoria (mismo patron
+     * que updateVar, que tiene exactamente el mismo problema potencial y
+     * por eso tampoco dispara un render).
      */
     updateInputMappingFilterValue(mappingKey, value) {
       var scenario = this.options.getActiveScenario();
@@ -222,7 +234,6 @@
       else delete current.filterValue;
 
       scenario.inputMappings[mappingKey] = current;
-      this.options.renderVariableEditor();
     }
 
     /**

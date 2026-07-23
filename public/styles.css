@@ -47,6 +47,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .wizard:has(.collection-shell-studio-builder) .wiz-sidebar{width:152px}
 .wizard:has(.collection-shell-studio-builder) .steps-bar{padding-left:24px}
 .wizard:has(.collection-shell-studio-builder) .sline{height:42px;margin-left:14px}
+/* En el panel de ejecucion los pasos del wizard ya estan completos y no aportan
+   nada mas: se ocultan para darle todo ese ancho al diagnostico. */
+.wizard:has(.collection-execution-active) .wiz-sidebar{display:none}
 #p4v.active{display:flex;flex-direction:column;flex:1;min-height:0}
 #val-output{flex:1;min-height:0;overflow-y:auto}
 #fix-output{max-height:160px}

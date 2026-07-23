@@ -27,6 +27,7 @@
           collapsedServiceGroups: [],
           inspectorTab: 'general',
           expandedInspectorInput: '',
+          expandedInspectorInputGroups: [],
           expandedInspectorOutput: '',
           outputSearchTerm: '',
           outputSearchScopeKey: '',
@@ -45,6 +46,10 @@
 
       if (!Array.isArray(state.builderUi.expandedSourceGroups)) {
         state.builderUi.expandedSourceGroups = [];
+      }
+
+      if (!Array.isArray(state.builderUi.expandedInspectorInputGroups)) {
+        state.builderUi.expandedInspectorInputGroups = [];
       }
 
       if (!state.builderUi.inspectorTab) state.builderUi.inspectorTab = 'general';
@@ -124,6 +129,30 @@
     toggleInspectorInput(mappingKey) {
       var uiState = this.ensureUiState();
       uiState.expandedInspectorInput = uiState.expandedInspectorInput === mappingKey ? '' : mappingKey;
+      this.options.renderInspector();
+    }
+
+    /**
+     * Indica si un GRUPO de entradas (los campos de un mismo SDT/coleccion,
+     * agrupados solo a nivel visual en collection-inspector-manager.js) esta
+     * expandido. A diferencia de isInspectorInputExpanded (una sola entrada
+     * abierta a la vez, porque son alternativas), varios grupos pueden estar
+     * abiertos en simultaneo: agrupan campos relacionados, no compiten entre si.
+     */
+    isInspectorInputGroupExpanded(groupKey) {
+      return this.ensureUiState().expandedInspectorInputGroups.indexOf(groupKey) >= 0;
+    }
+
+    /**
+     * Expande o colapsa un grupo de entradas por su clave (el segmento raiz
+     * del path, ej. "sdtPartner").
+     */
+    toggleInspectorInputGroup(groupKey) {
+      var uiState = this.ensureUiState();
+      var list = uiState.expandedInspectorInputGroups;
+      var index = list.indexOf(groupKey);
+      if (index >= 0) list.splice(index, 1);
+      else list.push(groupKey);
       this.options.renderInspector();
     }
 
@@ -313,7 +342,14 @@
      */
     async insertCatalogOperation(service, operationKey) {
       var insertIndex = this.resolveInsertIndex();
-      await this.options.insertOperation(service, operationKey, insertIndex);
+      try {
+        await this.options.insertOperation(service, operationKey, insertIndex);
+      } catch (error) {
+        if (typeof this.options.showStatus === 'function') {
+          this.options.showStatus('err', error.message || 'No se pudo agregar el servicio al flujo.');
+        }
+        return;
+      }
       this.clearCatalogSelection();
       this.closeServiceDrawer();
       this.openInspector();
@@ -329,10 +365,17 @@
 
       if (!selections.length) return;
 
-      for (var index = 0; index < selections.length; index++) {
-        var entry = selections[index];
-        await this.options.insertOperation(entry.service, entry.operationKey, insertIndex);
-        if (typeof insertIndex === 'number') insertIndex += 1;
+      try {
+        for (var index = 0; index < selections.length; index++) {
+          var entry = selections[index];
+          await this.options.insertOperation(entry.service, entry.operationKey, insertIndex);
+          if (typeof insertIndex === 'number') insertIndex += 1;
+        }
+      } catch (error) {
+        if (typeof this.options.showStatus === 'function') {
+          this.options.showStatus('err', error.message || 'No se pudo agregar el servicio al flujo.');
+        }
+        return;
       }
 
       this.clearCatalogSelection();

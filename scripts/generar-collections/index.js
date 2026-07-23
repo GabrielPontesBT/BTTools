@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { resolveCollectionRequestData } = require('./request-data-resolver');
+const { suggestChains } = require('./chain-suggestion');
 
 function loadAsset(fileName) {
   return fs.readFileSync(path.join(__dirname, fileName), 'utf8');
@@ -10,8 +11,7 @@ function loadAsset(fileName) {
 
 function createCollectionFeature(deps) {
   const ROOT = deps.ROOT;
-  const queryServices = deps.queryServices;
-  const queryMethods = deps.queryMethods;
+  const queryServicesWithMethods = deps.queryServicesWithMethods;
   const queryMethodSchema = deps.queryMethodSchema;
 
   const styles = loadAsset('styles.css');
@@ -229,9 +229,31 @@ function createCollectionFeature(deps) {
     return '/Authenticate/v1/Execute';
   }
 
+  // Sufijos que "buildSwaggerCandidateUrls" agrega para encontrar el documento.
+  // Si la URL que efectivamente respondio termina en uno de estos, la raiz
+  // real del ambiente es lo que queda antes: es un dato verificado (esa URL
+  // SI respondio), a diferencia del campo "servers" que declara el propio
+  // Swagger, que puede estar desactualizado.
+  const SWAGGER_DOC_SUFFIXES = ['/v3/api-docs', '/api-docs', '/swagger/v1/swagger.json', '/swagger.json', '/openapi.json'];
+
+  function deriveSwaggerRootFromResolvedUrl(resolvedUrl) {
+    const trimmed = String(resolvedUrl || '').trim().replace(/\/+$/g, '');
+    if (!trimmed) return '';
+    for (const suffix of SWAGGER_DOC_SUFFIXES) {
+      if (trimmed.toLowerCase().endsWith(suffix)) {
+        return trimmed.slice(0, trimmed.length - suffix.length);
+      }
+    }
+    return '';
+  }
+
   function resolveSwaggerServerUrl(doc, resolvedUrl) {
     const fallbackUrl = String(resolvedUrl || '').trim();
     const fallback = fallbackUrl ? new URL(fallbackUrl) : null;
+
+    const verifiedRoot = deriveSwaggerRootFromResolvedUrl(resolvedUrl);
+    if (verifiedRoot) return verifiedRoot;
+
     const servers = Array.isArray(doc && doc.servers) ? doc.servers : [];
     for (const server of servers) {
       const raw = String(server && server.url || '').trim();
@@ -262,7 +284,16 @@ function createCollectionFeature(deps) {
     return base + (path.startsWith('/') ? path : '/' + path);
   }
 
-  function resolveSwaggerAuthUrl(doc, resolvedUrl, baseUrl) {
+  function resolveSwaggerAuthUrl(doc, resolvedUrl, baseUrl, api) {
+    // El ambiente ya configurado (y probado con "Probar autenticacion") es la
+    // fuente de verdad: el "servers" que declara el propio Swagger puede estar
+    // desactualizado o no coincidir con el despliegue real.
+    const configuredPublicBaseUrl = String((api && api.BASE_URL) || '').trim();
+    const configuredApiBaseUrl = String((api && api.API_BASE_URL) || '').trim();
+    if (configuredPublicBaseUrl || configuredApiBaseUrl) {
+      return resolveV4AuthUrl(api || {});
+    }
+
     const paths = doc && doc.paths ? doc.paths : {};
     const authPath = Object.keys(paths).find(function(pathName) {
       return /\/Authenticate\/v\d+\/Execute$/i.test(String(pathName || ''));
@@ -368,6 +399,48 @@ function createCollectionFeature(deps) {
 
   function isDbComplexField(field) {
     return !!(field && (field.isComplex || String(field.sdtType || '').trim() || isDbCollectionField(field)));
+  }
+
+  /**
+   * Arma los manualInputs de query string para un metodo GET/DELETE,
+   * recorriendo campos complejos/coleccion (SDTs anidados) igual que
+   * buildDbFieldTemplate hace para el body de POST/PUT — asi un input
+   * estructurado no queda reducido a una unica fila sin poder abrir sus
+   * campos, sea cual sea el verbo HTTP del metodo.
+   *
+   * A diferencia de buildDbFieldTemplate, esta funcion NO arma ningun body
+   * (GET/DELETE no llevan body): solo puebla `manualInputs` con una fila por
+   * cada campo hoja, con su pathLabel punteado completo (ej.
+   * "sdtFiltro.campo") y location:'query'. Si el campo es una coleccion o un
+   * objeto SIN sdtType con sub-campos declarados (ej. un array de strings
+   * simple, sin esquema propio), no hay nada que recorrer y se deja como una
+   * unica fila — igual que ya hace buildDbFieldTemplate en ese mismo caso.
+   */
+  function buildDbQueryParamInputs(field, sdtMap, trail, manualInputs) {
+    const pathTrail = Array.isArray(trail) ? trail : [];
+    const fieldName = String(field && field.name || '').trim();
+    if (!fieldName || isReservedAuthInput(fieldName)) return;
+
+    const isCollectionWithSchema = isDbCollectionField(field) && field.sdtType && sdtMap[String(field.sdtType).trim()];
+    const isComplexWithSchema = !isCollectionWithSchema && isDbComplexField(field) && field.sdtType && sdtMap[String(field.sdtType).trim()];
+
+    if (isCollectionWithSchema || isComplexWithSchema) {
+      const sdtFields = sdtMap[String(field.sdtType).trim()] || [];
+      sdtFields.forEach(function recurseIntoChild(childField) {
+        buildDbQueryParamInputs(childField, sdtMap, pathTrail.concat(fieldName), manualInputs);
+      });
+      return;
+    }
+
+    const fieldType = buildDbTypeLabel(field && field.type);
+    manualInputs.push({
+      key: sanitizeVariableKey(pathTrail.concat(fieldName).join('_')),
+      pathLabel: pathTrail.concat(fieldName).join('.'),
+      type: fieldType,
+      description: field && field.description ? String(field.description) : '',
+      defaultValue: exampleValue(fieldType),
+      location: 'query'
+    });
   }
 
   function buildDbSdtMap(schema) {
@@ -504,33 +577,42 @@ function createCollectionFeature(deps) {
   }
 
   async function buildDatabaseOperations(platform, db, version) {
-    if (typeof queryServices !== 'function' || typeof queryMethods !== 'function' || typeof queryMethodSchema !== 'function') {
+    if (typeof queryServicesWithMethods !== 'function' || typeof queryMethodSchema !== 'function') {
       throw new Error('El origen Base de datos no esta disponible en esta version del servidor.');
     }
 
-    const services = await queryServices(platform, db);
+    // Una sola consulta con todos los servicios/metodos de BTI014, en vez de
+    // una consulta (y una conexion) por servicio: menos golpes al ambiente,
+    // clave cuando se apunta a produccion.
+    const catalog = await queryServicesWithMethods(platform, db);
+    const services = catalog.services || [];
+    const methodsByService = catalog.methodsByService || {};
     const operationsByService = {};
 
+    // V3 es SOA/GeneXus (servlet + ?Metodo, siempre POST); V4 es REST/JSON
+    // (/public/{service}/v1/{metodo}, verbo inferido del nombre).
+    const isV3 = version === 'V3';
     for (const service of services) {
-      const methods = await queryMethods(platform, db, service);
-      operationsByService[service] = [];
-
-      for (const methodName of methods) {
-        const httpMethod = inferHttpMethodFromMethodName(methodName);
-        const servicePathName = normalizeDatabaseServicePathName(service);
-        operationsByService[service].push({
+      const methods = methodsByService[service] || [];
+      operationsByService[service] = methods.map(function buildOperation(methodName) {
+        const trimmedMethod = String(methodName || '').trim();
+        const httpMethod = isV3 ? 'POST' : inferHttpMethodFromMethodName(methodName);
+        const path = isV3
+          ? '/servlet/com.dlya.bantotal.ardwsbt_' + service + '_v1?' + trimmedMethod
+          : '/public/' + normalizeDatabaseServicePathName(service) + '/v1/' + trimmedMethod;
+        return {
           operationKey: 'DB ' + service + '.' + methodName,
           service,
           methodName,
           httpMethod,
-          path: '/public/' + servicePathName + '/v1/' + String(methodName || '').trim(),
+          path,
           summary: 'Metodo cargado desde BTI014/BTI019.',
           manualInputs: [],
           bodyTemplate: null,
           outputFields: [],
           needsHydration: true
-        });
-      }
+        };
+      });
     }
 
     return {
@@ -539,13 +621,14 @@ function createCollectionFeature(deps) {
     };
   }
 
-  async function buildDatabaseOperationDetails(platform, db, service, methodName) {
+  async function buildDatabaseOperationDetails(platform, db, service, methodName, version) {
     if (typeof queryMethodSchema !== 'function') {
       throw new Error('No se pudo resolver el schema del metodo desde Base de datos.');
     }
 
     const schema = await queryMethodSchema(platform, db, service, methodName);
-    const httpMethod = inferHttpMethodFromMethodName(methodName);
+    const isV3 = version === 'V3';
+    const httpMethod = isV3 ? 'POST' : inferHttpMethodFromMethodName(methodName);
     const servicePathName = normalizeDatabaseServicePathName(service);
     const sdtMap = buildDbSdtMap(schema);
     const outputFields = [];
@@ -555,14 +638,9 @@ function createCollectionFeature(deps) {
       if (isReservedAuthInput(input.name)) return;
 
       if (String(httpMethod).toUpperCase() === 'GET' || String(httpMethod).toUpperCase() === 'DELETE') {
-        scalarManualInputs.push({
-          key: sanitizeVariableKey(input.name),
-          pathLabel: String(input.name || '').trim(),
-          type: buildDbTypeLabel(input.type),
-          description: input && input.description ? String(input.description) : '',
-          defaultValue: exampleValue(buildDbTypeLabel(input.type)),
-          location: 'query'
-        });
+        // Recorre SDTs/colecciones anidadas igual que el body de POST (ver
+        // buildDbQueryParamInputs) en vez de aplanar el input a una sola fila.
+        buildDbQueryParamInputs(input, sdtMap, [], scalarManualInputs);
       }
     });
 
@@ -574,7 +652,9 @@ function createCollectionFeature(deps) {
       service,
       methodName,
       httpMethod,
-      path: '/public/' + servicePathName + '/v1/' + String(methodName || '').trim(),
+      path: isV3
+        ? '/servlet/com.dlya.bantotal.ardwsbt_' + service + '_v1?' + String(methodName || '').trim()
+        : '/public/' + servicePathName + '/v1/' + String(methodName || '').trim(),
       summary: (schema && schema.description) || 'Metodo cargado desde BTI014/BTI019.',
       manualInputs: scalarManualInputs.concat(bodyData && Array.isArray(bodyData.manualInputs) ? bodyData.manualInputs : []),
       bodyTemplate: bodyData ? bodyData.template : null,
@@ -838,6 +918,90 @@ function createCollectionFeature(deps) {
     return buildFilteredRuntimeKey(config) || config.sourceVarKey || input.key;
   }
 
+  // ================================================================
+  // Puente SOAP <-> "Origen del valor"
+  // ----------------------------------------------------------------
+  // El armado del XML SOAP (buildSoapRequestXml/buildSdtFieldsXml/
+  // buildInputParamXml) trabaja sobre un `schema` recien re-consultado por
+  // queryMethodSchema, que NO tiene mappingKey ni sabe nada de
+  // scenario.inputMappings (eso vive en `item.manualInputs`, el objeto que
+  // el cliente ya trae con la configuracion real del inspector). Sin este
+  // puente, cada campo SOAP se resolvia con un auto-match ingenuo por nombre
+  // exacto (computeBindingsAndMappings) que ademas NUNCA llegaba a campos
+  // anidados de un SDT (ej. "sdtPartner.partnerUId") — por eso "Origen del
+  // valor: partnerUId" configurado en el inspector no tenia ningun efecto
+  // real sobre la llamada SOAP y el campo salia con el valor de ejemplo (0).
+  //
+  // Estas dos funciones conectan ambos mundos usando pathLabel (el path
+  // punteado completo, ej. "sdtPartner.partnerUId") como clave comun entre
+  // el `item.manualInputs` real y los campos que arma buildSdtFieldsXml.
+  // ================================================================
+
+  /**
+   * Indexa item.manualInputs por su pathLabel completo para poder resolver,
+   * durante el armado recursivo del XML, cual input real corresponde a cada
+   * campo hoja (buildSdtFieldsXml/buildInputParamXml solo conocen el nombre
+   * de campo y su posicion en el arbol, no el objeto manualInput original).
+   */
+  function buildManualInputsByPath(item) {
+    const map = {};
+    (item && Array.isArray(item.manualInputs) ? item.manualInputs : []).forEach(function(input) {
+      const pathLabel = String((input && (input.pathLabel || input.key)) || '').trim();
+      if (pathLabel) map[pathLabel] = input;
+    });
+    return map;
+  }
+
+  /**
+   * Resuelve el nombre de variable real para un campo del XML SOAP, dado su
+   * pathLabel completo (ej. "sdtPartner.partnerUId").
+   *
+   * Prioridad:
+   *  1. Si `state` trae un `item` (el original de scenario.items, con su
+   *     manualInputs real) y ese pathLabel matchea un manualInput conocido,
+   *     se resuelve con resolveMappedVariableName — la MISMA funcion que ya
+   *     usa el camino JSON para leer "Origen del valor" configurado en el
+   *     inspector. Esto hace que el chaining configurado visualmente tenga
+   *     efecto real en SOAP, que es lo que faltaba.
+   *  2. Si no hay manualInput conocido para ese path (schema trajo un campo
+   *     que el catalogo de la UI no llego a listar — caso raro), se cae al
+   *     comportamiento historico: la variable autogenerada que ya se le
+   *     pasa como `fallbackVariableName`.
+   */
+  function resolveFieldVariableName(pathLabel, fallbackVariableName, state) {
+    const manualInput = state && state.manualInputsByPath ? state.manualInputsByPath[pathLabel] : null;
+    if (manualInput && state.item) {
+      return resolveMappedVariableName(state.item, manualInput, state.scenario || {});
+    }
+    return fallbackVariableName;
+  }
+
+  /**
+   * Extrae valores de salida de una respuesta SOAP ya parseada (xml2js),
+   * usando los outputFields reales del item (los mismos que ve el inspector
+   * en la pestaña "Salidas"), y los registra bajo la MISMA clave calificada
+   * que usa el camino JSON (buildOutputVarKey: "{service}_{method}_{campo}").
+   * Sin esto, aunque se resolviera el mapeo del lado del input, el valor
+   * real nunca iba a estar disponible en runtimeValues bajo esa clave.
+   *
+   * Se registra ADEMAS de (no en reemplazo de) extractOutputValues — que
+   * sigue registrando por nombre de campo pelado, usado por el auto-match
+   * historico de computeBindingsAndMappings — para no sacarle cobertura a
+   * ningun caso que ya funcionara antes.
+   */
+  function extractSoapOutputValues(item, parsedXml) {
+    const values = {};
+    (item && Array.isArray(item.outputFields) ? item.outputFields : []).forEach(function(field) {
+      const lookupKey = String((field && field.key) || '').trim();
+      if (!lookupKey) return;
+      const found = findNodeDeep(parsedXml, lookupKey);
+      if (found !== null && found !== undefined && typeof found !== 'object') {
+        values[buildOutputVarKey(item, field)] = String(found);
+      }
+    });
+    return values;
+  }
+
   function buildSwaggerBodyTemplate(doc, schema, trail, inputs, state) {
     let ctx = state || { depth: 0, seenRefs: new Set() };
     if (ctx.depth > 12) {
@@ -1064,7 +1228,12 @@ function createCollectionFeature(deps) {
         return indent + '<' + prefix + field.name + '/>';
       }
 
-      const variableName = childPath.join('_');
+      // pathLabel es la clave que usa item.manualInputs (ver buildDbFieldTemplate);
+      // fallbackVariableName es el comportamiento historico si no hay
+      // manualInput/mapeo conocido para este campo (ver resolveFieldVariableName).
+      const pathLabel = childPath.join('.');
+      const fallbackVariableName = childPath.join('_');
+      const variableName = resolveFieldVariableName(pathLabel, fallbackVariableName, state);
       if (state.mode === 'execution') {
         return buildPrimitiveValueTag(prefix, field.name, resolveExecutionValue(variableName, state, field.type), indent);
       }
@@ -1091,7 +1260,10 @@ function createCollectionFeature(deps) {
       return indent + '<bts:' + param.name + '/>';
     }
 
-    const variableName = state.bindings[param.name] || param.name;
+    // Para un param simple de primer nivel, su pathLabel es directamente su
+    // propio nombre (no hay nesting todavia).
+    const fallbackVariableName = state.bindings[param.name] || param.name;
+    const variableName = resolveFieldVariableName(param.name, fallbackVariableName, state);
     if (state.mode === 'execution') {
       return buildPrimitiveValueTag('bts:', param.name, resolveExecutionValue(variableName, state, param.type), indent);
     }
@@ -1297,7 +1469,9 @@ function createCollectionFeature(deps) {
     }
 
     const apiBaseUrl = String(api.API_BASE_URL || '').replace(/\/+$/g, '');
-    const resolvedAuthUrl = api.API_AUTH_URL || (apiBaseUrl + '/servlet/com.dlya.bantotal.ardwsbt_Authenticate');
+    // Fallback defensivo por si el wizard no completo "URL de autenticacion":
+    // el servlet real esta versionado (_v1), confirmado con el WSDL/ejemplo real.
+    const resolvedAuthUrl = api.API_AUTH_URL || (apiBaseUrl + '/servlet/com.dlya.bantotal.ardwsbt_Authenticate_v1');
     const rawUrl = '{{auth_url}}';
     const rawXml = [
       '<?xml version="1.0" encoding="utf-8"?>',
@@ -1340,20 +1514,80 @@ function createCollectionFeature(deps) {
     };
   }
 
+  /**
+   * Auth URL para el flujo JSON de V3: el servlet real invocado con JSON
+   * usa el sufijo `?Execute` (igual que authenticateSession/obtenerToken),
+   * a diferencia del `auth_url` compartido con el flujo SOAP.
+   */
+  function resolveJsonV3AuthUrl(api) {
+    const apiBaseUrl = String((api && api.API_BASE_URL) || '').replace(/\/+$/g, '');
+    const baseAuthUrl = String((api && api.API_AUTH_URL) || (apiBaseUrl + '/servlet/com.dlya.bantotal.ardwsbt_Authenticate_v1')).trim();
+    if (/\?Execute$/i.test(baseAuthUrl)) return baseAuthUrl;
+    return baseAuthUrl + (baseAuthUrl.indexOf('?') >= 0 ? '&' : '?') + 'Execute';
+  }
+
+  /**
+   * Item de autenticacion para el flujo JSON+Postman ("Casos de uso").
+   * Para V4 reusa buildAuthRequestItem sin cambios; para V3 arma JSON con
+   * Btinreq (no SOAP), consistente con el resto de este flujo.
+   */
+  function buildJsonAuthRequestItem(version, api) {
+    if (version === 'V4') return buildAuthRequestItem(version, api);
+
+    const rawJson = JSON.stringify({
+      Btinreq: {
+        Canal: '{{channel}}',
+        Usuario: '{{username}}',
+        Device: '{{device}}',
+        Requerimiento: '{{requirement}}',
+        Token: ''
+      },
+      UserId: '{{username}}',
+      UserPassword: '{{password}}'
+    }, null, 2);
+
+    return {
+      name: '0. Authenticate',
+      event: [buildPostmanJsonAuthTestScript()],
+      request: {
+        method: 'POST',
+        header: [
+          { key: 'Content-Type', value: 'application/json', type: 'text' }
+        ],
+        body: {
+          mode: 'raw',
+          raw: rawJson,
+          options: { raw: { language: 'json' } }
+        },
+        url: parsePostmanUrl('{{json_auth_url}}', resolveJsonV3AuthUrl(api)),
+        description: 'Obtiene el token de sesion para los requests del flujo (JSON, V3).'
+      },
+      response: []
+    };
+  }
+
   function buildSoapAction(schema) {
     return 'http://uy.com.dlya.bantotal/BTSOA/action/A' + schema.service.toUpperCase() + '.' + schema.method;
   }
 
+  // NOTA (confirmado 2026-07-22 con un request real capturado desde SoapUI/Postman
+  // contra pioneroapp2): el servlet SOAP de V3 se invoca SIEMPRE contra la MISMA
+  // URL fija del servicio (sin query string), y es el header SOAPAction + el
+  // elemento raiz del body (`<bts:{Servicio}.{Metodo}>`) lo que le dice al
+  // servidor que operacion ejecutar. A diferencia del camino JSON (que usaba
+  // `?{Metodo}` como sufijo de la URL), SOAP NO necesita ese sufijo.
   function buildSoapRequestUrl(api, schema) {
     const resolvedBaseUrl = String(api.API_BASE_URL || '').replace(/\/+$/g, '');
-    return resolvedBaseUrl + '/servlet/com.dlya.bantotal.ardwsbt_' + schema.service + '_v1?' + schema.method;
+    return resolvedBaseUrl + '/servlet/com.dlya.bantotal.ardwsbt_' + schema.service + '_v1';
   }
 
   function buildMethodRequestItem(schema, state, api) {
     const outputNames = getExportableOutputs(schema).map(function(param) { return param.name; });
-    const rawUrl = '{{api_base_url}}/servlet/com.dlya.bantotal.ardwsbt_' + schema.service + '_v1?' + schema.method;
+    // Sin "?metodo": SOAP identifica la operacion via SOAPAction + el elemento
+    // raiz del body, no via query string (ver nota en buildSoapRequestUrl).
+    const rawUrl = '{{api_base_url}}/servlet/com.dlya.bantotal.ardwsbt_' + schema.service + '_v1';
     const resolvedBaseUrl = String(api.API_BASE_URL || '').replace(/\/+$/g, '');
-    const resolvedUrl = resolvedBaseUrl + '/servlet/com.dlya.bantotal.ardwsbt_' + schema.service + '_v1?' + schema.method;
+    const resolvedUrl = resolvedBaseUrl + '/servlet/com.dlya.bantotal.ardwsbt_' + schema.service + '_v1';
     return {
       name: schema.orderLabel + '. ' + schema.service + '.' + schema.method,
       event: [buildPostmanTestScript(outputNames, false)],
@@ -1378,9 +1612,11 @@ function createCollectionFeature(deps) {
   function buildCollectionVariables(version, api, generatedVariables, variableOverrides) {
     const apiBaseUrl = resolveJsonBaseUrl(api);
     const publicBaseUrl = resolveJsonBaseUrl(api);
+    // Fallback defensivo (normalmente api.API_AUTH_URL ya viene completo desde
+    // el wizard): el servlet real de V3 esta versionado (_v1).
     const authUrl = version === 'V4'
       ? resolveJsonAuthUrl(api)
-      : (api.API_AUTH_URL || (apiBaseUrl + '/servlet/com.dlya.bantotal.ardwsbt_Authenticate'));
+      : (api.API_AUTH_URL || (apiBaseUrl + '/servlet/com.dlya.bantotal.ardwsbt_Authenticate_v1'));
     const overrides = variableOverrides || {};
     const entries = [
       ['api_base_url', apiBaseUrl],
@@ -1548,6 +1784,42 @@ function createCollectionFeature(deps) {
     };
   }
 
+  /**
+   * Arma el bloque de metadata propio que se embebe en la collection
+   * exportada (clave `_bttoolsMeta`, ignorada por Postman: no forma parte
+   * del schema estandar pero Postman no la rechaza ni la muestra).
+   *
+   * Guarda, TAL CUAL, los datos de "Origen del valor"/"Valor"/alias que hoy
+   * solo viven en el estado del builder (scenario.inputMappings/inputAliases/
+   * outputAliases/variableOverrides + item.inputOverrides por paso) para que
+   * "Importar collection" los pueda restaurar de forma exacta (sin inferir
+   * nada por patrones de nombre) la proxima vez que se importe este mismo
+   * archivo. Es deliberadamente un volcado directo de esos objetos — no hace
+   * falta transformarlos, porque ya estan indexados por una clave estable
+   * (operationKey + pathLabel) que se puede volver a calcular igual al
+   * reinsertar cada paso desde el catalogo.
+   *
+   * Se comparte entre buildJsonPostmanCollection y buildXmlPostmanCollection
+   * para no duplicar este armado en los dos formatos.
+   */
+  function buildBttoolsImportMetadata(scenarios) {
+    return {
+      version: 1,
+      scenarios: (scenarios || []).map(function(scenario) {
+        return {
+          name: scenario.name,
+          inputMappings: scenario.inputMappings || {},
+          inputAliases: scenario.inputAliases || {},
+          outputAliases: scenario.outputAliases || {},
+          variableOverrides: scenario.variableOverrides || {},
+          stepInputOverrides: (scenario.items || []).map(function(item) {
+            return item.inputOverrides || {};
+          })
+        };
+      })
+    };
+  }
+
   async function buildXmlPostmanCollection(body) {
     const scenarios = getScenarioPayloads(body);
     if (!scenarios.length) {
@@ -1570,10 +1842,20 @@ function createCollectionFeature(deps) {
       const folderItems = [buildAuthRequestItem(body.version, body.api)];
 
       schemas.forEach(function(schema, index) {
+        // scenario.items[index] es el mismo item que ya vio el inspector (con
+        // su manualInputs/operationKey reales); `schema` es solo la
+        // estructura recien consultada para saber que campos/SDTs armar.
+        // Pasar ambos permite que resolveFieldVariableName respete
+        // "Origen del valor" tambien en la collection exportada, no solo al
+        // ejecutar en vivo.
+        const item = scenario.items[index];
         const state = {
           bindings: bindingsInfo.bindingsPerStep[index],
           variables: generatedVariables,
-          repeatableOverrides: scenario.repeatableOverrides || {}
+          repeatableOverrides: scenario.repeatableOverrides || {},
+          item: item,
+          scenario: scenario,
+          manualInputsByPath: buildManualInputsByPath(item)
         };
         folderItems.push(buildMethodRequestItem(schema, state, body.api));
       });
@@ -1597,11 +1879,12 @@ function createCollectionFeature(deps) {
         description: 'Coleccion generada desde la app para flujo XML/Postman.'
       },
       variable: buildCollectionVariables(body.version, body.api, generatedVariables, mergedOverrides),
-      item: postmanFolders
+      item: postmanFolders,
+      _bttoolsMeta: buildBttoolsImportMetadata(scenarios)
     };
 
     ensureOutputDir();
-    const fileName = sanitizeSegment(body.collectionName || postmanFolders[0].name || 'bantotal-collection') + '-xml-postman-' + Date.now() + '.postman_collection.json';
+    const fileName = sanitizeSegment(body.collectionName || postmanFolders[0].name || 'bantotal-collection') + '.postman_collection.json';
     const filePath = path.join(outputDir, fileName);
     fs.writeFileSync(filePath, JSON.stringify(collection, null, 2), 'utf8');
 
@@ -1626,19 +1909,29 @@ function createCollectionFeature(deps) {
       "pm.collectionVariables.set('lastJsonResponse', text);",
       "var data = {};",
       "try { data = text ? JSON.parse(text) : {}; } catch (e) {}",
+      "function findNestedArray(node) {",
+      "  if (!node || typeof node !== 'object' || Array.isArray(node)) return null;",
+      "  var keys = Object.keys(node);",
+      "  for (var k = 0; k < keys.length; k++) {",
+      "    if (Array.isArray(node[keys[k]])) return node[keys[k]];",
+      "  }",
+      "  return null;",
+      "}",
       "function pick(node, parts) {",
       "  if (node === null || node === undefined) return undefined;",
       "  if (!parts.length) return node;",
       "  var current = parts[0];",
       "  var rest = parts.slice(1);",
-      "  if (Array.isArray(node)) {",
-      "    if (current === 'item') {",
-      "      for (var i = 0; i < node.length; i++) {",
-      "        var foundItem = pick(node[i], rest);",
-      "        if (foundItem !== undefined && foundItem !== null && foundItem !== '') return foundItem;",
-      "      }",
-      "      return undefined;",
+      "  if (current === 'item') {",
+      "    var collection = Array.isArray(node) ? node : findNestedArray(node);",
+      "    if (!Array.isArray(collection)) return undefined;",
+      "    for (var i = 0; i < collection.length; i++) {",
+      "      var foundItem = pick(collection[i], rest);",
+      "      if (foundItem !== undefined && foundItem !== null && foundItem !== '') return foundItem;",
       "    }",
+      "    return undefined;",
+      "  }",
+      "  if (Array.isArray(node)) {",
       "    for (var j = 0; j < node.length; j++) {",
       "      var foundArray = pick(node[j], parts);",
       "      if (foundArray !== undefined && foundArray !== null && foundArray !== '') return foundArray;",
@@ -1651,7 +1944,8 @@ function createCollectionFeature(deps) {
       "function pickCollectionValue(node, pathParts, filterParts, expected) {",
       "  var itemIndex = pathParts.indexOf('item');",
       "  if (itemIndex <= 0 || itemIndex >= pathParts.length - 1) return pick(node, pathParts);",
-      "  var collection = pick(node, pathParts.slice(0, itemIndex));",
+      "  var collectionNode = pick(node, pathParts.slice(0, itemIndex));",
+      "  var collection = Array.isArray(collectionNode) ? collectionNode : findNestedArray(collectionNode);",
       "  if (!Array.isArray(collection)) return undefined;",
       "  var valueParts = pathParts.slice(itemIndex + 1);",
       "  var normalizedExpected = String(expected == null ? '' : expected).trim().toLowerCase();",
@@ -1844,19 +2138,38 @@ function createCollectionFeature(deps) {
     return values;
   }
 
+  /**
+   * Busca el primer array anidado dentro de un objeto. Las respuestas de
+   * Bantotal suelen envolver colecciones asi: "Products": { "Product": [...] }
+   * (nombre plural conteniendo el singular), en vez de "Products": [...]
+   * directo. El path guardado usa el marcador generico "item" para el
+   * elemento de la coleccion, sin saber de antemano como se llama esa
+   * envoltura interna (aca "Product"), asi que hay que encontrarla.
+   */
+  function findNestedArray(node) {
+    if (!node || typeof node !== 'object' || Array.isArray(node)) return null;
+    const keys = Object.keys(node);
+    for (const key of keys) {
+      if (Array.isArray(node[key])) return node[key];
+    }
+    return null;
+  }
+
   function readJsonValueByPath(node, pathParts) {
     if (node === null || node === undefined) return undefined;
     if (!pathParts.length) return node;
     const current = pathParts[0];
     const rest = pathParts.slice(1);
-    if (Array.isArray(node)) {
-      if (current === 'item') {
-        for (const item of node) {
-          const found = readJsonValueByPath(item, rest);
-          if (found !== undefined && found !== null && found !== '') return found;
-        }
-        return undefined;
+    if (current === 'item') {
+      const collection = Array.isArray(node) ? node : findNestedArray(node);
+      if (!Array.isArray(collection)) return undefined;
+      for (const entry of collection) {
+        const found = readJsonValueByPath(entry, rest);
+        if (found !== undefined && found !== null && found !== '') return found;
       }
+      return undefined;
+    }
+    if (Array.isArray(node)) {
       for (const item of node) {
         const found = readJsonValueByPath(item, pathParts);
         if (found !== undefined && found !== null && found !== '') return found;
@@ -1911,7 +2224,7 @@ function createCollectionFeature(deps) {
       return direct !== undefined && direct !== null && typeof direct !== 'object' ? direct : undefined;
     }
     const collectionNode = readJsonPath(parsed, split.collectionParts);
-    const items = Array.isArray(collectionNode) ? collectionNode : [];
+    const items = Array.isArray(collectionNode) ? collectionNode : (findNestedArray(collectionNode) || []);
     const normalizedExpected = String(filterValue == null ? '' : filterValue).trim().toLowerCase();
     const filterParts = String(filterField || '').split('.').filter(Boolean);
     for (const item of items) {
@@ -1955,7 +2268,8 @@ function createCollectionFeature(deps) {
     return selectors;
   }
 
-  function buildJsonRequestItem(operation, orderLabel, api, scenario) {
+  function buildJsonRequestItem(operation, orderLabel, api, scenario, version) {
+    const isV3 = version === 'V3';
     const methodName = operation.methodName || operation.method || deriveMethodNameFromPath(operation.path, operation.httpMethod, operation);
     const resolvedOverrides = Object.assign(
       {},
@@ -1966,7 +2280,9 @@ function createCollectionFeature(deps) {
       return resolveMappedVariableName(operation, input, scenario);
     });
     const resolvedUrl = buildJsonResolvedUrl(resolveJsonBaseUrl(api), operation.path, operation.manualInputs || [], resolvedOverrides);
-    const headers = [
+    // V3 lleva Canal/Usuario/Device/Requerimiento/Token dentro del body (Btinreq),
+    // no como headers custom: asi es como responde el servlet real (ver authenticateSession).
+    const headers = isV3 ? [] : [
       { key: 'Canal', value: '{{channel}}', type: 'text' },
       { key: 'Device', value: '{{device}}', type: 'text' },
       { key: 'Usuario', value: '{{username}}', type: 'text' },
@@ -1988,7 +2304,26 @@ function createCollectionFeature(deps) {
       url: postmanUrl,
       description: operation.summary || (operation.service + '.' + methodName)
     };
-    if (operation.bodyTemplate && method !== 'GET') {
+    if (isV3 && method !== 'GET') {
+      const btinreqWrappedTemplate = Object.assign({
+        Btinreq: {
+          Canal: '__COL_VAR__channel',
+          Usuario: '__COL_VAR__username',
+          Device: '__COL_VAR__device',
+          Requerimiento: '__COL_VAR__requirement',
+          Token: '__COL_VAR__token'
+        }
+      }, operation.bodyTemplate || {});
+      request.body = {
+        mode: 'raw',
+        raw: buildJsonBodyRaw(btinreqWrappedTemplate, [
+          { key: 'channel' }, { key: 'username' }, { key: 'device' }, { key: 'requirement' }, { key: 'token' }
+        ].concat(operation.manualInputs || []), function(input) {
+          return resolveMappedVariableName(operation, input, scenario);
+        }),
+        options: { raw: { language: 'json' } }
+      };
+    } else if (operation.bodyTemplate && method !== 'GET') {
       request.body = {
         mode: 'raw',
         raw: buildJsonBodyRaw(operation.bodyTemplate, operation.manualInputs || [], function(input) {
@@ -2022,7 +2357,7 @@ function createCollectionFeature(deps) {
       SWAGGER_AUTH_URL: resolveJsonAuthUrl(body)
     });
     scenarios.forEach(function(scenario) {
-      const folderItems = [buildAuthRequestItem(body.version, effectiveApi)];
+      const folderItems = [buildJsonAuthRequestItem(body.version, effectiveApi)];
       Object.assign(mergedOverrides, scenario.variableOverrides || {});
       scenario.items.forEach(function(item, index) {
         (item.manualInputs || []).forEach(function(input) {
@@ -2050,7 +2385,7 @@ function createCollectionFeature(deps) {
           registerVariable(generatedVariables, selector.derivedVarKey, '');
         });
         Object.assign(mergedOverrides, item.inputOverrides || {});
-        folderItems.push(buildJsonRequestItem(item, index + 1, effectiveApi, scenario));
+        folderItems.push(buildJsonRequestItem(item, index + 1, effectiveApi, scenario, body.version));
       });
       Object.keys(scenario.outputAliases || {}).forEach(function(sourceVarKey) {
         mergedOverrides[sourceVarKey] = mergedOverrides[sourceVarKey] || '';
@@ -2068,12 +2403,15 @@ function createCollectionFeature(deps) {
         schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
         description: 'Coleccion generada desde Swagger para flujo JSON/Postman.'
       },
-      variable: buildCollectionVariables(body.version, effectiveApi, generatedVariables, mergedOverrides),
-      item: postmanFolders
+      variable: buildCollectionVariables(body.version, effectiveApi, generatedVariables, mergedOverrides).concat(
+        body.version === 'V4' ? [] : [{ key: 'json_auth_url', value: resolveJsonV3AuthUrl(effectiveApi), type: 'string' }]
+      ),
+      item: postmanFolders,
+      _bttoolsMeta: buildBttoolsImportMetadata(scenarios)
     };
 
     ensureOutputDir();
-    const fileName = sanitizeSegment(body.collectionName || postmanFolders[0].name || 'bantotal-json-collection') + '-json-postman-' + Date.now() + '.postman_collection.json';
+    const fileName = sanitizeSegment(body.collectionName || postmanFolders[0].name || 'bantotal-json-collection') + '.postman_collection.json';
     const filePath = path.join(outputDir, fileName);
     fs.writeFileSync(filePath, JSON.stringify(collection, null, 2), 'utf8');
 
@@ -2149,6 +2487,87 @@ function createCollectionFeature(deps) {
       throw Object.assign(new Error(parsedJson.Btoutreq && parsedJson.Btoutreq.Mensaje || parsedJson.Mensaje || JSON.stringify(parsedJson).slice(0, 200)), { raw });
     }
     return { token, raw };
+  }
+
+  // ================================================================
+  // authenticateSessionSoap
+  // ----------------------------------------------------------------
+  // Autenticacion REAL por SOAP para V3, usada UNICAMENTE por el flujo
+  // "Probar"/"Generar" en formato XML (executeCollectionFlow, rama no-JSON).
+  //
+  // A proposito NO comparte codigo con `authenticateSession` de arriba:
+  // esa otra funcion es JSON y la usan tanto V4 como el intento anterior
+  // de V3-por-JSON (?Execute). Mezclarlas hubiera significado que un
+  // cambio pensado solo para V3-SOAP pudiera, por accidente, tocar el
+  // camino JSON de V4. Mantenerlas separadas es intencional.
+  //
+  // El sobre SOAP de abajo fue confirmado 2026-07-22 contra un ambiente
+  // real (pioneroapp2) por el usuario, capturando el request/response
+  // reales de un Authenticate.Execute exitoso via SoapUI/Postman. Si en
+  // el futuro este sobre deja de funcionar, hay que volver a pedir un
+  // ejemplo real capturado en vez de adivinar el formato.
+  // ================================================================
+  async function authenticateSessionSoap(api) {
+    const authContext = resolveExecutionAuthContext(api);
+    const authUrl = String((api && api.API_AUTH_URL) || '').trim();
+    if (!authUrl) {
+      throw new Error('Falta "URL de autenticacion" en la configuracion del ambiente.');
+    }
+
+    // El SOAPAction identifica la operacion ante el servidor; no hace
+    // falta ningun sufijo de query string en la URL (ver buildSoapRequestUrl).
+    const soapAction = 'http://uy.com.dlya.bantotal/BTSOA/action/AAUTHENTICATE.Execute';
+
+    // Mismo sobre XML que buildAuthRequestItem genera para el Postman
+    // exportado (mantenidos deliberadamente identicos en estructura),
+    // pero acá con valores reales en vez de variables {{...}} de Postman,
+    // porque este es el camino de ejecucion en vivo del propio server.
+    const xmlBody = [
+      '<?xml version="1.0" encoding="utf-8"?>',
+      '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:bts="http://uy.com.dlya.bantotal/BTSOA/">',
+      '  <soapenv:Header/>',
+      '  <soapenv:Body>',
+      '    <bts:Authenticate.Execute>',
+      '      <bts:Btinreq>',
+      '        <bts:Canal>' + xmlEscape(authContext.channel) + '</bts:Canal>',
+      '        <bts:Usuario>' + xmlEscape(authContext.username) + '</bts:Usuario>',
+      '        <bts:Device>' + xmlEscape(authContext.device) + '</bts:Device>',
+      '        <bts:Requerimiento>' + xmlEscape(authContext.requirement) + '</bts:Requerimiento>',
+      '        <bts:Token></bts:Token>',
+      '      </bts:Btinreq>',
+      '      <bts:UserId>' + xmlEscape(authContext.username) + '</bts:UserId>',
+      '      <bts:UserPassword>' + xmlEscape(authContext.password) + '</bts:UserPassword>',
+      '    </bts:Authenticate.Execute>',
+      '  </soapenv:Body>',
+      '</soapenv:Envelope>'
+    ].join('\n');
+
+    const response = await invokeSoapXml(authUrl, soapAction, xmlBody);
+
+    let parsed;
+    try {
+      parsed = await parseSoapXml(response.body);
+    } catch (e) {
+      throw Object.assign(
+        new Error('Respuesta SOAP inesperada de auth: ' + String(response.body || '').slice(0, 300)),
+        { raw: response.body }
+      );
+    }
+
+    const businessError = extractBusinessError(parsed);
+    if (businessError) {
+      throw Object.assign(new Error(businessError), { raw: response.body });
+    }
+
+    const token = findNodeDeep(parsed, 'SessionToken');
+    if (!token) {
+      throw Object.assign(
+        new Error('No se pudo obtener el SessionToken de la respuesta SOAP.'),
+        { raw: response.body }
+      );
+    }
+
+    return { token: String(token), raw: response.body };
   }
 
   async function invokeSoapXml(url, soapAction, xmlBody) {
@@ -2291,13 +2710,27 @@ function createCollectionFeature(deps) {
             }
           });
           const requestUrl = buildJsonExecutionUrl(resolveJsonBaseUrl(body), item.path, item.manualInputs || [], stepRuntimeValues);
-          const headers = buildBantotalJsonHeaders({
+          const isV3 = body.version === 'V3';
+          const filledBodyValue = item.bodyTemplate ? fillJsonTemplate(item.bodyTemplate, stepRuntimeValues) : null;
+          // V3 manda Canal/Usuario/Device/Requerimiento/Token dentro del body (Btinreq),
+          // no como headers custom (ver authenticateSession, que ya hace lo mismo para el auth).
+          const headers = isV3 ? {} : buildBantotalJsonHeaders({
             channel: stepRuntimeValues.channel,
             username: stepRuntimeValues.username,
             device: stepRuntimeValues.device,
             requirement: stepRuntimeValues.requirement
           }, stepRuntimeValues.token);
-          const bodyValue = item.bodyTemplate ? fillJsonTemplate(item.bodyTemplate, stepRuntimeValues) : null;
+          const bodyValue = isV3
+            ? Object.assign({
+                Btinreq: {
+                  Canal: stepRuntimeValues.channel,
+                  Usuario: stepRuntimeValues.username,
+                  Device: stepRuntimeValues.device,
+                  Requerimiento: stepRuntimeValues.requirement,
+                  Token: stepRuntimeValues.token
+                }
+              }, filledBodyValue || {})
+            : filledBodyValue;
           Object.assign(runtimeValues, stepRuntimeValues);
           const response = await invokeJsonRequest(requestUrl, item.httpMethod, headers, bodyValue);
           step.requestUrl = requestUrl;
@@ -2341,15 +2774,20 @@ function createCollectionFeature(deps) {
       return { ok: true, steps, runtimeValues: summarizeVariables(runtimeValues) };
     }
 
+    // Esta rama es exclusivamente el flujo SOAP/XML (V3). El unico "format"
+    // que no es 'json' hoy es 'xml', y "Casos de uso" solo ofrece XML para V3
+    // (ver isPathSupported en collection-studio-manager.js), por lo que la
+    // autenticacion se hace SIEMPRE por SOAP real aca, sin ternario por version.
     const schemas = await loadSchemasForItems(body);
     const bindingsInfo = computeBindingsAndMappings(schemas);
     const steps = [{
       index: 0,
       name: 'Authenticate',
       ok: false,
-      requestUrl: body.version === 'V4'
-        ? resolveV4AuthUrl(body.api)
-        : (body.api.API_AUTH_URL || (String(body.api.API_BASE_URL || '').replace(/\/+$/g, '') + '/servlet/com.dlya.bantotal.ardwsbt_Authenticate'))
+      // Fallback defensivo con _v1 (normalmente body.api.API_AUTH_URL ya viene
+      // completo desde el wizard): solo afecta el texto mostrado en el panel
+      // de ejecucion, no la URL que realmente se llama (ver authenticateSessionSoap).
+      requestUrl: body.api.API_AUTH_URL || (String(body.api.API_BASE_URL || '').replace(/\/+$/g, '') + '/servlet/com.dlya.bantotal.ardwsbt_Authenticate_v1')
     }];
     const runtimeValues = Object.assign({}, body.variableOverrides || {}, {
       channel: body.api.API_CANAL || 'BTDIGITAL',
@@ -2358,7 +2796,7 @@ function createCollectionFeature(deps) {
       requirement: body.api.API_REQUERIMIENTO || '1'
     });
     try {
-      const auth = await authenticateSession(body.version, body.api);
+      const auth = await authenticateSessionSoap(body.api);
       runtimeValues.token = auth.token;
       steps[0].ok = true;
       steps[0].responseStatus = 200;
@@ -2372,6 +2810,12 @@ function createCollectionFeature(deps) {
 
     for (let i = 0; i < schemas.length; i++) {
       const schema = schemas[i];
+      // body.items[i] es el mismo item que ya vio el inspector (manualInputs/
+      // operationKey/outputFields reales); `schema` es solo la estructura
+      // recien consultada para saber que campos/SDTs armar. `body` hace de
+      // "scenario" aca (trae body.inputMappings), igual que ya hace la rama
+      // JSON de mas arriba con collectJsonFilteredSelectorsForItem(item, body).
+      const item = body.items[i];
       const step = {
         index: i + 1,
         name: schema.service + '.' + schema.method
@@ -2382,7 +2826,10 @@ function createCollectionFeature(deps) {
           bindings: bindingsInfo.bindingsPerStep[i] || {},
           runtimeValues,
           variables: new Map(),
-          repeatableOverrides: body.repeatableOverrides || {}
+          repeatableOverrides: body.repeatableOverrides || {},
+          item: item,
+          scenario: body,
+          manualInputsByPath: buildManualInputsByPath(item)
         };
         step.requestUrl = buildSoapRequestUrl(body.api, schema);
         step.soapAction = buildSoapAction(schema);
@@ -2393,7 +2840,12 @@ function createCollectionFeature(deps) {
 
         const parsed = await parseSoapXml(response.body);
         const businessError = extractBusinessError(parsed);
-        const extracted = extractOutputValues(schema, parsed);
+        // extractOutputValues registra por nombre de campo pelado (auto-match
+        // historico); extractSoapOutputValues registra ADEMAS bajo la clave
+        // calificada (buildOutputVarKey) que resolveMappedVariableName
+        // realmente busca cuando hay un mapeo configurado. Ambas se mezclan
+        // en runtimeValues — ningun caso que ya funcionara pierde cobertura.
+        const extracted = Object.assign({}, extractOutputValues(schema, parsed), extractSoapOutputValues(item, parsed));
         Object.keys(extracted).forEach(function(key) { runtimeValues[key] = extracted[key]; });
 
         step.extractedValues = extracted;
@@ -2440,7 +2892,7 @@ function createCollectionFeature(deps) {
         const loaded = await loadSwaggerDocument(body.swaggerUrl, body.api || {});
         const operationsByService = extractSwaggerOperations(loaded.doc);
         const baseUrl = resolveSwaggerServerUrl(loaded.doc, loaded.resolvedUrl);
-        const authUrl = resolveSwaggerAuthUrl(loaded.doc, loaded.resolvedUrl, baseUrl);
+        const authUrl = resolveSwaggerAuthUrl(loaded.doc, loaded.resolvedUrl, baseUrl, body.api);
         const services = Object.keys(operationsByService).sort();
         json(200, {
           ok: true,
@@ -2476,7 +2928,7 @@ function createCollectionFeature(deps) {
     if (req.method === 'POST' && req.url === '/api/collection/database/operation') {
       try {
         const body = await readBody(req);
-        const operation = await buildDatabaseOperationDetails(body.platform, body.db, body.service, body.method);
+        const operation = await buildDatabaseOperationDetails(body.platform, body.db, body.service, body.method, body.version);
         json(200, { ok: true, operation });
       } catch (e) {
         json(200, { ok: false, message: e.message });
@@ -2533,6 +2985,21 @@ function createCollectionFeature(deps) {
           resolutionSummary: result.resolutionSummary || null,
           resolutionWarnings: result.resolutionWarnings || []
         });
+      } catch (e) {
+        json(200, { ok: false, message: e.message });
+      }
+      return true;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/collection/suggest-chain') {
+      try {
+        const body = await readBody(req);
+        const result = suggestChains(body);
+        if (!result.ok) {
+          json(200, { ok: false, message: result.message });
+          return true;
+        }
+        json(200, { ok: true, suggestions: result.suggestions });
       } catch (e) {
         json(200, { ok: false, message: e.message });
       }

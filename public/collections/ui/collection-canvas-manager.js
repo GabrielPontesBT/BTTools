@@ -1,6 +1,18 @@
 ﻿(function bootstrapCollectionCanvasManager(global) {
   'use strict';
 
+  var GENERIC_DESCRIPTIONS = ['', 'enter a description', 'sin descripcion', 'sin descripcion.', 'sin descripción'];
+
+  /**
+   * Filtra descripciones vacias o placeholders tecnicos (ej. "Enter a description")
+   * para no mostrarlas tal cual en la tarjeta del nodo.
+   */
+  function describeCanvasItem(item) {
+    var raw = String((item && (item.summary || item.path)) || '').trim();
+    if (!raw || GENERIC_DESCRIPTIONS.indexOf(raw.toLowerCase()) >= 0) return '';
+    return raw;
+  }
+
   /**
    * Encapsula toda la construcciÃ³n visual del canvas de cadenas.
    * Este mÃ³dulo no decide reglas de negocio profundas: se apoya en callbacks
@@ -211,14 +223,15 @@
           maxY = Math.max(maxY, layout.y);
 
           var operationKind = String(item.operationKind || this.options.inferOperationKind(item.method)).toLowerCase();
+          var canvasDesc = describeCanvasItem(item);
 
           blocks.push(
             '<div id="collection-canvas-step-' + i + '" class="collection-canvas-step' + (selectedIndex === i ? ' collection-canvas-step-selected' : '') + '" style="left:' + layout.x + 'px;top:' + layout.y + 'px" onclick="collectionCanvasNodeClick(' + i + ')" onmousedown="collectionStartNodeDrag(' + i + ', event)">' +
               '<div class="collection-canvas-step-head">' +
                 '<div class="collection-canvas-step-index">' + (i + 1) + '</div>' +
                 '<div class="collection-canvas-step-copy">' +
-                  '<div class="collection-canvas-step-title">' + this.options.escapeHtml(item.method) + '</div>' +
-                  '<div class="collection-canvas-step-desc">' + this.options.escapeHtml(item.summary || item.path || 'Sin descripcion.') + '</div>' +
+                  '<div class="collection-canvas-step-title" title="' + this.options.escapeHtml(item.method) + '">' + this.options.escapeHtml(item.method) + '</div>' +
+                  (canvasDesc ? '<div class="collection-canvas-step-desc" title="' + this.options.escapeHtml(canvasDesc) + '">' + this.options.escapeHtml(canvasDesc) + '</div>' : '') +
                   '<div class="collection-canvas-step-meta">' +
                     '<span class="collection-canvas-chip">' + this.options.escapeHtml(item.service) + '</span>' +
                     '<span class="collection-canvas-chip">' + this.options.escapeHtml(String(item.httpMethod || 'GET').toUpperCase()) + '</span>' +
