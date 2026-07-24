@@ -605,7 +605,7 @@ async function sg_queryBti025(platform, db, version, sdtNom) {
   } else {
     const { conn, oracledb } = await sg_getOra(db);
     try {
-      const r = await conn.execute('SELECT BTISDTNOM,BTISDTVERSION,BTISDTNOMINT,BTISDTESTADO,BTISDTTIPO,BTISDTNAMESPACE,BTISDTFECHA,BTISDTDESCRIP,BTISDTNATIVO FROM BTI025 WHERE BTISDTNOM=:1 AND ROWNUM=1', [sdtNom], { outFormat: oracledb.OUT_FORMAT_OBJECT });
+      const r = await conn.execute('SELECT BTISDTNOM,BTISDTVERSION,BTISDTNOMINT,BTISDTESTADO,BTISDTTIPO,BTISDTNAMESPACE,BTISDTFECHA,BTISDTDESCRIP,BTISDTNATIVO FROM BTI025 WHERE TRIM(BTISDTNOM)=:1 AND ROWNUM=1', [sdtNom], { outFormat: oracledb.OUT_FORMAT_OBJECT });
       await conn.close();
       if (!r.rows.length) return null;
       const row = r.rows[0], g = k => row[k] == null ? '' : String(row[k]).trim();
@@ -622,7 +622,7 @@ async function sg_queryBti026(platform, db, version, sdtNom) {
   } else {
     const { conn, oracledb } = await sg_getOra(db);
     try {
-      const r = await conn.execute('SELECT BTISDTELEMNOM,BTISDTELEMTIPO,BTISDTELEMLARGO,BTISDTELEMDECI,BTISDTELEMCAT,BTISDTELEMDSC,BTISDTELEMSDT FROM BTI026 WHERE BTISDTNOM=:1 ORDER BY BTISDTELEMNOM', [sdtNom], { outFormat: oracledb.OUT_FORMAT_OBJECT });
+      const r = await conn.execute('SELECT BTISDTELEMNOM,BTISDTELEMTIPO,BTISDTELEMLARGO,BTISDTELEMDECI,BTISDTELEMCAT,BTISDTELEMDSC,BTISDTELEMSDT FROM BTI026 WHERE TRIM(BTISDTNOM)=:1 ORDER BY BTISDTELEMNOM', [sdtNom], { outFormat: oracledb.OUT_FORMAT_OBJECT });
       await conn.close();
       return r.rows.map(function(row) { const g=k=>row[k]==null?'':String(row[k]).trim(); return {elemnom:g('BTISDTELEMNOM'),elemtipo:g('BTISDTELEMTIPO'),elemlargo:row.BTISDTELEMLARGO!=null?String(row.BTISDTELEMLARGO):'0',elemdeci:row.BTISDTELEMDECI!=null?String(row.BTISDTELEMDECI):'0',elemcat:g('BTISDTELEMCAT'),elemdsc:g('BTISDTELEMDSC'),elemsdt:g('BTISDTELEMSDT')}; });
     } catch(e) { await conn.close(); throw e; }
@@ -1330,9 +1330,10 @@ http.createServer(async (req, res) => {
           const allSdtNames = new Set();
           (payload.methods || []).forEach(function(m) { sg_extractSdtNames(params[m] || []).forEach(function(n) { allSdtNames.add(n); }); });
           const sdts = allSdtNames.size > 0 ? await sg_querySdtsBatch(payload.platform, payload.db, payload.version, [...allSdtNames]) : [];
+          const bti004 = await sg_queryServiceBTI004(payload.platform, payload.db, payload.service);
           const items = (payload.methods || []).map(method => ({
             version: payload.version,
-            header: { BTINom: 'BTSERVICES', BTISrvNom: payload.service, BTISrvVer: payload.srvver || '1', BTIMtdNom: method },
+            header: { BTINom: 'BTSERVICES', BTISrvNom: payload.service, BTISrvVer: payload.srvver || '1', BTIMtdNom: method, BTISrvDsc: bti004 ? bti004.dsc : '', BTISrvPgmName: bti004 ? bti004.pgmnom : '' },
             method: details[method] || {},
             params: params[method] || [],
             sdts
