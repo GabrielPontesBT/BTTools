@@ -622,9 +622,9 @@ async function sg_queryBti026(platform, db, version, sdtNom) {
   } else {
     const { conn, oracledb } = await sg_getOra(db);
     try {
-      const r = await conn.execute('SELECT BTISDTELEMNOM,BTISDTELEMTIPO,BTISDTELEMLARGO,BTISDTELEMDECI,BTISDTELEMCAT,BTISDTELEMDSC,BTISDTELEMSDT FROM BTI026 WHERE TRIM(BTISDTNOM)=:1 ORDER BY BTISDTELEMNOM', [sdtNom], { outFormat: oracledb.OUT_FORMAT_OBJECT });
+      const r = await conn.execute('SELECT BTISDTVERSION,BTISDTELEMNOM,BTISDTELEMNINT,BTISDTELEMOBL,BTISDTELEMCAT,BTISDTELEMTIPO,BTISDTELEMSDT,BTISDTELEMSDTVE,BTISDTELEMPLANO,BTISDTELEMLARGO,BTISDTELEMENU,BTISDTELEMVAL,BTISDTELEMDSC,BTISDTELEMPOSI,BTISDTELEMCATIT,BTISDTELEMDECI,BTISDTELEMNOMIT FROM BTI026 WHERE TRIM(BTISDTNOM)=:1 ORDER BY BTISDTELEMPOSI', [sdtNom], { outFormat: oracledb.OUT_FORMAT_OBJECT });
       await conn.close();
-      return r.rows.map(function(row) { const g=k=>row[k]==null?'':String(row[k]).trim(); return {elemnom:g('BTISDTELEMNOM'),elemtipo:g('BTISDTELEMTIPO'),elemlargo:row.BTISDTELEMLARGO!=null?String(row.BTISDTELEMLARGO):'0',elemdeci:row.BTISDTELEMDECI!=null?String(row.BTISDTELEMDECI):'0',elemcat:g('BTISDTELEMCAT'),elemdsc:g('BTISDTELEMDSC'),elemsdt:g('BTISDTELEMSDT')}; });
+      return r.rows.map(function(row) { const g=k=>row[k]==null?'':String(row[k]).trim(); return {version:g('BTISDTVERSION'),elemnom:g('BTISDTELEMNOM'),nint:g('BTISDTELEMNINT'),obl:g('BTISDTELEMOBL'),elemcat:g('BTISDTELEMCAT'),elemtipo:g('BTISDTELEMTIPO'),elemsdt:g('BTISDTELEMSDT'),sdtve:g('BTISDTELEMSDTVE'),plano:g('BTISDTELEMPLANO'),elemlargo:row.BTISDTELEMLARGO!=null?String(row.BTISDTELEMLARGO):'0',enu:g('BTISDTELEMENU'),val:g('BTISDTELEMVAL'),elemdsc:g('BTISDTELEMDSC'),posi:row.BTISDTELEMPOSI!=null?String(row.BTISDTELEMPOSI):'0',catit:g('BTISDTELEMCATIT'),elemdeci:row.BTISDTELEMDECI!=null?String(row.BTISDTELEMDECI):'0',nomit:g('BTISDTELEMNOMIT')}; });
     } catch(e) { await conn.close(); throw e; }
   }
 }

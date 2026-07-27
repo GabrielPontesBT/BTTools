@@ -9,7 +9,7 @@ const V4_BTI019_COLS = ['BTINOM','BTISRVNOM','BTISRVVER','BTIMTDNOM','BTISRVPARP
 const V3_BTI025_COLS = ['BTISDTNom','BTISDTVersion','BTISDTDescrip','BTISDTNativo','BTISDTFecha','BTISDTNomInt','BTISDTEstado','BTISDTTipo','BTISDTNameSpace'];
 const V4_BTI025_COLS = ['BTISDTNOM','BTISDTVERSION','BTISDTNOMINT','BTISDTESTADO','BTISDTTIPO','BTISDTNAMESPACE','BTISDTFECHA','BTISDTDESCRIP','BTISDTNATIVO'];
 const V3_BTI026_COLS = ['BTISDTNom','BTISDTElemNom','BTISDTElemTipo','BTISDTElemLargo','BTISDTElemCat','BTISDTElemDsc','BTISDTElemSDT'];
-const V4_BTI026_COLS = ['BTISDTNOM','BTISDTELEMNOM','BTISDTELEMTIPO','BTISDTELEMLARGO','BTISDTELEMDECI','BTISDTELEMCAT','BTISDTELEMDSC','BTISDTELEMSDT'];
+const V4_BTI026_COLS = ['BTISDTNOM','BTISDTVERSION','BTISDTELEMNOM','BTISDTELEMNINT','BTISDTELEMOBL','BTISDTELEMCAT','BTISDTELEMTIPO','BTISDTELEMSDT','BTISDTELEMSDTVE','BTISDTELEMPLANO','BTISDTELEMLARGO','BTISDTELEMENU','BTISDTELEMVAL','BTISDTELEMDSC','BTISDTELEMPOSI','BTISDTELEMCATIT','BTISDTELEMDECI','BTISDTELEMNOMIT'];
 
 function sg_fmtDate(val, ver) {
   if (!val) return ver === 'V3' ? "''" : 'NULL';
@@ -96,8 +96,15 @@ function sg_generateSdtScript(sdt, mode, version) {
     }
     const cols = V4_BTI026_COLS.join(', ');
     return b26.map(function(e) {
-      const dsc = e.elemdsc ? q(e.elemdsc) : "' '", sdt = e.elemsdt ? q(e.elemsdt) : "' '";
-      return 'INSERT INTO BTI026 ('+cols+') VALUES('+[q(nom),q(e.elemnom),q(e.elemtipo),sg_nq(e.elemlargo),sg_nq(e.elemdeci),q(e.elemcat),dsc,sdt].join(', ')+');';
+      const dsc = e.elemdsc ? q(e.elemdsc) : "' '";
+      const sdt = e.elemsdt ? q(e.elemsdt) : "' '";
+      const sdtve = e.sdtve ? q(e.sdtve) : "' '";
+      const plano = e.plano ? q(e.plano) : "' '";
+      const enu = e.enu ? q(e.enu) : "' '";
+      const val = e.val ? q(e.val) : "' '";
+      const catit = e.catit ? q(e.catit) : "' '";
+      const nomit = e.nomit ? q(e.nomit) : "' '";
+      return 'INSERT INTO BTI026 ('+cols+') VALUES('+[q(nom),q(e.version||'1'),q(e.elemnom),q(e.nint||''),q(e.obl||'N'),q(e.elemcat),q(e.elemtipo),sdt,sdtve,plano,sg_nq(e.elemlargo),enu,val,dsc,sg_nq(e.posi),catit,sg_nq(e.elemdeci),nomit].join(', ')+');';
     });
   }
   if (mode === 'delete') { lines.push(...delBti025(), '', ...delBti026()); }
