@@ -2,6 +2,13 @@
 
 const { sg_generateSdtScript } = require('../generar-scripts/index.js');
 
+const SDT_NAME_RE = /^[A-Za-z][A-Za-z0-9_]{0,99}$/;
+const SDT_NAME_ERR = 'Nombre de SDT invalido: debe empezar con una letra y usar solo letras, numeros o guion bajo (maximo 100 caracteres).';
+
+function isValidSdtName(nombre) {
+  return typeof nombre === 'string' && SDT_NAME_RE.test(nombre);
+}
+
 function buildSdtCopy(sourceSdt, nuevoNombre, fieldsOrdenados) {
   const b25 = sourceSdt.bti025 || {};
   const bti025Copy = Object.assign({}, b25, { nom: nuevoNombre, nativo: 'N', version: '1' });
@@ -10,7 +17,7 @@ function buildSdtCopy(sourceSdt, nuevoNombre, fieldsOrdenados) {
   const bti026Copy = fieldsOrdenados.map((elemnom, idx) => {
     const f = byName.get(elemnom);
     if (!f) throw new Error('Campo no encontrado en el SDT original: ' + elemnom);
-    return Object.assign({}, f, { posi: String(idx + 1) });
+    return Object.assign({}, f, { posi: String(idx + 1), version: '1' });
   });
 
   return { bti025Copy, bti026Copy };
@@ -43,7 +50,9 @@ function createSdtGenFeature(deps) {
 
   function scriptToStatements(nuevoNombre, bti025Copy, bti026Copy, version) {
     const script = generateSdtScript(nuevoNombre, bti025Copy, bti026Copy, version, 'both');
-    return script.split('\n').map(s => s.trim()).filter(Boolean);
+    // El generador emite cada sentencia con ';' final. oracledb rechaza el
+    // terminador (ORA-00911) y mssql lo tolera, asi que lo quitamos siempre.
+    return script.split('\n').map(s => s.trim()).filter(Boolean).map(s => s.replace(/;\s*$/, ''));
   }
 
   async function executeSdtCopy(platform, db, version, nuevoNombre, bti025Copy, bti026Copy) {
@@ -113,6 +122,7 @@ function createSdtGenFeature(deps) {
     if (req.method === 'POST' && req.url === '/api/sdtgen/generate') {
       try {
         const body = await readBody(req);
+        if (!isValidSdtName(body.nuevoNombre)) { json(200, { ok: false, message: SDT_NAME_ERR }); return true; }
         const { bti025Copy, bti026Copy } = buildSdtCopy(
           { bti025: body.sourceBti025, bti026: body.sourceBti026 },
           body.nuevoNombre,
@@ -127,8 +137,14 @@ function createSdtGenFeature(deps) {
     if (req.method === 'POST' && req.url === '/api/sdtgen/execute') {
       try {
         const body = await readBody(req);
+        if (!isValidSdtName(body.nuevoNombre)) { json(200, { ok: false, message: SDT_NAME_ERR }); return true; }
+        // No confiamos en los datos del SDT origen que vuelven del browser:
+        // se vuelven a consultar en la base antes de armar el DELETE/INSERT.
+        const bti025 = await queryBti025(body.platform, body.db, body.version, body.nom);
+        if (!bti025) { json(200, { ok: false, message: 'SDT no encontrado: ' + body.nom }); return true; }
+        const bti026 = await queryBti026(body.platform, body.db, body.version, body.nom);
         const { bti025Copy, bti026Copy } = buildSdtCopy(
-          { bti025: body.sourceBti025, bti026: body.sourceBti026 },
+          { bti025, bti026 },
           body.nuevoNombre,
           body.fieldsOrdenados
         );
@@ -144,4 +160,4 @@ function createSdtGenFeature(deps) {
   return { listSdtNames, executeSdtCopy, handleApi };
 }
 
-module.exports = { createSdtGenFeature, buildSdtCopy, generateSdtScript };
+module.exports = { createSdtGenFeature, buildSdtCopy, generateSdtScript, isValidSdtName };
