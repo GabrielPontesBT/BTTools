@@ -4,20 +4,55 @@ const { sg_generateSdtScript } = require('../generar-scripts/index.js');
 
 const SDT_NAME_RE = /^[A-Za-z][A-Za-z0-9_]{0,99}$/;
 const SDT_NAME_ERR = 'Nombre de SDT invalido: debe empezar con una letra y usar solo letras, numeros o guion bajo (maximo 100 caracteres).';
+const FIELD_NAME_RE = SDT_NAME_RE;
+const FIELD_NAME_ERR = 'Nombre de campo invalido: debe empezar con una letra y usar solo letras, numeros o guion bajo (maximo 100 caracteres).';
+const DIGITS_RE = /^\d{1,9}$/;
+const FORBIDDEN_TEXT_RE = /['";\\\r\n]/;
+const FIELD_TEXT_ERR = 'no puede contener comillas, punto y coma, barra invertida ni saltos de linea.';
 
 function isValidSdtName(nombre) {
   return typeof nombre === 'string' && SDT_NAME_RE.test(nombre);
 }
 
-function buildSdtCopy(sourceSdt, nuevoNombre, fieldsOrdenados) {
+function isValidFieldName(nombre) {
+  return typeof nombre === 'string' && FIELD_NAME_RE.test(nombre);
+}
+
+function isValidDigits(valor) {
+  return typeof valor === 'string' && DIGITS_RE.test(valor);
+}
+
+function isValidFieldText(texto) {
+  return typeof texto === 'string' && !FORBIDDEN_TEXT_RE.test(texto);
+}
+
+// editedFields: array ordenado de { origElemnom, elemnom, elemlargo, elemdsc, elemdeci, nomit }.
+// origElemnom identifica el campo real en sourceSdt.bti026 (nunca se edita);
+// el resto son los valores editables que el usuario cambio en el paso 5.
+function buildSdtCopy(sourceSdt, nuevoNombre, editedFields) {
   const b25 = sourceSdt.bti025 || {};
   const bti025Copy = Object.assign({}, b25, { nom: nuevoNombre, nativo: 'N', version: '1' });
 
   const byName = new Map((sourceSdt.bti026 || []).map(f => [f.elemnom, f]));
-  const bti026Copy = fieldsOrdenados.map((elemnom, idx) => {
-    const f = byName.get(elemnom);
-    if (!f) throw new Error('Campo no encontrado en el SDT original: ' + elemnom);
-    return Object.assign({}, f, { posi: String(idx + 1), version: '1' });
+  const bti026Copy = editedFields.map((edited, idx) => {
+    const original = byName.get(edited.origElemnom);
+    if (!original) throw new Error('Campo no encontrado en el SDT original: ' + edited.origElemnom);
+    if (!isValidFieldName(edited.elemnom)) throw new Error(FIELD_NAME_ERR + ' (campo original: ' + edited.origElemnom + ')');
+    if (!isValidDigits(edited.elemlargo)) throw new Error('Largo invalido para el campo ' + edited.elemnom + ': debe ser un numero entero (0 o mayor).');
+    if (!isValidDigits(edited.elemdeci)) throw new Error('Decimales invalidos para el campo ' + edited.elemnom + ': debe ser un numero entero (0 o mayor).');
+    if (!isValidFieldText(edited.elemdsc)) throw new Error('Descripcion invalida para el campo ' + edited.elemnom + ': ' + FIELD_TEXT_ERR);
+    if (edited.nomit != null && edited.nomit !== '' && !isValidFieldText(edited.nomit)) {
+      throw new Error('Nombre de iterador invalido para el campo ' + edited.elemnom + ': ' + FIELD_TEXT_ERR);
+    }
+    return Object.assign({}, original, {
+      elemnom: edited.elemnom,
+      elemlargo: edited.elemlargo,
+      elemdeci: edited.elemdeci,
+      elemdsc: edited.elemdsc,
+      nomit: edited.nomit != null ? edited.nomit : original.nomit,
+      posi: String(idx + 1),
+      version: '1',
+    });
   });
 
   return { bti025Copy, bti026Copy };
@@ -127,7 +162,7 @@ function createSdtGenFeature(deps) {
         const { bti025Copy, bti026Copy } = buildSdtCopy(
           { bti025: body.sourceBti025, bti026: body.sourceBti026 },
           body.nuevoNombre,
-          body.fieldsOrdenados
+          body.editedFields
         );
         const script = generateSdtScript(body.nuevoNombre, bti025Copy, bti026Copy, body.version, body.mode || 'both');
         json(200, { ok: true, script, bti025Copy, bti026Copy });
@@ -147,7 +182,7 @@ function createSdtGenFeature(deps) {
         const { bti025Copy, bti026Copy } = buildSdtCopy(
           { bti025, bti026 },
           body.nuevoNombre,
-          body.fieldsOrdenados
+          body.editedFields
         );
         const result = await executeSdtCopy(body.platform, body.db, body.version, body.nuevoNombre, bti025Copy, bti026Copy);
         json(200, Object.assign({ ok: true }, result));
@@ -161,4 +196,4 @@ function createSdtGenFeature(deps) {
   return { listSdtNames, executeSdtCopy, handleApi };
 }
 
-module.exports = { createSdtGenFeature, buildSdtCopy, generateSdtScript, isValidSdtName };
+module.exports = { createSdtGenFeature, buildSdtCopy, generateSdtScript, isValidSdtName, isValidFieldName, isValidDigits, isValidFieldText };

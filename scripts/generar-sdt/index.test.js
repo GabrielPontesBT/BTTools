@@ -1,21 +1,41 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { buildSdtCopy, generateSdtScript } = require('./index.js');
+const { buildSdtCopy, generateSdtScript, isValidFieldName, isValidDigits, isValidFieldText } = require('./index.js');
 
 function sourceSdt() {
   return {
     bti025: { nom: 'SdtOriginal', version: '2', descrip: 'Descripcion original.', nativo: 'S', fecha: new Date('2025-01-01'), nomint: 'SdtOriginalInt', estado: 'Validado', tipo: '0', namespace: 'uy.com.dlya' },
     bti026: [
-      { elemnom: 'campoA', elemtipo: 'String', elemlargo: '50', elemcat: 'B', elemdsc: 'Campo A.', elemsdt: '', version: '2', posi: '7' },
-      { elemnom: 'campoB', elemtipo: 'Int', elemlargo: '0', elemcat: 'B', elemdsc: 'Campo B.', elemsdt: '' },
-      { elemnom: 'campoC', elemtipo: 'SdtAnidado', elemlargo: '0', elemcat: 'B', elemdsc: 'Campo anidado.', elemsdt: 'SdtAnidado' },
+      { elemnom: 'campoA', elemtipo: 'String', elemlargo: '50', elemcat: 'B', elemdsc: 'Campo A.', elemsdt: '', elemdeci: '0', nomit: '', version: '2', posi: '7' },
+      { elemnom: 'campoB', elemtipo: 'Int', elemlargo: '0', elemcat: 'B', elemdsc: 'Campo B.', elemsdt: '', elemdeci: '0', nomit: '' },
+      { elemnom: 'campoC', elemtipo: 'SdtAnidado', elemlargo: '0', elemcat: 'B', elemdsc: 'Campo anidado.', elemsdt: 'SdtAnidado', elemdeci: '0', nomit: '' },
     ],
   };
 }
 
+// Arma un editedFields[i] "sin cambios" a partir de un campo real del origen,
+// permitiendo pisar puntualmente los valores editables via overrides.
+function edited(src, elemnom, overrides) {
+  const f = src.bti026.find(x => x.elemnom === elemnom);
+  if (!f) throw new Error('fixture invalido: no existe ' + elemnom);
+  return Object.assign({
+    origElemnom: elemnom,
+    elemnom: f.elemnom,
+    elemlargo: f.elemlargo,
+    elemdsc: f.elemdsc,
+    elemdeci: f.elemdeci || '0',
+    nomit: f.nomit,
+  }, overrides || {});
+}
+
+function editedAll(src, elemnoms) {
+  return elemnoms.map(n => edited(src, n));
+}
+
 test('buildSdtCopy fuerza Nativo=N y Version=1 en la copia, hereda el resto de BTI025', () => {
-  const { bti025Copy } = buildSdtCopy(sourceSdt(), 'SdtCopia', ['campoA', 'campoB', 'campoC']);
+  const src = sourceSdt();
+  const { bti025Copy } = buildSdtCopy(src, 'SdtCopia', editedAll(src, ['campoA', 'campoB', 'campoC']));
   assert.equal(bti025Copy.nativo, 'N');
   assert.equal(bti025Copy.version, '1');
   assert.equal(bti025Copy.nom, 'SdtCopia');
@@ -23,8 +43,9 @@ test('buildSdtCopy fuerza Nativo=N y Version=1 en la copia, hereda el resto de B
   assert.equal(bti025Copy.descrip, 'Descripcion original.');
 });
 
-test('buildSdtCopy respeta el orden de fieldsOrdenados y asigna posi consecutivo', () => {
-  const { bti026Copy } = buildSdtCopy(sourceSdt(), 'SdtCopia', ['campoC', 'campoA']);
+test('buildSdtCopy respeta el orden de editedFields y asigna posi consecutivo', () => {
+  const src = sourceSdt();
+  const { bti026Copy } = buildSdtCopy(src, 'SdtCopia', editedAll(src, ['campoC', 'campoA']));
   assert.deepEqual(bti026Copy.map(f => f.elemnom), ['campoC', 'campoA']);
   assert.equal(bti026Copy[0].posi, '1');
   assert.equal(bti026Copy[1].posi, '2');
@@ -33,28 +54,103 @@ test('buildSdtCopy respeta el orden de fieldsOrdenados y asigna posi consecutivo
 test('buildSdtCopy fuerza version=1 en cada campo de BTI026 aunque el origen traiga otra', () => {
   const src = sourceSdt();
   src.bti026[1].version = '3';
-  const { bti026Copy } = buildSdtCopy(src, 'SdtCopia', ['campoA', 'campoB', 'campoC']);
+  const { bti026Copy } = buildSdtCopy(src, 'SdtCopia', editedAll(src, ['campoA', 'campoB', 'campoC']));
   assert.ok(bti026Copy.every(f => f.version === '1'), 'todos los campos copiados deben tener version=1');
 });
 
-test('buildSdtCopy excluye campos no presentes en fieldsOrdenados', () => {
-  const { bti026Copy } = buildSdtCopy(sourceSdt(), 'SdtCopia', ['campoA']);
+test('buildSdtCopy excluye campos no presentes en editedFields', () => {
+  const src = sourceSdt();
+  const { bti026Copy } = buildSdtCopy(src, 'SdtCopia', editedAll(src, ['campoA']));
   assert.equal(bti026Copy.length, 1);
   assert.equal(bti026Copy[0].elemnom, 'campoA');
 });
 
 test('buildSdtCopy conserva el SDT anidado referenciado sin renombrarlo', () => {
-  const { bti026Copy } = buildSdtCopy(sourceSdt(), 'SdtCopia', ['campoC']);
+  const src = sourceSdt();
+  const { bti026Copy } = buildSdtCopy(src, 'SdtCopia', editedAll(src, ['campoC']));
   assert.equal(bti026Copy[0].elemsdt, 'SdtAnidado');
   assert.equal(bti026Copy[0].elemtipo, 'SdtAnidado');
 });
 
-test('buildSdtCopy lanza si fieldsOrdenados referencia un campo inexistente', () => {
-  assert.throws(() => buildSdtCopy(sourceSdt(), 'SdtCopia', ['campoZ']), /campoZ/);
+test('buildSdtCopy lanza si editedFields referencia un origElemnom inexistente', () => {
+  const src = sourceSdt();
+  assert.throws(() => buildSdtCopy(src, 'SdtCopia', [edited(src, 'campoA', { origElemnom: 'campoZ' })]), /campoZ/);
+});
+
+test('buildSdtCopy permite renombrar un campo (BTISDTELEMNOM editable)', () => {
+  const src = sourceSdt();
+  const { bti026Copy } = buildSdtCopy(src, 'SdtCopia', [edited(src, 'campoA', { elemnom: 'campoRenombrado' })]);
+  assert.equal(bti026Copy[0].elemnom, 'campoRenombrado');
+});
+
+test('buildSdtCopy lanza si el nombre editado no es un identificador valido', () => {
+  const src = sourceSdt();
+  for (const nombreInvalido of ['campo A', '1campo', "campo'A", '']) {
+    assert.throws(
+      () => buildSdtCopy(src, 'SdtCopia', [edited(src, 'campoA', { elemnom: nombreInvalido })]),
+      /Nombre de campo invalido/,
+      'deberia rechazar: ' + JSON.stringify(nombreInvalido)
+    );
+  }
+});
+
+test('buildSdtCopy permite editar largo y decimales con valores numericos', () => {
+  const src = sourceSdt();
+  const { bti026Copy } = buildSdtCopy(src, 'SdtCopia', [edited(src, 'campoA', { elemlargo: '120', elemdeci: '2' })]);
+  assert.equal(bti026Copy[0].elemlargo, '120');
+  assert.equal(bti026Copy[0].elemdeci, '2');
+});
+
+test('buildSdtCopy lanza si largo o decimales no son numericos', () => {
+  const src = sourceSdt();
+  assert.throws(() => buildSdtCopy(src, 'SdtCopia', [edited(src, 'campoA', { elemlargo: '12a' })]), /Largo invalido/);
+  assert.throws(() => buildSdtCopy(src, 'SdtCopia', [edited(src, 'campoA', { elemdeci: '-1' })]), /Decimales invalidos/);
+  assert.throws(() => buildSdtCopy(src, 'SdtCopia', [edited(src, 'campoA', { elemlargo: '' })]), /Largo invalido/);
+});
+
+test('buildSdtCopy permite editar la descripcion con texto normal (incluye acentos y enie)', () => {
+  const src = sourceSdt();
+  const { bti026Copy } = buildSdtCopy(src, 'SdtCopia', [edited(src, 'campoA', { elemdsc: 'Descripcion en espanol con ñ y acentos: código, año.' })]);
+  assert.equal(bti026Copy[0].elemdsc, 'Descripcion en espanol con ñ y acentos: código, año.');
+});
+
+test('buildSdtCopy lanza si la descripcion contiene comillas, punto y coma, barra invertida o salto de linea', () => {
+  const src = sourceSdt();
+  for (const textoInvalido of ["Tiene ' apostrofo", 'Tiene " comilla doble', 'Tiene ; punto y coma', 'Tiene \\ barra', 'Tiene\nsalto de linea']) {
+    assert.throws(
+      () => buildSdtCopy(src, 'SdtCopia', [edited(src, 'campoA', { elemdsc: textoInvalido })]),
+      /Descripcion invalida/,
+      'deberia rechazar: ' + JSON.stringify(textoInvalido)
+    );
+  }
+});
+
+test('buildSdtCopy permite editar el nombre de iterador (BTISDTELEMNOMIT) y lo deja vacio si no se manda', () => {
+  const src = sourceSdt();
+  const conNomit = buildSdtCopy(src, 'SdtCopia', [edited(src, 'campoA', { nomit: 'iterA' })]).bti026Copy;
+  assert.equal(conNomit[0].nomit, 'iterA');
+  const sinNomit = buildSdtCopy(src, 'SdtCopia', [edited(src, 'campoA', { nomit: '' })]).bti026Copy;
+  assert.equal(sinNomit[0].nomit, '');
+});
+
+test('buildSdtCopy lanza si el nombre de iterador contiene caracteres prohibidos', () => {
+  const src = sourceSdt();
+  assert.throws(() => buildSdtCopy(src, 'SdtCopia', [edited(src, 'campoA', { nomit: "iter'A" })]), /Nombre de iterador invalido/);
+});
+
+test('isValidFieldName / isValidDigits / isValidFieldText validan lo esperado', () => {
+  assert.equal(isValidFieldName('campoA'), true);
+  assert.equal(isValidFieldName('1campo'), false);
+  assert.equal(isValidDigits('0'), true);
+  assert.equal(isValidDigits('-1'), false);
+  assert.equal(isValidDigits('1.5'), false);
+  assert.equal(isValidFieldText('texto normal.'), true);
+  assert.equal(isValidFieldText("con '"), false);
 });
 
 test('generateSdtScript V3 emite DELETE antes que INSERT y usa el nombre nuevo', () => {
-  const { bti025Copy, bti026Copy } = buildSdtCopy(sourceSdt(), 'SdtCopia', ['campoA', 'campoB']);
+  const src = sourceSdt();
+  const { bti025Copy, bti026Copy } = buildSdtCopy(src, 'SdtCopia', editedAll(src, ['campoA', 'campoB']));
   const script = generateSdtScript('SdtCopia', bti025Copy, bti026Copy, 'V3', 'both');
   const deleteIdx = script.indexOf("DELETE FROM BTI025 WHERE BTISDTNom=N'SdtCopia'");
   const insertIdx = script.indexOf("INSERT INTO BTI025");
@@ -65,14 +161,16 @@ test('generateSdtScript V3 emite DELETE antes que INSERT y usa el nombre nuevo',
 });
 
 test('generateSdtScript V4 usa columnas y comillas de Oracle', () => {
-  const { bti025Copy, bti026Copy } = buildSdtCopy(sourceSdt(), 'SdtCopia', ['campoA']);
+  const src = sourceSdt();
+  const { bti025Copy, bti026Copy } = buildSdtCopy(src, 'SdtCopia', editedAll(src, ['campoA']));
   const script = generateSdtScript('SdtCopia', bti025Copy, bti026Copy, 'V4', 'insert');
   assert.ok(!/[(,]\s*N'/.test(script), 'V4 no debe usar el prefijo N de SQL Server');
   assert.match(script, /INSERT INTO BTI026 \([^)]+\) VALUES\('SdtCopia', '1', 'campoA'/);
 });
 
 test('generateSdtScript V3 incluye BTISDTElemPosi con la posicion asignada por buildSdtCopy', () => {
-  const { bti025Copy, bti026Copy } = buildSdtCopy(sourceSdt(), 'SdtCopia', ['campoC', 'campoA']);
+  const src = sourceSdt();
+  const { bti025Copy, bti026Copy } = buildSdtCopy(src, 'SdtCopia', editedAll(src, ['campoC', 'campoA']));
   const script = generateSdtScript('SdtCopia', bti025Copy, bti026Copy, 'V3', 'insert');
   const lines = script.split('\n').filter(l => l.startsWith('INSERT INTO BTI026'));
   assert.equal(lines.length, 2);
@@ -82,12 +180,20 @@ test('generateSdtScript V3 incluye BTISDTElemPosi con la posicion asignada por b
 });
 
 test('generateSdtScript V4 fuerza BTISDTVersion=1 aunque el campo origen tenga otra version', () => {
-  const { bti025Copy, bti026Copy } = buildSdtCopy(sourceSdt(), 'SdtCopia', ['campoA']);
+  const src = sourceSdt();
+  const { bti025Copy, bti026Copy } = buildSdtCopy(src, 'SdtCopia', editedAll(src, ['campoA']));
   assert.equal(sourceSdt().bti026[0].version, '2', 'el fixture debe traer una version distinta de 1');
   const script = generateSdtScript('SdtCopia', bti025Copy, bti026Copy, 'V4', 'insert');
   const line = script.split('\n').find(l => l.startsWith('INSERT INTO BTI026'));
   assert.match(line, /VALUES\('SdtCopia', '1', 'campoA'/);
   assert.ok(!line.includes("'2'"), 'no debe filtrarse la version del origen');
+});
+
+test('generateSdtScript refleja un campo renombrado en el INSERT generado', () => {
+  const src = sourceSdt();
+  const { bti025Copy, bti026Copy } = buildSdtCopy(src, 'SdtCopia', [edited(src, 'campoA', { elemnom: 'campoNuevoNombre' })]);
+  const script = generateSdtScript('SdtCopia', bti025Copy, bti026Copy, 'V3', 'insert');
+  assert.match(script, /INSERT INTO BTI026 \([^)]+\) VALUES\(N'SdtCopia', N'campoNuevoNombre'/);
 });
 
 const { createSdtGenFeature } = require('./index.js');
@@ -150,7 +256,8 @@ test('executeSdtCopy (SQL Server) corre DELETE+INSERT en una transaccion y hace 
   const feature = createSdtGenFeature(fakeDeps({
     getPool: async () => ({ pool: {}, mssql: { Transaction: FakeTransaction, Request: FakeRequest } }),
   }));
-  const { bti025Copy, bti026Copy } = buildSdtCopy(sourceSdt(), 'SdtCopia', ['campoA', 'campoB']);
+  const src = sourceSdt();
+  const { bti025Copy, bti026Copy } = buildSdtCopy(src, 'SdtCopia', editedAll(src, ['campoA', 'campoB']));
   const result = await feature.executeSdtCopy('sqlserver', {}, 'V3', 'SdtCopia', bti025Copy, bti026Copy);
   assert.equal(result.ok, true);
   assert.ok(result.statementsRun > 0);
@@ -167,7 +274,8 @@ test('executeSdtCopy (SQL Server) no manda punto y coma final en ninguna sentenc
   const feature = createSdtGenFeature(fakeDeps({
     getPool: async () => ({ pool: {}, mssql: { Transaction: FakeTransaction, Request: FakeRequest } }),
   }));
-  const { bti025Copy, bti026Copy } = buildSdtCopy(sourceSdt(), 'SdtCopia', ['campoA', 'campoB']);
+  const src = sourceSdt();
+  const { bti025Copy, bti026Copy } = buildSdtCopy(src, 'SdtCopia', editedAll(src, ['campoA', 'campoB']));
   await feature.executeSdtCopy('sqlserver', {}, 'V3', 'SdtCopia', bti025Copy, bti026Copy);
   assert.ok(queriesRun.length > 0);
   assert.deepEqual(queriesRun.filter(q => /;\s*$/.test(q)), [], 'ninguna sentencia debe terminar en ;');
@@ -180,7 +288,8 @@ test('executeSdtCopy (Oracle) no manda punto y coma final en ninguna sentencia',
     commit: async () => {}, rollback: async () => {}, close: async () => {},
   };
   const feature = createSdtGenFeature(fakeDeps({ getOra: async () => ({ conn: fakeConn, oracledb: {} }) }));
-  const { bti025Copy, bti026Copy } = buildSdtCopy(sourceSdt(), 'SdtCopia', ['campoA', 'campoB']);
+  const src = sourceSdt();
+  const { bti025Copy, bti026Copy } = buildSdtCopy(src, 'SdtCopia', editedAll(src, ['campoA', 'campoB']));
   await feature.executeSdtCopy('oracle', {}, 'V4', 'SdtCopia', bti025Copy, bti026Copy);
   assert.ok(sqls.length > 0);
   assert.deepEqual(sqls.filter(q => /;\s*$/.test(q)), [], 'ORA-00911: ninguna sentencia debe terminar en ;');
@@ -193,7 +302,8 @@ test('executeSdtCopy (SQL Server) hace rollback si un INSERT falla', async () =>
   const feature = createSdtGenFeature(fakeDeps({
     getPool: async () => ({ pool: {}, mssql: { Transaction: FakeTransaction, Request: FakeRequest } }),
   }));
-  const { bti025Copy, bti026Copy } = buildSdtCopy(sourceSdt(), 'SdtCopia', ['campoA']);
+  const src = sourceSdt();
+  const { bti025Copy, bti026Copy } = buildSdtCopy(src, 'SdtCopia', editedAll(src, ['campoA']));
   await assert.rejects(
     () => feature.executeSdtCopy('sqlserver', {}, 'V3', 'SdtCopia', bti025Copy, bti026Copy),
     /fallo simulado/
@@ -210,7 +320,8 @@ test('executeSdtCopy (Oracle) corre con autoCommit false y confirma con commit',
     close: async () => { calls.push({ action: 'close' }); },
   };
   const feature = createSdtGenFeature(fakeDeps({ getOra: async () => ({ conn: fakeConn, oracledb: {} }) }));
-  const { bti025Copy, bti026Copy } = buildSdtCopy(sourceSdt(), 'SdtCopia', ['campoA']);
+  const src = sourceSdt();
+  const { bti025Copy, bti026Copy } = buildSdtCopy(src, 'SdtCopia', editedAll(src, ['campoA']));
   const result = await feature.executeSdtCopy('oracle', {}, 'V4', 'SdtCopia', bti025Copy, bti026Copy);
   assert.equal(result.ok, true);
   assert.ok(calls.every(c => !c.sql || c.opts.autoCommit === false));
@@ -227,7 +338,8 @@ test('executeSdtCopy (Oracle) hace rollback y cierra la conexion si falla', asyn
     close: async () => { calls.push('close'); },
   };
   const feature = createSdtGenFeature(fakeDeps({ getOra: async () => ({ conn: fakeConn, oracledb: {} }) }));
-  const { bti025Copy, bti026Copy } = buildSdtCopy(sourceSdt(), 'SdtCopia', ['campoA']);
+  const src = sourceSdt();
+  const { bti025Copy, bti026Copy } = buildSdtCopy(src, 'SdtCopia', editedAll(src, ['campoA']));
   await assert.rejects(
     () => feature.executeSdtCopy('oracle', {}, 'V4', 'SdtCopia', bti025Copy, bti026Copy),
     /fallo oracle/
@@ -244,7 +356,8 @@ test('executeSdtCopy (SQL Server) preserva error original si rollback tambien fa
   const feature = createSdtGenFeature(fakeDeps({
     getPool: async () => ({ pool: {}, mssql: { Transaction: FakeTransaction, Request: FakeRequest } }),
   }));
-  const { bti025Copy, bti026Copy } = buildSdtCopy(sourceSdt(), 'SdtCopia', ['campoA']);
+  const src = sourceSdt();
+  const { bti025Copy, bti026Copy } = buildSdtCopy(src, 'SdtCopia', editedAll(src, ['campoA']));
   let caughtError;
   try {
     await feature.executeSdtCopy('sqlserver', {}, 'V3', 'SdtCopia', bti025Copy, bti026Copy);
@@ -269,7 +382,8 @@ test('executeSdtCopy (Oracle) preserva error original si rollback tambien falla 
     close: async () => { calls.push('close'); },
   };
   const feature = createSdtGenFeature(fakeDeps({ getOra: async () => ({ conn: fakeConn, oracledb: {} }) }));
-  const { bti025Copy, bti026Copy } = buildSdtCopy(sourceSdt(), 'SdtCopia', ['campoA']);
+  const src = sourceSdt();
+  const { bti025Copy, bti026Copy } = buildSdtCopy(src, 'SdtCopia', editedAll(src, ['campoA']));
   let caughtError;
   try {
     await feature.executeSdtCopy('oracle', {}, 'V4', 'SdtCopia', bti025Copy, bti026Copy);
@@ -331,10 +445,11 @@ test('handleApi POST /api/sdtgen/sdt responde ok:false si el SDT no existe', asy
 test('handleApi POST /api/sdtgen/generate responde con el script', async () => {
   const feature = createSdtGenFeature(fakeDeps());
   const res = fakeRes();
+  const src = sourceSdt();
   const handled = await feature.handleApi(fakeReq('POST', '/api/sdtgen/generate', {
     version: 'V3', nuevoNombre: 'SdtCopia',
-    sourceBti025: sourceSdt().bti025, sourceBti026: sourceSdt().bti026,
-    fieldsOrdenados: ['campoA', 'campoB'],
+    sourceBti025: src.bti025, sourceBti026: src.bti026,
+    editedFields: editedAll(src, ['campoA', 'campoB']),
   }), res, fakeHelpers(res));
   assert.equal(handled, true);
   assert.equal(res.body.ok, true);
@@ -344,16 +459,30 @@ test('handleApi POST /api/sdtgen/generate responde con el script', async () => {
 test('handleApi POST /api/sdtgen/generate rechaza un nuevoNombre invalido', async () => {
   const feature = createSdtGenFeature(fakeDeps());
   const res = fakeRes();
+  const src = sourceSdt();
   await feature.handleApi(fakeReq('POST', '/api/sdtgen/generate', {
     version: 'V3', nuevoNombre: "Sdt'; DROP TABLE BTI025--",
-    sourceBti025: sourceSdt().bti025, sourceBti026: sourceSdt().bti026,
-    fieldsOrdenados: ['campoA'],
+    sourceBti025: src.bti025, sourceBti026: src.bti026,
+    editedFields: editedAll(src, ['campoA']),
   }), res, fakeHelpers(res));
   assert.equal(res.body.ok, false);
   assert.match(res.body.message, /nombre/i);
 });
 
-test('handleApi POST /api/sdtgen/execute re-consulta el SDT origen en la base y ejecuta', async () => {
+test('handleApi POST /api/sdtgen/generate rechaza una descripcion editada con comillas', async () => {
+  const feature = createSdtGenFeature(fakeDeps());
+  const res = fakeRes();
+  const src = sourceSdt();
+  await feature.handleApi(fakeReq('POST', '/api/sdtgen/generate', {
+    version: 'V3', nuevoNombre: 'SdtCopia',
+    sourceBti025: src.bti025, sourceBti026: src.bti026,
+    editedFields: [edited(src, 'campoA', { elemdsc: "con ' apostrofo" })],
+  }), res, fakeHelpers(res));
+  assert.equal(res.body.ok, false);
+  assert.match(res.body.message, /Descripcion invalida/);
+});
+
+test('handleApi POST /api/sdtgen/execute re-consulta el SDT origen en la base, aplica ediciones y ejecuta', async () => {
   const log = [];
   const queriesRun = [];
   const q25Calls = [], q26Calls = [];
@@ -365,32 +494,35 @@ test('handleApi POST /api/sdtgen/execute re-consulta el SDT origen en la base y 
     queryBti026: async (...a) => { q26Calls.push(a); return sourceSdt().bti026; },
   }));
   const res = fakeRes();
+  const src = sourceSdt();
   const handled = await feature.handleApi(fakeReq('POST', '/api/sdtgen/execute', {
     platform: 'sqlserver', db: {}, version: 'V3', nom: 'SdtOriginal', nuevoNombre: 'SdtCopia',
-    fieldsOrdenados: ['campoA'],
+    editedFields: [edited(src, 'campoA', { elemnom: 'campoRenombrado', elemdsc: 'Descripcion editada.' })],
   }), res, fakeHelpers(res));
   assert.equal(handled, true);
   assert.equal(res.body.ok, true);
   assert.ok(res.body.statementsRun > 0);
   assert.deepEqual(q25Calls, [['sqlserver', {}, 'V3', 'SdtOriginal']]);
   assert.deepEqual(q26Calls, [['sqlserver', {}, 'V3', 'SdtOriginal']]);
-  assert.ok(queriesRun.some(s => s.includes("N'campoA'")), 'debe usar los datos re-consultados');
+  assert.ok(queriesRun.some(s => s.includes("N'campoRenombrado'")), 'debe usar el nombre editado');
+  assert.ok(queriesRun.some(s => s.includes("N'Descripcion editada.'")), 'debe usar la descripcion editada');
 });
 
 test('handleApi POST /api/sdtgen/execute rechaza un nuevoNombre invalido sin tocar la base', async () => {
   const invalidos = ['Sdt Copia', "Sdt'Copia", '1SdtCopia', '', 'A'.repeat(101)];
+  const src = sourceSdt();
   for (const nuevoNombre of invalidos) {
     let touched = false;
     const feature = createSdtGenFeature(fakeDeps({
       getPool: async () => { touched = true; throw new Error('no deberia llamarse'); },
       getOra: async () => { touched = true; throw new Error('no deberia llamarse'); },
-      queryBti025: async () => { touched = true; return sourceSdt().bti025; },
-      queryBti026: async () => { touched = true; return sourceSdt().bti026; },
+      queryBti025: async () => { touched = true; return src.bti025; },
+      queryBti026: async () => { touched = true; return src.bti026; },
     }));
     const res = fakeRes();
     await feature.handleApi(fakeReq('POST', '/api/sdtgen/execute', {
       platform: 'sqlserver', db: {}, version: 'V3', nom: 'SdtOriginal', nuevoNombre,
-      fieldsOrdenados: ['campoA'],
+      editedFields: editedAll(src, ['campoA']),
     }), res, fakeHelpers(res));
     assert.equal(res.body.ok, false, 'debe rechazar: ' + JSON.stringify(nuevoNombre));
     assert.match(res.body.message, /nombre/i);
@@ -398,7 +530,26 @@ test('handleApi POST /api/sdtgen/execute rechaza un nuevoNombre invalido sin toc
   }
 });
 
+test('handleApi POST /api/sdtgen/execute rechaza ediciones de campo invalidas re-consultadas de la base', async () => {
+  const src = sourceSdt();
+  let executed = false;
+  const feature = createSdtGenFeature(fakeDeps({
+    getPool: async () => { executed = true; throw new Error('no deberia llamarse'); },
+    queryBti025: async () => src.bti025,
+    queryBti026: async () => src.bti026,
+  }));
+  const res = fakeRes();
+  await feature.handleApi(fakeReq('POST', '/api/sdtgen/execute', {
+    platform: 'sqlserver', db: {}, version: 'V3', nom: 'SdtOriginal', nuevoNombre: 'SdtCopia',
+    editedFields: [edited(src, 'campoA', { elemnom: '1invalido' })],
+  }), res, fakeHelpers(res));
+  assert.equal(res.body.ok, false);
+  assert.match(res.body.message, /Nombre de campo invalido/);
+  assert.equal(executed, false);
+});
+
 test('handleApi POST /api/sdtgen/execute responde ok:false si el SDT origen ya no existe', async () => {
+  const src = sourceSdt();
   let executed = false;
   const feature = createSdtGenFeature(fakeDeps({
     getPool: async () => { executed = true; throw new Error('no deberia llamarse'); },
@@ -407,7 +558,7 @@ test('handleApi POST /api/sdtgen/execute responde ok:false si el SDT origen ya n
   const res = fakeRes();
   await feature.handleApi(fakeReq('POST', '/api/sdtgen/execute', {
     platform: 'sqlserver', db: {}, version: 'V3', nom: 'Borrado', nuevoNombre: 'SdtCopia',
-    fieldsOrdenados: ['campoA'],
+    editedFields: editedAll(src, ['campoA']),
   }), res, fakeHelpers(res));
   assert.equal(res.body.ok, false);
   assert.equal(res.body.message, 'SDT no encontrado: Borrado');

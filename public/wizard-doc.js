@@ -69,6 +69,29 @@ function sdtgenFilterList() {
   sdtgenRenderList(filtered);
 }
 
+var SDTGEN_FIELD_NAME_RE = /^[A-Za-z][A-Za-z0-9_]{0,99}$/;
+var SDTGEN_DIGITS_RE = /^\d{1,9}$/;
+var SDTGEN_FORBIDDEN_TEXT_RE = /['";\\\r\n]/;
+
+function sdtgenEscapeAttr(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Misma regla que valida el server (buildSdtCopy) - da feedback inmediato
+// en el editor, pero la autoridad final sigue siendo el server.
+function sdtgenValidateField(f) {
+  if (!SDTGEN_FIELD_NAME_RE.test(f.elemnom || '')) return 'Nombre invalido: debe empezar con una letra y usar solo letras, numeros o guion bajo.';
+  if (!SDTGEN_DIGITS_RE.test(f.elemlargo != null ? String(f.elemlargo) : '')) return 'Largo invalido: debe ser un numero entero (0 o mayor).';
+  if (!SDTGEN_DIGITS_RE.test(f.elemdeci != null ? String(f.elemdeci) : '0')) return 'Decimales invalidos: debe ser un numero entero (0 o mayor).';
+  if (SDTGEN_FORBIDDEN_TEXT_RE.test(f.elemdsc || '')) return 'Descripcion invalida: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
+  if (f.nomit && SDTGEN_FORBIDDEN_TEXT_RE.test(f.nomit)) return 'Nombre de iterador invalido: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
+  return null;
+}
+
+function sdtgenFieldsAllValid() {
+  return sdtgenFields.every(function(f) { return !sdtgenValidateField(f); });
+}
+
 async function sdtgenGoToEdit() {
   if (!sdtgenSelectedName) return;
   var btn = document.getElementById('btn-next');
@@ -78,7 +101,11 @@ async function sdtgenGoToEdit() {
     var d = await r.json();
     if (!d.ok) throw new Error(d.message);
     sdtgenBaseData = { bti025: d.bti025, bti026: d.bti026 };
-    sdtgenFields = (d.bti026 || []).slice();
+    // Copia editable independiente del origen; origElemnom queda fijo para
+    // que el server pueda ubicar el campo real aunque se le cambie el nombre.
+    sdtgenFields = (d.bti026 || []).map(function(f) {
+      return Object.assign({}, f, { origElemnom: f.elemnom, elemdeci: f.elemdeci || '0', nomit: f.nomit || '' });
+    });
     setVal('sdtgen-new-name', '');
     document.getElementById('sdtgen-base-name').textContent = sdtgenSelectedName;
     show(5);
@@ -91,19 +118,57 @@ async function sdtgenGoToEdit() {
 function sdtgenRenderEditor() {
   var container = document.getElementById('sdtgen-fields');
   container.innerHTML = '';
+  var showV4Extras = S.version === 'V4';
   sdtgenFields.forEach(function(field, idx) {
     var item = document.createElement('div');
     item.className = 'sdtgen-field-item';
     item.draggable = true;
-    item.innerHTML = '<span class="sdtgen-drag-handle">&#9776;</span>' +
-      '<span class="sdtgen-field-name">' + field.elemnom + '</span>' +
-      '<span class="sdtgen-field-type">' + (field.elemtipo || '') + '</span>' +
+
+    var top = document.createElement('div');
+    top.className = 'sdtgen-field-row-top';
+    top.innerHTML = '<span class="sdtgen-drag-handle">&#9776;</span>' +
+      '<input type="text" class="sdtgen-field-input sdtgen-field-input-nom" value="' + sdtgenEscapeAttr(field.elemnom) + '">' +
+      '<span class="sdtgen-field-type">' + sdtgenEscapeAttr(field.elemtipo) + '</span>' +
       '<button type="button" class="sdtgen-field-rm" title="Quitar">&times;</button>';
-    item.querySelector('.sdtgen-field-rm').onclick = function() {
+
+    var bottom = document.createElement('div');
+    bottom.className = 'sdtgen-field-row-bottom';
+    bottom.innerHTML =
+      '<label>Largo<input type="text" class="sdtgen-field-input sdtgen-field-input-largo" value="' + sdtgenEscapeAttr(field.elemlargo) + '"></label>' +
+      (showV4Extras ? '<label>Decimales<input type="text" class="sdtgen-field-input sdtgen-field-input-deci" value="' + sdtgenEscapeAttr(field.elemdeci) + '"></label>' : '') +
+      '<label class="sdtgen-field-dsc-label">Descripción<input type="text" class="sdtgen-field-input sdtgen-field-input-dsc" value="' + sdtgenEscapeAttr(field.elemdsc) + '"></label>' +
+      (showV4Extras ? '<label>Nombre iterador<input type="text" class="sdtgen-field-input sdtgen-field-input-nomit" value="' + sdtgenEscapeAttr(field.nomit) + '"></label>' : '');
+
+    var err = document.createElement('div');
+    err.className = 'sdtgen-field-err';
+
+    item.appendChild(top);
+    item.appendChild(bottom);
+    item.appendChild(err);
+
+    function updateErr() {
+      var msg = sdtgenValidateField(field);
+      err.textContent = msg || '';
+      item.classList.toggle('invalid', !!msg);
+    }
+
+    top.querySelector('.sdtgen-field-input-nom').addEventListener('input', function() { field.elemnom = this.value; updateErr(); });
+    bottom.querySelector('.sdtgen-field-input-largo').addEventListener('input', function() { field.elemlargo = this.value; updateErr(); });
+    bottom.querySelector('.sdtgen-field-input-dsc').addEventListener('input', function() { field.elemdsc = this.value; updateErr(); });
+    if (showV4Extras) {
+      bottom.querySelector('.sdtgen-field-input-deci').addEventListener('input', function() { field.elemdeci = this.value; updateErr(); });
+      bottom.querySelector('.sdtgen-field-input-nomit').addEventListener('input', function() { field.nomit = this.value; updateErr(); });
+    }
+    updateErr();
+
+    top.querySelector('.sdtgen-field-rm').onclick = function() {
       sdtgenFields.splice(idx, 1);
       sdtgenRenderEditor();
     };
-    item.addEventListener('dragstart', function() { sdtgenDragIdx = idx; item.classList.add('dragging'); });
+    item.addEventListener('dragstart', function(e) {
+      if (e.target && e.target.tagName === 'INPUT') { e.preventDefault(); return; }
+      sdtgenDragIdx = idx; item.classList.add('dragging');
+    });
     item.addEventListener('dragend', function() { item.classList.remove('dragging'); });
     item.addEventListener('dragover', function(e) { e.preventDefault(); });
     item.addEventListener('drop', function(e) {
@@ -125,8 +190,15 @@ function sdtgenGoToResult() {
   if (nombre === sdtgenSelectedName) { err.className = 'cres show err'; err.textContent = 'El nombre debe ser distinto al del SDT base.'; return; }
   if (sdtgenNames.indexOf(nombre) !== -1) { err.className = 'cres show err'; err.textContent = 'Ya existe un SDT con ese nombre. Elegí otro.'; return; }
   if (sdtgenFields.length === 0) { err.className = 'cres show err'; err.textContent = 'La copia necesita al menos un campo.'; return; }
+  if (!sdtgenFieldsAllValid()) { err.className = 'cres show err'; err.textContent = 'Hay campos con datos invalidos, revisalos antes de continuar.'; return; }
   err.className = 'cres';
   show(6);
+}
+
+function sdtgenBuildEditedFields() {
+  return sdtgenFields.map(function(f) {
+    return { origElemnom: f.origElemnom, elemnom: f.elemnom, elemlargo: f.elemlargo, elemdsc: f.elemdsc, elemdeci: f.elemdeci, nomit: f.nomit };
+  });
 }
 
 async function sdtgenDoGenerate() {
@@ -138,7 +210,7 @@ async function sdtgenDoGenerate() {
       nuevoNombre: v('sdtgen-new-name'),
       sourceBti025: sdtgenBaseData.bti025,
       sourceBti026: sdtgenBaseData.bti026,
-      fieldsOrdenados: sdtgenFields.map(function(f) { return f.elemnom; })
+      editedFields: sdtgenBuildEditedFields()
     }) });
     var d = await r.json();
     if (!d.ok) throw new Error(d.message);
@@ -164,7 +236,7 @@ async function sdtgenExecute() {
       platform: S.platform, db: getDbSG(), version: S.version,
       nom: sdtgenSelectedName,
       nuevoNombre: v('sdtgen-new-name'),
-      fieldsOrdenados: sdtgenFields.map(function(f) { return f.elemnom; })
+      editedFields: sdtgenBuildEditedFields()
     }) });
     var d = await r.json();
     if (!d.ok) throw new Error(d.message);
