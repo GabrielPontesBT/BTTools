@@ -215,3 +215,84 @@ test('executeSdtCopy (Oracle) preserva error original si rollback tambien falla 
   assert.equal(rollbackCalled, true);
   assert.deepEqual(calls, ['close']);
 });
+
+function fakeReq(method, url, body) { return { method, url, _body: body }; }
+function fakeRes() {
+  const res = { statusCode: null, body: null };
+  return res;
+}
+function fakeHelpers(res) {
+  return {
+    readBody: async (req) => req._body,
+    json: (status, obj) => { res.statusCode = status; res.body = obj; },
+  };
+}
+
+test('handleApi POST /api/sdtgen/list responde con los nombres', async () => {
+  const feature = createSdtGenFeature(fakeDeps({
+    getPool: async () => ({ pool: { request: () => ({ query: async () => ({ recordset: [{ BTISDTNom: 'SdtA' }] }) }) }, mssql: {} }),
+  }));
+  const res = fakeRes();
+  const handled = await feature.handleApi(fakeReq('POST', '/api/sdtgen/list', { platform: 'sqlserver', db: {} }), res, fakeHelpers(res));
+  assert.equal(handled, true);
+  assert.deepEqual(res.body, { ok: true, names: ['SdtA'] });
+});
+
+test('handleApi POST /api/sdtgen/sdt responde con bti025 y bti026', async () => {
+  const feature = createSdtGenFeature(fakeDeps({
+    queryBti025: async () => ({ nom: 'SdtOriginal', nativo: 'S' }),
+    queryBti026: async () => ([{ elemnom: 'campoA' }]),
+  }));
+  const res = fakeRes();
+  const handled = await feature.handleApi(fakeReq('POST', '/api/sdtgen/sdt', { platform: 'sqlserver', db: {}, version: 'V3', nom: 'SdtOriginal' }), res, fakeHelpers(res));
+  assert.equal(handled, true);
+  assert.equal(res.body.ok, true);
+  assert.equal(res.body.bti025.nom, 'SdtOriginal');
+  assert.equal(res.body.bti026[0].elemnom, 'campoA');
+});
+
+test('handleApi POST /api/sdtgen/sdt responde ok:false si el SDT no existe', async () => {
+  const feature = createSdtGenFeature(fakeDeps({ queryBti025: async () => null }));
+  const res = fakeRes();
+  await feature.handleApi(fakeReq('POST', '/api/sdtgen/sdt', { platform: 'sqlserver', db: {}, version: 'V3', nom: 'NoExiste' }), res, fakeHelpers(res));
+  assert.equal(res.body.ok, false);
+  assert.match(res.body.message, /NoExiste/);
+});
+
+test('handleApi POST /api/sdtgen/generate responde con el script', async () => {
+  const feature = createSdtGenFeature(fakeDeps());
+  const res = fakeRes();
+  const handled = await feature.handleApi(fakeReq('POST', '/api/sdtgen/generate', {
+    version: 'V3', nuevoNombre: 'SdtCopia',
+    sourceBti025: sourceSdt().bti025, sourceBti026: sourceSdt().bti026,
+    fieldsOrdenados: ['campoA', 'campoB'],
+  }), res, fakeHelpers(res));
+  assert.equal(handled, true);
+  assert.equal(res.body.ok, true);
+  assert.ok(res.body.script.includes("DELETE FROM BTI025 WHERE BTISDTNom=N'SdtCopia'"));
+});
+
+test('handleApi POST /api/sdtgen/execute delega en executeSdtCopy', async () => {
+  const log = [];
+  const FakeTransaction = fakeMssqlTransaction(null, log);
+  const FakeRequest = class { async query() {} };
+  const feature = createSdtGenFeature(fakeDeps({
+    getPool: async () => ({ pool: {}, mssql: { Transaction: FakeTransaction, Request: FakeRequest } }),
+  }));
+  const res = fakeRes();
+  const handled = await feature.handleApi(fakeReq('POST', '/api/sdtgen/execute', {
+    platform: 'sqlserver', db: {}, version: 'V3', nuevoNombre: 'SdtCopia',
+    sourceBti025: sourceSdt().bti025, sourceBti026: sourceSdt().bti026,
+    fieldsOrdenados: ['campoA'],
+  }), res, fakeHelpers(res));
+  assert.equal(handled, true);
+  assert.equal(res.body.ok, true);
+  assert.ok(res.body.statementsRun > 0);
+});
+
+test('handleApi devuelve false para una ruta desconocida', async () => {
+  const feature = createSdtGenFeature(fakeDeps());
+  const res = fakeRes();
+  const handled = await feature.handleApi(fakeReq('GET', '/api/otra-cosa', {}), res, fakeHelpers(res));
+  assert.equal(handled, false);
+});

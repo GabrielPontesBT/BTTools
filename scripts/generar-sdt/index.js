@@ -86,7 +86,62 @@ function createSdtGenFeature(deps) {
     }
   }
 
-  return { listSdtNames, executeSdtCopy };
+  async function handleApi(req, res, helpers) {
+    const json = helpers.json;
+    const readBody = helpers.readBody;
+
+    if (req.method === 'POST' && req.url === '/api/sdtgen/list') {
+      try {
+        const body = await readBody(req);
+        const names = await listSdtNames(body.platform, body.db);
+        json(200, { ok: true, names });
+      } catch (e) { json(200, { ok: false, message: e.message }); }
+      return true;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/sdtgen/sdt') {
+      try {
+        const body = await readBody(req);
+        const bti025 = await queryBti025(body.platform, body.db, body.version, body.nom);
+        if (!bti025) { json(200, { ok: false, message: 'SDT no encontrado: ' + body.nom }); return true; }
+        const bti026 = await queryBti026(body.platform, body.db, body.version, body.nom);
+        json(200, { ok: true, bti025, bti026 });
+      } catch (e) { json(200, { ok: false, message: e.message }); }
+      return true;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/sdtgen/generate') {
+      try {
+        const body = await readBody(req);
+        const { bti025Copy, bti026Copy } = buildSdtCopy(
+          { bti025: body.sourceBti025, bti026: body.sourceBti026 },
+          body.nuevoNombre,
+          body.fieldsOrdenados
+        );
+        const script = generateSdtScript(body.nuevoNombre, bti025Copy, bti026Copy, body.version, body.mode || 'both');
+        json(200, { ok: true, script, bti025Copy, bti026Copy });
+      } catch (e) { json(200, { ok: false, message: e.message }); }
+      return true;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/sdtgen/execute') {
+      try {
+        const body = await readBody(req);
+        const { bti025Copy, bti026Copy } = buildSdtCopy(
+          { bti025: body.sourceBti025, bti026: body.sourceBti026 },
+          body.nuevoNombre,
+          body.fieldsOrdenados
+        );
+        const result = await executeSdtCopy(body.platform, body.db, body.version, body.nuevoNombre, bti025Copy, bti026Copy);
+        json(200, Object.assign({ ok: true }, result));
+      } catch (e) { json(200, { ok: false, message: e.message }); }
+      return true;
+    }
+
+    return false;
+  }
+
+  return { listSdtNames, executeSdtCopy, handleApi };
 }
 
 module.exports = { createSdtGenFeature, buildSdtCopy, generateSdtScript };
