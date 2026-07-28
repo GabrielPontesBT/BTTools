@@ -406,11 +406,21 @@ function scheduleConnTest() {
 // ── Historial de conexiones ───────────────────────────────────
 
 async function loadDbHistory() {
+  var err = document.getElementById('db-hist-err');
+  if (err) { err.className = 'cres'; err.textContent = ''; }
   try {
     var r = await fetch('/sg/api/db-history', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action: 'list' }) });
     var d = await r.json();
-    if (d.ok) { _dbHistory = d.history || []; renderDbHistory(); }
-  } catch(e) {}
+    if (d.ok) {
+      _dbHistory = d.history || [];
+      renderDbHistory();
+    } else if (err) {
+      err.className = 'cres show err';
+      err.textContent = 'No se pudieron cargar las conexiones guardadas: ' + (d.message || 'error desconocido');
+    }
+  } catch(e) {
+    if (err) { err.className = 'cres show err'; err.textContent = 'No se pudo conectar con el servidor para cargar las conexiones guardadas.'; }
+  }
 }
 
 function renderDbHistory() {
