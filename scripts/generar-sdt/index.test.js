@@ -90,3 +90,78 @@ test('listSdtNames (Oracle) cierra la conexion y devuelve nombres recortados', a
   assert.deepEqual(names, ['SdtC']);
   assert.equal(closed, true);
 });
+
+function fakeMssqlTransaction(pool, log) {
+  return class FakeTransaction {
+    constructor(p) { this.pool = p; }
+    async begin() { log.push('begin'); }
+    async commit() { log.push('commit'); }
+    async rollback() { log.push('rollback'); }
+  };
+}
+
+test('executeSdtCopy (SQL Server) corre DELETE+INSERT en una transaccion y hace commit', async () => {
+  const log = [];
+  const queriesRun = [];
+  const FakeTransaction = fakeMssqlTransaction(null, log);
+  const FakeRequest = class { constructor(tx) { this.tx = tx; } async query(sql) { queriesRun.push(sql); } };
+  const feature = createSdtGenFeature(fakeDeps({
+    getPool: async () => ({ pool: {}, mssql: { Transaction: FakeTransaction, Request: FakeRequest } }),
+  }));
+  const { bti025Copy, bti026Copy } = buildSdtCopy(sourceSdt(), 'SdtCopia', ['campoA', 'campoB']);
+  const result = await feature.executeSdtCopy('sqlserver', {}, 'V3', 'SdtCopia', bti025Copy, bti026Copy);
+  assert.equal(result.ok, true);
+  assert.ok(result.statementsRun > 0);
+  assert.deepEqual(log, ['begin', 'commit']);
+  assert.ok(queriesRun.some(q => q.startsWith('DELETE FROM BTI025')));
+  assert.ok(queriesRun.some(q => q.startsWith('INSERT INTO BTI025')));
+});
+
+test('executeSdtCopy (SQL Server) hace rollback si un INSERT falla', async () => {
+  const log = [];
+  const FakeTransaction = fakeMssqlTransaction(null, log);
+  const FakeRequest = class { async query(sql) { if (sql.startsWith('INSERT INTO BTI026')) throw new Error('fallo simulado'); } };
+  const feature = createSdtGenFeature(fakeDeps({
+    getPool: async () => ({ pool: {}, mssql: { Transaction: FakeTransaction, Request: FakeRequest } }),
+  }));
+  const { bti025Copy, bti026Copy } = buildSdtCopy(sourceSdt(), 'SdtCopia', ['campoA']);
+  await assert.rejects(
+    () => feature.executeSdtCopy('sqlserver', {}, 'V3', 'SdtCopia', bti025Copy, bti026Copy),
+    /fallo simulado/
+  );
+  assert.deepEqual(log, ['begin', 'rollback']);
+});
+
+test('executeSdtCopy (Oracle) corre con autoCommit false y confirma con commit', async () => {
+  const calls = [];
+  const fakeConn = {
+    execute: async (sql, binds, opts) => { calls.push({ sql, opts }); },
+    commit: async () => { calls.push({ action: 'commit' }); },
+    rollback: async () => { calls.push({ action: 'rollback' }); },
+    close: async () => { calls.push({ action: 'close' }); },
+  };
+  const feature = createSdtGenFeature(fakeDeps({ getOra: async () => ({ conn: fakeConn, oracledb: {} }) }));
+  const { bti025Copy, bti026Copy } = buildSdtCopy(sourceSdt(), 'SdtCopia', ['campoA']);
+  const result = await feature.executeSdtCopy('oracle', {}, 'V4', 'SdtCopia', bti025Copy, bti026Copy);
+  assert.equal(result.ok, true);
+  assert.ok(calls.every(c => !c.sql || c.opts.autoCommit === false));
+  assert.equal(calls[calls.length - 2].action, 'commit');
+  assert.equal(calls[calls.length - 1].action, 'close');
+});
+
+test('executeSdtCopy (Oracle) hace rollback y cierra la conexion si falla', async () => {
+  const calls = [];
+  const fakeConn = {
+    execute: async (sql) => { if (sql.startsWith('DELETE')) return; throw new Error('fallo oracle'); },
+    commit: async () => { calls.push('commit'); },
+    rollback: async () => { calls.push('rollback'); },
+    close: async () => { calls.push('close'); },
+  };
+  const feature = createSdtGenFeature(fakeDeps({ getOra: async () => ({ conn: fakeConn, oracledb: {} }) }));
+  const { bti025Copy, bti026Copy } = buildSdtCopy(sourceSdt(), 'SdtCopia', ['campoA']);
+  await assert.rejects(
+    () => feature.executeSdtCopy('oracle', {}, 'V4', 'SdtCopia', bti025Copy, bti026Copy),
+    /fallo oracle/
+  );
+  assert.deepEqual(calls, ['rollback', 'close']);
+});

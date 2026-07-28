@@ -41,7 +41,44 @@ function createSdtGenFeature(deps) {
     }
   }
 
-  return { listSdtNames };
+  function scriptToStatements(nuevoNombre, bti025Copy, bti026Copy, version) {
+    const script = generateSdtScript(nuevoNombre, bti025Copy, bti026Copy, version, 'both');
+    return script.split('\n').map(s => s.trim()).filter(Boolean);
+  }
+
+  async function executeSdtCopy(platform, db, version, nuevoNombre, bti025Copy, bti026Copy) {
+    const statements = scriptToStatements(nuevoNombre, bti025Copy, bti026Copy, version);
+    if (platform === 'sqlserver') {
+      const { pool, mssql } = await getPool(db);
+      const tx = new mssql.Transaction(pool);
+      await tx.begin();
+      try {
+        for (const stmt of statements) {
+          await new mssql.Request(tx).query(stmt);
+        }
+        await tx.commit();
+        return { ok: true, statementsRun: statements.length };
+      } catch (e) {
+        await tx.rollback();
+        throw e;
+      }
+    }
+    const { conn } = await getOra(db);
+    try {
+      for (const stmt of statements) {
+        await conn.execute(stmt, [], { autoCommit: false });
+      }
+      await conn.commit();
+      return { ok: true, statementsRun: statements.length };
+    } catch (e) {
+      await conn.rollback();
+      throw e;
+    } finally {
+      await conn.close();
+    }
+  }
+
+  return { listSdtNames, executeSdtCopy };
 }
 
 module.exports = { createSdtGenFeature, buildSdtCopy, generateSdtScript };
