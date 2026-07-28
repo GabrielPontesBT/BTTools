@@ -115,53 +115,58 @@ async function sdtgenGoToEdit() {
   if (btn) { btn.innerHTML = 'Siguiente &#8594;'; btn.disabled = false; }
 }
 
+function sdtgenFieldGridCols(showV4Extras) {
+  return '24px 160px 70px 60px' + (showV4Extras ? ' 60px' : '') + ' minmax(160px,1fr)' + (showV4Extras ? ' 110px' : '') + ' 28px';
+}
+
 function sdtgenRenderEditor() {
   var container = document.getElementById('sdtgen-fields');
   container.innerHTML = '';
   var showV4Extras = S.version === 'V4';
+  var gridCols = sdtgenFieldGridCols(showV4Extras);
+
+  var header = document.createElement('div');
+  header.className = 'sdtgen-fields-header';
+  header.style.gridTemplateColumns = gridCols;
+  header.innerHTML = '<span></span><span>Nombre</span><span>Tipo</span><span>Largo</span>' +
+    (showV4Extras ? '<span>Decimales</span>' : '') +
+    '<span>Descripción</span>' +
+    (showV4Extras ? '<span>Iterador</span>' : '') +
+    '<span></span>';
+  container.appendChild(header);
+
   sdtgenFields.forEach(function(field, idx) {
     var item = document.createElement('div');
     item.className = 'sdtgen-field-item';
+    item.style.gridTemplateColumns = gridCols;
     item.draggable = true;
-
-    var top = document.createElement('div');
-    top.className = 'sdtgen-field-row-top';
-    top.innerHTML = '<span class="sdtgen-drag-handle">&#9776;</span>' +
+    item.innerHTML = '<span class="sdtgen-drag-handle">&#9776;</span>' +
       '<input type="text" class="sdtgen-field-input sdtgen-field-input-nom" value="' + sdtgenEscapeAttr(field.elemnom) + '">' +
       '<span class="sdtgen-field-type">' + sdtgenEscapeAttr(field.elemtipo) + '</span>' +
-      '<button type="button" class="sdtgen-field-rm" title="Quitar">&times;</button>';
+      '<input type="text" class="sdtgen-field-input sdtgen-field-input-largo" value="' + sdtgenEscapeAttr(field.elemlargo) + '">' +
+      (showV4Extras ? '<input type="text" class="sdtgen-field-input sdtgen-field-input-deci" value="' + sdtgenEscapeAttr(field.elemdeci) + '">' : '') +
+      '<input type="text" class="sdtgen-field-input sdtgen-field-input-dsc" value="' + sdtgenEscapeAttr(field.elemdsc) + '">' +
+      (showV4Extras ? '<input type="text" class="sdtgen-field-input sdtgen-field-input-nomit" value="' + sdtgenEscapeAttr(field.nomit) + '">' : '') +
+      '<button type="button" class="sdtgen-field-rm" title="Quitar">&times;</button>' +
+      '<div class="sdtgen-field-err"></div>';
 
-    var bottom = document.createElement('div');
-    bottom.className = 'sdtgen-field-row-bottom';
-    bottom.innerHTML =
-      '<label>Largo<input type="text" class="sdtgen-field-input sdtgen-field-input-largo" value="' + sdtgenEscapeAttr(field.elemlargo) + '"></label>' +
-      (showV4Extras ? '<label>Decimales<input type="text" class="sdtgen-field-input sdtgen-field-input-deci" value="' + sdtgenEscapeAttr(field.elemdeci) + '"></label>' : '') +
-      '<label class="sdtgen-field-dsc-label">Descripción<input type="text" class="sdtgen-field-input sdtgen-field-input-dsc" value="' + sdtgenEscapeAttr(field.elemdsc) + '"></label>' +
-      (showV4Extras ? '<label>Nombre iterador<input type="text" class="sdtgen-field-input sdtgen-field-input-nomit" value="' + sdtgenEscapeAttr(field.nomit) + '"></label>' : '');
-
-    var err = document.createElement('div');
-    err.className = 'sdtgen-field-err';
-
-    item.appendChild(top);
-    item.appendChild(bottom);
-    item.appendChild(err);
-
+    var err = item.querySelector('.sdtgen-field-err');
     function updateErr() {
       var msg = sdtgenValidateField(field);
       err.textContent = msg || '';
       item.classList.toggle('invalid', !!msg);
     }
 
-    top.querySelector('.sdtgen-field-input-nom').addEventListener('input', function() { field.elemnom = this.value; updateErr(); });
-    bottom.querySelector('.sdtgen-field-input-largo').addEventListener('input', function() { field.elemlargo = this.value; updateErr(); });
-    bottom.querySelector('.sdtgen-field-input-dsc').addEventListener('input', function() { field.elemdsc = this.value; updateErr(); });
+    item.querySelector('.sdtgen-field-input-nom').addEventListener('input', function() { field.elemnom = this.value; updateErr(); });
+    item.querySelector('.sdtgen-field-input-largo').addEventListener('input', function() { field.elemlargo = this.value; updateErr(); });
+    item.querySelector('.sdtgen-field-input-dsc').addEventListener('input', function() { field.elemdsc = this.value; updateErr(); });
     if (showV4Extras) {
-      bottom.querySelector('.sdtgen-field-input-deci').addEventListener('input', function() { field.elemdeci = this.value; updateErr(); });
-      bottom.querySelector('.sdtgen-field-input-nomit').addEventListener('input', function() { field.nomit = this.value; updateErr(); });
+      item.querySelector('.sdtgen-field-input-deci').addEventListener('input', function() { field.elemdeci = this.value; updateErr(); });
+      item.querySelector('.sdtgen-field-input-nomit').addEventListener('input', function() { field.nomit = this.value; updateErr(); });
     }
     updateErr();
 
-    top.querySelector('.sdtgen-field-rm').onclick = function() {
+    item.querySelector('.sdtgen-field-rm').onclick = function() {
       sdtgenFields.splice(idx, 1);
       sdtgenRenderEditor();
     };
