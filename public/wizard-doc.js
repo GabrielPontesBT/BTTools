@@ -127,6 +127,61 @@ function sdtgenGoToResult() {
   show(6);
 }
 
+async function sdtgenDoGenerate() {
+  var ta = document.getElementById('sdtgen-sql-out');
+  ta.value = 'Generando...';
+  try {
+    var r = await fetch('/api/sdtgen/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+      version: S.version,
+      nuevoNombre: v('sdtgen-new-name'),
+      sourceBti025: sdtgenBaseData.bti025,
+      sourceBti026: sdtgenBaseData.bti026,
+      fieldsOrdenados: sdtgenFields.map(function(f) { return f.elemnom; })
+    }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    ta.value = d.script || '';
+  } catch(e) { ta.value = 'Error: ' + e.message; }
+}
+
+function sdtgenCopyScript() {
+  var ta = document.getElementById('sdtgen-sql-out'); if (!ta.value.trim()) return;
+  navigator.clipboard.writeText(ta.value).then(function() {
+    var res = document.getElementById('sdtgen-exec-res');
+    res.className = 'cres show ok'; res.textContent = 'Copiado al portapapeles ✓';
+    setTimeout(function() { res.className = 'cres'; }, 2000);
+  }).catch(function() { ta.select(); document.execCommand('copy'); });
+}
+
+async function sdtgenExecute() {
+  if (!confirm('Esto va a ejecutar DELETE + INSERT contra la base conectada. ¿Confirmás?')) return;
+  var res = document.getElementById('sdtgen-exec-res');
+  res.className = 'cres show'; res.textContent = 'Ejecutando...';
+  try {
+    var r = await fetch('/api/sdtgen/execute', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+      platform: S.platform, db: getDbSG(), version: S.version,
+      nuevoNombre: v('sdtgen-new-name'),
+      sourceBti025: sdtgenBaseData.bti025,
+      sourceBti026: sdtgenBaseData.bti026,
+      fieldsOrdenados: sdtgenFields.map(function(f) { return f.elemnom; })
+    }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    res.className = 'cres show ok'; res.textContent = 'Ejecutado correctamente (' + d.statementsRun + ' sentencias) ✓';
+  } catch(e) {
+    res.className = 'cres show err'; res.textContent = 'Error: ' + e.message;
+  }
+}
+
+function sdtgenReset() {
+  sdtgenSelectedName = null; sdtgenBaseData = null; sdtgenFields = [];
+  setVal('sdtgen-search', ''); setVal('sdtgen-new-name', '');
+  document.getElementById('sdtgen-sql-out').value = '';
+  var res = document.getElementById('sdtgen-exec-res'); if (res) res.className = 'cres';
+  show(4);
+  sdtgenLoadList();
+}
+
 // ── Historial de conexiones ───────────────────────────────────
 var _dbHistory = [];
 
