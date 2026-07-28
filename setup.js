@@ -6,6 +6,7 @@ const os     = require('os');
 const crypto = require('crypto');
 const { exec, spawn } = require('child_process');
 const { createCollectionFeature } = require('./scripts/generar-collections');
+const { createSdtGenFeature } = require('./scripts/generar-sdt');
 
 const PORT = 3777;
 const ROOT = __dirname;
@@ -878,6 +879,13 @@ const collectionFeature = createCollectionFeature({
   queryMethodSchema
 });
 
+const sdtGenFeature = createSdtGenFeature({
+  getPool: sg_getPool,
+  getOra: sg_getOra,
+  queryBti025: sg_queryBti025,
+  queryBti026: sg_queryBti026,
+});
+
 // -- server ------------------------------------------------
 
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -919,6 +927,10 @@ http.createServer(async (req, res) => {
   }
 
   if (await collectionFeature.handleApi(req, res, { readBody, json })) {
+    return;
+  }
+
+  if (await sdtGenFeature.handleApi(req, res, { readBody, json })) {
     return;
   }
 
