@@ -123,6 +123,8 @@ function sdtgenGoToResult() {
   var err = document.getElementById('sdtgen-name-err');
   if (!nombre) { err.className = 'cres show err'; err.textContent = 'Ingresá un nombre para la copia.'; return; }
   if (nombre === sdtgenSelectedName) { err.className = 'cres show err'; err.textContent = 'El nombre debe ser distinto al del SDT base.'; return; }
+  if (sdtgenNames.indexOf(nombre) !== -1) { err.className = 'cres show err'; err.textContent = 'Ya existe un SDT con ese nombre. Elegí otro.'; return; }
+  if (sdtgenFields.length === 0) { err.className = 'cres show err'; err.textContent = 'La copia necesita al menos un campo.'; return; }
   err.className = 'cres';
   show(6);
 }
@@ -160,9 +162,8 @@ async function sdtgenExecute() {
   try {
     var r = await fetch('/api/sdtgen/execute', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
       platform: S.platform, db: getDbSG(), version: S.version,
+      nom: sdtgenSelectedName,
       nuevoNombre: v('sdtgen-new-name'),
-      sourceBti025: sdtgenBaseData.bti025,
-      sourceBti026: sdtgenBaseData.bti026,
       fieldsOrdenados: sdtgenFields.map(function(f) { return f.elemnom; })
     }) });
     var d = await r.json();
