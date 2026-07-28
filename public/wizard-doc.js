@@ -175,6 +175,7 @@ async function sdtgenExecute() {
 
 function sdtgenReset() {
   sdtgenSelectedName = null; sdtgenBaseData = null; sdtgenFields = [];
+  sdtgenDragIdx = null;
   setVal('sdtgen-search', ''); setVal('sdtgen-new-name', '');
   document.getElementById('sdtgen-sql-out').value = '';
   var res = document.getElementById('sdtgen-exec-res'); if (res) res.className = 'cres';
