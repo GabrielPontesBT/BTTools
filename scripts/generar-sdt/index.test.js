@@ -63,3 +63,30 @@ test('generateSdtScript V4 usa columnas y comillas de Oracle', () => {
   assert.ok(!/[(,]\s*N'/.test(script), 'V4 no debe usar el prefijo N de SQL Server');
   assert.match(script, /INSERT INTO BTI026 \([^)]+\) VALUES\('SdtCopia', '1', 'campoA'/);
 });
+
+const { createSdtGenFeature } = require('./index.js');
+
+function fakeDeps(overrides) {
+  return Object.assign({
+    getPool: async () => { throw new Error('getPool no configurado en el fake'); },
+    getOra: async () => { throw new Error('getOra no configurado en el fake'); },
+    queryBti025: async () => { throw new Error('queryBti025 no configurado en el fake'); },
+    queryBti026: async () => { throw new Error('queryBti026 no configurado en el fake'); },
+  }, overrides || {});
+}
+
+test('listSdtNames (SQL Server) devuelve nombres recortados en el orden de la query', async () => {
+  const fakePool = { request: () => ({ query: async () => ({ recordset: [{ BTISDTNom: 'SdtA ' }, { BTISDTNom: 'SdtB' }] }) }) };
+  const feature = createSdtGenFeature(fakeDeps({ getPool: async () => ({ pool: fakePool, mssql: {} }) }));
+  const names = await feature.listSdtNames('sqlserver', {});
+  assert.deepEqual(names, ['SdtA', 'SdtB']);
+});
+
+test('listSdtNames (Oracle) cierra la conexion y devuelve nombres recortados', async () => {
+  let closed = false;
+  const fakeConn = { execute: async () => ({ rows: [{ BTISDTNOM: 'SdtC ' }] }), close: async () => { closed = true; } };
+  const feature = createSdtGenFeature(fakeDeps({ getOra: async () => ({ conn: fakeConn, oracledb: { OUT_FORMAT_OBJECT: 1 } }) }));
+  const names = await feature.listSdtNames('oracle', {});
+  assert.deepEqual(names, ['SdtC']);
+  assert.equal(closed, true);
+});
