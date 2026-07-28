@@ -108,6 +108,14 @@ test('listSdtNames (SQL Server) devuelve nombres recortados en el orden de la qu
   assert.deepEqual(names, ['SdtA', 'SdtB']);
 });
 
+test('listSdtNames (SQL Server) filtra solo SDT nativos (BTISDTNativo=S)', async () => {
+  let sqlSent = null;
+  const fakePool = { request: () => ({ query: async (sql) => { sqlSent = sql; return { recordset: [] }; } }) };
+  const feature = createSdtGenFeature(fakeDeps({ getPool: async () => ({ pool: fakePool, mssql: {} }) }));
+  await feature.listSdtNames('sqlserver', {});
+  assert.match(sqlSent, /WHERE\s+LTRIM\(RTRIM\(BTISDTNativo\)\)\s*=\s*'S'/i);
+});
+
 test('listSdtNames (Oracle) cierra la conexion y devuelve nombres recortados', async () => {
   let closed = false;
   const fakeConn = { execute: async () => ({ rows: [{ BTISDTNOM: 'SdtC ' }] }), close: async () => { closed = true; } };
@@ -115,6 +123,14 @@ test('listSdtNames (Oracle) cierra la conexion y devuelve nombres recortados', a
   const names = await feature.listSdtNames('oracle', {});
   assert.deepEqual(names, ['SdtC']);
   assert.equal(closed, true);
+});
+
+test('listSdtNames (Oracle) filtra solo SDT nativos (BTISDTNATIVO=S)', async () => {
+  let sqlSent = null;
+  const fakeConn = { execute: async (sql) => { sqlSent = sql; return { rows: [] }; }, close: async () => {} };
+  const feature = createSdtGenFeature(fakeDeps({ getOra: async () => ({ conn: fakeConn, oracledb: { OUT_FORMAT_OBJECT: 1 } }) }));
+  await feature.listSdtNames('oracle', {});
+  assert.match(sqlSent, /WHERE\s+TRIM\(BTISDTNATIVO\)\s*=\s*'S'/i);
 });
 
 function fakeMssqlTransaction(pool, log) {
