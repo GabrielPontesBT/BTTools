@@ -69,6 +69,64 @@ function sdtgenFilterList() {
   sdtgenRenderList(filtered);
 }
 
+async function sdtgenGoToEdit() {
+  if (!sdtgenSelectedName) return;
+  var btn = document.getElementById('btn-next');
+  if (btn) { btn.innerHTML = '<span class="spin"></span>&nbsp;Cargando...'; btn.disabled = true; }
+  try {
+    var r = await fetch('/api/sdtgen/sdt', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, nom: sdtgenSelectedName }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    sdtgenBaseData = { bti025: d.bti025, bti026: d.bti026 };
+    sdtgenFields = (d.bti026 || []).slice();
+    setVal('sdtgen-new-name', '');
+    document.getElementById('sdtgen-base-name').textContent = sdtgenSelectedName;
+    show(5);
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
+  if (btn) { btn.innerHTML = 'Siguiente &#8594;'; btn.disabled = false; }
+}
+
+function sdtgenRenderEditor() {
+  var container = document.getElementById('sdtgen-fields');
+  container.innerHTML = '';
+  sdtgenFields.forEach(function(field, idx) {
+    var item = document.createElement('div');
+    item.className = 'sdtgen-field-item';
+    item.draggable = true;
+    item.innerHTML = '<span class="sdtgen-drag-handle">&#9776;</span>' +
+      '<span class="sdtgen-field-name">' + field.elemnom + '</span>' +
+      '<span class="sdtgen-field-type">' + (field.elemtipo || '') + '</span>' +
+      '<button type="button" class="sdtgen-field-rm" title="Quitar">&times;</button>';
+    item.querySelector('.sdtgen-field-rm').onclick = function() {
+      sdtgenFields.splice(idx, 1);
+      sdtgenRenderEditor();
+    };
+    item.addEventListener('dragstart', function() { sdtgenDragIdx = idx; item.classList.add('dragging'); });
+    item.addEventListener('dragend', function() { item.classList.remove('dragging'); });
+    item.addEventListener('dragover', function(e) { e.preventDefault(); });
+    item.addEventListener('drop', function(e) {
+      e.preventDefault();
+      if (sdtgenDragIdx === null || sdtgenDragIdx === idx) return;
+      var moved = sdtgenFields.splice(sdtgenDragIdx, 1)[0];
+      sdtgenFields.splice(idx, 0, moved);
+      sdtgenDragIdx = null;
+      sdtgenRenderEditor();
+    });
+    container.appendChild(item);
+  });
+}
+
+function sdtgenGoToResult() {
+  var nombre = v('sdtgen-new-name');
+  var err = document.getElementById('sdtgen-name-err');
+  if (!nombre) { err.className = 'cres show err'; err.textContent = 'Ingresá un nombre para la copia.'; return; }
+  if (nombre === sdtgenSelectedName) { err.className = 'cres show err'; err.textContent = 'El nombre debe ser distinto al del SDT base.'; return; }
+  err.className = 'cres';
+  show(6);
+}
+
 // ── Historial de conexiones ───────────────────────────────────
 var _dbHistory = [];
 
