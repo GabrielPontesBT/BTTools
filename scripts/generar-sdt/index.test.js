@@ -165,3 +165,53 @@ test('executeSdtCopy (Oracle) hace rollback y cierra la conexion si falla', asyn
   );
   assert.deepEqual(calls, ['rollback', 'close']);
 });
+
+test('executeSdtCopy (SQL Server) preserva error original si rollback tambien falla', async () => {
+  const log = [];
+  const FakeTransaction = fakeMssqlTransaction(null, log);
+  const FakeRequest = class { async query(sql) { if (sql.startsWith('INSERT INTO BTI025')) throw new Error('error en insert'); } };
+  let rollbackCalled = false;
+  FakeTransaction.prototype.rollback = async function() { rollbackCalled = true; throw new Error('rollback fallo'); };
+  const feature = createSdtGenFeature(fakeDeps({
+    getPool: async () => ({ pool: {}, mssql: { Transaction: FakeTransaction, Request: FakeRequest } }),
+  }));
+  const { bti025Copy, bti026Copy } = buildSdtCopy(sourceSdt(), 'SdtCopia', ['campoA']);
+  let caughtError;
+  try {
+    await feature.executeSdtCopy('sqlserver', {}, 'V3', 'SdtCopia', bti025Copy, bti026Copy);
+  } catch (e) {
+    caughtError = e;
+  }
+  assert.ok(caughtError, 'debe lanzar error');
+  assert.match(caughtError.message, /error en insert/);
+  assert.match(caughtError.message, /rollback fallo/);
+  assert.match(caughtError.message, /La transaccion puede haber quedado abierta/);
+  assert.equal(caughtError.cause?.message, 'error en insert');
+  assert.equal(rollbackCalled, true);
+});
+
+test('executeSdtCopy (Oracle) preserva error original si rollback tambien falla y cierra la conexion', async () => {
+  const calls = [];
+  let rollbackCalled = false;
+  const fakeConn = {
+    execute: async (sql) => { throw new Error('execute fallo'); },
+    commit: async () => { calls.push('commit'); },
+    rollback: async () => { rollbackCalled = true; throw new Error('rollback fallo'); },
+    close: async () => { calls.push('close'); },
+  };
+  const feature = createSdtGenFeature(fakeDeps({ getOra: async () => ({ conn: fakeConn, oracledb: {} }) }));
+  const { bti025Copy, bti026Copy } = buildSdtCopy(sourceSdt(), 'SdtCopia', ['campoA']);
+  let caughtError;
+  try {
+    await feature.executeSdtCopy('oracle', {}, 'V4', 'SdtCopia', bti025Copy, bti026Copy);
+  } catch (e) {
+    caughtError = e;
+  }
+  assert.ok(caughtError, 'debe lanzar error');
+  assert.match(caughtError.message, /execute fallo/);
+  assert.match(caughtError.message, /rollback fallo/);
+  assert.match(caughtError.message, /La transaccion puede haber quedado abierta/);
+  assert.equal(caughtError.cause?.message, 'execute fallo');
+  assert.equal(rollbackCalled, true);
+  assert.deepEqual(calls, ['close']);
+});

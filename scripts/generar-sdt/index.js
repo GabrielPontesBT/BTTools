@@ -59,7 +59,11 @@ function createSdtGenFeature(deps) {
         await tx.commit();
         return { ok: true, statementsRun: statements.length };
       } catch (e) {
-        await tx.rollback();
+        try {
+          await tx.rollback();
+        } catch (rollbackErr) {
+          throw new Error('Fallo la operacion (' + e.message + ') y tambien fallo el rollback (' + rollbackErr.message + '). La transaccion puede haber quedado abierta.', { cause: e });
+        }
         throw e;
       }
     }
@@ -71,7 +75,11 @@ function createSdtGenFeature(deps) {
       await conn.commit();
       return { ok: true, statementsRun: statements.length };
     } catch (e) {
-      await conn.rollback();
+      try {
+        await conn.rollback();
+      } catch (rollbackErr) {
+        throw new Error('Fallo la operacion (' + e.message + ') y tambien fallo el rollback (' + rollbackErr.message + '). La transaccion puede haber quedado abierta.', { cause: e });
+      }
       throw e;
     } finally {
       await conn.close();
