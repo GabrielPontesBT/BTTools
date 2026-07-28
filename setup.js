@@ -618,8 +618,8 @@ async function sg_queryBti025(platform, db, version, sdtNom) {
 async function sg_queryBti026(platform, db, version, sdtNom) {
   if (platform === 'sqlserver') {
     const { pool, mssql } = await sg_getPool(db);
-    const r = await pool.request().input('nom',mssql.VarChar(100),sdtNom).query('SELECT BTISDTELEMNOM,BTISDTELEMTIPO,BTISDTELEMLARGO,BTISDTELEMCAT,BTISDTELEMDSC,BTISDTELEMSDT FROM BTI026 WHERE BTISDTNOM=@nom ORDER BY BTISDTELEMNOM');
-    return r.recordset.map(function(row) { const g=k=>row[k]==null?'':String(row[k]).trim(); return {elemnom:g('BTISDTELEMNOM'),elemtipo:g('BTISDTELEMTIPO'),elemlargo:row.BTISDTELEMLARGO!=null?String(row.BTISDTELEMLARGO):'0',elemdeci:'0',elemcat:g('BTISDTELEMCAT'),elemdsc:g('BTISDTELEMDSC'),elemsdt:g('BTISDTELEMSDT')}; });
+    const r = await pool.request().input('nom',mssql.VarChar(100),sdtNom).query('SELECT BTISDTELEMNOM,BTISDTELEMTIPO,BTISDTELEMLARGO,BTISDTELEMCAT,BTISDTELEMDSC,BTISDTELEMSDT,BTISDTELEMPOSI FROM BTI026 WHERE BTISDTNOM=@nom ORDER BY BTISDTELEMPOSI');
+    return r.recordset.map(function(row) { const g=k=>row[k]==null?'':String(row[k]).trim(); return {elemnom:g('BTISDTELEMNOM'),elemtipo:g('BTISDTELEMTIPO'),elemlargo:row.BTISDTELEMLARGO!=null?String(row.BTISDTELEMLARGO):'0',elemdeci:'0',elemcat:g('BTISDTELEMCAT'),elemdsc:g('BTISDTELEMDSC'),elemsdt:g('BTISDTELEMSDT'),posi:row.BTISDTELEMPOSI!=null?String(row.BTISDTELEMPOSI):'0'}; });
   } else {
     const { conn, oracledb } = await sg_getOra(db);
     try {
