@@ -22,6 +22,13 @@ var sgServiceGroups = [];
 var sgMultiData = null;
 var sgServicesLoaded = false;
 
+// ── Estado flujo Generar SDT ─────────────────────────────────
+var sdtgenNames = [];
+var sdtgenSelectedName = null;
+var sdtgenBaseData = null; // { bti025, bti026 }
+var sdtgenFields = []; // copia de trabajo de bti026, reordenada/filtrada
+var sdtgenDragIdx = null;
+
 // ── Historial de conexiones ───────────────────────────────────
 var _dbHistory = [];
 
@@ -143,6 +150,9 @@ function updateStepLabels(action) {
   } else if (action === 'collections') {
     if (lb4) lb4.textContent = 'API';
     if (lb5) lb5.textContent = 'Collections';
+  } else if (action === 'sdtgen') {
+    if (lb4) lb4.textContent = 'SDT base';
+    if (lb5) lb5.textContent = 'Editar';
   } else {
     if (lb4) lb4.textContent = 'API';
     if (lb5) lb5.textContent = 'Servicios';
@@ -189,6 +199,7 @@ function panelId(step) {
   if (S.action === 'validate') return 'p4v';
   if (S.action === 'collections') return step === 4 ? 'p4' : 'p4c';
   if (S.action === 'scripts') return step === 4 ? 'p4s' : 'p5s';
+  if (S.action === 'sdtgen') return step === 4 ? 'p-sdtbase' : step === 5 ? 'p-sdtedit' : 'p-sdtresult';
   return 'p' + step; // doc: p4, p5, p6
 }
 
@@ -231,6 +242,9 @@ function show(step) {
     if (typeof collectionToggleConfig === 'function') collectionToggleConfig();
   }
   if (step === 4 && S.action === 'scripts' && !sgServicesLoaded) sgLoadServices();
+  if (step === 4 && S.action === 'sdtgen' && !sdtgenNames.length) sdtgenLoadList();
+  if (step === 5 && S.action === 'sdtgen') sdtgenRenderEditor();
+  if (step === 6 && S.action === 'sdtgen') sdtgenDoGenerate();
 }
 
 function foot(step) {
@@ -250,10 +264,16 @@ function foot(step) {
     ftr.innerHTML = '';
   } else if (step === 4 && S.action === 'scripts') {
     ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()" disabled>Generar script &#8594;</button>';
+  } else if (step === 4 && S.action === 'sdtgen') {
+    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (sdtgenSelectedName ? '' : ' disabled') + '>Siguiente &#8594;</button>';
   } else if (step === 5 && S.action === 'doc') {
     ftr.innerHTML = '<button class="btn btn-success" id="btn-save" onclick="saveEnv()" disabled>Guardar y finalizar &#10003;</button>';
   } else if (step === 5 && S.action === 'scripts') {
     ftr.innerHTML = '<button class="btn btn-ghost" onclick="sgReset()">&#8635; Nuevo script</button>';
+  } else if (step === 5 && S.action === 'sdtgen') {
+    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()">Siguiente &#8594;</button>';
+  } else if (step === 6 && S.action === 'sdtgen') {
+    ftr.innerHTML = '<button class="btn btn-ghost" onclick="sdtgenReset()">&#8635; Nueva copia</button>';
   } else if (step === 6) {
     ftr.innerHTML = '';
   } else {
@@ -277,6 +297,8 @@ function goNext() {
     sgFetchAndShowOutput(grps);
     return;
   }
+  if (s === 4 && S.action === 'sdtgen') { sdtgenGoToEdit(); return; }
+  if (s === 5 && S.action === 'sdtgen') { sdtgenGoToResult(); return; }
   if (s < 6) show(s + 1);
 }
 
