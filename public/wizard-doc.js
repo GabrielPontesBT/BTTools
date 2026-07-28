@@ -29,6 +29,46 @@ var sdtgenBaseData = null; // { bti025, bti026 }
 var sdtgenFields = []; // copia de trabajo de bti026, reordenada/filtrada
 var sdtgenDragIdx = null;
 
+async function sdtgenLoadList() {
+  var loading = document.getElementById('sdtgen-list-loading'), err = document.getElementById('sdtgen-list-err');
+  if (err) err.className = 'cres';
+  if (loading) loading.style.display = 'flex';
+  try {
+    var r = await fetch('/api/sdtgen/list', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG() }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    sdtgenNames = d.names || [];
+    sdtgenRenderList(sdtgenNames);
+  } catch(e) {
+    if (err) { err.className = 'cres show err'; err.textContent = e.message; }
+  }
+  if (loading) loading.style.display = 'none';
+}
+
+function sdtgenRenderList(names) {
+  var container = document.getElementById('sdtgen-list');
+  container.innerHTML = '';
+  names.forEach(function(nom) {
+    var row = document.createElement('div');
+    row.className = 'sdtgen-row' + (nom === sdtgenSelectedName ? ' sel' : '');
+    row.textContent = nom;
+    row.onclick = function() {
+      sdtgenSelectedName = nom;
+      container.querySelectorAll('.sdtgen-row').forEach(function(r) { r.classList.remove('sel'); });
+      row.classList.add('sel');
+      var btn = document.getElementById('btn-next');
+      if (btn) btn.disabled = false;
+    };
+    container.appendChild(row);
+  });
+}
+
+function sdtgenFilterList() {
+  var q = v('sdtgen-search').toLowerCase();
+  var filtered = q ? sdtgenNames.filter(function(n) { return n.toLowerCase().indexOf(q) !== -1; }) : sdtgenNames;
+  sdtgenRenderList(filtered);
+}
+
 // ── Historial de conexiones ───────────────────────────────────
 var _dbHistory = [];
 

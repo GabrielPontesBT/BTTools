@@ -170,6 +170,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .sg-mtd-item input:checked~.sg-chk{background:var(--blue);border-color:var(--blue)}
 .sg-mtd-item input:checked~.sg-chk::after{content:'';display:block;width:4px;height:8px;border:2px solid #fff;border-top:none;border-left:none;transform:rotate(45deg) translate(0,-1px)}
 .sg-chk-lbl{font-size:var(--fs-md);color:var(--text);flex:1}
+.sdtgen-list{border:1.5px solid var(--border);border-radius:10px;max-height:360px;overflow-y:auto}
+.sdtgen-row{display:flex;align-items:center;padding:11px 16px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .12s;user-select:none;font-size:var(--fs-md)}
+.sdtgen-row:last-child{border-bottom:none}
+.sdtgen-row:hover{background:var(--blue-l)}
+.sdtgen-row.sel{background:var(--blue-l);color:var(--blue);font-weight:600}
 .btn-pill{padding:5px 13px;border-radius:20px;font-size:var(--fs-sm);font-weight:600;cursor:pointer;font-family:inherit;line-height:1.5;transition:all .15s;border:1.5px solid var(--border);background:#fff;color:var(--muted)}
 .btn-pill:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-l)}
 .pinput{border:1.5px solid var(--border);border-radius:6px;padding:6px 9px;font-size:var(--fs-sm);font-family:inherit;outline:none;background:#fff;color:var(--text)}
