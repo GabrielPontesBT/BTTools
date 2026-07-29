@@ -450,10 +450,29 @@ function pick(key, val, el) {
       S.platform = 'oracle';
       tryLoadEnv('V4');
       toggleEngineSection(true);
+    } else {
+      resetVersionSelection();
     }
   }
   var nb = document.getElementById('btn-next');
   if (nb) nb.disabled = false;
+}
+
+// El paso de version tiene que arrancar limpio: si el usuario paso antes por
+// "Generar SDT" (o por V4) quedaban seteados version/motor/API y las tarjetas
+// marcadas al volver a entrar.
+function resetVersionSelection() {
+  S.version = null;
+  S.platform = null;
+  S.engine = null;
+  S.apiMode = 'publica';
+  loadedEnv = null;
+  var p1 = document.getElementById('p1');
+  if (p1) p1.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
+  var eng = document.getElementById('engine-section');
+  if (eng) eng.style.display = 'none';
+  var am = document.getElementById('apimode-section');
+  if (am) am.style.display = 'none';
 }
 
 function toggleEngineSection(show) {
@@ -662,6 +681,9 @@ async function tryLoadEnv(version) {
     var r = await fetch('/api/load-env', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ version: version }) });
     var d = await r.json();
     if (!d.ok) return;
+    // La respuesta puede llegar despues de que el usuario cambio (o limpio) la
+    // version elegida: en ese caso el resultado ya no aplica.
+    if (S.version !== version) return;
     loadedEnv = d.data;
     if (d.data.DB_CONNECT_STRING) S.platform = 'oracle';
     else if (d.data.DB_SERVER) S.platform = 'sqlserver';
