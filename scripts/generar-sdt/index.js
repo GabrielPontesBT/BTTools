@@ -84,6 +84,37 @@ function createSdtGenFeature(deps) {
     }
   }
 
+  // Copias no nativas ya creadas a partir del mismo SDT nativo (mismo
+  // BTISDTNomInt), para avisar antes de generar una nueva.
+  async function listExistingCopies(platform, db, version, nomInt) {
+    if (!nomInt) return [];
+    if (platform === 'sqlserver') {
+      const { pool, mssql } = await getPool(db);
+      const r = await pool.request().input('nomint', mssql.VarChar(100), nomInt).query(
+        "SELECT BTISDTNom, BTISDTDescrip, BTISDTEstado FROM BTI025 WHERE LTRIM(RTRIM(BTISDTNativo))='N' AND LTRIM(RTRIM(BTISDTNomInt))=@nomint ORDER BY BTISDTNom"
+      );
+      return r.recordset.map(row => ({
+        nom: (row.BTISDTNom || '').trim(),
+        descrip: (row.BTISDTDescrip || '').trim(),
+        estado: (row.BTISDTEstado || '').trim(),
+      })).filter(c => c.nom);
+    }
+    const { conn, oracledb } = await getOra(db);
+    try {
+      const r = await conn.execute(
+        "SELECT BTISDTNOM, BTISDTDESCRIP, BTISDTESTADO FROM BTI025 WHERE TRIM(BTISDTNATIVO)='N' AND TRIM(BTISDTNOMINT)=:1 ORDER BY BTISDTNOM",
+        [nomInt], { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      );
+      return r.rows.map(row => ({
+        nom: (row.BTISDTNOM || '').trim(),
+        descrip: (row.BTISDTDESCRIP || '').trim(),
+        estado: (row.BTISDTESTADO || '').trim(),
+      })).filter(c => c.nom);
+    } finally {
+      await conn.close();
+    }
+  }
+
   function scriptToStatements(nuevoNombre, bti025Copy, bti026Copy, version) {
     const script = generateSdtScript(nuevoNombre, bti025Copy, bti026Copy, version, 'both');
     // El generador emite cada sentencia con ';' final. oracledb rechaza el
@@ -155,6 +186,15 @@ function createSdtGenFeature(deps) {
       return true;
     }
 
+    if (req.method === 'POST' && req.url === '/api/sdtgen/existing-copies') {
+      try {
+        const body = await readBody(req);
+        const copies = await listExistingCopies(body.platform, body.db, body.version, body.nomint);
+        json(200, { ok: true, copies });
+      } catch (e) { json(200, { ok: false, message: e.message }); }
+      return true;
+    }
+
     if (req.method === 'POST' && req.url === '/api/sdtgen/generate') {
       try {
         const body = await readBody(req);
@@ -193,7 +233,7 @@ function createSdtGenFeature(deps) {
     return false;
   }
 
-  return { listSdtNames, executeSdtCopy, handleApi };
+  return { listSdtNames, listExistingCopies, executeSdtCopy, handleApi };
 }
 
 module.exports = { createSdtGenFeature, buildSdtCopy, generateSdtScript, isValidSdtName, isValidFieldName, isValidDigits, isValidFieldText };

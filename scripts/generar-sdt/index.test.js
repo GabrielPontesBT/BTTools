@@ -239,6 +239,47 @@ test('listSdtNames (Oracle) filtra solo SDT nativos (BTISDTNATIVO=S)', async () 
   assert.match(sqlSent, /WHERE\s+TRIM\(BTISDTNATIVO\)\s*=\s*'S'/i);
 });
 
+test('listExistingCopies (SQL Server) filtra por BTISDTNativo=N y BTISDTNomInt=valor recibido', async () => {
+  let sqlSent = null, nomintSent = null;
+  const fakePool = {
+    request: () => ({
+      input: function(name, type, val) { if (name === 'nomint') nomintSent = val; return this; },
+      query: async (sql) => { sqlSent = sql; return { recordset: [{ BTISDTNom: 'SdtCopiaA ', BTISDTDescrip: 'Copia A.', BTISDTEstado: 'Validado' }] }; },
+    }),
+  };
+  const feature = createSdtGenFeature(fakeDeps({ getPool: async () => ({ pool: fakePool, mssql: { VarChar: () => 'varchar' } }) }));
+  const copies = await feature.listExistingCopies('sqlserver', {}, 'V3', 'SdtOriginalInt');
+  assert.match(sqlSent, /WHERE\s+LTRIM\(RTRIM\(BTISDTNativo\)\)\s*=\s*'N'\s+AND\s+LTRIM\(RTRIM\(BTISDTNomInt\)\)\s*=\s*@nomint/i);
+  assert.equal(nomintSent, 'SdtOriginalInt');
+  assert.deepEqual(copies, [{ nom: 'SdtCopiaA', descrip: 'Copia A.', estado: 'Validado' }]);
+});
+
+test('listExistingCopies (Oracle) filtra por BTISDTNATIVO=N y BTISDTNOMINT=valor recibido', async () => {
+  let sqlSent = null, bindsSent = null;
+  const fakeConn = {
+    execute: async (sql, binds) => { sqlSent = sql; bindsSent = binds; return { rows: [{ BTISDTNOM: 'SdtCopiaB ', BTISDTDESCRIP: 'Copia B.', BTISDTESTADO: 'Validado' }] }; },
+    close: async () => {},
+  };
+  const feature = createSdtGenFeature(fakeDeps({ getOra: async () => ({ conn: fakeConn, oracledb: { OUT_FORMAT_OBJECT: 1 } }) }));
+  const copies = await feature.listExistingCopies('oracle', {}, 'V4', 'SdtOriginalInt');
+  assert.match(sqlSent, /WHERE\s+TRIM\(BTISDTNATIVO\)\s*=\s*'N'\s+AND\s+TRIM\(BTISDTNOMINT\)\s*=\s*:1/i);
+  assert.deepEqual(bindsSent, ['SdtOriginalInt']);
+  assert.deepEqual(copies, [{ nom: 'SdtCopiaB', descrip: 'Copia B.', estado: 'Validado' }]);
+});
+
+test('listExistingCopies devuelve [] sin consultar la base si no hay nomInt', async () => {
+  let touched = false;
+  const feature = createSdtGenFeature(fakeDeps({
+    getPool: async () => { touched = true; throw new Error('no deberia llamarse'); },
+    getOra: async () => { touched = true; throw new Error('no deberia llamarse'); },
+  }));
+  const copiesVacio = await feature.listExistingCopies('sqlserver', {}, 'V3', '');
+  const copiesNull = await feature.listExistingCopies('sqlserver', {}, 'V3', null);
+  assert.deepEqual(copiesVacio, []);
+  assert.deepEqual(copiesNull, []);
+  assert.equal(touched, false);
+});
+
 function fakeMssqlTransaction(pool, log) {
   return class FakeTransaction {
     constructor(p) { this.pool = p; }
@@ -440,6 +481,19 @@ test('handleApi POST /api/sdtgen/sdt responde ok:false si el SDT no existe', asy
   await feature.handleApi(fakeReq('POST', '/api/sdtgen/sdt', { platform: 'sqlserver', db: {}, version: 'V3', nom: 'NoExiste' }), res, fakeHelpers(res));
   assert.equal(res.body.ok, false);
   assert.match(res.body.message, /NoExiste/);
+});
+
+test('handleApi POST /api/sdtgen/existing-copies responde con las copias no nativas encontradas', async () => {
+  const feature = createSdtGenFeature(fakeDeps({
+    getPool: async () => ({
+      pool: { request: () => ({ input: function() { return this; }, query: async () => ({ recordset: [{ BTISDTNom: 'SdtCopiaA', BTISDTDescrip: 'Copia.', BTISDTEstado: 'Validado' }] }) }) },
+      mssql: { VarChar: () => 'varchar' },
+    }),
+  }));
+  const res = fakeRes();
+  const handled = await feature.handleApi(fakeReq('POST', '/api/sdtgen/existing-copies', { platform: 'sqlserver', db: {}, version: 'V3', nomint: 'SdtOriginalInt' }), res, fakeHelpers(res));
+  assert.equal(handled, true);
+  assert.deepEqual(res.body, { ok: true, copies: [{ nom: 'SdtCopiaA', descrip: 'Copia.', estado: 'Validado' }] });
 });
 
 test('handleApi POST /api/sdtgen/generate responde con el script', async () => {

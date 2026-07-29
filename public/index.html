@@ -312,7 +312,13 @@
     <!-- Paso 5 SDT Gen: Editar copia -->
     <div class="panel" id="p-sdtedit">
       <div class="ptitle">Editá la copia de <span id="sdtgen-base-name"></span></div>
-      <div class="psub">Elegí el nombre de la copia y reordená o quitá campos.</div>
+      <div class="psub">Elegí el nombre de la copia y reordená, editá o quitá campos.</div>
+      <div id="sdtgen-existing-wrap" style="display:none;margin-bottom:var(--sp-4)">
+        <div class="cres show" style="background:var(--warn-l);color:var(--warn-d);display:flex">
+          Ya existen copias no nativas de este SDT — hacé click en una para ver sus campos y confirmar si ya te sirve alguna.
+        </div>
+        <div id="sdtgen-existing-list" class="sdtgen-existing-list"></div>
+      </div>
       <div class="field">
         <label>Nombre del nuevo SDT</label>
         <input type="text" id="sdtgen-new-name" placeholder="ej: SdtMiCopiaPersonalizada" autocomplete="off">

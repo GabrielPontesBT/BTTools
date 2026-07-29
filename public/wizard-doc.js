@@ -28,6 +28,7 @@ var sdtgenSelectedName = null;
 var sdtgenBaseData = null; // { bti025, bti026 }
 var sdtgenFields = []; // copia de trabajo de bti026, reordenada/filtrada
 var sdtgenDragIdx = null;
+var sdtgenExistingCopies = []; // copias no nativas ya creadas a partir del mismo SDT nativo
 
 async function sdtgenLoadList() {
   var loading = document.getElementById('sdtgen-list-loading'), err = document.getElementById('sdtgen-list-err');
@@ -109,10 +110,71 @@ async function sdtgenGoToEdit() {
     setVal('sdtgen-new-name', '');
     document.getElementById('sdtgen-base-name').textContent = sdtgenSelectedName;
     show(5);
+    sdtgenLoadExistingCopies(d.bti025 && d.bti025.nomint);
   } catch(e) {
     alert('Error: ' + e.message);
   }
   if (btn) { btn.innerHTML = 'Siguiente &#8594;'; btn.disabled = false; }
+}
+
+async function sdtgenLoadExistingCopies(nomint) {
+  var wrap = document.getElementById('sdtgen-existing-wrap');
+  sdtgenExistingCopies = [];
+  if (wrap) wrap.style.display = 'none';
+  if (!nomint) return;
+  try {
+    var r = await fetch('/api/sdtgen/existing-copies', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, nomint: nomint }) });
+    var d = await r.json();
+    if (!d.ok || !d.copies || !d.copies.length) return;
+    sdtgenExistingCopies = d.copies;
+    sdtgenRenderExistingCopies();
+    if (wrap) wrap.style.display = '';
+  } catch(e) { /* no bloquea el flujo si falla esta busqueda informativa */ }
+}
+
+function sdtgenRenderExistingCopies() {
+  var container = document.getElementById('sdtgen-existing-list');
+  container.innerHTML = '';
+  sdtgenExistingCopies.forEach(function(copy) {
+    var row = document.createElement('div');
+    row.className = 'sdtgen-existing-item';
+
+    var head = document.createElement('div');
+    head.className = 'sdtgen-existing-head';
+    head.innerHTML = '<span class="sdtgen-existing-caret">&#9656;</span>' +
+      '<span class="sdtgen-existing-name">' + sdtgenEscapeAttr(copy.nom) + '</span>' +
+      '<span class="sdtgen-existing-estado">' + sdtgenEscapeAttr(copy.estado) + '</span>';
+    row.appendChild(head);
+
+    var body = document.createElement('div');
+    body.className = 'sdtgen-existing-body';
+    body.style.display = 'none';
+    row.appendChild(body);
+
+    var loaded = false;
+    head.onclick = function() {
+      var isOpen = body.style.display !== 'none';
+      if (isOpen) { body.style.display = 'none'; head.querySelector('.sdtgen-existing-caret').innerHTML = '&#9656;'; return; }
+      body.style.display = '';
+      head.querySelector('.sdtgen-existing-caret').innerHTML = '&#9662;';
+      if (loaded) return;
+      loaded = true;
+      body.innerHTML = '<span class="sdtgen-existing-loading">Cargando campos...</span>';
+      fetch('/api/sdtgen/sdt', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, nom: copy.nom }) })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!d.ok) { body.innerHTML = '<span class="sdtgen-existing-loading">' + sdtgenEscapeAttr(d.message) + '</span>'; return; }
+          var fields = d.bti026 || [];
+          if (!fields.length) { body.innerHTML = '<span class="sdtgen-existing-loading">Sin campos.</span>'; return; }
+          body.innerHTML = fields.map(function(f) {
+            return '<div class="sdtgen-existing-field"><span>' + sdtgenEscapeAttr(f.elemnom) + '</span><span>' + sdtgenEscapeAttr(f.elemtipo) + '</span><span>' + sdtgenEscapeAttr(f.elemdsc) + '</span></div>';
+          }).join('');
+        })
+        .catch(function(e) { body.innerHTML = '<span class="sdtgen-existing-loading">Error: ' + sdtgenEscapeAttr(e.message) + '</span>'; });
+    };
+
+    container.appendChild(row);
+  });
 }
 
 function sdtgenFieldGridCols(showV4Extras) {
@@ -253,7 +315,8 @@ async function sdtgenExecute() {
 
 function sdtgenReset() {
   sdtgenSelectedName = null; sdtgenBaseData = null; sdtgenFields = [];
-  sdtgenDragIdx = null;
+  sdtgenDragIdx = null; sdtgenExistingCopies = [];
+  var existingWrap = document.getElementById('sdtgen-existing-wrap'); if (existingWrap) existingWrap.style.display = 'none';
   setVal('sdtgen-search', ''); setVal('sdtgen-new-name', '');
   document.getElementById('sdtgen-sql-out').value = '';
   var res = document.getElementById('sdtgen-exec-res'); if (res) res.className = 'cres';
