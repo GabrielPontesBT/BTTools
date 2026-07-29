@@ -1,5 +1,8 @@
 ﻿// ── Estado compartido ────────────────────────────────────────
-var S = { step: 1, version: null, platform: null, action: null, engine: null };
+var S = { step: 1, version: null, platform: null, action: null, engine: null, apiMode: 'publica' };
+// Acciones que soportan trabajar contra la API Interna (tablas BTCBS);
+// Documentar y Validar siguen siempre contra la API Publica (BTI).
+var APIMODE_ACTIONS = new Set(['scripts', 'collections', 'sdtgen']);
 var _connOk = false, _connTimer = null;
 var loadedEnv = null;
 (function keepAlive() {
@@ -41,7 +44,7 @@ async function sdtgenLoadList() {
   var btnNext = document.getElementById('btn-next');
   if (btnNext) btnNext.disabled = true;
   try {
-    var r = await fetch('/api/sdtgen/list', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG() }) });
+    var r = await fetch('/api/sdtgen/list', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), apiMode: S.apiMode }) });
     var d = await r.json();
     if (!d.ok) throw new Error(d.message);
     sdtgenNames = d.names || [];
@@ -104,7 +107,7 @@ async function sdtgenGoToEdit() {
   var btn = document.getElementById('btn-next');
   if (btn) { btn.innerHTML = '<span class="spin"></span>&nbsp;Cargando...'; btn.disabled = true; }
   try {
-    var r = await fetch('/api/sdtgen/sdt', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, nom: sdtgenSelectedName }) });
+    var r = await fetch('/api/sdtgen/sdt', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, nom: sdtgenSelectedName, apiMode: S.apiMode }) });
     var d = await r.json();
     if (!d.ok) throw new Error(d.message);
     sdtgenBaseData = { bti025: d.bti025, bti026: d.bti026 };
@@ -129,7 +132,7 @@ async function sdtgenLoadExistingCopies(nomint) {
   if (wrap) wrap.style.display = 'none';
   if (!nomint) return;
   try {
-    var r = await fetch('/api/sdtgen/existing-copies', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, nomint: nomint }) });
+    var r = await fetch('/api/sdtgen/existing-copies', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, nomint: nomint, apiMode: S.apiMode }) });
     var d = await r.json();
     if (!d.ok || !d.copies || !d.copies.length) return;
     sdtgenExistingCopies = d.copies;
@@ -166,7 +169,7 @@ function sdtgenRenderExistingCopies() {
       if (loaded) return;
       loaded = true;
       body.innerHTML = '<span class="sdtgen-existing-loading">Cargando campos...</span>';
-      fetch('/api/sdtgen/sdt', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, nom: copy.nom }) })
+      fetch('/api/sdtgen/sdt', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, nom: copy.nom, apiMode: S.apiMode }) })
         .then(function(r) { return r.json(); })
         .then(function(d) {
           if (!d.ok) { body.innerHTML = '<span class="sdtgen-existing-loading">' + sdtgenEscapeAttr(d.message) + '</span>'; return; }
@@ -280,6 +283,7 @@ async function sdtgenDoGenerate() {
   try {
     var r = await fetch('/api/sdtgen/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
       version: S.version,
+      apiMode: S.apiMode,
       nuevoNombre: v('sdtgen-new-name'),
       sourceBti025: sdtgenBaseData.bti025,
       sourceBti026: sdtgenBaseData.bti026,
@@ -306,7 +310,7 @@ async function sdtgenExecute() {
   res.className = 'cres show'; res.textContent = 'Ejecutando...';
   try {
     var r = await fetch('/api/sdtgen/execute', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
-      platform: S.platform, db: getDbSG(), version: S.version,
+      platform: S.platform, db: getDbSG(), version: S.version, apiMode: S.apiMode,
       nom: sdtgenSelectedName,
       nuevoNombre: v('sdtgen-new-name'),
       editedFields: sdtgenBuildEditedFields()
@@ -464,6 +468,17 @@ function toggleEngineSection(show) {
   } else {
     S.engine = null;
   }
+  toggleApiModeSection(show && APIMODE_ACTIONS.has(S.action));
+}
+
+function toggleApiModeSection(show) {
+  var sec = document.getElementById('apimode-section');
+  if (!sec) return;
+  sec.style.display = show ? 'block' : 'none';
+  S.apiMode = 'publica';
+  sec.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
+  var publicaCard = document.getElementById('apimode-publica');
+  if (publicaCard) publicaCard.classList.add('sel');
 }
 
 function updateStepLabels(action) {
@@ -1561,7 +1576,7 @@ async function sgLoadServices() {
   if (err) err.className = 'cres';
   if (loading) loading.style.display = 'flex';
   try {
-    var r = await fetch('/sg/api/services', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version }) });
+    var r = await fetch('/sg/api/services', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, apiMode: S.apiMode }) });
     var d = await r.json();
     if (!d.ok) throw new Error(d.message);
     var sel = document.getElementById('sg-sel-svc');
@@ -1588,8 +1603,8 @@ async function sgAddServiceToList() {
   container.appendChild(div);
   try {
     var results = await Promise.all([
-      fetch('/sg/api/methods', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, service: svc }) }),
-      fetch('/sg/api/service-versions', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, service: svc }) }),
+      fetch('/sg/api/methods', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, service: svc, apiMode: S.apiMode }) }),
+      fetch('/sg/api/service-versions', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, service: svc, apiMode: S.apiMode }) }),
     ]);
     var dm = await results[0].json(), dv = await results[1].json();
     if (!dm.ok) throw new Error(dm.message);
@@ -1674,7 +1689,7 @@ async function sgFetchAndShowOutput(groups) {
     var allItems = [];
     await Promise.all(groups.map(async function(group) {
       var methods = Array.from(group.selected);
-      var r = await fetch('/sg/api/methods-full', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, service: group.name, srvver: group.version, methods: methods }) });
+      var r = await fetch('/sg/api/methods-full', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, service: group.name, srvver: group.version, methods: methods, apiMode: S.apiMode }) });
       var d = await r.json(); if (!d.ok) throw new Error(d.message);
       d.items.forEach(function(item) { allItems.push(item); });
     }));

@@ -1,5 +1,7 @@
 'use strict';
 
+const crypto = require('crypto');
+
 // Columnas de tablas BTI para V3 (SQL Server) y V4 (Oracle)
 const V3_BTI004_COLS = ['BTINom','BTISrvNom','BTISrvVer','BTISrvDsc','BTISrvNSBT','BTISrvCanNSBT','BTISrvOpNSBT','BTISrvVarNSBT','BTISrvPgmName','BTISrvStatus','BTISrvFPath'];
 const V3_BTI014_COLS = ['BTINom','BTISrvNom','BTISrvVer','BTIMtdNom','BTIMtdDsc','BTIMtdNSBT','BTIMtdPgmNom','BTIMtdPgmMtd','BTIMtdStatus','BTIMtdFPath','BTIMtdEnbTra','BTIMtdEsPgGx'];
@@ -10,6 +12,37 @@ const V3_BTI025_COLS = ['BTISDTNom','BTISDTVersion','BTISDTDescrip','BTISDTNativ
 const V4_BTI025_COLS = ['BTISDTNOM','BTISDTVERSION','BTISDTNOMINT','BTISDTESTADO','BTISDTTIPO','BTISDTNAMESPACE','BTISDTFECHA','BTISDTDESCRIP','BTISDTNATIVO'];
 const V3_BTI026_COLS = ['BTISDTNom','BTISDTElemNom','BTISDTElemTipo','BTISDTElemLargo','BTISDTElemCat','BTISDTElemDsc','BTISDTElemSDT','BTISDTElemPosi'];
 const V4_BTI026_COLS = ['BTISDTNOM','BTISDTVERSION','BTISDTELEMNOM','BTISDTELEMNINT','BTISDTELEMOBL','BTISDTELEMCAT','BTISDTELEMTIPO','BTISDTELEMSDT','BTISDTELEMSDTVE','BTISDTELEMPLANO','BTISDTELEMLARGO','BTISDTELEMENU','BTISDTELEMVAL','BTISDTELEMDSC','BTISDTELEMPOSI','BTISDTELEMCATIT','BTISDTELEMDECI','BTISDTELEMNOMIT'];
+
+// Columnas de las tablas BTCBS (API Interna, Oracle). Mismo dominio que las
+// BTI de arriba pero con nombres de tabla/columna propios y algunos tipos
+// numericos donde V4 usaba CHAR 'S'/'N' (ver sn_num). BSPARENUM/BSPARDFVAL
+// (BTCBS019) y una tabla a nivel de servicio (equivalente a BTI004) no
+// existen / no se completan: BTI004 tampoco se toca para V4, solo para V3.
+const INTERNA_BTCBS014_COLS = ['BSINTNAME','BSSRVNAME','BSSRVVER','BSMTDNAME','BSMTDDESC','BSMTDNSBT','BSMTDPRG','BSPRGENTPO','BSMTDSTAT','BSMTDPATH','BSMTDTRACE','BSMTDGXPRG','BSMTDUUID'];
+const INTERNA_BTCBS019_COLS = ['BSINTNAME','BSSRVNAME','BSSRVVER','BSMTDNAME','BSPARPOS','BSPARNAME','BSPARINTNM','BSPARDIR','BSPARTYPE','BSPARITTYP','BSPARITCAT','BSPARITNAM','BSPARCAT','BSPARSDTVE','BSPARLEN','BSPARDECI'];
+const INTERNA_BTCBS025_COLS = ['BSSDTNAME','BSSDTVER','BSSDTDESC','BSSDTNATIV','BSSDTDATE','BSSDTINTNM','BSSDTSTAT','BSSDTTYPE','BSSDTNMSP'];
+const INTERNA_BTCBS026_COLS = ['BSSDTNAME','BSSDTVER','BSELMNAME','BSELMPOS','BSELMDESC','BSELMINTNM','BSELMISREQ','BSELMCAT','BSEIMITCAT','BSELMITNAM','BSELMTYPE','BSELMSDTNM','BSELMSDTVE','BSELMFLAT','BSELMLEN','BSELMDECI','BSELMENUM','BSELMVALS']; // BSEIMITCAT: typo de origen, la tabla real esta creada asi
+
+// 'S'/'N' (o vacio) -> 1/0, para las columnas que en BTCBS son NUMBER(1,0)
+// y en BTI eran CHAR.
+function sn_num(val) { return String(val == null ? '' : val).trim().toUpperCase() === 'S' ? 1 : 0; }
+
+function btcbs_fmtDate(val) {
+  if (!val) return 'NULL';
+  const d = val instanceof Date ? val : new Date(val);
+  if (isNaN(d.getTime())) return 'NULL';
+  const p = (n, z) => String(n).padStart(z || 2, '0');
+  const s = d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+  return "TO_DATE('"+s+"','YYYY-MM-DD HH24:MI:SS')";
+}
+
+// Quoting Oracle-only (BTCBS es Oracle siempre), mismo criterio que sg_sq
+// para V4: ' ' si esta vacio y no es nullable, NULL si es nullable y vacio.
+function btcbs_sq(val, nullable) {
+  const s = val != null ? String(val) : '';
+  if (nullable && s.trim() === '') return 'NULL';
+  return s.trim() === '' ? "' '" : "'" + s + "'";
+}
 
 function sg_fmtDate(val, ver) {
   if (!val) return ver === 'V3' ? "''" : 'NULL';
@@ -40,8 +73,38 @@ function sg_sq(val, ver, nullable) {
 }
 function sg_nq(val) { const n = parseInt(String(val == null ? '0' : val).trim(), 10); return isNaN(n) ? '0' : String(n); }
 
+// Genera el bloque BTCBS014/BTCBS019 (API Interna) equivalente al que
+// sg_generateScript arma para BTI014/BTI019 en V4. Se usa aparte porque el
+// mapeo de columnas y tipos es distinto (ver INTERNA_BTCBS0xx_COLS arriba).
+function btcbs_generateScript(data, mode) {
+  const h = data.header, m = data.method, ps = data.params || [], lines = [];
+  const BTINom = h.BTINom||'BTSERVICES', BTISrvNom = h.BTISrvNom||'', BTISrvVer = h.BTISrvVer||'1', BTIMtdNom = h.BTIMtdNom||'';
+  const q = (v, nullable) => btcbs_sq(v, nullable);
+  function delBtcbs014() { return ["DELETE FROM BTCBS014 WHERE BSINTNAME='"+BTINom+"' AND BSSRVNAME='"+BTISrvNom+"' AND BSMTDNAME='"+BTIMtdNom+"';"]; }
+  function delBtcbs019() { return ["DELETE FROM BTCBS019 WHERE BSINTNAME='"+BTINom+"' AND BSSRVNAME='"+BTISrvNom+"' AND BSMTDNAME='"+BTIMtdNom+"';"]; }
+  function insBtcbs014() {
+    const status=(m.status||'Validado').padEnd(20).slice(0,20);
+    const cols = INTERNA_BTCBS014_COLS.join(', ');
+    const vals = [q(BTINom),q(BTISrvNom),q(BTISrvVer),q(BTIMtdNom),q(m.dsc||'',true),sn_num(m.nsbt),q(m.pgmnom||''),q(m.pgmmtd||'execute'),q(status),"' '",sn_num(m.enbtra||'N'),sn_num(m.espggx||'S'),q(crypto.randomUUID().toUpperCase())].join(', ');
+    return ['INSERT INTO BTCBS014 ('+cols+') VALUES('+vals+');'];
+  }
+  function insBtcbs019() {
+    const cols = INTERNA_BTCBS019_COLS.join(', ');
+    return ps.map(function(p,i) {
+      const posi=i+1, largo=sg_nq(p.largo), deci=sg_nq(p.deci);
+      const vals=[q(BTINom),q(BTISrvNom),q(BTISrvVer),q(BTIMtdNom),posi,q(p.nom),q(p.nomjava),q(p.dir),q(p.tipo),q(p.ittipo),q(p.catit),q(p.itnom),q(p.cat),q(p.sdtver),largo,deci].join(', ');
+      return 'INSERT INTO BTCBS019 ('+cols+') VALUES('+vals+');';
+    });
+  }
+  if(mode==='delete'){lines.push(...delBtcbs014(),'', ...delBtcbs019());}
+  else if(mode==='insert'){lines.push(...insBtcbs014(),'', ...insBtcbs019());}
+  else{lines.push(...delBtcbs014(),...insBtcbs014(),'', ...delBtcbs019(),...insBtcbs019());}
+  return lines.join('\n');
+}
+
 function sg_generateScript(data, mode) {
-  const ver = data.version, h = data.header, m = data.method, ps = data.params || [], lines = [];
+  const ver = data.version, apiMode = data.apiMode || 'publica', h = data.header, m = data.method, ps = data.params || [], lines = [];
+  if (ver === 'V4' && apiMode === 'interna') return btcbs_generateScript(data, mode);
   const BTINom = h.BTINom||'BTSERVICES', BTISrvNom = h.BTISrvNom||'', BTISrvVer = h.BTISrvVer||'1', BTIMtdNom = h.BTIMtdNom||'';
   const q = (v) => sg_sq(v, ver);
   function delBti019() { if(ver==='V3')return["DELETE FROM BTI019 WHERE BTINom=N'"+BTINom+"' AND BTISrvNom=N'"+BTISrvNom+"' AND BTIMtdNom=N'"+BTIMtdNom+"';"]; return["DELETE FROM BTI019 WHERE BTINOM='"+BTINom+"' AND BTISRVNOM='"+BTISrvNom+"' AND BTIMTDNOM='"+BTIMtdNom+"';"]; }
@@ -70,7 +133,43 @@ function sg_generateScript(data, mode) {
   return lines.join('\n');
 }
 
-function sg_generateSdtScript(sdt, mode, version) {
+// Genera el bloque BTCBS025/BTCBS026 (API Interna) equivalente al que
+// sg_generateSdtScript arma para BTI025/BTI026 en V4.
+function btcbs_generateSdtScript(sdt, mode) {
+  const lines = [], nom = sdt.nom || '', b25 = sdt.bti025, b26 = sdt.bti026 || [];
+  const q = function(v, nullable) { return btcbs_sq(v, nullable); };
+  function delBtcbs025() { return ['DELETE FROM BTCBS025 WHERE BSSDTNAME='+q(nom)+';']; }
+  function delBtcbs026() { return ['DELETE FROM BTCBS026 WHERE BSSDTNAME='+q(nom)+';']; }
+  function insBtcbs025() {
+    if (!b25) return [];
+    const cols = INTERNA_BTCBS025_COLS.join(', ');
+    const dsc = b25.descrip ? q(b25.descrip) : "' '";
+    const vals = [q(b25.nom),q(b25.version),dsc,sn_num(b25.nativo),btcbs_fmtDate(b25.fecha),q(b25.nomint),q(b25.estado),b25.tipo,q(b25.namespace)].join(', ');
+    return ['INSERT INTO BTCBS025 ('+cols+') VALUES('+vals+');'];
+  }
+  function insBtcbs026() {
+    if (!b26.length) return [];
+    const cols = INTERNA_BTCBS026_COLS.join(', ');
+    return b26.map(function(e) {
+      const dsc = e.elemdsc ? q(e.elemdsc) : "' '";
+      const sdtNm = e.elemsdt ? q(e.elemsdt) : "' '";
+      const sdtve = e.sdtve ? q(e.sdtve) : "' '";
+      const plano = e.plano ? q(e.plano) : "' '";
+      const enu = e.enu ? q(e.enu) : "' '";
+      const val = e.val ? q(e.val) : "' '";
+      const catit = e.catit ? q(e.catit) : "' '";
+      const nomit = e.nomit ? q(e.nomit) : "' '";
+      return 'INSERT INTO BTCBS026 ('+cols+') VALUES('+[q(nom),q(e.version||'1'),q(e.elemnom),sg_nq(e.posi),dsc,q(e.nint||''),sn_num(e.obl||'N'),q(e.elemcat),catit,nomit,q(e.elemtipo),sdtNm,sdtve,plano,sg_nq(e.elemlargo),sg_nq(e.elemdeci),enu,val].join(', ')+');';
+    });
+  }
+  if (mode === 'delete') { lines.push(...delBtcbs025(), '', ...delBtcbs026()); }
+  else if (mode === 'insert') { lines.push(...insBtcbs025(), '', ...insBtcbs026()); }
+  else { lines.push(...delBtcbs025(), ...insBtcbs025(), '', ...delBtcbs026(), ...insBtcbs026()); }
+  return lines.join('\n');
+}
+
+function sg_generateSdtScript(sdt, mode, version, apiMode) {
+  if (version === 'V4' && apiMode === 'interna') return btcbs_generateSdtScript(sdt, mode);
   const lines = [], nom = sdt.nom || '', b25 = sdt.bti025, b26 = sdt.bti026 || [];
   const q = function(v) { return sg_sq(v, version); };
   const nomCol = version === 'V3' ? 'BTISDTNom' : 'BTISDTNOM';
@@ -124,5 +223,8 @@ module.exports = {
   V3_BTI019_COLS, V4_BTI019_COLS,
   V3_BTI025_COLS, V4_BTI025_COLS,
   V3_BTI026_COLS, V4_BTI026_COLS,
+  INTERNA_BTCBS014_COLS, INTERNA_BTCBS019_COLS,
+  INTERNA_BTCBS025_COLS, INTERNA_BTCBS026_COLS,
+  sn_num, btcbs_sq, btcbs_fmtDate,
   SG_SDT_EXCLUDE,
 };

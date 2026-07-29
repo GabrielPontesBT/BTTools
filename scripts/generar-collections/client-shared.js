@@ -579,7 +579,7 @@ async function collectionLoadServices() {
     var r = await fetch('/api/services', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ platform: S.platform, db: getDb() })
+      body: JSON.stringify({ platform: S.platform, db: getDb(), apiMode: S.apiMode })
     });
     var d = await r.json();
     if (!d.ok) throw new Error(d.message);
@@ -631,7 +631,7 @@ async function collectionLoadMethods(service) {
     var r = await fetch('/api/methods', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ platform: S.platform, db: getDb(), service: service })
+      body: JSON.stringify({ platform: S.platform, db: getDb(), service: service, apiMode: S.apiMode })
     });
     var d = await r.json();
     if (!d.ok) throw new Error(d.message);

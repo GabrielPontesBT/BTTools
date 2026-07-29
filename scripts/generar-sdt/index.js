@@ -58,8 +58,8 @@ function buildSdtCopy(sourceSdt, nuevoNombre, editedFields) {
   return { bti025Copy, bti026Copy };
 }
 
-function generateSdtScript(nuevoNombre, bti025Copy, bti026Copy, version, mode) {
-  return sg_generateSdtScript({ nom: nuevoNombre, bti025: bti025Copy, bti026: bti026Copy }, mode || 'both', version);
+function generateSdtScript(nuevoNombre, bti025Copy, bti026Copy, version, mode, apiMode) {
+  return sg_generateSdtScript({ nom: nuevoNombre, bti025: bti025Copy, bti026: bti026Copy }, mode || 'both', version, apiMode);
 }
 
 function createSdtGenFeature(deps) {
@@ -68,7 +68,7 @@ function createSdtGenFeature(deps) {
   const queryBti025 = deps.queryBti025;
   const queryBti026 = deps.queryBti026;
 
-  async function listSdtNames(platform, db) {
+  async function listSdtNames(platform, db, apiMode) {
     // Una copia no nativa solo puede armarse a partir de un SDT nativo.
     if (platform === 'sqlserver') {
       const { pool } = await getPool(db);
@@ -76,9 +76,14 @@ function createSdtGenFeature(deps) {
       return r.recordset.map(row => (row.BTISDTNom || '').trim()).filter(Boolean);
     }
     const { conn, oracledb } = await getOra(db);
+    const interna = apiMode === 'interna';
     try {
-      const r = await conn.execute("SELECT BTISDTNOM FROM BTI025 WHERE TRIM(BTISDTNATIVO)='S' ORDER BY BTISDTNOM", [], { outFormat: oracledb.OUT_FORMAT_OBJECT });
-      return r.rows.map(row => (row.BTISDTNOM || '').trim()).filter(Boolean);
+      const r = await conn.execute(
+        interna ? "SELECT BSSDTNAME FROM BTCBS025 WHERE BSSDTNATIV=1 ORDER BY BSSDTNAME" : "SELECT BTISDTNOM FROM BTI025 WHERE TRIM(BTISDTNATIVO)='S' ORDER BY BTISDTNOM",
+        [], { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      );
+      const col = interna ? 'BSSDTNAME' : 'BTISDTNOM';
+      return r.rows.map(row => (row[col] || '').trim()).filter(Boolean);
     } finally {
       await conn.close();
     }
@@ -86,7 +91,7 @@ function createSdtGenFeature(deps) {
 
   // Copias no nativas ya creadas a partir del mismo SDT nativo (mismo
   // BTISDTNomInt), para avisar antes de generar una nueva.
-  async function listExistingCopies(platform, db, version, nomInt) {
+  async function listExistingCopies(platform, db, version, nomInt, apiMode) {
     if (!nomInt) return [];
     if (platform === 'sqlserver') {
       const { pool, mssql } = await getPool(db);
@@ -100,30 +105,34 @@ function createSdtGenFeature(deps) {
       })).filter(c => c.nom);
     }
     const { conn, oracledb } = await getOra(db);
+    const interna = apiMode === 'interna';
     try {
       const r = await conn.execute(
-        "SELECT BTISDTNOM, BTISDTDESCRIP, BTISDTESTADO FROM BTI025 WHERE TRIM(BTISDTNATIVO)='N' AND TRIM(BTISDTNOMINT)=:1 ORDER BY BTISDTNOM",
+        interna
+          ? "SELECT BSSDTNAME, BSSDTDESC, BSSDTSTAT FROM BTCBS025 WHERE BSSDTNATIV=0 AND TRIM(BSSDTINTNM)=:1 ORDER BY BSSDTNAME"
+          : "SELECT BTISDTNOM, BTISDTDESCRIP, BTISDTESTADO FROM BTI025 WHERE TRIM(BTISDTNATIVO)='N' AND TRIM(BTISDTNOMINT)=:1 ORDER BY BTISDTNOM",
         [nomInt], { outFormat: oracledb.OUT_FORMAT_OBJECT }
       );
+      const [nomCol, descCol, estCol] = interna ? ['BSSDTNAME','BSSDTDESC','BSSDTSTAT'] : ['BTISDTNOM','BTISDTDESCRIP','BTISDTESTADO'];
       return r.rows.map(row => ({
-        nom: (row.BTISDTNOM || '').trim(),
-        descrip: (row.BTISDTDESCRIP || '').trim(),
-        estado: (row.BTISDTESTADO || '').trim(),
+        nom: (row[nomCol] || '').trim(),
+        descrip: (row[descCol] || '').trim(),
+        estado: (row[estCol] || '').trim(),
       })).filter(c => c.nom);
     } finally {
       await conn.close();
     }
   }
 
-  function scriptToStatements(nuevoNombre, bti025Copy, bti026Copy, version) {
-    const script = generateSdtScript(nuevoNombre, bti025Copy, bti026Copy, version, 'both');
+  function scriptToStatements(nuevoNombre, bti025Copy, bti026Copy, version, apiMode) {
+    const script = generateSdtScript(nuevoNombre, bti025Copy, bti026Copy, version, 'both', apiMode);
     // El generador emite cada sentencia con ';' final. oracledb rechaza el
     // terminador (ORA-00911) y mssql lo tolera, asi que lo quitamos siempre.
     return script.split('\n').map(s => s.trim()).filter(Boolean).map(s => s.replace(/;\s*$/, ''));
   }
 
-  async function executeSdtCopy(platform, db, version, nuevoNombre, bti025Copy, bti026Copy) {
-    const statements = scriptToStatements(nuevoNombre, bti025Copy, bti026Copy, version);
+  async function executeSdtCopy(platform, db, version, nuevoNombre, bti025Copy, bti026Copy, apiMode) {
+    const statements = scriptToStatements(nuevoNombre, bti025Copy, bti026Copy, version, apiMode);
     if (platform === 'sqlserver') {
       const { pool, mssql } = await getPool(db);
       const tx = new mssql.Transaction(pool);
@@ -169,7 +178,7 @@ function createSdtGenFeature(deps) {
     if (req.method === 'POST' && req.url === '/api/sdtgen/list') {
       try {
         const body = await readBody(req);
-        const names = await listSdtNames(body.platform, body.db);
+        const names = await listSdtNames(body.platform, body.db, body.apiMode);
         json(200, { ok: true, names });
       } catch (e) { json(200, { ok: false, message: e.message }); }
       return true;
@@ -178,9 +187,9 @@ function createSdtGenFeature(deps) {
     if (req.method === 'POST' && req.url === '/api/sdtgen/sdt') {
       try {
         const body = await readBody(req);
-        const bti025 = await queryBti025(body.platform, body.db, body.version, body.nom);
+        const bti025 = await queryBti025(body.platform, body.db, body.version, body.nom, body.apiMode);
         if (!bti025) { json(200, { ok: false, message: 'SDT no encontrado: ' + body.nom }); return true; }
-        const bti026 = await queryBti026(body.platform, body.db, body.version, body.nom);
+        const bti026 = await queryBti026(body.platform, body.db, body.version, body.nom, body.apiMode);
         json(200, { ok: true, bti025, bti026 });
       } catch (e) { json(200, { ok: false, message: e.message }); }
       return true;
@@ -189,7 +198,7 @@ function createSdtGenFeature(deps) {
     if (req.method === 'POST' && req.url === '/api/sdtgen/existing-copies') {
       try {
         const body = await readBody(req);
-        const copies = await listExistingCopies(body.platform, body.db, body.version, body.nomint);
+        const copies = await listExistingCopies(body.platform, body.db, body.version, body.nomint, body.apiMode);
         json(200, { ok: true, copies });
       } catch (e) { json(200, { ok: false, message: e.message }); }
       return true;
@@ -204,7 +213,7 @@ function createSdtGenFeature(deps) {
           body.nuevoNombre,
           body.editedFields
         );
-        const script = generateSdtScript(body.nuevoNombre, bti025Copy, bti026Copy, body.version, body.mode || 'both');
+        const script = generateSdtScript(body.nuevoNombre, bti025Copy, bti026Copy, body.version, body.mode || 'both', body.apiMode);
         json(200, { ok: true, script, bti025Copy, bti026Copy });
       } catch (e) { json(200, { ok: false, message: e.message }); }
       return true;
@@ -216,15 +225,15 @@ function createSdtGenFeature(deps) {
         if (!isValidSdtName(body.nuevoNombre)) { json(200, { ok: false, message: SDT_NAME_ERR }); return true; }
         // No confiamos en los datos del SDT origen que vuelven del browser:
         // se vuelven a consultar en la base antes de armar el DELETE/INSERT.
-        const bti025 = await queryBti025(body.platform, body.db, body.version, body.nom);
+        const bti025 = await queryBti025(body.platform, body.db, body.version, body.nom, body.apiMode);
         if (!bti025) { json(200, { ok: false, message: 'SDT no encontrado: ' + body.nom }); return true; }
-        const bti026 = await queryBti026(body.platform, body.db, body.version, body.nom);
+        const bti026 = await queryBti026(body.platform, body.db, body.version, body.nom, body.apiMode);
         const { bti025Copy, bti026Copy } = buildSdtCopy(
           { bti025, bti026 },
           body.nuevoNombre,
           body.editedFields
         );
-        const result = await executeSdtCopy(body.platform, body.db, body.version, body.nuevoNombre, bti025Copy, bti026Copy);
+        const result = await executeSdtCopy(body.platform, body.db, body.version, body.nuevoNombre, bti025Copy, bti026Copy, body.apiMode);
         json(200, Object.assign({ ok: true }, result));
       } catch (e) { json(200, { ok: false, message: e.message }); }
       return true;

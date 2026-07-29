@@ -239,6 +239,15 @@ test('listSdtNames (Oracle) filtra solo SDT nativos (BTISDTNATIVO=S)', async () 
   assert.match(sqlSent, /WHERE\s+TRIM\(BTISDTNATIVO\)\s*=\s*'S'/i);
 });
 
+test('listSdtNames (Oracle, apiMode=interna) consulta BTCBS025 con BSSDTNATIV=1 (numerico, no CHAR)', async () => {
+  let sqlSent = null;
+  const fakeConn = { execute: async (sql) => { sqlSent = sql; return { rows: [{ BSSDTNAME: 'SdtInternaA ' }] }; }, close: async () => {} };
+  const feature = createSdtGenFeature(fakeDeps({ getOra: async () => ({ conn: fakeConn, oracledb: { OUT_FORMAT_OBJECT: 1 } }) }));
+  const names = await feature.listSdtNames('oracle', {}, 'interna');
+  assert.match(sqlSent, /FROM BTCBS025 WHERE BSSDTNATIV\s*=\s*1/i);
+  assert.deepEqual(names, ['SdtInternaA']);
+});
+
 test('listExistingCopies (SQL Server) filtra por BTISDTNativo=N y BTISDTNomInt=valor recibido', async () => {
   let sqlSent = null, nomintSent = null;
   const fakePool = {
@@ -265,6 +274,19 @@ test('listExistingCopies (Oracle) filtra por BTISDTNATIVO=N y BTISDTNOMINT=valor
   assert.match(sqlSent, /WHERE\s+TRIM\(BTISDTNATIVO\)\s*=\s*'N'\s+AND\s+TRIM\(BTISDTNOMINT\)\s*=\s*:1/i);
   assert.deepEqual(bindsSent, ['SdtOriginalInt']);
   assert.deepEqual(copies, [{ nom: 'SdtCopiaB', descrip: 'Copia B.', estado: 'Validado' }]);
+});
+
+test('listExistingCopies (Oracle, apiMode=interna) consulta BTCBS025 con BSSDTNATIV=0 (numerico)', async () => {
+  let sqlSent = null, bindsSent = null;
+  const fakeConn = {
+    execute: async (sql, binds) => { sqlSent = sql; bindsSent = binds; return { rows: [{ BSSDTNAME: 'SdtCopiaInterna ', BSSDTDESC: 'Copia interna.', BSSDTSTAT: 'Validado' }] }; },
+    close: async () => {},
+  };
+  const feature = createSdtGenFeature(fakeDeps({ getOra: async () => ({ conn: fakeConn, oracledb: { OUT_FORMAT_OBJECT: 1 } }) }));
+  const copies = await feature.listExistingCopies('oracle', {}, 'V4', 'SdtOriginalInt', 'interna');
+  assert.match(sqlSent, /FROM BTCBS025 WHERE BSSDTNATIV\s*=\s*0\s+AND\s+TRIM\(BSSDTINTNM\)\s*=\s*:1/i);
+  assert.deepEqual(bindsSent, ['SdtOriginalInt']);
+  assert.deepEqual(copies, [{ nom: 'SdtCopiaInterna', descrip: 'Copia interna.', estado: 'Validado' }]);
 });
 
 test('listExistingCopies devuelve [] sin consultar la base si no hay nomInt', async () => {
@@ -556,8 +578,8 @@ test('handleApi POST /api/sdtgen/execute re-consulta el SDT origen en la base, a
   assert.equal(handled, true);
   assert.equal(res.body.ok, true);
   assert.ok(res.body.statementsRun > 0);
-  assert.deepEqual(q25Calls, [['sqlserver', {}, 'V3', 'SdtOriginal']]);
-  assert.deepEqual(q26Calls, [['sqlserver', {}, 'V3', 'SdtOriginal']]);
+  assert.deepEqual(q25Calls, [['sqlserver', {}, 'V3', 'SdtOriginal', undefined]]);
+  assert.deepEqual(q26Calls, [['sqlserver', {}, 'V3', 'SdtOriginal', undefined]]);
   assert.ok(queriesRun.some(s => s.includes("N'campoRenombrado'")), 'debe usar el nombre editado');
   assert.ok(queriesRun.some(s => s.includes("N'Descripcion editada.'")), 'debe usar la descripcion editada');
 });
