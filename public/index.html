@@ -136,6 +136,7 @@
         <div class="ccard act-ccard" onclick="pick('action','sdtgen',this)">
           <span class="act-icon">&#128203;</span>
           <span class="ccard-title" style="font-size:var(--fs-2xl);display:block;margin-bottom:var(--sp-2)">Generar SDT</span>
+          <span class="ccard-desc" style="color:var(--blue)">Disponible para V4.</span>
           <span class="ccard-desc">Genera una copia no nativa de un SDT existente, con campos eliminados y reordenados.</span>
         </div>
       </div>
@@ -304,10 +305,10 @@
       <div class="psub">Elegí un SDT nativo para generar una copia no nativa a partir de él (solo se listan los SDT nativos).</div>
       <div id="sdtgen-list-loading" style="display:none;font-size:var(--fs-sm);color:var(--muted);margin-bottom:var(--sp-4);align-items:center;gap:var(--sp-2)"><span class="spin dk"></span>&nbsp;Cargando SDTs...</div>
       <div class="cres" id="sdtgen-list-err"></div>
-      <div class="field" style="margin-bottom:var(--sp-3)">
+      <div class="field" style="margin-bottom:var(--sp-5)">
         <input type="text" id="sdtgen-search" placeholder="Buscar SDT por nombre..." autocomplete="off" oninput="sdtgenFilterList()">
       </div>
-      <div id="sdtgen-list" class="sdtgen-list"></div>
+      <div id="sdtgen-list" class="sdtgen-list" style="margin-bottom:var(--sp-5)"></div>
     </div>
 
     <!-- Paso 5 SDT Gen: Editar copia -->
