@@ -34,6 +34,12 @@ async function sdtgenLoadList() {
   var loading = document.getElementById('sdtgen-list-loading'), err = document.getElementById('sdtgen-list-err');
   if (err) err.className = 'cres';
   if (loading) loading.style.display = 'flex';
+  // Cada (re)ingreso al paso 4 es un pedido fresco: una seleccion vieja no
+  // tiene por que seguir siendo valida si se volvio atras y se cambio de
+  // conexion/ambiente antes de volver a este paso.
+  sdtgenSelectedName = null;
+  var btnNext = document.getElementById('btn-next');
+  if (btnNext) btnNext.disabled = true;
   try {
     var r = await fetch('/api/sdtgen/list', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG() }) });
     var d = await r.json();
@@ -320,8 +326,7 @@ function sdtgenReset() {
   setVal('sdtgen-search', ''); setVal('sdtgen-new-name', '');
   document.getElementById('sdtgen-sql-out').value = '';
   var res = document.getElementById('sdtgen-exec-res'); if (res) res.className = 'cres';
-  show(4);
-  sdtgenLoadList();
+  show(4); // show() ya recarga la lista siempre al entrar al paso 4
 }
 
 // ── Historial de conexiones ───────────────────────────────────
@@ -537,7 +542,9 @@ function show(step) {
     if (typeof collectionToggleConfig === 'function') collectionToggleConfig();
   }
   if (step === 4 && S.action === 'scripts' && !sgServicesLoaded) sgLoadServices();
-  if (step === 4 && S.action === 'sdtgen' && !sdtgenNames.length) sdtgenLoadList();
+  // Siempre se recarga (no solo la primera vez): si el usuario vuelve atras
+  // y cambia de conexion/ambiente, la lista vieja en memoria quedaria stale.
+  if (step === 4 && S.action === 'sdtgen') sdtgenLoadList();
   if (step === 5 && S.action === 'sdtgen') sdtgenRenderEditor();
   if (step === 6 && S.action === 'sdtgen') sdtgenDoGenerate();
 }
