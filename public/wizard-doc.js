@@ -437,7 +437,15 @@ function pick(key, val, el) {
     S.platform = val === 'V3' ? 'sqlserver' : 'oracle';
     tryLoadEnv(val);
   }
-  if (key === 'action') updateStepLabels(val);
+  if (key === 'action') {
+    updateStepLabels(val);
+    if (val === 'sdtgen') {
+      // Generar SDT solo trabaja contra V4 (Oracle); no se pide version.
+      S.version = 'V4';
+      S.platform = 'oracle';
+      tryLoadEnv('V4');
+    }
+  }
   var nb = document.getElementById('btn-next');
   if (nb) nb.disabled = false;
 }
@@ -587,6 +595,7 @@ function goNext() {
   var s = S.step;
   if (s === 1 && !S.action) return;
   if (s === 1 && S.action === 'validate') { show(4); return; } // saltar versión y conexión
+  if (s === 1 && S.action === 'sdtgen') { show(3); return; } // Generar SDT es siempre V4, saltar versión
   if (s === 1) { show(2); return; }
   if (s === 2 && !S.version) return;
   if (s === 2) { show(3); return; }
@@ -607,6 +616,7 @@ function goNext() {
 function goBack() {
   var s = S.step;
   if (s === 4 && S.action === 'validate') { show(1); return; } // saltar versión y conexión
+  if (s === 3 && S.action === 'sdtgen') { show(1); return; } // Generar SDT es siempre V4, saltar versión
   if (s === 5 && S.action === 'collections') { show(4); return; }
   if (s === 4) { show(3); return; }
   if (s === 5 && S.action === 'scripts') { show(4); return; }
