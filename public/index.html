@@ -112,7 +112,7 @@
     <div class="panel active" id="p3">
       <div class="ptitle">¿Qué querés hacer?</div>
       <div class="psub">Elegí la herramienta que querés usar.</div>
-      <div class="cards" style="grid-template-columns:1fr 1fr 1fr 1fr">
+      <div class="cards" style="grid-template-columns:repeat(5,1fr)">
         <div class="ccard act-ccard" onclick="pick('action','doc',this)">
           <span class="act-icon">&#128196;</span>
           <span class="ccard-title" style="font-size:var(--fs-2xl);display:block;margin-bottom:var(--sp-2)">Documentar</span>
@@ -132,6 +132,11 @@
           <span class="act-icon">&#129514;</span>
           <span class="ccard-title" style="font-size:var(--fs-2xl);display:block;margin-bottom:var(--sp-2)">Generar Casos de Prueba</span>
           <span class="ccard-desc">Genera casos de uso a partir de la información de los servicios del ambiente.</span>
+        </div>
+        <div class="ccard act-ccard" onclick="pick('action','sdtgen',this)">
+          <span class="act-icon">&#128203;</span>
+          <span class="ccard-title" style="font-size:var(--fs-2xl);display:block;margin-bottom:var(--sp-2)">Generar SDT</span>
+          <span class="ccard-desc">Genera una copia no nativa de un SDT existente, con campos eliminados y reordenados.</span>
         </div>
       </div>
     </div>
@@ -291,6 +296,48 @@
       <div id="sg-warnings" style="display:none;margin-bottom:var(--sp-3)"></div>
       <textarea class="sql-out" id="sg-sql-out" readonly placeholder="Acá va a aparecer el script generado..."></textarea>
       <div class="cres" id="sg-copy-res" style="margin-top:var(--sp-2)"></div>
+    </div>
+
+    <!-- Paso 4 SDT Gen: Elegir SDT base -->
+    <div class="panel" id="p-sdtbase">
+      <div class="ptitle">¿Qué SDT querés usar como base?</div>
+      <div class="psub">Elegí un SDT nativo para generar una copia no nativa a partir de él (solo se listan los SDT nativos).</div>
+      <div id="sdtgen-list-loading" style="display:none;font-size:var(--fs-sm);color:var(--muted);margin-bottom:var(--sp-4);align-items:center;gap:var(--sp-2)"><span class="spin dk"></span>&nbsp;Cargando SDTs...</div>
+      <div class="cres" id="sdtgen-list-err"></div>
+      <div class="field" style="margin-bottom:var(--sp-3)">
+        <input type="text" id="sdtgen-search" placeholder="Buscar SDT por nombre..." autocomplete="off" oninput="sdtgenFilterList()">
+      </div>
+      <div id="sdtgen-list" class="sdtgen-list"></div>
+    </div>
+
+    <!-- Paso 5 SDT Gen: Editar copia -->
+    <div class="panel" id="p-sdtedit">
+      <div class="ptitle">Editá la copia de <span id="sdtgen-base-name"></span></div>
+      <div class="psub">Elegí el nombre de la copia y reordená, editá o quitá campos.</div>
+      <div id="sdtgen-existing-wrap" style="display:none;margin-bottom:var(--sp-4)">
+        <div class="cres show" style="background:var(--warn-l);color:var(--warn-d);display:flex">
+          Ya existen copias no nativas de este SDT — hacé click en una para ver sus campos y confirmar si ya te sirve alguna.
+        </div>
+        <div id="sdtgen-existing-list" class="sdtgen-existing-list"></div>
+      </div>
+      <div class="field">
+        <label>Nombre del nuevo SDT</label>
+        <input type="text" id="sdtgen-new-name" placeholder="ej: SdtMiCopiaPersonalizada" autocomplete="off">
+      </div>
+      <div class="cres" id="sdtgen-name-err"></div>
+      <div id="sdtgen-fields" class="sdtgen-fields"></div>
+    </div>
+
+    <!-- Paso 6 SDT Gen: Resultado -->
+    <div class="panel" id="p-sdtresult">
+      <div class="ptitle">Script generado</div>
+      <div class="psub">Copiá el script o ejecutalo directo contra la conexión activa.</div>
+      <div class="gen-btns">
+        <button class="btn btn-success btn-sm" onclick="sdtgenCopyScript()">Copiar</button>
+        <button class="btn btn-outline btn-sm" onclick="sdtgenExecute()">Ejecutar contra la conexión activa</button>
+      </div>
+      <textarea class="sql-out" id="sdtgen-sql-out" readonly placeholder="Acá va a aparecer el script generado..."></textarea>
+      <div class="cres" id="sdtgen-exec-res" style="margin-top:var(--sp-2)"></div>
     </div>
 
     <!-- Paso 3 Validar: Selección de carpeta y resultados -->

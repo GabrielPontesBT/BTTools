@@ -22,6 +22,313 @@ var sgServiceGroups = [];
 var sgMultiData = null;
 var sgServicesLoaded = false;
 
+// ── Estado flujo Generar SDT ─────────────────────────────────
+var sdtgenNames = [];
+var sdtgenSelectedName = null;
+var sdtgenBaseData = null; // { bti025, bti026 }
+var sdtgenFields = []; // copia de trabajo de bti026, reordenada/filtrada
+var sdtgenDragIdx = null;
+var sdtgenExistingCopies = []; // copias no nativas ya creadas a partir del mismo SDT nativo
+
+async function sdtgenLoadList() {
+  var loading = document.getElementById('sdtgen-list-loading'), err = document.getElementById('sdtgen-list-err');
+  if (err) err.className = 'cres';
+  if (loading) loading.style.display = 'flex';
+  // Cada (re)ingreso al paso 4 es un pedido fresco: una seleccion vieja no
+  // tiene por que seguir siendo valida si se volvio atras y se cambio de
+  // conexion/ambiente antes de volver a este paso.
+  sdtgenSelectedName = null;
+  var btnNext = document.getElementById('btn-next');
+  if (btnNext) btnNext.disabled = true;
+  try {
+    var r = await fetch('/api/sdtgen/list', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG() }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    sdtgenNames = d.names || [];
+    sdtgenRenderList(sdtgenNames);
+  } catch(e) {
+    if (err) { err.className = 'cres show err'; err.textContent = e.message; }
+  }
+  if (loading) loading.style.display = 'none';
+}
+
+function sdtgenRenderList(names) {
+  var container = document.getElementById('sdtgen-list');
+  container.innerHTML = '';
+  names.forEach(function(nom) {
+    var row = document.createElement('div');
+    row.className = 'sdtgen-row' + (nom === sdtgenSelectedName ? ' sel' : '');
+    row.textContent = nom;
+    row.onclick = function() {
+      sdtgenSelectedName = nom;
+      container.querySelectorAll('.sdtgen-row').forEach(function(r) { r.classList.remove('sel'); });
+      row.classList.add('sel');
+      var btn = document.getElementById('btn-next');
+      if (btn) btn.disabled = false;
+    };
+    container.appendChild(row);
+  });
+}
+
+function sdtgenFilterList() {
+  var q = v('sdtgen-search').toLowerCase();
+  var filtered = q ? sdtgenNames.filter(function(n) { return n.toLowerCase().indexOf(q) !== -1; }) : sdtgenNames;
+  sdtgenRenderList(filtered);
+}
+
+var SDTGEN_FIELD_NAME_RE = /^[A-Za-z][A-Za-z0-9_]{0,99}$/;
+var SDTGEN_DIGITS_RE = /^\d{1,9}$/;
+var SDTGEN_FORBIDDEN_TEXT_RE = /['";\\\r\n]/;
+
+function sdtgenEscapeAttr(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Misma regla que valida el server (buildSdtCopy) - da feedback inmediato
+// en el editor, pero la autoridad final sigue siendo el server.
+function sdtgenValidateField(f) {
+  if (!SDTGEN_FIELD_NAME_RE.test(f.elemnom || '')) return 'Nombre invalido: debe empezar con una letra y usar solo letras, numeros o guion bajo.';
+  if (!SDTGEN_DIGITS_RE.test(f.elemlargo != null ? String(f.elemlargo) : '')) return 'Largo invalido: debe ser un numero entero (0 o mayor).';
+  if (!SDTGEN_DIGITS_RE.test(f.elemdeci != null ? String(f.elemdeci) : '0')) return 'Decimales invalidos: debe ser un numero entero (0 o mayor).';
+  if (SDTGEN_FORBIDDEN_TEXT_RE.test(f.elemdsc || '')) return 'Descripcion invalida: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
+  if (f.nomit && SDTGEN_FORBIDDEN_TEXT_RE.test(f.nomit)) return 'Nombre de iterador invalido: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
+  return null;
+}
+
+function sdtgenFieldsAllValid() {
+  return sdtgenFields.every(function(f) { return !sdtgenValidateField(f); });
+}
+
+async function sdtgenGoToEdit() {
+  if (!sdtgenSelectedName) return;
+  var btn = document.getElementById('btn-next');
+  if (btn) { btn.innerHTML = '<span class="spin"></span>&nbsp;Cargando...'; btn.disabled = true; }
+  try {
+    var r = await fetch('/api/sdtgen/sdt', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, nom: sdtgenSelectedName }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    sdtgenBaseData = { bti025: d.bti025, bti026: d.bti026 };
+    // Copia editable independiente del origen; origElemnom queda fijo para
+    // que el server pueda ubicar el campo real aunque se le cambie el nombre.
+    sdtgenFields = (d.bti026 || []).map(function(f) {
+      return Object.assign({}, f, { origElemnom: f.elemnom, elemdeci: f.elemdeci || '0', nomit: f.nomit || '' });
+    });
+    setVal('sdtgen-new-name', '');
+    document.getElementById('sdtgen-base-name').textContent = sdtgenSelectedName;
+    show(5);
+    sdtgenLoadExistingCopies(d.bti025 && d.bti025.nomint);
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
+  if (btn) { btn.innerHTML = 'Siguiente &#8594;'; btn.disabled = false; }
+}
+
+async function sdtgenLoadExistingCopies(nomint) {
+  var wrap = document.getElementById('sdtgen-existing-wrap');
+  sdtgenExistingCopies = [];
+  if (wrap) wrap.style.display = 'none';
+  if (!nomint) return;
+  try {
+    var r = await fetch('/api/sdtgen/existing-copies', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, nomint: nomint }) });
+    var d = await r.json();
+    if (!d.ok || !d.copies || !d.copies.length) return;
+    sdtgenExistingCopies = d.copies;
+    sdtgenRenderExistingCopies();
+    if (wrap) wrap.style.display = '';
+  } catch(e) { /* no bloquea el flujo si falla esta busqueda informativa */ }
+}
+
+function sdtgenRenderExistingCopies() {
+  var container = document.getElementById('sdtgen-existing-list');
+  container.innerHTML = '';
+  sdtgenExistingCopies.forEach(function(copy) {
+    var row = document.createElement('div');
+    row.className = 'sdtgen-existing-item';
+
+    var head = document.createElement('div');
+    head.className = 'sdtgen-existing-head';
+    head.innerHTML = '<span class="sdtgen-existing-caret">&#9656;</span>' +
+      '<span class="sdtgen-existing-name">' + sdtgenEscapeAttr(copy.nom) + '</span>' +
+      '<span class="sdtgen-existing-estado">' + sdtgenEscapeAttr(copy.estado) + '</span>';
+    row.appendChild(head);
+
+    var body = document.createElement('div');
+    body.className = 'sdtgen-existing-body';
+    body.style.display = 'none';
+    row.appendChild(body);
+
+    var loaded = false;
+    head.onclick = function() {
+      var isOpen = body.style.display !== 'none';
+      if (isOpen) { body.style.display = 'none'; head.querySelector('.sdtgen-existing-caret').innerHTML = '&#9656;'; return; }
+      body.style.display = '';
+      head.querySelector('.sdtgen-existing-caret').innerHTML = '&#9662;';
+      if (loaded) return;
+      loaded = true;
+      body.innerHTML = '<span class="sdtgen-existing-loading">Cargando campos...</span>';
+      fetch('/api/sdtgen/sdt', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, nom: copy.nom }) })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!d.ok) { body.innerHTML = '<span class="sdtgen-existing-loading">' + sdtgenEscapeAttr(d.message) + '</span>'; return; }
+          var fields = d.bti026 || [];
+          if (!fields.length) { body.innerHTML = '<span class="sdtgen-existing-loading">Sin campos.</span>'; return; }
+          body.innerHTML = fields.map(function(f) {
+            return '<div class="sdtgen-existing-field"><span>' + sdtgenEscapeAttr(f.elemnom) + '</span><span>' + sdtgenEscapeAttr(f.elemtipo) + '</span><span>' + sdtgenEscapeAttr(f.elemdsc) + '</span></div>';
+          }).join('');
+        })
+        .catch(function(e) { body.innerHTML = '<span class="sdtgen-existing-loading">Error: ' + sdtgenEscapeAttr(e.message) + '</span>'; });
+    };
+
+    container.appendChild(row);
+  });
+}
+
+function sdtgenFieldGridCols(showV4Extras) {
+  return '24px 160px 70px 60px' + (showV4Extras ? ' 60px' : '') + ' minmax(160px,1fr)' + (showV4Extras ? ' 110px' : '') + ' 28px';
+}
+
+function sdtgenRenderEditor() {
+  var container = document.getElementById('sdtgen-fields');
+  container.innerHTML = '';
+  var showV4Extras = S.version === 'V4';
+  var gridCols = sdtgenFieldGridCols(showV4Extras);
+
+  var header = document.createElement('div');
+  header.className = 'sdtgen-fields-header';
+  header.style.gridTemplateColumns = gridCols;
+  header.innerHTML = '<span></span><span>Nombre</span><span>Tipo</span><span>Largo</span>' +
+    (showV4Extras ? '<span>Decimales</span>' : '') +
+    '<span>Descripción</span>' +
+    (showV4Extras ? '<span>Iterador</span>' : '') +
+    '<span></span>';
+  container.appendChild(header);
+
+  sdtgenFields.forEach(function(field, idx) {
+    var item = document.createElement('div');
+    item.className = 'sdtgen-field-item';
+    item.style.gridTemplateColumns = gridCols;
+    item.draggable = true;
+    item.innerHTML = '<span class="sdtgen-drag-handle">&#9776;</span>' +
+      '<input type="text" class="sdtgen-field-input sdtgen-field-input-nom" value="' + sdtgenEscapeAttr(field.elemnom) + '">' +
+      '<span class="sdtgen-field-type">' + sdtgenEscapeAttr(field.elemtipo) + '</span>' +
+      '<input type="text" class="sdtgen-field-input sdtgen-field-input-largo" value="' + sdtgenEscapeAttr(field.elemlargo) + '">' +
+      (showV4Extras ? '<input type="text" class="sdtgen-field-input sdtgen-field-input-deci" value="' + sdtgenEscapeAttr(field.elemdeci) + '">' : '') +
+      '<input type="text" class="sdtgen-field-input sdtgen-field-input-dsc" value="' + sdtgenEscapeAttr(field.elemdsc) + '">' +
+      (showV4Extras ? '<input type="text" class="sdtgen-field-input sdtgen-field-input-nomit" value="' + sdtgenEscapeAttr(field.nomit) + '">' : '') +
+      '<button type="button" class="sdtgen-field-rm" title="Quitar">&times;</button>' +
+      '<div class="sdtgen-field-err"></div>';
+
+    var err = item.querySelector('.sdtgen-field-err');
+    function updateErr() {
+      var msg = sdtgenValidateField(field);
+      err.textContent = msg || '';
+      item.classList.toggle('invalid', !!msg);
+    }
+
+    item.querySelector('.sdtgen-field-input-nom').addEventListener('input', function() { field.elemnom = this.value; updateErr(); });
+    item.querySelector('.sdtgen-field-input-largo').addEventListener('input', function() { field.elemlargo = this.value; updateErr(); });
+    item.querySelector('.sdtgen-field-input-dsc').addEventListener('input', function() { field.elemdsc = this.value; updateErr(); });
+    if (showV4Extras) {
+      item.querySelector('.sdtgen-field-input-deci').addEventListener('input', function() { field.elemdeci = this.value; updateErr(); });
+      item.querySelector('.sdtgen-field-input-nomit').addEventListener('input', function() { field.nomit = this.value; updateErr(); });
+    }
+    updateErr();
+
+    item.querySelector('.sdtgen-field-rm').onclick = function() {
+      sdtgenFields.splice(idx, 1);
+      sdtgenRenderEditor();
+    };
+    item.addEventListener('dragstart', function(e) {
+      if (e.target && e.target.tagName === 'INPUT') { e.preventDefault(); return; }
+      sdtgenDragIdx = idx; item.classList.add('dragging');
+    });
+    item.addEventListener('dragend', function() { item.classList.remove('dragging'); });
+    item.addEventListener('dragover', function(e) { e.preventDefault(); });
+    item.addEventListener('drop', function(e) {
+      e.preventDefault();
+      if (sdtgenDragIdx === null || sdtgenDragIdx === idx) return;
+      var moved = sdtgenFields.splice(sdtgenDragIdx, 1)[0];
+      sdtgenFields.splice(idx, 0, moved);
+      sdtgenDragIdx = null;
+      sdtgenRenderEditor();
+    });
+    container.appendChild(item);
+  });
+}
+
+function sdtgenGoToResult() {
+  var nombre = v('sdtgen-new-name');
+  var err = document.getElementById('sdtgen-name-err');
+  if (!nombre) { err.className = 'cres show err'; err.textContent = 'Ingresá un nombre para la copia.'; return; }
+  if (nombre === sdtgenSelectedName) { err.className = 'cres show err'; err.textContent = 'El nombre debe ser distinto al del SDT base.'; return; }
+  if (sdtgenNames.indexOf(nombre) !== -1) { err.className = 'cres show err'; err.textContent = 'Ya existe un SDT con ese nombre. Elegí otro.'; return; }
+  if (sdtgenFields.length === 0) { err.className = 'cres show err'; err.textContent = 'La copia necesita al menos un campo.'; return; }
+  if (!sdtgenFieldsAllValid()) { err.className = 'cres show err'; err.textContent = 'Hay campos con datos invalidos, revisalos antes de continuar.'; return; }
+  err.className = 'cres';
+  show(6);
+}
+
+function sdtgenBuildEditedFields() {
+  return sdtgenFields.map(function(f) {
+    return { origElemnom: f.origElemnom, elemnom: f.elemnom, elemlargo: f.elemlargo, elemdsc: f.elemdsc, elemdeci: f.elemdeci, nomit: f.nomit };
+  });
+}
+
+async function sdtgenDoGenerate() {
+  var ta = document.getElementById('sdtgen-sql-out');
+  ta.value = 'Generando...';
+  try {
+    var r = await fetch('/api/sdtgen/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+      version: S.version,
+      nuevoNombre: v('sdtgen-new-name'),
+      sourceBti025: sdtgenBaseData.bti025,
+      sourceBti026: sdtgenBaseData.bti026,
+      editedFields: sdtgenBuildEditedFields()
+    }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    ta.value = d.script || '';
+  } catch(e) { ta.value = 'Error: ' + e.message; }
+}
+
+function sdtgenCopyScript() {
+  var ta = document.getElementById('sdtgen-sql-out'); if (!ta.value.trim()) return;
+  navigator.clipboard.writeText(ta.value).then(function() {
+    var res = document.getElementById('sdtgen-exec-res');
+    res.className = 'cres show ok'; res.textContent = 'Copiado al portapapeles ✓';
+    setTimeout(function() { res.className = 'cres'; }, 2000);
+  }).catch(function() { ta.select(); document.execCommand('copy'); });
+}
+
+async function sdtgenExecute() {
+  if (!confirm('Esto va a ejecutar DELETE + INSERT contra la base conectada. ¿Confirmás?')) return;
+  var res = document.getElementById('sdtgen-exec-res');
+  res.className = 'cres show'; res.textContent = 'Ejecutando...';
+  try {
+    var r = await fetch('/api/sdtgen/execute', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+      platform: S.platform, db: getDbSG(), version: S.version,
+      nom: sdtgenSelectedName,
+      nuevoNombre: v('sdtgen-new-name'),
+      editedFields: sdtgenBuildEditedFields()
+    }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    res.className = 'cres show ok'; res.textContent = 'Ejecutado correctamente (' + d.statementsRun + ' sentencias) ✓';
+  } catch(e) {
+    res.className = 'cres show err'; res.textContent = 'Error: ' + e.message;
+  }
+}
+
+function sdtgenReset() {
+  sdtgenSelectedName = null; sdtgenBaseData = null; sdtgenFields = [];
+  sdtgenDragIdx = null; sdtgenExistingCopies = [];
+  var existingWrap = document.getElementById('sdtgen-existing-wrap'); if (existingWrap) existingWrap.style.display = 'none';
+  setVal('sdtgen-search', ''); setVal('sdtgen-new-name', '');
+  document.getElementById('sdtgen-sql-out').value = '';
+  var res = document.getElementById('sdtgen-exec-res'); if (res) res.className = 'cres';
+  show(4); // show() ya recarga la lista siempre al entrar al paso 4
+}
+
 // ── Historial de conexiones ───────────────────────────────────
 var _dbHistory = [];
 
@@ -130,7 +437,15 @@ function pick(key, val, el) {
     S.platform = val === 'V3' ? 'sqlserver' : 'oracle';
     tryLoadEnv(val);
   }
-  if (key === 'action') updateStepLabels(val);
+  if (key === 'action') {
+    updateStepLabels(val);
+    if (val === 'sdtgen') {
+      // Generar SDT solo trabaja contra V4 (Oracle); no se pide version.
+      S.version = 'V4';
+      S.platform = 'oracle';
+      tryLoadEnv('V4');
+    }
+  }
   var nb = document.getElementById('btn-next');
   if (nb) nb.disabled = false;
 }
@@ -143,6 +458,9 @@ function updateStepLabels(action) {
   } else if (action === 'collections') {
     if (lb4) lb4.textContent = 'API';
     if (lb5) lb5.textContent = 'Collections';
+  } else if (action === 'sdtgen') {
+    if (lb4) lb4.textContent = 'SDT base';
+    if (lb5) lb5.textContent = 'Editar';
   } else {
     if (lb4) lb4.textContent = 'API';
     if (lb5) lb5.textContent = 'Servicios';
@@ -189,6 +507,7 @@ function panelId(step) {
   if (S.action === 'validate') return 'p4v';
   if (S.action === 'collections') return step === 4 ? 'p4' : 'p4c';
   if (S.action === 'scripts') return step === 4 ? 'p4s' : 'p5s';
+  if (S.action === 'sdtgen') return step === 4 ? 'p-sdtbase' : step === 5 ? 'p-sdtedit' : 'p-sdtresult';
   return 'p' + step; // doc: p4, p5, p6
 }
 
@@ -231,6 +550,11 @@ function show(step) {
     if (typeof collectionToggleConfig === 'function') collectionToggleConfig();
   }
   if (step === 4 && S.action === 'scripts' && !sgServicesLoaded) sgLoadServices();
+  // Siempre se recarga (no solo la primera vez): si el usuario vuelve atras
+  // y cambia de conexion/ambiente, la lista vieja en memoria quedaria stale.
+  if (step === 4 && S.action === 'sdtgen') sdtgenLoadList();
+  if (step === 5 && S.action === 'sdtgen') sdtgenRenderEditor();
+  if (step === 6 && S.action === 'sdtgen') sdtgenDoGenerate();
 }
 
 function foot(step) {
@@ -250,10 +574,16 @@ function foot(step) {
     ftr.innerHTML = '';
   } else if (step === 4 && S.action === 'scripts') {
     ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()" disabled>Generar script &#8594;</button>';
+  } else if (step === 4 && S.action === 'sdtgen') {
+    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (sdtgenSelectedName ? '' : ' disabled') + '>Siguiente &#8594;</button>';
   } else if (step === 5 && S.action === 'doc') {
     ftr.innerHTML = '<button class="btn btn-success" id="btn-save" onclick="saveEnv()" disabled>Guardar y finalizar &#10003;</button>';
   } else if (step === 5 && S.action === 'scripts') {
     ftr.innerHTML = '<button class="btn btn-ghost" onclick="sgReset()">&#8635; Nuevo script</button>';
+  } else if (step === 5 && S.action === 'sdtgen') {
+    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()">Siguiente &#8594;</button>';
+  } else if (step === 6 && S.action === 'sdtgen') {
+    ftr.innerHTML = '<button class="btn btn-ghost" onclick="sdtgenReset()">&#8635; Nueva copia</button>';
   } else if (step === 6) {
     ftr.innerHTML = '';
   } else {
@@ -265,6 +595,7 @@ function goNext() {
   var s = S.step;
   if (s === 1 && !S.action) return;
   if (s === 1 && S.action === 'validate') { show(4); return; } // saltar versión y conexión
+  if (s === 1 && S.action === 'sdtgen') { show(3); return; } // Generar SDT es siempre V4, saltar versión
   if (s === 1) { show(2); return; }
   if (s === 2 && !S.version) return;
   if (s === 2) { show(3); return; }
@@ -277,12 +608,15 @@ function goNext() {
     sgFetchAndShowOutput(grps);
     return;
   }
+  if (s === 4 && S.action === 'sdtgen') { sdtgenGoToEdit(); return; }
+  if (s === 5 && S.action === 'sdtgen') { sdtgenGoToResult(); return; }
   if (s < 6) show(s + 1);
 }
 
 function goBack() {
   var s = S.step;
   if (s === 4 && S.action === 'validate') { show(1); return; } // saltar versión y conexión
+  if (s === 3 && S.action === 'sdtgen') { show(1); return; } // Generar SDT es siempre V4, saltar versión
   if (s === 5 && S.action === 'collections') { show(4); return; }
   if (s === 4) { show(3); return; }
   if (s === 5 && S.action === 'scripts') { show(4); return; }

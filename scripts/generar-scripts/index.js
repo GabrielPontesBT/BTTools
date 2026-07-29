@@ -8,7 +8,7 @@ const V3_BTI019_COLS = ['BTINom','BTISrvNom','BTISrvVer','BTIMtdNom','BTISrvParP
 const V4_BTI019_COLS = ['BTINOM','BTISRVNOM','BTISRVVER','BTIMTDNOM','BTISRVPARPOSI','BTISRVPARNOM','BTISRVPARNOMJAVA','BTISRVPARDIR','BTISRVVARTIPO','BTISRVPARITTIPO','BTISRVPARVALOR','BTISRVCATIT','BTISRVCAT','BTISRVSDTVER','BTISRVPARLARGO','BTISRVPARLVAL','BTISRVPARITNOM','BTISRVPARDECI','BTISRVPARDSC'];
 const V3_BTI025_COLS = ['BTISDTNom','BTISDTVersion','BTISDTDescrip','BTISDTNativo','BTISDTFecha','BTISDTNomInt','BTISDTEstado','BTISDTTipo','BTISDTNameSpace'];
 const V4_BTI025_COLS = ['BTISDTNOM','BTISDTVERSION','BTISDTNOMINT','BTISDTESTADO','BTISDTTIPO','BTISDTNAMESPACE','BTISDTFECHA','BTISDTDESCRIP','BTISDTNATIVO'];
-const V3_BTI026_COLS = ['BTISDTNom','BTISDTElemNom','BTISDTElemTipo','BTISDTElemLargo','BTISDTElemCat','BTISDTElemDsc','BTISDTElemSDT'];
+const V3_BTI026_COLS = ['BTISDTNom','BTISDTElemNom','BTISDTElemTipo','BTISDTElemLargo','BTISDTElemCat','BTISDTElemDsc','BTISDTElemSDT','BTISDTElemPosi'];
 const V4_BTI026_COLS = ['BTISDTNOM','BTISDTVERSION','BTISDTELEMNOM','BTISDTELEMNINT','BTISDTELEMOBL','BTISDTELEMCAT','BTISDTELEMTIPO','BTISDTELEMSDT','BTISDTELEMSDTVE','BTISDTELEMPLANO','BTISDTELEMLARGO','BTISDTELEMENU','BTISDTELEMVAL','BTISDTELEMDSC','BTISDTELEMPOSI','BTISDTELEMCATIT','BTISDTELEMDECI','BTISDTELEMNOMIT'];
 
 function sg_fmtDate(val, ver) {
@@ -92,7 +92,7 @@ function sg_generateSdtScript(sdt, mode, version) {
     if (!b26.length) return [];
     if (version === 'V3') {
       const cols = V3_BTI026_COLS.join(', ');
-      return b26.map(function(e) { return 'INSERT INTO BTI026 ('+cols+') VALUES('+[q(nom),q(e.elemnom),q(e.elemtipo),sg_nq(e.elemlargo),q(e.elemcat),q(e.elemdsc),q(e.elemsdt)].join(', ')+');'; });
+      return b26.map(function(e) { return 'INSERT INTO BTI026 ('+cols+') VALUES('+[q(nom),q(e.elemnom),q(e.elemtipo),sg_nq(e.elemlargo),q(e.elemcat),q(e.elemdsc),q(e.elemsdt),sg_nq(e.posi)].join(', ')+');'; });
     }
     const cols = V4_BTI026_COLS.join(', ');
     return b26.map(function(e) {
