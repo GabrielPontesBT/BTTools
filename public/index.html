@@ -51,6 +51,27 @@
           <span class="ccard-desc">Oracle</span>
         </div>
       </div>
+
+      <div id="engine-section" style="display:none;margin-top:var(--sp-5)">
+        <div class="psub" style="margin-bottom:var(--sp-3)">¿Qué motor de base de datos vas a usar?</div>
+        <div class="cards" style="grid-template-columns:repeat(4,1fr)">
+          <div class="ccard" id="engine-oracle" onclick="pick('engine','oracle',this)">
+            <span class="ccard-title">Oracle</span>
+          </div>
+          <div class="ccard ccard-disabled" id="engine-javasql">
+            <span class="ccard-badge" style="background:var(--muted)">Próximamente</span>
+            <span class="ccard-title">Java SQL</span>
+          </div>
+          <div class="ccard ccard-disabled" id="engine-as400">
+            <span class="ccard-badge" style="background:var(--muted)">Próximamente</span>
+            <span class="ccard-title">AS400</span>
+          </div>
+          <div class="ccard ccard-disabled" id="engine-postgresql">
+            <span class="ccard-badge" style="background:var(--muted)">Próximamente</span>
+            <span class="ccard-title">PostgreSQL</span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Paso 2: Conexión (BD) -->

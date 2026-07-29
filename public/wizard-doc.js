@@ -1,5 +1,5 @@
 ﻿// ── Estado compartido ────────────────────────────────────────
-var S = { step: 1, version: null, platform: null, action: null };
+var S = { step: 1, version: null, platform: null, action: null, engine: null };
 var _connOk = false, _connTimer = null;
 var loadedEnv = null;
 (function keepAlive() {
@@ -436,6 +436,7 @@ function pick(key, val, el) {
   if (key === 'version') {
     S.platform = val === 'V3' ? 'sqlserver' : 'oracle';
     tryLoadEnv(val);
+    toggleEngineSection(val === 'V4');
   }
   if (key === 'action') {
     updateStepLabels(val);
@@ -444,10 +445,25 @@ function pick(key, val, el) {
       S.version = 'V4';
       S.platform = 'oracle';
       tryLoadEnv('V4');
+      toggleEngineSection(true);
     }
   }
   var nb = document.getElementById('btn-next');
   if (nb) nb.disabled = false;
+}
+
+function toggleEngineSection(show) {
+  var sec = document.getElementById('engine-section');
+  if (!sec) return;
+  sec.style.display = show ? 'block' : 'none';
+  if (show) {
+    S.engine = 'oracle';
+    sec.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
+    var oracleCard = document.getElementById('engine-oracle');
+    if (oracleCard) oracleCard.classList.add('sel');
+  } else {
+    S.engine = null;
+  }
 }
 
 function updateStepLabels(action) {
