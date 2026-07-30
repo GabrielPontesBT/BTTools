@@ -442,20 +442,35 @@ function pick(key, val, el) {
     tryLoadEnv(val);
     toggleEngineSection(val === 'V4');
   }
+  if (key === 'engine') {
+    // El bloque de API recien aparece cuando ya se eligio el motor.
+    toggleApiModeSection(APIMODE_ACTIONS.has(S.action));
+  }
   if (key === 'action') {
     updateStepLabels(val);
     if (val === 'sdtgen') {
-      // Generar SDT solo trabaja contra V4 (Oracle); no se pide version.
+      // Generar SDT solo trabaja contra V4 (Oracle) y se saltea el paso 2,
+      // asi que version/motor/API quedan fijos sin pasar por las tarjetas.
       S.version = 'V4';
       S.platform = 'oracle';
+      S.engine = 'oracle';
+      S.apiMode = 'publica';
       tryLoadEnv('V4');
-      toggleEngineSection(true);
+      hideVersionExtras();
     } else {
       resetVersionSelection();
     }
   }
-  var nb = document.getElementById('btn-next');
-  if (nb) nb.disabled = false;
+  refreshNextBtn();
+}
+
+function hideVersionExtras() {
+  ['engine-section', 'apimode-section'].forEach(function(id) {
+    var sec = document.getElementById(id);
+    if (!sec) return;
+    sec.style.display = 'none';
+    sec.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
+  });
 }
 
 // El paso de version tiene que arrancar limpio: si el usuario paso antes por
@@ -469,35 +484,46 @@ function resetVersionSelection() {
   loadedEnv = null;
   var p1 = document.getElementById('p1');
   if (p1) p1.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
-  var eng = document.getElementById('engine-section');
-  if (eng) eng.style.display = 'none';
-  var am = document.getElementById('apimode-section');
-  if (am) am.style.display = 'none';
+  hideVersionExtras();
 }
 
 function toggleEngineSection(show) {
   var sec = document.getElementById('engine-section');
   if (!sec) return;
+  hideVersionExtras();
   sec.style.display = show ? 'block' : 'none';
-  if (show) {
-    S.engine = 'oracle';
-    sec.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
-    var oracleCard = document.getElementById('engine-oracle');
-    if (oracleCard) oracleCard.classList.add('sel');
-  } else {
-    S.engine = null;
-  }
-  toggleApiModeSection(show && APIMODE_ACTIONS.has(S.action));
+  // Aparece sin nada marcado: el motor se elige a mano y eso destraba el
+  // bloque siguiente (API). V3 no pregunta motor, queda en null.
+  S.engine = null;
+  S.apiMode = 'publica';
 }
 
 function toggleApiModeSection(show) {
   var sec = document.getElementById('apimode-section');
   if (!sec) return;
   sec.style.display = show ? 'block' : 'none';
-  S.apiMode = 'publica';
   sec.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
-  var publicaCard = document.getElementById('apimode-publica');
-  if (publicaCard) publicaCard.classList.add('sel');
+  // Mientras la seccion esta visible no hay default: hay que elegir.
+  S.apiMode = show ? null : 'publica';
+}
+
+function sectionVisible(id) {
+  var sec = document.getElementById(id);
+  return !!sec && sec.style.display !== 'none';
+}
+
+// El paso 2 se completa de a un bloque: version -> motor -> API.
+function step2Ready() {
+  if (!S.version) return false;
+  if (sectionVisible('engine-section') && !S.engine) return false;
+  if (sectionVisible('apimode-section') && !S.apiMode) return false;
+  return true;
+}
+
+function refreshNextBtn() {
+  var nb = document.getElementById('btn-next');
+  if (!nb) return;
+  nb.disabled = S.step === 2 ? !step2Ready() : false;
 }
 
 function updateStepLabels(action) {
@@ -614,7 +640,7 @@ function foot(step) {
   if (step === 1) { // acción
     ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (S.action ? '' : ' disabled') + '>Siguiente &#8594;</button>';
   } else if (step === 2) { // versión
-    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (S.version ? '' : ' disabled') + '>Siguiente &#8594;</button>';
+    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (step2Ready() ? '' : ' disabled') + '>Siguiente &#8594;</button>';
   } else if (step === 3) { // conexión
     ftr.innerHTML = '<button class="btn btn-outline" id="btn-test" onclick="testConn()">Probar conexión</button>&nbsp;&nbsp;' +
       '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (_connOk ? '' : ' disabled') + '>Siguiente &#8594;</button>';
@@ -647,7 +673,7 @@ function goNext() {
   if (s === 1 && S.action === 'validate') { show(4); return; } // saltar versión y conexión
   if (s === 1 && S.action === 'sdtgen') { show(3); return; } // Generar SDT es siempre V4, saltar versión
   if (s === 1) { show(2); return; }
-  if (s === 2 && !S.version) return;
+  if (s === 2 && !step2Ready()) return;
   if (s === 2) { show(3); return; }
   if (s === 3 && !_connOk) return;
   if (s === 3) { show(4); return; }
