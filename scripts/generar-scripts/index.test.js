@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { sg_generateScript, sg_generateSdtScript, sn_num } = require('./index.js');
+const { sg_generateScript, sg_generateSdtScript, sn_num, sg_serviceNamePrefix, sg_serviceListQuery } = require('./index.js');
 
 const UUID_RE = /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/;
 
@@ -111,4 +111,33 @@ test('sg_generateSdtScript con apiMode publica/ausente sigue generando BTI025/BT
   assert.match(script, /INSERT INTO BTI025/);
   assert.match(script, /INSERT INTO BTI026/);
   assert.doesNotMatch(script, /BTCBS/);
+});
+
+// Regresion: el listado de servicios con API Interna volvia vacio porque se
+// le aplicaba el prefijo 'Public%' de las BTI a la tabla BTCBS014.
+test('sg_serviceNamePrefix no filtra por prefijo cuando el apiMode es interna', () => {
+  assert.equal(sg_serviceNamePrefix('V4', 'interna'), null);
+  assert.equal(sg_serviceNamePrefix('V3', 'interna'), null);
+});
+
+test('sg_serviceNamePrefix mantiene BT para V3 y Public para V4 en API publica', () => {
+  assert.equal(sg_serviceNamePrefix('V3', 'publica'), 'BT');
+  assert.equal(sg_serviceNamePrefix('V4', 'publica'), 'Public');
+  assert.equal(sg_serviceNamePrefix('V4', undefined), 'Public');
+});
+
+test('sg_serviceListQuery interna consulta BTCBS014 sin WHERE ni binds', () => {
+  const q = sg_serviceListQuery('V4', 'interna');
+  assert.equal(q.col, 'BSSRVNAME');
+  assert.equal(q.sql, 'SELECT DISTINCT BSSRVNAME FROM BTCBS014 ORDER BY BSSRVNAME');
+  assert.deepEqual(q.binds, []);
+  assert.doesNotMatch(q.sql, /WHERE/);
+  assert.doesNotMatch(q.sql, /Public/);
+});
+
+test('sg_serviceListQuery publica sigue filtrando BTI014 por Public%', () => {
+  const q = sg_serviceListQuery('V4', 'publica');
+  assert.equal(q.col, 'BTISRVNOM');
+  assert.equal(q.sql, 'SELECT DISTINCT BTISRVNOM FROM BTI014 WHERE BTISRVNOM LIKE :1 ORDER BY BTISRVNOM');
+  assert.deepEqual(q.binds, ['Public%']);
 });

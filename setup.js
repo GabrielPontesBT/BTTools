@@ -369,6 +369,7 @@ const {
   V3_BTI019_COLS, V4_BTI019_COLS,
   V3_BTI025_COLS, V4_BTI025_COLS,
   V3_BTI026_COLS, V4_BTI026_COLS,
+  sg_serviceNamePrefix, sg_serviceListQuery,
 } = require('./scripts/generar-scripts/index.js');
 
 function sg_loadEnvForVersion(version) {
@@ -428,23 +429,20 @@ async function sg_testConn(platform, db) {
 }
 
 async function sg_queryServices(platform, db, version, apiMode) {
-  const prefix = version === 'V3' ? 'BT' : 'Public';
   if (platform === 'sqlserver') {
+    // La API Interna (BTCBS) es Oracle-only, aca el prefijo siempre aplica.
+    const prefix = sg_serviceNamePrefix(version, 'publica');
     const { pool } = await sg_getPool(db);
     const col = version === 'V3' ? 'BTISrvNom' : 'BTISRVNOM';
     const r = await pool.request().query("SELECT DISTINCT " + col + " FROM BTI014 WHERE " + col + " LIKE '" + prefix + "%' ORDER BY " + col);
     return r.recordset.map(function(row) { return (row[col] || '').trim(); }).filter(Boolean);
   } else {
+    const q = sg_serviceListQuery(version, apiMode);
     const { conn, oracledb } = await sg_getOra(db);
-    const interna = apiMode === 'interna';
     try {
-      const r = await conn.execute(
-        interna ? 'SELECT DISTINCT BSSRVNAME FROM BTCBS014 WHERE BSSRVNAME LIKE :1 ORDER BY BSSRVNAME' : 'SELECT DISTINCT BTISRVNOM FROM BTI014 WHERE BTISRVNOM LIKE :1 ORDER BY BTISRVNOM',
-        [prefix + '%'], { outFormat: oracledb.OUT_FORMAT_OBJECT }
-      );
+      const r = await conn.execute(q.sql, q.binds, { outFormat: oracledb.OUT_FORMAT_OBJECT });
       await conn.close();
-      const col = interna ? 'BSSRVNAME' : 'BTISRVNOM';
-      return r.rows.map(function(row) { return (row[col] || '').trim(); }).filter(Boolean);
+      return r.rows.map(function(row) { return (row[q.col] || '').trim(); }).filter(Boolean);
     } catch(e) { await conn.close(); throw e; }
   }
 }

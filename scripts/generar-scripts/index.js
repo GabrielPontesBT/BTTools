@@ -27,6 +27,30 @@ const INTERNA_BTCBS026_COLS = ['BSSDTNAME','BSSDTVER','BSELMNAME','BSELMPOS','BS
 // y en BTI eran CHAR.
 function sn_num(val) { return String(val == null ? '' : val).trim().toUpperCase() === 'S' ? 1 : 0; }
 
+// Prefijo por el que se filtra el listado de servicios: en las BTI los
+// nombres arrancan con BT (V3) o Public (V4). En las BTCBS (API Interna) no
+// hay prefijo, asi que no se filtra: aplicarles 'Public%' devolvia 0 filas.
+function sg_serviceNamePrefix(version, apiMode) {
+  if (apiMode === 'interna') return null;
+  return version === 'V3' ? 'BT' : 'Public';
+}
+
+// SELECT del listado de servicios (paso "de que servicios querés generar
+// scripts"). Devuelve el SQL Oracle ya armado + los binds, para que el
+// filtro por prefijo sea testeable sin base de datos.
+function sg_serviceListQuery(version, apiMode) {
+  const interna = apiMode === 'interna';
+  const col = interna ? 'BSSRVNAME' : 'BTISRVNOM';
+  const table = interna ? 'BTCBS014' : 'BTI014';
+  const prefix = sg_serviceNamePrefix(version, apiMode);
+  const where = prefix ? ' WHERE ' + col + ' LIKE :1' : '';
+  return {
+    col: col,
+    sql: 'SELECT DISTINCT ' + col + ' FROM ' + table + where + ' ORDER BY ' + col,
+    binds: prefix ? [prefix + '%'] : [],
+  };
+}
+
 function btcbs_fmtDate(val) {
   if (!val) return 'NULL';
   const d = val instanceof Date ? val : new Date(val);
@@ -226,5 +250,6 @@ module.exports = {
   INTERNA_BTCBS014_COLS, INTERNA_BTCBS019_COLS,
   INTERNA_BTCBS025_COLS, INTERNA_BTCBS026_COLS,
   sn_num, btcbs_sq, btcbs_fmtDate,
+  sg_serviceNamePrefix, sg_serviceListQuery,
   SG_SDT_EXCLUDE,
 };

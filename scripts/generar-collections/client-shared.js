@@ -588,7 +588,9 @@ async function collectionLoadServices() {
     document.getElementById('collection-services').style.display = 'block';
 
     var filter = document.getElementById('col-svc-filter');
-    if (filter && !filter.value) filter.value = S.version === 'V3' ? 'BT' : 'Public';
+    // Los servicios de la API Interna (BTCBS) no arrancan con BT/Public:
+    // precargar ese prefijo dejaba la lista filtrada a cero.
+    if (filter && !filter.value && S.apiMode !== 'interna') filter.value = S.version === 'V3' ? 'BT' : 'Public';
 
     collectionFilterServices();
     collectionRenderVariableEditor();
