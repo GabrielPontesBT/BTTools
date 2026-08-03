@@ -453,12 +453,13 @@ function pick(key, val, el) {
   if (key === 'action') {
     updateStepLabels(val);
     if (val === 'sdtgen') {
-      // Generar SDT solo trabaja contra V4 (Oracle) y se saltea el paso 2,
-      // asi que version/motor/API quedan fijos sin pasar por las tarjetas.
+      // Generar SDT solo trabaja contra V4 (Oracle) y se saltea el paso 2
+      // (version/motor), pero si elige API: ese toggle vive en el paso de
+      // conexion (conn-apimode-section), no se puede fijar de antemano.
       S.version = 'V4';
       S.platform = 'oracle';
       S.engine = 'oracle';
-      S.apiMode = 'publica';
+      S.apiMode = null;
       tryLoadEnv('V4');
       hideVersionExtras();
     } else {
@@ -509,6 +510,15 @@ function toggleApiModeSection(show) {
   sec.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
   // Mientras la seccion esta visible no hay default: hay que elegir.
   S.apiMode = show ? null : 'publica';
+}
+
+// Toggle de API en el paso de conexion (solo Generar SDT: ese flujo saltea
+// el paso de version, donde vive el toggle equivalente para Scripts/Collections).
+function pickConnApiMode(val, el) {
+  S.apiMode = val;
+  el.closest('.cards').querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
+  el.classList.add('sel');
+  updateConnBtn();
 }
 
 function sectionVisible(id) {
@@ -602,6 +612,16 @@ function show(step) {
   if (step === 3) { // paso de conexión (ahora es el paso 3)
     document.getElementById('sql-fields').style.display = S.platform === 'sqlserver' ? 'block' : 'none';
     document.getElementById('ora-fields').style.display  = S.platform === 'oracle'    ? 'block' : 'none';
+    var connApiSec = document.getElementById('conn-apimode-section');
+    if (connApiSec) {
+      var showConnApiMode = S.action === 'sdtgen';
+      connApiSec.style.display = showConnApiMode ? 'block' : 'none';
+      connApiSec.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
+      if (showConnApiMode && S.apiMode) {
+        var card = document.getElementById('conn-apimode-' + S.apiMode);
+        if (card) card.classList.add('sel');
+      }
+    }
     clearDbFields();
     loadDbHistory();
     setTimeout(setupConnWatchers, 0);
@@ -647,7 +667,7 @@ function foot(step) {
     ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (step2Ready() ? '' : ' disabled') + '>Siguiente &#8594;</button>';
   } else if (step === 3) { // conexión
     ftr.innerHTML = '<button class="btn btn-outline" id="btn-test" onclick="testConn()">Probar conexión</button>&nbsp;&nbsp;' +
-      '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (_connOk ? '' : ' disabled') + '>Siguiente &#8594;</button>';
+      '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (step3Ready() ? '' : ' disabled') + '>Siguiente &#8594;</button>';
   } else if (step === 4 && S.action === 'validate') {
     ftr.innerHTML = '';
   } else if (step === 5 && S.action === 'collections') {
@@ -679,7 +699,7 @@ function goNext() {
   if (s === 1) { show(2); return; }
   if (s === 2 && !step2Ready()) return;
   if (s === 2) { show(3); return; }
-  if (s === 3 && !_connOk) return;
+  if (s === 3 && !step3Ready()) return;
   if (s === 3) { show(4); return; }
   if (s === 4 && S.action === 'collections') { show(5); return; }
   if (s === 4 && S.action === 'scripts') {
@@ -938,8 +958,16 @@ async function testConn() {
   if (btn) { btn.innerHTML = 'Probar conexión'; btn.disabled = false; }
 }
 
+// El paso de conexion se completa con la prueba OK y, solo para Generar SDT
+// (unico flujo que muestra el toggle de API en este paso), con la API elegida.
+function step3Ready() {
+  if (!_connOk) return false;
+  if (S.action === 'sdtgen' && !S.apiMode) return false;
+  return true;
+}
+
 function updateConnBtn() {
-  if (S.step === 3) { var btn = document.getElementById('btn-next'); if (btn) btn.disabled = !_connOk; }
+  if (S.step === 3) { var btn = document.getElementById('btn-next'); if (btn) btn.disabled = !step3Ready(); }
 }
 
 // ── Paso 4 Doc: API ────────────────────────────────────────────

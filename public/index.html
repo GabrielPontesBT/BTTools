@@ -48,7 +48,7 @@
         </div>
         <div class="ccard" onclick="pick('version','V4',this)">
           <span class="ccard-title">V4</span>
-          <span class="ccard-desc">Oracle</span>
+          <!--span class="ccard-desc">Oracle</span> -->
         </div>
       </div>
 
@@ -92,6 +92,22 @@
     <div class="panel" id="p2">
       <div class="ptitle">Datos de conexión a la base de datos</div>
       <div class="psub">Ingresá los datos del ambiente al que querés conectarte.</div>
+
+      <!-- Solo para Generar SDT: ese flujo saltea el paso de version (siempre
+           es V4/Oracle), asi que la eleccion de API va aca. -->
+      <div id="conn-apimode-section" style="display:none;margin-bottom:var(--sp-5)">
+        <div class="psub" style="margin-bottom:var(--sp-3)">¿Con qué API vas a trabajar?</div>
+        <div class="cards" style="grid-template-columns:repeat(2,1fr)">
+          <div class="ccard" id="conn-apimode-publica" onclick="pickConnApiMode('publica',this)">
+            <span class="ccard-title">API Pública</span>
+            <span class="ccard-desc">Tal cual está hoy.</span>
+          </div>
+          <div class="ccard" id="conn-apimode-interna" onclick="pickConnApiMode('interna',this)">
+            <span class="ccard-title">API Interna</span>
+            <span class="ccard-desc">Usa las tablas BTCBS.</span>
+          </div>
+        </div>
+      </div>
 
       <div class="cres" id="db-hist-err" style="margin-bottom:var(--sp-3)"></div>
       <div id="db-hist-wrap" style="display:none;margin-bottom:var(--sp-1)">

@@ -86,3 +86,37 @@ test('el paso 2 solo habilita Siguiente cuando los bloques visibles estan elegid
   w.S.apiMode = 'interna';
   assert.equal(w.step2Ready(), true);
 });
+
+test('step3Ready exige conexion probada, y ademas API elegida solo para Generar SDT', () => {
+  const w = loadWizard();
+  w._connOk = false; w.S.action = 'doc'; w.S.apiMode = null;
+  assert.equal(w.step3Ready(), false, 'sin conexion probada nunca esta listo');
+
+  w._connOk = true; w.S.action = 'doc';
+  assert.equal(w.step3Ready(), true, 'doc no muestra el toggle, no lo exige');
+
+  w._connOk = true; w.S.action = 'scripts'; w.S.apiMode = 'interna';
+  assert.equal(w.step3Ready(), true, 'scripts ya eligio API en el paso de version');
+
+  w._connOk = true; w.S.action = 'sdtgen'; w.S.apiMode = null;
+  assert.equal(w.step3Ready(), false, 'sdtgen necesita elegir API en el paso de conexion');
+
+  w.S.apiMode = 'publica';
+  assert.equal(w.step3Ready(), true);
+
+  w.S.apiMode = 'interna';
+  assert.equal(w.step3Ready(), true);
+});
+
+test('pickConnApiMode setea S.apiMode y marca la tarjeta clickeada', () => {
+  const w = loadWizard();
+  var marked = [];
+  var cardPublica = { classList: { add: function(c) { marked.push(['pub', 'add', c]); }, remove: function(c) { marked.push(['pub', 'rm', c]); } } };
+  var cardInterna = { classList: { add: function(c) { marked.push(['int', 'add', c]); }, remove: function(c) { marked.push(['int', 'rm', c]); } } };
+  var clicked = { closest: function() { return { querySelectorAll: function() { return [cardPublica, cardInterna]; } }; }, classList: cardInterna.classList };
+  w.document.getElementById = function(id) { return id === 'btn-next' ? { disabled: true } : null; };
+  w.S.step = 3;
+  w.pickConnApiMode('interna', clicked);
+  assert.equal(w.S.apiMode, 'interna');
+  assert.ok(marked.some(m => m[0] === 'int' && m[1] === 'add' && m[2] === 'sel'));
+});
