@@ -340,7 +340,11 @@ var _dbHistory = [];
 var _VALIDATE_ENGLISH_RE = /\b(the|this|that|these|those|is|are|was|were|has|have|had|get|gets|set|sets|update|updates|create|creates|delete|deletes|return|returns|method|service|parameter|value|field|list|object|type|name|code|date|amount|flag|allow|allows|perform|performs|retrieve|retrieves)\b/i;
 var _VALIDATE_LARGO_TYPES = new Set(['long','int','double','byte','short','string']);
 
-function validateItems(items) {
+// Los controles de descripcion/largo/decimales son el estandar de la API
+// Publica (de ahi sale la documentacion). La API Interna (tablas BTCBS) no
+// los tiene que cumplir, asi que no se valida nada.
+function validateItems(items, apiMode) {
+  if (apiMode === 'interna') return [];
   var warns = [];
   (items || []).forEach(function(item) {
     var svc = (item.header && item.header.BTISrvNom) || item.service || '?';
@@ -1741,7 +1745,7 @@ async function sgFetchAndShowOutput(groups) {
       var d = await r.json(); if (!d.ok) throw new Error(d.message);
       d.items.forEach(function(item) { allItems.push(item); });
     }));
-    var warnings = validateItems(allItems);
+    var warnings = validateItems(allItems, S.apiMode);
     console.log('[SG] validateItems result:', warnings.length, 'warnings', warnings);
     var valEl = document.getElementById('sg-val-block');
     if (warnings.length) {
