@@ -105,7 +105,7 @@ async function testSqlServer(db) {
 async function testOracle(db) {
   const mod = path.join(ROOT, 'V4', 'node_modules', 'oracledb');
   if (!fs.existsSync(mod)) throw new Error('oracledb no instalado - ejecuta npm install en V4/');
-  const oracledb = require(mod);
+  const oracledb = oraFetchLobsAsString(require(mod));
   const conn = await oracledb.getConnection({
     user: db.DB_USER,
     password: db.DB_PASSWORD,
@@ -136,7 +136,7 @@ async function queryServices(platform, db, apiMode) {
   } else {
     const mod = path.join(ROOT, 'V4', 'node_modules', 'oracledb');
     if (!fs.existsSync(mod)) throw new Error('oracledb no instalado - ejecuta npm install en V4/');
-    const oracledb = require(mod);
+    const oracledb = oraFetchLobsAsString(require(mod));
     const conn = await oracledb.getConnection({
       user: db.DB_USER, password: db.DB_PASSWORD, connectString: db.DB_CONNECT_STRING,
     });
@@ -170,7 +170,7 @@ async function queryMethods(platform, db, service, apiMode) {
   } else {
     const mod = path.join(ROOT, 'V4', 'node_modules', 'oracledb');
     if (!fs.existsSync(mod)) throw new Error('oracledb no instalado - ejecuta npm install en V4/');
-    const oracledb = require(mod);
+    const oracledb = oraFetchLobsAsString(require(mod));
     const conn = await oracledb.getConnection({
       user: db.DB_USER, password: db.DB_PASSWORD, connectString: db.DB_CONNECT_STRING,
     });
@@ -265,7 +265,7 @@ async function queryInputParams(platform, db, service, method) {
   } else {
     const mod = path.join(ROOT, 'V4', 'node_modules', 'oracledb');
     if (!fs.existsSync(mod)) throw new Error('oracledb no instalado - ejecuta npm install en V4/');
-    const oracledb = require(mod);
+    const oracledb = oraFetchLobsAsString(require(mod));
     const conn = await oracledb.getConnection({
       user: db.DB_USER, password: db.DB_PASSWORD, connectString: db.DB_CONNECT_STRING,
     });
@@ -369,7 +369,7 @@ const {
   V3_BTI019_COLS, V4_BTI019_COLS,
   V3_BTI025_COLS, V4_BTI025_COLS,
   V3_BTI026_COLS, V4_BTI026_COLS,
-  sg_serviceNamePrefix, sg_serviceListQuery,
+  sg_serviceNamePrefix, sg_serviceListQuery, sg_cellText,
 } = require('./scripts/generar-scripts/index.js');
 
 function sg_loadEnvForVersion(version) {
@@ -386,8 +386,20 @@ function sg_findModule(name) {
     path.join(process.env.APPDATA || '', 'npm', 'node_modules', name),
     path.join(process.execPath, '..', '..', 'lib', 'node_modules', name),
   ];
-  for (const c of candidates) if (fs.existsSync(c)) return require(c);
+  for (const c of candidates) if (fs.existsSync(c)) return name === 'oracledb' ? oraFetchLobsAsString(require(c)) : require(c);
   throw new Error('Modulo "' + name + '" no encontrado. Ejecuta npm install primero.');
+}
+
+// Por defecto oracledb devuelve las columnas CLOB como objeto Lob, y ese
+// objeto terminaba escrito como '[object Object]' en el script generado.
+// Pidiendolas como string se trae el texto real. sg_cellText queda como red
+// de seguridad para cualquier otro tipo no primitivo (RAW -> Buffer, etc).
+function oraFetchLobsAsString(oracledb) {
+  if (oracledb && !oracledb._btapiLobsAsString) {
+    oracledb.fetchAsString = [oracledb.CLOB];
+    oracledb._btapiLobsAsString = true;
+  }
+  return oracledb;
 }
 
 var _sg_sqlPool = null, _sg_sqlPoolKey = '';
@@ -477,7 +489,7 @@ async function sg_queryMethodDetails(platform, db, version, service, method, api
     const cols = v3 ? 'BTIMtdDsc,BTIMtdNSBT,BTIMtdPgmNom,BTIMtdPgmMtd,BTIMtdStatus,BTIMtdFPath,BTIMtdEnbTra,BTIMtdEsPgGx' : 'BTIMTDDSC,BTIMTDNSBT,BTIMTDPGMNOM,BTIMTDPGMMTD,BTIMTDSTATUS,BTIMTDFPATH,BTIMTDENBTRA,BTIMTDESPGGX';
     const r = await pool.request().input('svc', mssql.VarChar(100), service).input('mtd', mssql.VarChar(100), method).query('SELECT TOP 1 ' + cols + ' FROM BTI014 WHERE ' + svcCol + '=@svc AND ' + mtdCol + '=@mtd');
     if (!r.recordset.length) return null;
-    const row = r.recordset[0], g = (k) => row[k] == null ? null : String(row[k]), p = v3 ? 'BTIMtd' : 'BTIMTD';
+    const row = r.recordset[0], g = (k) => sg_cellText(row[k], null), p = v3 ? 'BTIMtd' : 'BTIMTD';
     return { dsc:(g(p+(v3?'Dsc':'DSC'))||'').trim(), nsbt:g(p+'NSBT'), pgmnom:(g(p+(v3?'PgmNom':'PGMNOM'))||'').trim(), pgmmtd:(g(p+(v3?'PgmMtd':'PGMMTD'))||'execute').trim(), status:(g(p+(v3?'Status':'STATUS'))||'Validado').trim(), fpath:g(p+(v3?'FPath':'FPATH')), enbtra:row[p+(v3?'EnbTra':'ENBTRA')]==null?'NULL':g(p+(v3?'EnbTra':'ENBTRA')), espggx:g(p+(v3?'EsPgGx':'ESPGGX')) };
   } else {
     const { conn, oracledb } = await sg_getOra(db);
@@ -493,7 +505,7 @@ async function sg_queryMethodDetails(platform, db, version, service, method, api
       const r = await conn.execute('SELECT BTIMTDDSC,BTIMTDNSBT,BTIMTDPGMNOM,BTIMTDPGMMTD,BTIMTDSTATUS,BTIMTDFPATH,BTIMTDENBTRA,BTIMTDESPGGX FROM BTI014 WHERE BTISRVNOM=:1 AND BTIMTDNOM=:2 AND ROWNUM=1', [service, method], { outFormat: oracledb.OUT_FORMAT_OBJECT });
       await conn.close();
       if (!r.rows.length) return null;
-      const row = r.rows[0], g = (k) => row[k] == null ? null : String(row[k]);
+      const row = r.rows[0], g = (k) => sg_cellText(row[k], null);
       return { dsc:(g('BTIMTDDSC')||'').trim(), nsbt:g('BTIMTDNSBT'), pgmnom:(g('BTIMTDPGMNOM')||'').trim(), pgmmtd:(g('BTIMTDPGMMTD')||'execute').trim(), status:(g('BTIMTDSTATUS')||'Validado').trim(), fpath:g('BTIMTDFPATH'), enbtra:row.BTIMTDENBTRA==null?'NULL':g('BTIMTDENBTRA'), espggx:g('BTIMTDESPGGX') };
     } catch(e) { await conn.close(); throw e; }
   }
@@ -501,10 +513,10 @@ async function sg_queryMethodDetails(platform, db, version, service, method, api
 
 function sg_mapParamRow(row, version, apiMode) {
   if (apiMode === 'interna') {
-    const g = function(k) { const val = row[k]; if (val == null || typeof val === 'object') return ''; return String(val).trim(); };
+    const g = function(k) { return sg_cellText(row[k]).trim(); };
     return { nom:g('BSPARNAME'), nomjava:g('BSPARINTNM')||'param0', dir:g('BSPARDIR')||'I', tipo:g('BSPARTYPE'), ittipo:g('BSPARITTYP'), valor:'', sdtver:g('BSPARSDTVE'), cat:g('BSPARCAT')||'B', catit:g('BSPARITCAT')||'B', largo:row.BSPARLEN!=null?String(row.BSPARLEN):'0', lval:'', itnom:g('BSPARITNAM'), deci:row.BSPARDECI!=null?String(row.BSPARDECI):'0', dsc:'' };
   }
-  const g = function(k) { const val = row[k]; if (val == null || typeof val === 'object') return ''; return String(val).trim(); };
+  const g = function(k) { return sg_cellText(row[k]).trim(); };
   if (version === 'V3') {
     return { nom:g('BTISrvParNom'), nomjava:g('BTISrvParNomJava')||'param0', dir:g('BTISrvParDir')||'I', tipo:g('BTISrvVarTipo'), ittipo:g('BTISrvParItTipo'), valor:g('BTISrvParValor'), sdtver:g('BTISrvSDTVer'), cat:g('BTISrvCat')||'B', catit:g('BTISrvCatIt')||'B', largo:row.BTISrvParLargo!=null?String(row.BTISrvParLargo):'0', lval:g('BTISrvParLVal'), itnom:g('BTISrvParItNom'), deci:row.BTISRVPARDECI!=null?String(row.BTISRVPARDECI):'0' };
   }
@@ -597,7 +609,7 @@ async function sg_queryMethodDetailsBatch(platform, db, version, service, method
   const v3 = version === 'V3', svcCol = v3?'BTISrvNom':'BTISRVNOM', mtdCol = v3?'BTIMtdNom':'BTIMTDNOM';
   const cols = v3 ? 'BTIMtdNom,BTIMtdDsc,BTIMtdNSBT,BTIMtdPgmNom,BTIMtdPgmMtd,BTIMtdStatus,BTIMtdFPath,BTIMtdEnbTra,BTIMtdEsPgGx' : 'BTIMTDNOM,BTIMTDDSC,BTIMTDNSBT,BTIMTDPGMNOM,BTIMTDPGMMTD,BTIMTDSTATUS,BTIMTDFPATH,BTIMTDENBTRA,BTIMTDESPGGX';
   function toDetail(row) {
-    const g = (k) => row[k] == null ? null : String(row[k]), p = v3?'BTIMtd':'BTIMTD';
+    const g = (k) => sg_cellText(row[k], null), p = v3?'BTIMtd':'BTIMTD';
     return { dsc:(g(p+(v3?'Dsc':'DSC'))||'').trim(), nsbt:g(p+'NSBT'), pgmnom:(g(p+(v3?'PgmNom':'PGMNOM'))||'').trim(), pgmmtd:(g(p+(v3?'PgmMtd':'PGMMTD'))||'execute').trim(), status:(g(p+(v3?'Status':'STATUS'))||'Validado').trim(), fpath:g(p+(v3?'FPath':'FPATH')), enbtra:row[p+(v3?'EnbTra':'ENBTRA')]==null?'NULL':g(p+(v3?'EnbTra':'ENBTRA')), espggx:g(p+(v3?'EsPgGx':'ESPGGX')) };
   }
   function toDetailInterna(row) {
@@ -656,7 +668,7 @@ async function sg_queryBti025(platform, db, version, sdtNom, apiMode) {
     const { pool, mssql } = await sg_getPool(db);
     const r = await pool.request().input('nom',mssql.VarChar(100),sdtNom).query('SELECT TOP 1 BTISDTNom,BTISDTVersion,BTISDTDescrip,BTISDTNativo,BTISDTFecha,BTISDTNomInt,BTISDTEstado,BTISDTTipo,BTISDTNameSpace FROM BTI025 WHERE BTISDTNom=@nom');
     if (!r.recordset.length) return null;
-    const row = r.recordset[0], g = k => row[k] == null ? '' : String(row[k]).trim();
+    const row = r.recordset[0], g = k => sg_cellText(row[k]).trim();
     return { nom:g('BTISDTNom'), version:g('BTISDTVersion'), descrip:g('BTISDTDescrip'), nativo:g('BTISDTNativo'), fecha:row.BTISDTFecha, nomint:g('BTISDTNomInt'), estado:(g('BTISDTEstado')||'Desarrollo').padEnd(20).slice(0,20), tipo:row.BTISDTTipo!=null?String(row.BTISDTTipo):'0', namespace:g('BTISDTNameSpace') };
   } else {
     const { conn, oracledb } = await sg_getOra(db);
@@ -666,13 +678,13 @@ async function sg_queryBti025(platform, db, version, sdtNom, apiMode) {
         const r = await conn.execute('SELECT BSSDTNAME,BSSDTVER,BSSDTINTNM,BSSDTSTAT,BSSDTTYPE,BSSDTNMSP,BSSDTDATE,BSSDTDESC,BSSDTNATIV FROM BTCBS025 WHERE TRIM(BSSDTNAME)=:1 AND ROWNUM=1', [sdtNom], { outFormat: oracledb.OUT_FORMAT_OBJECT });
         await conn.close();
         if (!r.rows.length) return null;
-        const row = r.rows[0], g = k => row[k] == null ? '' : String(row[k]).trim();
+        const row = r.rows[0], g = k => sg_cellText(row[k]).trim();
         return { nom:g('BSSDTNAME'), version:g('BSSDTVER'), descrip:g('BSSDTDESC'), nativo:num_sn(row.BSSDTNATIV), fecha:row.BSSDTDATE, nomint:g('BSSDTINTNM'), estado:(g('BSSDTSTAT')||'Desarrollo').padEnd(20).slice(0,20), tipo:row.BSSDTTYPE!=null?String(row.BSSDTTYPE):'0', namespace:g('BSSDTNMSP') };
       }
       const r = await conn.execute('SELECT BTISDTNOM,BTISDTVERSION,BTISDTNOMINT,BTISDTESTADO,BTISDTTIPO,BTISDTNAMESPACE,BTISDTFECHA,BTISDTDESCRIP,BTISDTNATIVO FROM BTI025 WHERE TRIM(BTISDTNOM)=:1 AND ROWNUM=1', [sdtNom], { outFormat: oracledb.OUT_FORMAT_OBJECT });
       await conn.close();
       if (!r.rows.length) return null;
-      const row = r.rows[0], g = k => row[k] == null ? '' : String(row[k]).trim();
+      const row = r.rows[0], g = k => sg_cellText(row[k]).trim();
       return { nom:g('BTISDTNOM'), version:g('BTISDTVERSION'), descrip:g('BTISDTDESCRIP'), nativo:g('BTISDTNATIVO'), fecha:row.BTISDTFECHA, nomint:g('BTISDTNOMINT'), estado:(g('BTISDTESTADO')||'Desarrollo').padEnd(20).slice(0,20), tipo:row.BTISDTTIPO!=null?String(row.BTISDTTIPO):'0', namespace:g('BTISDTNAMESPACE') };
     } catch(e) { await conn.close(); throw e; }
   }
@@ -682,7 +694,7 @@ async function sg_queryBti026(platform, db, version, sdtNom, apiMode) {
   if (platform === 'sqlserver') {
     const { pool, mssql } = await sg_getPool(db);
     const r = await pool.request().input('nom',mssql.VarChar(100),sdtNom).query('SELECT BTISDTELEMNOM,BTISDTELEMTIPO,BTISDTELEMLARGO,BTISDTELEMCAT,BTISDTELEMDSC,BTISDTELEMSDT,BTISDTELEMPOSI FROM BTI026 WHERE BTISDTNOM=@nom ORDER BY BTISDTELEMPOSI');
-    return r.recordset.map(function(row) { const g=k=>row[k]==null?'':String(row[k]).trim(); return {elemnom:g('BTISDTELEMNOM'),elemtipo:g('BTISDTELEMTIPO'),elemlargo:row.BTISDTELEMLARGO!=null?String(row.BTISDTELEMLARGO):'0',elemdeci:'0',elemcat:g('BTISDTELEMCAT'),elemdsc:g('BTISDTELEMDSC'),elemsdt:g('BTISDTELEMSDT'),posi:row.BTISDTELEMPOSI!=null?String(row.BTISDTELEMPOSI):'0'}; });
+    return r.recordset.map(function(row) { const g=k=>sg_cellText(row[k]).trim(); return {elemnom:g('BTISDTELEMNOM'),elemtipo:g('BTISDTELEMTIPO'),elemlargo:row.BTISDTELEMLARGO!=null?String(row.BTISDTELEMLARGO):'0',elemdeci:'0',elemcat:g('BTISDTELEMCAT'),elemdsc:g('BTISDTELEMDSC'),elemsdt:g('BTISDTELEMSDT'),posi:row.BTISDTELEMPOSI!=null?String(row.BTISDTELEMPOSI):'0'}; });
   } else {
     const { conn, oracledb } = await sg_getOra(db);
     const interna = apiMode === 'interna';
@@ -690,11 +702,11 @@ async function sg_queryBti026(platform, db, version, sdtNom, apiMode) {
       if (interna) {
         const r = await conn.execute('SELECT BSSDTVER,BSELMNAME,BSELMINTNM,BSELMISREQ,BSELMCAT,BSEIMITCAT,BSELMITNAM,BSELMTYPE,BSELMSDTNM,BSELMSDTVE,BSELMFLAT,BSELMLEN,BSELMENUM,BSELMVALS,BSELMDESC,BSELMPOS,BSELMDECI FROM BTCBS026 WHERE TRIM(BSSDTNAME)=:1 ORDER BY BSELMPOS', [sdtNom], { outFormat: oracledb.OUT_FORMAT_OBJECT });
         await conn.close();
-        return r.rows.map(function(row) { const g=k=>row[k]==null?'':String(row[k]).trim(); return {version:g('BSSDTVER'),elemnom:g('BSELMNAME'),nint:g('BSELMINTNM'),obl:num_sn(row.BSELMISREQ),elemcat:g('BSELMCAT'),elemtipo:g('BSELMTYPE'),elemsdt:g('BSELMSDTNM'),sdtve:g('BSELMSDTVE'),plano:g('BSELMFLAT'),elemlargo:row.BSELMLEN!=null?String(row.BSELMLEN):'0',enu:g('BSELMENUM'),val:g('BSELMVALS'),elemdsc:g('BSELMDESC'),posi:row.BSELMPOS!=null?String(row.BSELMPOS):'0',catit:g('BSEIMITCAT'),elemdeci:row.BSELMDECI!=null?String(row.BSELMDECI):'0',nomit:g('BSELMITNAM')}; });
+        return r.rows.map(function(row) { const g=k=>sg_cellText(row[k]).trim(); return {version:g('BSSDTVER'),elemnom:g('BSELMNAME'),nint:g('BSELMINTNM'),obl:num_sn(row.BSELMISREQ),elemcat:g('BSELMCAT'),elemtipo:g('BSELMTYPE'),elemsdt:g('BSELMSDTNM'),sdtve:g('BSELMSDTVE'),plano:g('BSELMFLAT'),elemlargo:row.BSELMLEN!=null?String(row.BSELMLEN):'0',enu:g('BSELMENUM'),val:g('BSELMVALS'),elemdsc:g('BSELMDESC'),posi:row.BSELMPOS!=null?String(row.BSELMPOS):'0',catit:g('BSEIMITCAT'),elemdeci:row.BSELMDECI!=null?String(row.BSELMDECI):'0',nomit:g('BSELMITNAM')}; });
       }
       const r = await conn.execute('SELECT BTISDTVERSION,BTISDTELEMNOM,BTISDTELEMNINT,BTISDTELEMOBL,BTISDTELEMCAT,BTISDTELEMTIPO,BTISDTELEMSDT,BTISDTELEMSDTVE,BTISDTELEMPLANO,BTISDTELEMLARGO,BTISDTELEMENU,BTISDTELEMVAL,BTISDTELEMDSC,BTISDTELEMPOSI,BTISDTELEMCATIT,BTISDTELEMDECI,BTISDTELEMNOMIT FROM BTI026 WHERE TRIM(BTISDTNOM)=:1 ORDER BY BTISDTELEMPOSI', [sdtNom], { outFormat: oracledb.OUT_FORMAT_OBJECT });
       await conn.close();
-      return r.rows.map(function(row) { const g=k=>row[k]==null?'':String(row[k]).trim(); return {version:g('BTISDTVERSION'),elemnom:g('BTISDTELEMNOM'),nint:g('BTISDTELEMNINT'),obl:g('BTISDTELEMOBL'),elemcat:g('BTISDTELEMCAT'),elemtipo:g('BTISDTELEMTIPO'),elemsdt:g('BTISDTELEMSDT'),sdtve:g('BTISDTELEMSDTVE'),plano:g('BTISDTELEMPLANO'),elemlargo:row.BTISDTELEMLARGO!=null?String(row.BTISDTELEMLARGO):'0',enu:g('BTISDTELEMENU'),val:g('BTISDTELEMVAL'),elemdsc:g('BTISDTELEMDSC'),posi:row.BTISDTELEMPOSI!=null?String(row.BTISDTELEMPOSI):'0',catit:g('BTISDTELEMCATIT'),elemdeci:row.BTISDTELEMDECI!=null?String(row.BTISDTELEMDECI):'0',nomit:g('BTISDTELEMNOMIT')}; });
+      return r.rows.map(function(row) { const g=k=>sg_cellText(row[k]).trim(); return {version:g('BTISDTVERSION'),elemnom:g('BTISDTELEMNOM'),nint:g('BTISDTELEMNINT'),obl:g('BTISDTELEMOBL'),elemcat:g('BTISDTELEMCAT'),elemtipo:g('BTISDTELEMTIPO'),elemsdt:g('BTISDTELEMSDT'),sdtve:g('BTISDTELEMSDTVE'),plano:g('BTISDTELEMPLANO'),elemlargo:row.BTISDTELEMLARGO!=null?String(row.BTISDTELEMLARGO):'0',enu:g('BTISDTELEMENU'),val:g('BTISDTELEMVAL'),elemdsc:g('BTISDTELEMDSC'),posi:row.BTISDTELEMPOSI!=null?String(row.BTISDTELEMPOSI):'0',catit:g('BTISDTELEMCATIT'),elemdeci:row.BTISDTELEMDECI!=null?String(row.BTISDTELEMDECI):'0',nomit:g('BTISDTELEMNOMIT')}; });
     } catch(e) { await conn.close(); throw e; }
   }
 }
@@ -921,7 +933,7 @@ async function queryMethodSchema(platform, db, service, method, apiMode) {
 
   const mod = path.join(ROOT, 'V4', 'node_modules', 'oracledb');
   if (!fs.existsSync(mod)) throw new Error('oracledb no instalado - ejecuta npm install en V4/');
-  const oracledb = require(mod);
+  const oracledb = oraFetchLobsAsString(require(mod));
   const conn = await oracledb.getConnection({
     user: db.DB_USER,
     password: db.DB_PASSWORD,

@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { sg_generateScript, sg_generateSdtScript, sn_num, sg_serviceNamePrefix, sg_serviceListQuery } = require('./index.js');
+const { sg_generateScript, sg_generateSdtScript, sn_num, sg_serviceNamePrefix, sg_serviceListQuery, sg_cellText } = require('./index.js');
 
 const UUID_RE = /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/;
 
@@ -140,4 +140,57 @@ test('sg_serviceListQuery publica sigue filtrando BTI014 por Public%', () => {
   assert.equal(q.col, 'BTISRVNOM');
   assert.equal(q.sql, 'SELECT DISTINCT BTISRVNOM FROM BTI014 WHERE BTISRVNOM LIKE :1 ORDER BY BTISRVNOM');
   assert.deepEqual(q.binds, ['Public%']);
+});
+
+// Regresion: un CLOB llega como objeto Lob y String(lob) daba
+// '[object Object]' escrito dentro del INSERT.
+function lobLike() { return { _isLob: true, type: 2017, getData: function() {} }; }
+
+test('sg_cellText trata como vacio todo lo que no sea primitivo', () => {
+  assert.equal(sg_cellText(lobLike()), '');
+  assert.equal(sg_cellText(Buffer.from('abc')), '');
+  assert.equal(sg_cellText(new Date()), '');
+  assert.equal(sg_cellText(null), '');
+  assert.equal(sg_cellText(undefined), '');
+});
+
+test('sg_cellText deja pasar strings y numeros tal cual', () => {
+  assert.equal(sg_cellText('  hola  '), '  hola  ');
+  assert.equal(sg_cellText(0), '0');
+  assert.equal(sg_cellText(12), '12');
+  assert.equal(sg_cellText(false), 'false');
+});
+
+test('sg_cellText respeta el valor vacio pedido (null para las columnas nullables)', () => {
+  assert.equal(sg_cellText(null, null), null);
+  assert.equal(sg_cellText(lobLike(), null), null);
+  assert.equal(sg_cellText('x', null), 'x');
+});
+
+test('ningun script generado puede contener [object Object]', () => {
+  const withLobs = methodData({
+    method: { dsc: lobLike(), nsbt: 'S', pgmnom: 'CustomersWS', pgmmtd: 'execute', status: 'Validado', enbtra: 'N', espggx: 'S' },
+    params: [{ nom: 'id', nomjava: 'id', dir: 'I', tipo: 'Numeric', ittipo: '', cat: 'B', catit: 'B', sdtver: '', largo: '9', deci: '0', dsc: lobLike() }],
+  });
+  ['interna', 'publica'].forEach(function(mode) {
+    ['delete', 'insert', 'both'].forEach(function(m) {
+      const script = sg_generateScript(Object.assign({}, withLobs, { apiMode: mode }), m);
+      assert.doesNotMatch(script, /\[object Object\]/, mode + '/' + m);
+    });
+  });
+});
+
+test('ningun script de SDT generado puede contener [object Object]', () => {
+  const src = sdtData();
+  const withLobs = {
+    nom: src.nom,
+    bti025: Object.assign({}, src.bti025, { descrip: lobLike(), namespace: lobLike(), tipo: lobLike() }),
+    bti026: (src.bti026 || []).map(function(e) { return Object.assign({}, e, { elemdsc: lobLike(), val: lobLike() }); }),
+  };
+  [['V4','interna'],['V4','publica'],['V3','publica']].forEach(function(pair) {
+    ['delete','insert','both'].forEach(function(m) {
+      const script = sg_generateSdtScript(withLobs, m, pair[0], pair[1]);
+      assert.doesNotMatch(script, /\[object Object\]/, pair.join('/') + '/' + m);
+    });
+  });
 });

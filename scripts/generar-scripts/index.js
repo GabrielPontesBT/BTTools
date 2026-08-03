@@ -51,6 +51,42 @@ function sg_serviceListQuery(version, apiMode) {
   };
 }
 
+// Texto de una celda de la base. No todo lo que devuelve el driver es un
+// string: los CLOB vienen como objeto Lob, los RAW como Buffer. String(obj)
+// daba '[object Object]' metido dentro del script generado, asi que todo lo
+// que no sea primitivo se trata como vacio.
+function sg_cellText(val, empty) {
+  const e = empty === undefined ? '' : empty;
+  if (val == null) return e;
+  const t = typeof val;
+  if (t === 'object' || t === 'function' || t === 'symbol') return e;
+  return String(val);
+}
+
+// Header y metodo llegan directo de la base y se interpolan a mano en varios
+// lugares (DELETEs, INSERT de BTI014). Se normalizan a texto una sola vez,
+// asi ningun tipo raro del driver puede filtrarse al SQL generado.
+const SG_METHOD_FIELDS = ['dsc','nsbt','pgmnom','pgmmtd','status','fpath','enbtra','espggx'];
+
+function sg_normalizeHeader(h) {
+  const src = h || {};
+  return {
+    BTINom:        sg_cellText(src.BTINom) || 'BTSERVICES',
+    BTISrvNom:     sg_cellText(src.BTISrvNom),
+    BTISrvVer:     sg_cellText(src.BTISrvVer) || '1',
+    BTIMtdNom:     sg_cellText(src.BTIMtdNom),
+    BTISrvDsc:     sg_cellText(src.BTISrvDsc),
+    BTISrvPgmName: sg_cellText(src.BTISrvPgmName),
+  };
+}
+
+function sg_normalizeMethod(m) {
+  const src = (m && typeof m === 'object') ? m : {};
+  const out = {};
+  SG_METHOD_FIELDS.forEach(function(k) { out[k] = sg_cellText(src[k]); });
+  return out;
+}
+
 function btcbs_fmtDate(val) {
   if (!val) return 'NULL';
   const d = val instanceof Date ? val : new Date(val);
@@ -63,7 +99,7 @@ function btcbs_fmtDate(val) {
 // Quoting Oracle-only (BTCBS es Oracle siempre), mismo criterio que sg_sq
 // para V4: ' ' si esta vacio y no es nullable, NULL si es nullable y vacio.
 function btcbs_sq(val, nullable) {
-  const s = val != null ? String(val) : '';
+  const s = sg_cellText(val);
   if (nullable && s.trim() === '') return 'NULL';
   return s.trim() === '' ? "' '" : "'" + s + "'";
 }
@@ -90,7 +126,7 @@ function sg_extractSdtNames(params) {
 }
 
 function sg_sq(val, ver, nullable) {
-  const s = val != null ? String(val) : '';
+  const s = sg_cellText(val);
   if (nullable && s.trim() === '') return 'NULL';
   if (ver === 'V3') return "N'" + s + "'";
   return s.trim() === '' ? "' '" : "'" + s + "'";
@@ -101,8 +137,8 @@ function sg_nq(val) { const n = parseInt(String(val == null ? '0' : val).trim(),
 // sg_generateScript arma para BTI014/BTI019 en V4. Se usa aparte porque el
 // mapeo de columnas y tipos es distinto (ver INTERNA_BTCBS0xx_COLS arriba).
 function btcbs_generateScript(data, mode) {
-  const h = data.header, m = data.method, ps = data.params || [], lines = [];
-  const BTINom = h.BTINom||'BTSERVICES', BTISrvNom = h.BTISrvNom||'', BTISrvVer = h.BTISrvVer||'1', BTIMtdNom = h.BTIMtdNom||'';
+  const h = sg_normalizeHeader(data.header), m = sg_normalizeMethod(data.method), ps = data.params || [], lines = [];
+  const BTINom = h.BTINom, BTISrvNom = h.BTISrvNom, BTISrvVer = h.BTISrvVer, BTIMtdNom = h.BTIMtdNom;
   const q = (v, nullable) => btcbs_sq(v, nullable);
   function delBtcbs014() { return ["DELETE FROM BTCBS014 WHERE BSINTNAME='"+BTINom+"' AND BSSRVNAME='"+BTISrvNom+"' AND BSMTDNAME='"+BTIMtdNom+"';"]; }
   function delBtcbs019() { return ["DELETE FROM BTCBS019 WHERE BSINTNAME='"+BTINom+"' AND BSSRVNAME='"+BTISrvNom+"' AND BSMTDNAME='"+BTIMtdNom+"';"]; }
@@ -127,9 +163,10 @@ function btcbs_generateScript(data, mode) {
 }
 
 function sg_generateScript(data, mode) {
-  const ver = data.version, apiMode = data.apiMode || 'publica', h = data.header, m = data.method, ps = data.params || [], lines = [];
+  const ver = data.version, apiMode = data.apiMode || 'publica';
   if (ver === 'V4' && apiMode === 'interna') return btcbs_generateScript(data, mode);
-  const BTINom = h.BTINom||'BTSERVICES', BTISrvNom = h.BTISrvNom||'', BTISrvVer = h.BTISrvVer||'1', BTIMtdNom = h.BTIMtdNom||'';
+  const h = sg_normalizeHeader(data.header), m = sg_normalizeMethod(data.method), ps = data.params || [], lines = [];
+  const BTINom = h.BTINom, BTISrvNom = h.BTISrvNom, BTISrvVer = h.BTISrvVer, BTIMtdNom = h.BTIMtdNom;
   const q = (v) => sg_sq(v, ver);
   function delBti019() { if(ver==='V3')return["DELETE FROM BTI019 WHERE BTINom=N'"+BTINom+"' AND BTISrvNom=N'"+BTISrvNom+"' AND BTIMtdNom=N'"+BTIMtdNom+"';"]; return["DELETE FROM BTI019 WHERE BTINOM='"+BTINom+"' AND BTISRVNOM='"+BTISrvNom+"' AND BTIMTDNOM='"+BTIMtdNom+"';"]; }
   function delBti014() { if(ver==='V3')return["DELETE FROM BTI014 WHERE BTINom=N'"+BTINom+"' AND BTISrvNom=N'"+BTISrvNom+"' AND BTIMtdNom=N'"+BTIMtdNom+"';"]; return["DELETE FROM BTI014 WHERE BTINOM='"+BTINom+"' AND BTISRVNOM='"+BTISrvNom+"' AND BTIMTDNOM='"+BTIMtdNom+"';"]; }
@@ -168,7 +205,7 @@ function btcbs_generateSdtScript(sdt, mode) {
     if (!b25) return [];
     const cols = INTERNA_BTCBS025_COLS.join(', ');
     const dsc = b25.descrip ? q(b25.descrip) : "' '";
-    const vals = [q(b25.nom),q(b25.version),dsc,sn_num(b25.nativo),btcbs_fmtDate(b25.fecha),q(b25.nomint),q(b25.estado),b25.tipo,q(b25.namespace)].join(', ');
+    const vals = [q(b25.nom),q(b25.version),dsc,sn_num(b25.nativo),btcbs_fmtDate(b25.fecha),q(b25.nomint),q(b25.estado),sg_nq(b25.tipo),q(b25.namespace)].join(', ');
     return ['INSERT INTO BTCBS025 ('+cols+') VALUES('+vals+');'];
   }
   function insBtcbs026() {
@@ -203,12 +240,12 @@ function sg_generateSdtScript(sdt, mode, version, apiMode) {
     if (!b25) return [];
     if (version === 'V3') {
       const cols = V3_BTI025_COLS.join(', ');
-      const vals = [q(b25.nom),q(b25.version),q(b25.descrip),q(b25.nativo),sg_fmtDate(b25.fecha,'V3'),q(b25.nomint),q(b25.estado),b25.tipo,q(b25.namespace)].join(', ');
+      const vals = [q(b25.nom),q(b25.version),q(b25.descrip),q(b25.nativo),sg_fmtDate(b25.fecha,'V3'),q(b25.nomint),q(b25.estado),sg_nq(b25.tipo),q(b25.namespace)].join(', ');
       return ['INSERT INTO BTI025 ('+cols+') VALUES('+vals+');'];
     }
     const cols = V4_BTI025_COLS.join(', ');
     const dsc = b25.descrip ? q(b25.descrip) : "' '";
-    const vals = [q(b25.nom),q(b25.version),q(b25.nomint),q(b25.estado),b25.tipo,q(b25.namespace),sg_fmtDate(b25.fecha,'V4'),dsc,q(b25.nativo)].join(', ');
+    const vals = [q(b25.nom),q(b25.version),q(b25.nomint),q(b25.estado),sg_nq(b25.tipo),q(b25.namespace),sg_fmtDate(b25.fecha,'V4'),dsc,q(b25.nativo)].join(', ');
     return ['INSERT INTO BTI025 ('+cols+') VALUES('+vals+');'];
   }
   function insBti026() {
@@ -250,6 +287,6 @@ module.exports = {
   INTERNA_BTCBS014_COLS, INTERNA_BTCBS019_COLS,
   INTERNA_BTCBS025_COLS, INTERNA_BTCBS026_COLS,
   sn_num, btcbs_sq, btcbs_fmtDate,
-  sg_serviceNamePrefix, sg_serviceListQuery,
+  sg_serviceNamePrefix, sg_serviceListQuery, sg_cellText,
   SG_SDT_EXCLUDE,
 };
