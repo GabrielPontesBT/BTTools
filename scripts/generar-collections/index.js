@@ -481,18 +481,39 @@ function createCollectionFeature(deps) {
         type: fieldType,
         description: field && field.description ? String(field.description) : '',
         defaultValue: exampleValue(fieldType),
-        location: mode.location || 'body'
+        location: mode.location || 'body',
+        // Metadata descriptiva para el inspector (ej. mostrar que este campo
+        // es una lista); el armado real del body para colecciones ya envuelve
+        // la lista con el nombre interno correcto (ver el branch de
+        // isDbCollectionField mas abajo), asi que esto no controla ninguna
+        // eleccion adicional del usuario.
+        isCollection: isDbCollectionField(field)
       });
     }
 
       if (isDbCollectionField(field) && field.sdtType) {
         const sdtFields = sdtMap[String(field.sdtType).trim()] || [];
-        return [
+        const itemsArray = [
           sdtFields.reduce(function buildCollectionItem(accumulator, childField) {
             accumulator[String(childField.name).trim()] = buildDbFieldTemplate(childField, sdtMap, pathTrail.concat(fieldName), manualInputs, mode);
             return accumulator;
           }, {})
         ];
+        // El exposer REST real envuelve la lista en un objeto cuya UNICA
+        // clave es el "nombre interno" (item name) del elemento repetible
+        // (ej. Insurances -> {"insurance":[...]}), NO un array suelto —
+        // confirmado contra el contrato real de PublicLoans.simulate. Sin
+        // este envoltorio, Jackson rechaza el body con "Cannot deserialize
+        // ... from Array value" para CUALQUIER campo coleccion, no solo uno.
+        // itemName sale de BTI019 (BTISRVPARITNOM) para params de primer
+        // nivel o de BTI026 (BTISDTELEMNOMIT) para campos anidados de un SDT
+        // (ver mapMethodSchemaRow/mapBti026SchemaRow) — ambas columnas
+        // confirmadas contra el esquema real, sin adivinar nombres. El
+        // fallback a fieldName es solo defensivo (fila con dato incompleto),
+        // no una alternativa valida: cuando el campo es coleccion, el
+        // esquema real siempre trae el nombre de item correspondiente.
+        const itemKey = String((field && field.itemName) || fieldName).trim();
+        return itemKey ? { [itemKey]: itemsArray } : itemsArray;
       }
 
       if (isDbComplexField(field) && field.sdtType) {
@@ -503,7 +524,14 @@ function createCollectionFeature(deps) {
         }, {});
     }
 
-    return '{{' + inputKey + '}}';
+    // Marcador interno (no "{{...}}" directo): tanto buildJsonBodyRaw (export a
+    // Postman) como fillJsonTemplate (ejecucion en vivo) buscan exactamente
+    // "__COL_VAR__" + key para saber que reemplazar. El camino Swagger
+    // (buildSwaggerBodyTemplate) ya usa este mismo marcador; este campo
+    // devolvia el texto "{{...}}" literal, que ninguno de los dos consumidores
+    // reconoce como placeholder — por eso ni "Origen del valor" ni "Valor
+    // manual" tenian efecto en metodos cargados desde Base de datos.
+    return '__COL_VAR__' + inputKey;
   }
 
   function buildDbBodyTemplate(schema, httpMethod) {
@@ -906,6 +934,13 @@ function createCollectionFeature(deps) {
     if (!config || !config.sourceVarKey) return '';
     const effectiveFilterField = config.filterField || (config.filterValue ? config.itemPathLabel : '');
     if (!effectiveFilterField || !config.filterValue) return config.sourceVarKey;
+    const sanitizedSource = sanitizeVariableKey(config.sourceVarKey);
+    // sourceVarKey guardado a veces ya viene con el sufijo de filtro aplicado
+    // (por ejemplo, tras reimportar una collection generada antes por esta
+    // misma pantalla, que persistio la clave derivada en vez de la clave
+    // base). Sin este chequeo el sufijo se duplicaba (...loanGUID_filter_X
+    // _filter_X) y la variable de Postman quedaba sin resolver.
+    if (/_filter_/.test(sanitizedSource)) return sanitizedSource;
     return sanitizeVariableKey(
       config.sourceVarKey + '__filter__' + effectiveFilterField + '__' + config.filterValue
     );
@@ -2636,6 +2671,28 @@ function createCollectionFeature(deps) {
     return '';
   }
 
+  /**
+   * Detecta errores de negocio en una respuesta JSON (contrato REST real:
+   * campo "businessErrors" en el nivel superior del body, array de
+   * {Code,Description,Severity,Target} — confirmado contra el catalogo
+   * Swagger real). A diferencia de extractBusinessError (XML/SOAP), esto
+   * NO decide pass/fail: el HTTP 2xx sigue significando que el paso avanza
+   * (ver step.ok mas abajo); esto solo marca que ademas hubo un aviso de
+   * negocio, para distinguirlo visualmente de un 200 realmente limpio.
+   */
+  function extractJsonBusinessErrors(parsed) {
+    const list = (parsed && Array.isArray(parsed.businessErrors)) ? parsed.businessErrors
+      : (parsed && Array.isArray(parsed.BusinessErrors)) ? parsed.BusinessErrors : null;
+    if (!list || !list.length) return null;
+    return list.map(function(entry) {
+      if (typeof entry === 'string') return entry;
+      if (entry && typeof entry === 'object') {
+        return String(entry.Description || entry.description || entry.Code || entry.code || 'Error de negocio');
+      }
+      return 'Error de negocio';
+    });
+  }
+
   function extractOutputValues(schema, parsed) {
     const values = {};
     getExportableOutputs(schema).forEach(function(param) {
@@ -2740,6 +2797,7 @@ function createCollectionFeature(deps) {
           let parsed = null;
           try { parsed = response.body ? JSON.parse(response.body) : null; } catch (_) {}
           if (parsed) {
+            step.businessWarning = extractJsonBusinessErrors(parsed);
             const extracted = Object.assign({}, extractJsonOutputValues(parsed), extractConfiguredJsonOutputValues(item, parsed));
             collectJsonFilteredSelectorsForItem(item, body).forEach(function(selector) {
               const filteredValue = extractFilteredJsonOutputValue(parsed, selector.pathLabel, selector.filterField, selector.filterValue);

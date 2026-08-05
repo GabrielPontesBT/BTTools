@@ -280,15 +280,15 @@
             authUrl: state.swaggerAuthUrl
           });
           if (authData.ok) state.authContext = authData.authContext || null;
-          else this.options.showStatus('err', (authData.message || 'No se pudo autenticar usando el Authenticate del Swagger.') + ' Los servicios ya estan cargados; podes revisar la autenticacion mas tarde.');
+          else this.options.showStatus('warn', (authData.message || 'No se pudo autenticar usando el Authenticate del Swagger.') + ' Los servicios ya estan cargados; podes revisar la autenticacion mas tarde.', 'Autenticacion pendiente');
         } catch (authError) {
-          this.options.showStatus('err', 'No se pudo validar la autenticacion del ambiente. Los servicios ya estan cargados; podes revisar la autenticacion mas tarde.');
+          this.options.showStatus('warn', 'No se pudo validar la autenticacion del ambiente. Los servicios ya estan cargados; podes revisar la autenticacion mas tarde.', 'Autenticacion pendiente');
         }
 
         this.options.filterServices();
         this.options.renderVariableEditor();
         this.options.setStudioStage('builder');
-        if (state.authContext) this.options.showStatus('ok', 'Servicios cargados correctamente. Entrando al builder...');
+        if (state.authContext) this.options.showStatus('ok', 'Entrando al builder...', 'Servicios cargados correctamente');
       } catch (error) {
         this.options.showStatus('err', error.message || 'No se pudieron cargar los servicios.');
       }
@@ -334,7 +334,7 @@
         this.options.filterServices();
         this.options.renderVariableEditor();
         this.options.setStudioStage('builder');
-        this.options.showStatus('ok', (databaseData.warning || 'Servicios cargados desde Base de datos.') + ' Entrando al builder...');
+        this.options.showStatus('ok', (databaseData.warning || 'Servicios cargados desde Base de datos.') + ' Entrando al builder...', 'Servicios cargados');
       } catch (error) {
         this.options.showStatus('err', error.message || 'No se pudieron cargar los servicios desde Base de datos.');
       }

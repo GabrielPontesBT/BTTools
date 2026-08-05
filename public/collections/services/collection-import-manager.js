@@ -203,6 +203,7 @@
         }
       });
 
+
       summary.mappingsCreated += mappingCount;
     }
 

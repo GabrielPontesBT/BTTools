@@ -31,7 +31,10 @@
 
       result.className = 'collection-result show';
       result.innerHTML =
-        '<h4>Collection generada</h4>' +
+        '<div class="collection-result-head">' +
+          '<h4>Collection generada</h4>' +
+          '<button type="button" class="collection-status-close" onclick="collectionResetResult()" aria-label="Cerrar resultado">&times;</button>' +
+        '</div>' +
         '<p>Se genero una collection Postman con <strong>' + this.options.escapeHtml(data.requestCount) + '</strong> requests repartidos en <strong>' + this.options.escapeHtml(data.scenarioCount || 1) + '</strong> caso(s) de uso. Cada carpeta incluye Authenticate y los requests JSON descubiertos desde Swagger.</p>' +
         '<div class="collection-actions" style="margin-bottom:12px">' +
           '<a class="btn btn-primary" href="' + this.options.escapeHtml(data.downloadUrl || '#') + '">&#8595; Descargar ' + this.options.escapeHtml(data.fileName || 'collection.postman_collection.json') + '</a>' +

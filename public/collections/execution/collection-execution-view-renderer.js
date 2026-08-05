@@ -50,12 +50,17 @@
       var layoutClass = 'collection-exec-main-layout' +
         (timelineOpen ? ' collection-exec-main-layout-with-timeline' : '') +
         (flowExpanded ? '' : ' collection-exec-main-layout-flow-collapsed');
+      // El ancho elegido arrastrando el divisor se guarda en el estado (no en
+      // el DOM) porque este HTML se reconstruye entero en cada render — sin
+      // esto, cambiar de tab o seleccionar otro paso resetearia el ancho.
+      var flowColumnWidth = this.options.getFlowColumnWidth ? this.options.getFlowColumnWidth() : null;
+      var layoutStyle = flowColumnWidth ? ' style="--exec-flow-col:' + flowColumnWidth + 'px"' : '';
 
       return '' +
         '<div class="collection-exec-shell collection-exec-shell-redesign">' +
-          this.renderHeader(run) +
-          '<div class="' + layoutClass + '">' +
+          '<div class="' + layoutClass + '"' + layoutStyle + '>' +
             this.renderFlowPanel(run, timelineOpen, flowExpanded) +
+            '<div class="collection-exec-resize-handle" onmousedown="collectionStartExecPanelResize(event)" role="separator" aria-orientation="vertical" aria-label="Redimensionar panel de flujo"></div>' +
             this.renderInspector(run) +
             (timelineOpen ? this.renderTimelinePanel(run) : '') +
           '</div>' +
@@ -63,44 +68,19 @@
     }
 
     /**
-     * Dibuja una cabecera compacta solo con informacion y acciones
-     * propias de la corrida actual. Titulo y metricas van en una sola linea
-     * para no gastar una fila entera solo en estado.
+     * Acciones globales de la corrida (reejecucion, exportar, volver al
+     * builder), mas "Cancelar" cuando esta corriendo. Se renderiza afuera de
+     * este shell, en un slot fijo de la barra superior del builder (ver
+     * collection-execution-center.js#render) — la info de estado/duracion/
+     * pasos que antes vivia en una cabecera propia ya se ve en el step card
+     * del canvas, asi que no se repite aca.
      */
-    renderHeader(run) {
-      var statusClass = 'collection-exec-header-line';
-      if (run.status === 'error') statusClass += ' collection-exec-header-line-error';
-      if (run.status === 'success') statusClass += ' collection-exec-header-line-success';
-      if (run.status === 'running') statusClass += ' collection-exec-header-line-running';
-
-      var stats = run.stats || {};
-      var metaParts = [
-        run.statusLabel || 'Sin estado',
-        run.durationLabel || '--',
-        (stats.totalSteps || 0) + ' pasos',
-        (stats.successCount || 0) + ' correcto' + (stats.successCount === 1 ? '' : 's'),
-        (stats.errorCount || 0) + ' error' + (stats.errorCount === 1 ? '' : 'es')
-      ];
-
+    renderHeaderActions(run) {
       return '' +
-        '<section class="collection-exec-header-simple">' +
-          '<button type="button" class="collection-exec-back-link" onclick="collectionCloseExecutionMode()">' +
-            '<span aria-hidden="true">&#8592;</span><span>Volver</span>' +
-          '</button>' +
-          '<div class="collection-exec-header-simple-copy">' +
-            '<span class="collection-exec-header-title">Ejecucion #' + this.escape(run.id) + '</span>' +
-            '<span class="collection-exec-inline-separator">&middot;</span>' +
-            '<span class="' + statusClass + '">' +
-              metaParts.map(function escapePart(part) { return this.escape(part); }, this).join('<span class="collection-exec-inline-separator">&middot;</span>') +
-            '</span>' +
-          '</div>' +
-          '<div class="collection-exec-header-simple-actions">' +
-            (run.status === 'running'
-              ? '<button type="button" class="btn btn-outline" onclick="collectionCancelExecutionRun()">Cancelar ejecucion</button>'
-              : '') +
-            this.renderHeaderMenu(run) +
-          '</div>' +
-        '</section>';
+        (run.status === 'running'
+          ? '<button type="button" class="btn btn-outline" onclick="collectionCancelExecutionRun()">Cancelar ejecucion</button>'
+          : '') +
+        this.renderHeaderMenu(run);
     }
 
     /**
@@ -134,13 +114,10 @@
 
       return '' +
         '<section class="collection-exec-panel collection-exec-flow-panel">' +
-          '<div class="collection-exec-panel-head collection-exec-panel-head-flow">' +
-            '<div class="collection-exec-panel-title">Flujo de ejecucion</div>' +
-            '<div class="collection-exec-panel-tools">' +
-              (flowExpanded ? this.renderFlowToolsMenu(zoomPercent) : '') +
-              (timelineOpen ? '' : '<button type="button" class="collection-exec-tool-btn collection-exec-tool-btn-timeline" onclick="collectionToggleExecutionTimeline()">Linea de tiempo</button>') +
-              '<button type="button" class="collection-exec-tool-btn" onclick="collectionToggleExecutionFlowExpanded()">' + (flowExpanded ? 'Colapsar' : 'Expandir') + '</button>' +
-            '</div>' +
+          '<div class="collection-exec-panel-tools">' +
+            (flowExpanded ? this.renderFlowZoomControls(zoomPercent) : '') +
+            (timelineOpen ? '' : '<button type="button" class="collection-exec-tool-btn collection-exec-tool-btn-timeline" onclick="collectionToggleExecutionTimeline()">Linea de tiempo</button>') +
+            '<button type="button" class="collection-exec-tool-btn" onclick="collectionToggleExecutionFlowExpanded()">' + (flowExpanded ? 'Colapsar' : 'Expandir') + '</button>' +
           '</div>' +
           (flowExpanded ? this.renderFlowGrid(run, steps, zoomLevel) : this.renderFlowBreadcrumbList(run, steps)) +
         '</section>';
@@ -198,20 +175,17 @@
     }
 
     /**
-     * Agrupa Ajustar/Centrar/zoom en un menu: son controles de navegacion del
-     * canvas, no necesitan ocupar espacio fijo en la barra de herramientas.
+     * Stepper compacto de zoom: solo +/- y el porcentaje actual, sin menu
+     * desplegable (Ajustar al ancho/Centrar se sacaron por ser controles
+     * de bajo uso que no justificaban el menu extra).
      */
-    renderFlowToolsMenu(zoomPercent) {
+    renderFlowZoomControls(zoomPercent) {
       return '' +
-        '<details class="collection-exec-menu">' +
-          '<summary class="collection-exec-tool-btn" onclick="event.stopPropagation()">Zoom ' + zoomPercent + '%</summary>' +
-          '<div class="collection-exec-menu-popover" onclick="event.stopPropagation()">' +
-            '<button type="button" class="collection-exec-menu-item" onclick="collectionZoomToFitExecutionFlow()">Ajustar al ancho</button>' +
-            '<button type="button" class="collection-exec-menu-item" onclick="collectionCenterExecutionFlow()">Centrar</button>' +
-            '<button type="button" class="collection-exec-menu-item" onclick="collectionZoomOutExecutionFlow()">Alejar (&minus;)</button>' +
-            '<button type="button" class="collection-exec-menu-item" onclick="collectionZoomInExecutionFlow()">Acercar (+)</button>' +
-          '</div>' +
-        '</details>';
+        '<div class="collection-zoom-stepper" role="group" aria-label="Zoom del flujo">' +
+          '<button type="button" class="collection-zoom-step-btn" onclick="collectionZoomOutExecutionFlow()" aria-label="Alejar">&minus;</button>' +
+          '<span class="collection-zoom-percent">' + zoomPercent + '%</span>' +
+          '<button type="button" class="collection-zoom-step-btn" onclick="collectionZoomInExecutionFlow()" aria-label="Acercar">+</button>' +
+        '</div>';
     }
 
     /**
@@ -299,37 +273,11 @@
 
       return '' +
         '<section class="collection-exec-panel collection-exec-detail-panel">' +
-          '<div class="collection-exec-detail-head-simple">' +
-            '<div class="collection-exec-detail-head-copy">' +
-              '<div class="collection-exec-detail-title">' + this.escape(step.name) + '</div>' +
-              '<div class="collection-exec-detail-subline">' + this.escape(step.statusLabel || '-') + ' &middot; ' + this.escape(step.durationLabel || '--') + '</div>' +
-            '</div>' +
-            '<div class="collection-exec-detail-head-actions">' +
-              this.renderStepHeaderMenu(step) +
-            '</div>' +
-          '</div>' +
           this.renderTabs(run) +
           '<div class="collection-exec-detail-body collection-exec-detail-body-single">' +
             this.renderTabContent(run, step) +
           '</div>' +
         '</section>';
-    }
-
-    /**
-     * Replica en el encabezado del inspector las mismas acciones del nodo,
-     * manteniendo una experiencia consistente.
-     */
-    renderStepHeaderMenu(step) {
-      return '' +
-        '<details class="collection-exec-menu">' +
-          '<summary class="collection-exec-menu-trigger" onclick="event.stopPropagation()">&#8942;</summary>' +
-          '<div class="collection-exec-menu-popover" onclick="event.stopPropagation()">' +
-            '<button type="button" class="collection-exec-menu-item" onclick="collectionHandleExecutionNodeAction(' + "'request'" + ',' + "'" + this.escape(step.id) + "'" + ')">Ver request</button>' +
-            '<button type="button" class="collection-exec-menu-item" onclick="collectionHandleExecutionNodeAction(' + "'response'" + ',' + "'" + this.escape(step.id) + "'" + ')">Ver response</button>' +
-            '<button type="button" class="collection-exec-menu-item" onclick="collectionHandleExecutionNodeAction(' + "'copy-url'" + ',' + "'" + this.escape(step.id) + "'" + ')">Copiar URL</button>' +
-            '<button type="button" class="collection-exec-menu-item" onclick="collectionRerunExecutionFromSelectedStep()">Reejecutar desde aqui</button>' +
-          '</div>' +
-        '</details>';
     }
 
     /**
@@ -374,7 +322,7 @@
 
       return '' +
         '<div class="collection-exec-response-view">' +
-          '<div class="collection-exec-response-toolbar collection-exec-response-toolbar-slim">' +
+          '<div class="collection-exec-response-toolbar">' +
             '<span class="collection-exec-response-meta collection-exec-response-url" title="' + this.escape(step.requestUrl || '') + '">' + this.escape(step.httpMethod || '-') + ' &middot; ' + this.escape(step.requestUrl || 'Sin URL disponible') + '</span>' +
             (hasBody ? this.renderCodeToolbarActions(step.requestBody, format) : '') +
           '</div>' +
@@ -396,7 +344,7 @@
       return '' +
         '<div class="collection-exec-response-view">' +
           (hasBody
-            ? '<div class="collection-exec-response-toolbar collection-exec-response-toolbar-slim">' +
+            ? '<div class="collection-exec-response-toolbar">' +
                 '<span class="collection-exec-response-meta">' + this.escape(this.byteSizeLabel(step.responseBody, format)) + '</span>' +
                 this.renderCodeToolbarActions(step.responseBody, format) +
               '</div>'
@@ -765,6 +713,7 @@
      */
     statusIcon(status) {
       if (status === 'success') return 'OK';
+      if (status === 'warning') return '!';
       if (status === 'error') return 'X';
       if (status === 'running') return '...';
       if (status === 'skipped') return '--';

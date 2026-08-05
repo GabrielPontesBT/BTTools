@@ -58,7 +58,7 @@
         this.pickDefaultChoices();
         this.options.refreshContext();
       } catch (error) {
-        mount.innerHTML = '<div class="collection-block"><div class="collection-status show err">No se pudo cargar el builder de collections. ' + this.options.escapeHtml(error.message || '') + '</div></div>';
+        mount.innerHTML = '<div class="collection-block"><div style="padding:10px 13px;border-radius:8px;background:var(--red-l);color:var(--red);font-size:12px;line-height:1.5">No se pudo cargar el builder de collections. ' + this.options.escapeHtml(error.message || '') + '</div></div>';
       }
     }
 

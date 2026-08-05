@@ -186,7 +186,7 @@
         return '<div class="collection-service-group' + (isCollapsed ? ' collection-service-group-collapsed' : '') + '">' +
           '<button type="button" class="collection-service-group-title" aria-expanded="' + (isCollapsed ? 'false' : 'true') + '" onclick="collectionToggleServiceGroup(\'' + escapedService + '\')">' +
             '<span class="collection-service-group-chevron" aria-hidden="true">&#9656;</span>' +
-            '<span class="collection-service-group-name">' + escapedService + '</span>' +
+            '<span class="collection-service-group-name" title="' + escapedService + '">' + escapedService + '</span>' +
             '<span class="collection-service-group-count">' + group.operations.length + '</span>' +
           '</button>' +
           '<div class="collection-service-group-body">' +
@@ -195,6 +195,8 @@
               var escapedOperationKey = this.options.escapeHtml(operation.operationKey);
               var verb = String(operation.httpMethod || 'GET').toUpperCase();
               var description = describeOperation(operation);
+              var escapedMethodName = this.options.escapeHtml(operation.methodName);
+              var escapedDescription = this.options.escapeHtml(description);
 
               return '<div class="collection-service-card' + (isSelected ? ' collection-service-card-selected' : '') + '" onclick="collectionInsertCatalogOperation(\'' + escapedService + '\', \'' + escapedOperationKey + '\')">' +
                 '<label class="collection-service-card-check" onclick="event.stopPropagation()">' +
@@ -202,8 +204,8 @@
                   '<span></span>' +
                 '</label>' +
                 '<div class="collection-service-card-main">' +
-                  '<div class="collection-service-card-name">' + this.options.escapeHtml(operation.methodName) + '</div>' +
-                  (description ? '<div class="collection-service-card-meta">' + this.options.escapeHtml(description) + '</div>' : '') +
+                  '<div class="collection-service-card-name" title="' + escapedMethodName + '">' + escapedMethodName + '</div>' +
+                  (description ? '<div class="collection-service-card-meta" title="' + escapedDescription + '">' + escapedDescription + '</div>' : '') +
                 '</div>' +
                 '<span class="collection-service-card-tag collection-service-card-tag-' + httpMethodBadgeClass(verb) + '">' + verb + '</span>' +
                 '<span class="collection-service-drag-handle" draggable="true" title="Arrastrar al flujo" onclick="event.stopPropagation()" ondragstart="collectionDragOperation(\'' + escapedService + '\', \'' + escapedOperationKey + '\', event)">&#8942;&#8942;</span>' +

@@ -20,7 +20,8 @@
         escapeHtml: this.options.escapeHtml,
         isTimelineOpen: this.isTimelineOpen.bind(this),
         getZoomLevel: this.getZoomLevel.bind(this),
-        isFlowExpanded: this.isFlowExpanded.bind(this)
+        isFlowExpanded: this.isFlowExpanded.bind(this),
+        getFlowColumnWidth: this.getFlowColumnWidth.bind(this)
       });
       this.executionState = {
         active: false,
@@ -29,9 +30,14 @@
         playbackToken: 0,
         timelineOpen: false,
         zoomLevel: 1,
-        flowExpanded: true
+        flowExpanded: true,
+        flowColumnWidth: null
       };
       this.boundHandleTimelineKeydown = this.handleTimelineKeydown.bind(this);
+      // Vinculados una sola vez: addEventListener/removeEventListener necesitan
+      // la MISMA referencia de funcion para poder desengancharse en el mouseup.
+      this.boundHandlePanelResizeMove = this.handlePanelResizeMove.bind(this);
+      this.boundEndPanelResize = this.endPanelResize.bind(this);
     }
 
     /**
@@ -317,37 +323,6 @@
     }
 
     /**
-     * Ajusta el zoom para que todas las filas del flujo entren en el area
-     * visible, tanto a lo ancho como a lo alto (ahora puede haber mas de
-     * una fila de tarjetas).
-     */
-    zoomToFit() {
-      var stage = document.querySelector('.collection-exec-flow-stage');
-      var rows = document.querySelector('.collection-exec-flow-rows');
-      if (!stage || !rows) { this.executionState.zoomLevel = 1; this.render(); return; }
-
-      var currentZoom = this.getZoomLevel();
-      var naturalWidth = rows.scrollWidth / currentZoom;
-      var naturalHeight = rows.scrollHeight / currentZoom;
-      var availableWidth = stage.clientWidth - 8;
-      var availableHeight = stage.clientHeight - 8;
-      var fittedByWidth = naturalWidth > 0 ? availableWidth / naturalWidth : 1;
-      var fittedByHeight = naturalHeight > 0 ? availableHeight / naturalHeight : 1;
-      var fitted = Math.min(fittedByWidth, fittedByHeight);
-
-      this.executionState.zoomLevel = Math.max(0.5, Math.min(1, Math.round(fitted * 100) / 100));
-      this.render();
-    }
-
-    /**
-     * Vuelve el zoom a 100% (se usa junto con "Centrar").
-     */
-    resetZoom() {
-      this.executionState.zoomLevel = 1;
-      this.render();
-    }
-
-    /**
      * Alterna el panel de linea de tiempo.
      * En desktop se comporta como panel contextual; en notebook queda listo
      * para ser tratado visualmente como drawer.
@@ -388,6 +363,59 @@
     toggleFlowExpanded() {
       this.executionState.flowExpanded = !this.executionState.flowExpanded;
       this.render();
+    }
+
+    /**
+     * Ancho actual de la columna del flujo (null = usa el default del grid,
+     * fr/minmax en vez de un valor fijo).
+     */
+    getFlowColumnWidth() {
+      return this.executionState.flowColumnWidth;
+    }
+
+    /**
+     * Arranca el arrastre del divisor entre canvas e inspector. El ancho de
+     * partida se toma del panel ya renderizado (no de un default fijo) para
+     * que el primer movimiento del mouse no salte de posicion.
+     */
+    startPanelResize(event) {
+      var flowPanel = document.querySelector('.collection-exec-flow-panel');
+      if (!flowPanel) return;
+
+      event.preventDefault();
+      this.resizeStartX = event.clientX;
+      this.resizeStartWidth = this.executionState.flowColumnWidth || flowPanel.getBoundingClientRect().width;
+
+      var handle = event.currentTarget;
+      if (handle) handle.classList.add('collection-exec-resize-handle-dragging');
+
+      document.addEventListener('mousemove', this.boundHandlePanelResizeMove);
+      document.addEventListener('mouseup', this.boundEndPanelResize);
+    }
+
+    /**
+     * Aplica el nuevo ancho directamente al DOM (sin re-render completo, igual
+     * que el zoom) para que el arrastre se sienta fluido; el estado se guarda
+     * en el mismo paso para que sobreviva al proximo render() real.
+     */
+    handlePanelResizeMove(event) {
+      var deltaX = event.clientX - this.resizeStartX;
+      var nextWidth = Math.max(280, Math.min(900, Math.round(this.resizeStartWidth + deltaX)));
+      this.executionState.flowColumnWidth = nextWidth;
+
+      var layout = document.querySelector('.collection-exec-main-layout');
+      if (layout) layout.style.setProperty('--exec-flow-col', nextWidth + 'px');
+    }
+
+    /**
+     * Termina el arrastre y limpia los listeners globales del documento.
+     */
+    endPanelResize() {
+      document.removeEventListener('mousemove', this.boundHandlePanelResizeMove);
+      document.removeEventListener('mouseup', this.boundEndPanelResize);
+
+      var handle = document.querySelector('.collection-exec-resize-handle-dragging');
+      if (handle) handle.classList.remove('collection-exec-resize-handle-dragging');
     }
 
     /**
@@ -587,8 +615,9 @@
       var parsedRequest = this.parseExecutionPayload(backendStep && backendStep.requestXml);
       var parsedResponse = this.parseExecutionPayload(backendStep && backendStep.responseXml);
       var wasExecuted = !!backendStep;
+      var hasBusinessWarning = wasExecuted && Array.isArray(backendStep.businessWarning) && backendStep.businessWarning.length > 0;
       var finalStatus = wasExecuted
-        ? (backendStep.ok ? 'success' : 'error')
+        ? (backendStep.ok ? (hasBusinessWarning ? 'warning' : 'success') : 'error')
         : (hasFailure && stepIndex >= executedCount ? 'skipped' : 'idle');
 
       step.format = format;
@@ -604,7 +633,9 @@
       step.createdVariables = this.buildStepCreatedVariables(backendStep, item);
       step.status = finalStatus;
       step.statusLabel = this.buildStepStatusLabel(backendStep, finalStatus);
-      step.warnings = finalStatus === 'error' && backendStep && backendStep.error ? [backendStep.error] : [];
+      step.warnings = finalStatus === 'error' && backendStep && backendStep.error ? [backendStep.error]
+        : finalStatus === 'warning' ? backendStep.businessWarning
+        : [];
       step.logs = this.buildExecutionLogs(backendStep, finalStatus);
       return step;
     }
@@ -712,9 +743,11 @@
       if (finalStatus === 'skipped') return 'Saltado';
       if (finalStatus === 'idle') return 'Pendiente';
       if (backendStep && backendStep.responseStatus) {
+        if (finalStatus === 'warning') return String(backendStep.responseStatus) + ' · Advertencia';
         if (finalStatus === 'success') return String(backendStep.responseStatus) + ' OK';
         return 'HTTP ' + String(backendStep.responseStatus);
       }
+      if (finalStatus === 'warning') return 'Advertencia';
       if (finalStatus === 'success') return 'OK';
       if (backendStep && backendStep.error) return backendStep.error;
       return finalStatus === 'error' ? 'Con error' : 'Pendiente';
@@ -728,6 +761,7 @@
       if (backendStep && backendStep.requestUrl) logs.push('Se ejecuto la URL: ' + backendStep.requestUrl);
       if (backendStep && backendStep.responseStatus) logs.push('El backend devolvio HTTP ' + backendStep.responseStatus + '.');
       if (finalStatus === 'error' && backendStep && backendStep.error) logs.push('Se detecto error de negocio o de transporte: ' + backendStep.error);
+      if (finalStatus === 'warning' && backendStep && backendStep.businessWarning) logs.push('El backend respondio OK pero informo error(es) de negocio: ' + backendStep.businessWarning.join(' | '));
       if (finalStatus === 'success') logs.push('El paso finalizo correctamente contra el ambiente.');
       if (finalStatus === 'skipped') logs.push('El paso no llego a ejecutarse porque el flujo se detuvo antes.');
       return logs.length ? logs : ['Sin logs disponibles para este paso.'];
@@ -776,6 +810,10 @@
       var builderContainer = document.getElementById('collection-builder-mode');
       var result = document.getElementById('collection-result');
       var shell = document.querySelector('.collection-shell-studio');
+      // Volver/menu de la corrida viven en un slot fijo de la barra superior
+      // del builder (no dentro de este contenedor, que se reconstruye entero
+      // en cada render) para que sigan visibles sin ocupar su propia fila.
+      var headerMenuSlot = document.getElementById('collection-exec-header-menu-slot');
 
       if (!executionContainer || !builderContainer) return;
 
@@ -784,6 +822,7 @@
         executionContainer.innerHTML = '';
         builderContainer.style.display = '';
         if (shell) shell.classList.remove('collection-execution-active');
+        if (headerMenuSlot) headerMenuSlot.innerHTML = '';
         if (result && !result.innerHTML) result.className = 'collection-result';
         return;
       }
@@ -801,10 +840,12 @@
               '<div class="collection-exec-loading-copy">Armando timeline, resumen, variables y vista del flujo a partir del caso activo.</div>' +
             '</div>' +
           '</div>';
+        if (headerMenuSlot) headerMenuSlot.innerHTML = '';
         return;
       }
 
       executionContainer.innerHTML = this.renderer.render(this.executionState.run);
+      if (headerMenuSlot) headerMenuSlot.innerHTML = this.executionState.run ? this.renderer.renderHeaderActions(this.executionState.run) : '';
     }
 
     /**

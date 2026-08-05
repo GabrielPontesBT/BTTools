@@ -143,7 +143,9 @@
       svg.setAttribute('height', String(stageHeight));
 
       var rows = [
-        '<defs><marker id="collection-canvas-arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L8,3 z" fill="#7c3aed"></path></marker></defs>'
+        // Flecha de conexion: usa el rojo de marca (var(--red)), no un violeta
+        // suelto — el resto del canvas (handles, badges) ya usa ese mismo rojo.
+        '<defs><marker id="collection-canvas-arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L8,3 z" fill="var(--red)"></path></marker></defs>'
       ];
 
       for (var i = 0; i < connections.length; i++) {
@@ -247,17 +249,27 @@
 
         var surfaceWidth = Math.max(980, maxX + 420);
         var surfaceHeight = Math.max(540, maxY + 220);
+        var zoomLevel = this.getZoomLevel();
+        var isCompact = !!this.options.getState().canvasCompact;
 
         container.innerHTML =
-          '<div class="collection-canvas-stage" ondragover="collectionAllowCanvasDrop(event)" ondragenter="collectionCanvasDragEnter(event)" ondragleave="collectionCanvasDragLeave(event)" ondrop="collectionDropOperation(' + items.length + ', event)">' +
-            '<svg id="collection-canvas-svg" class="collection-canvas-svg"></svg>' +
-            '<div id="collection-canvas-surface" class="collection-canvas-surface" style="width:' + surfaceWidth + 'px;height:' + surfaceHeight + 'px">' +
-              blocks.join('') +
+          '<div class="collection-canvas-stage' + (isCompact ? ' collection-canvas-compact' : '') + '" ondragover="collectionAllowCanvasDrop(event)" ondragenter="collectionCanvasDragEnter(event)" ondragleave="collectionCanvasDragLeave(event)" ondrop="collectionDropOperation(' + items.length + ', event)">' +
+            // El zoom (transform:scale) se aplica a este wrapper, no al stage
+            // scrolleable en si: mismo patron que .collection-exec-flow-rows
+            // en el panel de ejecucion, para que el scroll del stage siga
+            // funcionando con normalidad (position:relative preserva el punto
+            // de referencia (0,0) del SVG absoluto de conexiones).
+            '<div class="collection-canvas-zoom-wrap" style="transform:scale(' + zoomLevel + ')">' +
+              '<svg id="collection-canvas-svg" class="collection-canvas-svg"></svg>' +
+              '<div id="collection-canvas-surface" class="collection-canvas-surface" style="width:' + surfaceWidth + 'px;height:' + surfaceHeight + 'px">' +
+                blocks.join('') +
+              '</div>' +
             '</div>' +
           '</div>';
 
         // El render de flechas se difiere al siguiente tick para asegurar medidas finales del DOM.
         setTimeout(this.renderCanvasConnections.bind(this), 0);
+        this.syncZoomToolbar();
       }
 
       // DespuÃ©s del canvas se refrescan inspector y botones de acciÃ³n.
@@ -276,6 +288,61 @@
       var openConsoleButton = document.getElementById('btn-collection-open-console');
       if (openConsoleButton) openConsoleButton.classList.toggle('btn-soft-disabled', openConsoleButton.disabled);
       if (typeof collectionSyncBuilderShellState === 'function') collectionSyncBuilderShellState();
+    }
+
+    // ================================================================
+    // Zoom del canvas
+    // ----------------------------------------------------------------
+    // Mismo patron ya usado en el panel de Ejecucion (CollectionExecutionCenter:
+    // transform:scale() sobre un wrapper interno, con zoomLevel guardado en
+    // estado, clamp 0.5-1.5, pasos de 0.1). El estado vive en collectionState
+    // (state.canvasZoom/canvasCompact) para sobrevivir a un renderItems()
+    // completo (ej. al agregar/mover un paso), pero un simple +/- no dispara
+    // un re-render completo del canvas (mas caro e innecesario): solo
+    // actualiza el transform y el label del toolbar directamente en el DOM.
+    // ================================================================
+
+    getZoomLevel() {
+      return this.options.getState().canvasZoom || 1;
+    }
+
+    /**
+     * Aplica el zoom actual al wrapper ya existente en el DOM y refresca el
+     * label del toolbar, sin reconstruir el canvas entero.
+     */
+    syncZoomToolbar() {
+      var zoomLevel = this.getZoomLevel();
+      var wrap = document.querySelector('.collection-canvas-zoom-wrap');
+      if (wrap) wrap.style.transform = 'scale(' + zoomLevel + ')';
+
+      var label = document.getElementById('collection-canvas-zoom-label');
+      if (label) label.textContent = Math.round(zoomLevel * 100) + '%';
+    }
+
+    zoomIn() {
+      var state = this.options.getState();
+      state.canvasZoom = Math.min(1.5, Math.round((this.getZoomLevel() + 0.1) * 100) / 100);
+      this.syncZoomToolbar();
+    }
+
+    zoomOut() {
+      var state = this.options.getState();
+      state.canvasZoom = Math.max(0.5, Math.round((this.getZoomLevel() - 0.1) * 100) / 100);
+      this.syncZoomToolbar();
+    }
+
+    /**
+     * "Colapsar todo": oculta la descripcion y los chips de cada tarjeta del
+     * canvas (deja solo numero + titulo), para ver mas pasos de un vistazo
+     * sin tener que alejar el zoom. Se persiste en estado (no solo en el DOM)
+     * para sobrevivir a un renderItems() completo.
+     */
+    toggleCompactNodes() {
+      var state = this.options.getState();
+      state.canvasCompact = !state.canvasCompact;
+      var btn = document.getElementById('collection-canvas-collapse-btn');
+      if (btn) btn.textContent = state.canvasCompact ? 'Expandir todo' : 'Colapsar todo';
+      this.renderItems();
     }
   }
 

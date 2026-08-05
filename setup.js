@@ -797,11 +797,19 @@ function mapBti026SchemaRow(row) {
   const category = (row.BTISDTELEMCAT || '').trim();
   const sdtType = (row.BTISDTELEMSDT && row.BTISDTELEMSDT.trim()) ||
                   (type.startsWith('Sdt') ? type : '');
+  // "Nombre interno" del item repetible (solo tiene sentido cuando
+  // category==='C', ver isCollection abajo): el exposer REST real envuelve
+  // la lista en un objeto cuya unica clave es este nombre (ej. Insurances ->
+  // {"insurance":[...]}), no un array suelto. Columna confirmada contra el
+  // esquema real por el usuario el 2026-07-27 (BTISDTELEMNOM = nombre del
+  // campo colleccion en si, BTISDTELEMNOMIT = nombre de cada item).
+  const itemName = (row.BTISDTELEMNOMIT || '').trim();
   return {
     name: (row.BTISDTELEMNOM || '').trim(),
     type,
     category,
     sdtType,
+    itemName,
     isComplex: !!sdtType,
     isCollection: category === 'C',
     description: (row.BTISDTELEMDSC || '').trim(),
@@ -890,9 +898,13 @@ async function queryMethodSchema(platform, db, service, method) {
         if (!sdtName || sdts[sdtName]) return;
         // BTI026 si tiene descripcion por campo (BTISDTElemDsc) en V3:
         // este SELECT queda identico al de la rama V4, sin cambios.
+        // BTISDTELEMNOMIT: "nombre interno" del item quando BTISDTELEMCAT='C'
+        // (el campo es una coleccion) — confirmado contra el esquema real
+        // por el usuario el 2026-07-27. Es la clave que usa el exposer REST
+        // para envolver la lista (ver mapBti026SchemaRow/buildDbFieldTemplate).
         const r26 = await pool.request()
           .input('sdt', mssql.VarChar(100), sdtName)
-          .query(`SELECT BTISDTELEMNOM, BTISDTELEMTIPO, BTISDTELEMLARGO, BTISDTELEMDECI, BTISDTELEMCAT, BTISDTELEMDSC, BTISDTELEMSDT
+          .query(`SELECT BTISDTELEMNOM, BTISDTELEMTIPO, BTISDTELEMLARGO, BTISDTELEMDECI, BTISDTELEMCAT, BTISDTELEMDSC, BTISDTELEMSDT, BTISDTELEMNOMIT
                     FROM BTI026
                    WHERE BTISDTNOM = @sdt
                    ORDER BY BTISDTELEMNOM`);
@@ -957,8 +969,9 @@ async function queryMethodSchema(platform, db, service, method) {
     const sdts = {};
     async function loadSdt(sdtName) {
       if (!sdtName || sdts[sdtName]) return;
+      // BTISDTELEMNOMIT: ver el comentario identico en la rama V3 de arriba.
       const r26 = await conn.execute(
-        `SELECT BTISDTELEMNOM, BTISDTELEMTIPO, BTISDTELEMLARGO, BTISDTELEMDECI, BTISDTELEMCAT, BTISDTELEMDSC, BTISDTELEMSDT
+        `SELECT BTISDTELEMNOM, BTISDTELEMTIPO, BTISDTELEMLARGO, BTISDTELEMDECI, BTISDTELEMCAT, BTISDTELEMDSC, BTISDTELEMSDT, BTISDTELEMNOMIT
            FROM BTI026
           WHERE BTISDTNOM = :1
           ORDER BY BTISDTELEMNOM`,

@@ -196,7 +196,7 @@
       return '<div class="collection-inspector-accordion collection-inspector-input-group' + (isExpanded ? ' collection-inspector-accordion-open' : '') + '">' +
         '<button type="button" class="collection-inspector-accordion-head" aria-expanded="' + (isExpanded ? 'true' : 'false') + '" onclick="collectionToggleInspectorInputGroup(\'' + escapedSegment + '\')">' +
           '<span class="collection-inspector-accordion-title">' +
-            '<span class="collection-inspector-accordion-name">' + escapedSegment + '</span>' +
+            '<span class="collection-inspector-accordion-name" title="' + escapedSegment + '">' + escapedSegment + '</span>' +
             (headerType ? '<span class="collection-inspector-type-tag">' + this.options.escapeHtml(headerType) + '</span>' : '') +
           '</span>' +
           '<span class="collection-inspector-accordion-chevron" aria-hidden="true">&#9656;</span>' +
@@ -262,10 +262,12 @@
 
       var escapedMappingKey = this.options.escapeHtml(mappingKey);
 
+      var escapedRowLabel = this.options.escapeHtml(this.buildGroupedInputLabel(input, groupPrefix));
+
       return '<div class="collection-inspector-accordion' + (isExpanded ? ' collection-inspector-accordion-open' : '') + '">' +
         '<button type="button" class="collection-inspector-accordion-head" aria-expanded="' + (isExpanded ? 'true' : 'false') + '" onclick="collectionToggleInspectorInput(\'' + escapedMappingKey + '\')">' +
           '<span class="collection-inspector-accordion-title">' +
-            '<span class="collection-inspector-accordion-name">' + this.options.escapeHtml(this.buildGroupedInputLabel(input, groupPrefix)) + '</span>' +
+            '<span class="collection-inspector-accordion-name" title="' + escapedRowLabel + '">' + escapedRowLabel + '</span>' +
             (input.type ? '<span class="collection-inspector-type-tag">' + this.options.escapeHtml(input.type) + '</span>' : '') +
           '</span>' +
           '<span class="collection-inspector-accordion-chevron" aria-hidden="true">&#9656;</span>' +
@@ -276,17 +278,68 @@
             '<label class="collection-inspector-label">Nombre funcional</label>' +
             '<input data-inspector-key="' + this.options.escapeHtml('input-alias:' + mappingKey) + '" class="collection-inspector-input" type="text" value="' + this.options.escapeHtml(input.alias || '') + '" placeholder="Nombre funcional para match" oninput="collectionUpdateInputAlias(\'' + escapedMappingKey + '\', this.value)">' +
           '</div>' +
-          '<div class="collection-inspector-field">' +
-            '<label class="collection-inspector-label">Origen del valor</label>' +
-            this.renderSourcePicker(mappingKey, input.sourceOptions || [], mappedSource) +
-          '</div>' +
-          (mappedOption && mappedOption.isCollectionItemOutput ? this.renderCollectionFilterBox(mappingKey, mappedOption, filterField, filterValue) : '') +
+          // Secciones colapsables en vez de scroll continuo: "Origen del valor"
+          // arranca abierta (es la config principal), "Filtro" tambien cuando
+          // aplica (solo se ve si el origen mapeado es una coleccion), y
+          // "Salidas disponibles" arranca cerrada (es solo consulta rapida de
+          // que hay para elegir, no una accion que se use en cada visita).
+          this.renderConfigSubsection('Origen del valor', this.renderSourcePicker(mappingKey, input.sourceOptions || [], mappedSource), true) +
+          (mappedOption && mappedOption.isCollectionItemOutput
+            ? this.renderConfigSubsection('Filtro de coleccion', this.renderCollectionFilterBoxBody(mappingKey, mappedOption, filterField, filterValue), true)
+            : '') +
+          ((input.sourceOptions || []).length
+            ? this.renderConfigSubsection('Salidas disponibles', this.renderAvailableSourcesSummary(input.sourceOptions), false)
+            : '') +
           '<div class="collection-inspector-field">' +
             '<label class="collection-inspector-label">Valor</label>' +
             '<input id="' + this.options.escapeHtml(this.options.domId(input.key)) + '" data-inspector-key="' + this.options.escapeHtml('input-value:' + input.key) + '" data-collection-input-key="' + this.options.escapeHtml(input.key) + '" class="collection-inspector-input" type="text" value="' + this.options.escapeHtml(currentValue) + '" oninput="collectionUpdateVar(\'' + this.options.escapeHtml(input.key) + '\', this.value)"' + (mappedSource ? ' disabled' : '') + '>' +
           '</div>' +
         '</div>' : '') +
       '</div>';
+    }
+
+    /**
+     * Envuelve contenido del panel "Configurar paso" en un <details> chico,
+     * visualmente consistente entre secciones, para agrupar en acordeones
+     * en vez de un solo bloque largo. `openByDefault` controla si arranca
+     * expandida (secciones de configuracion activa) o cerrada (referencias
+     * de solo consulta, como "Salidas disponibles").
+     */
+    renderConfigSubsection(title, bodyHtml, openByDefault) {
+      return '<details class="collection-inspector-subsection"' + (openByDefault ? ' open' : '') + '>' +
+        '<summary class="collection-inspector-subsection-head">' + this.options.escapeHtml(title) + '</summary>' +
+        '<div class="collection-inspector-subsection-body">' + bodyHtml + '</div>' +
+      '</details>';
+    }
+
+    /**
+     * Lista de solo lectura de las salidas de pasos anteriores disponibles
+     * para mapear en este input, agrupadas por paso de origen — para poder
+     * consultar "que hay para elegir" sin necesidad de abrir el selector de
+     * "Origen del valor" (que ademas cambia la seleccion actual al tocarlo).
+     */
+    renderAvailableSourcesSummary(sourceOptions) {
+      if (!sourceOptions || !sourceOptions.length) {
+        return '<div class="collection-inspector-static-value">Todavia no hay salidas de pasos anteriores disponibles.</div>';
+      }
+
+      var order = [];
+      var groupsByLabel = {};
+      sourceOptions.forEach(function bucketOption(option) {
+        var label = option.sourceLabel || 'Otro paso';
+        if (!groupsByLabel[label]) { groupsByLabel[label] = []; order.push(label); }
+        groupsByLabel[label].push(option);
+      });
+
+      return order.map(function renderGroup(label) {
+        return '<div class="collection-inspector-source-summary-group">' +
+          '<div class="collection-inspector-source-summary-title">' + this.options.escapeHtml(label) + '</div>' +
+          groupsByLabel[label].map(function renderItem(option) {
+            var name = this.options.outputDisplayName(option);
+            return '<div class="collection-inspector-source-summary-item" title="' + this.options.escapeHtml(name) + '">' + this.options.escapeHtml(name) + '</div>';
+          }, this).join('') +
+        '</div>';
+      }, this).join('');
     }
 
     /**
@@ -331,13 +384,13 @@
 
       var html = '<div class="collection-inspector-source-picker">' +
         '<button type="button" data-inspector-key="' + this.options.escapeHtml('input-map-trigger:' + mappingKey) + '" class="collection-inspector-source-trigger" aria-expanded="' + (isOpen ? 'true' : 'false') + '" onclick="collectionToggleSourcePicker(\'' + escapedMappingKey + '\')">' +
-          '<span class="collection-inspector-source-trigger-label">' + this.options.escapeHtml(currentLabel) + '</span>' +
+          '<span class="collection-inspector-source-trigger-label" title="' + this.options.escapeHtml(currentLabel) + '">' + this.options.escapeHtml(currentLabel) + '</span>' +
           '<span class="collection-inspector-source-trigger-chevron" aria-hidden="true">&#9662;</span>' +
         '</button>';
 
       if (isOpen) {
         html += '<div class="collection-inspector-source-popover">' +
-          '<button type="button" class="collection-inspector-source-option' + (!mappedSource ? ' collection-inspector-source-option-selected' : '') + '" onclick="collectionSelectInputSource(\'' + escapedMappingKey + '\', \'\')">Valor manual</button>';
+          '<button type="button" class="collection-inspector-source-option' + (!mappedSource ? ' collection-inspector-source-option-selected' : '') + '" title="Valor manual" onclick="collectionSelectInputSource(\'' + escapedMappingKey + '\', \'\')">Valor manual</button>';
 
         if (!groups.length) {
           html += '<div class="collection-inspector-source-empty">No hay pasos anteriores con salidas disponibles todavia.</div>';
@@ -349,13 +402,14 @@
             return '<div class="collection-inspector-source-group' + (groupExpanded ? ' collection-inspector-source-group-open' : '') + '">' +
               '<button type="button" class="collection-inspector-source-group-head" aria-expanded="' + (groupExpanded ? 'true' : 'false') + '" onclick="collectionToggleSourceGroup(\'' + escapedMappingKey + '\', \'' + escapedGroupLabel + '\')">' +
                 '<span class="collection-inspector-source-group-chevron" aria-hidden="true">&#9656;</span>' +
-                '<span class="collection-inspector-source-group-name">' + escapedGroupLabel + '</span>' +
+                '<span class="collection-inspector-source-group-name" title="' + escapedGroupLabel + '">' + escapedGroupLabel + '</span>' +
                 '<span class="collection-inspector-source-group-count">' + group.options.length + '</span>' +
               '</button>' +
               (groupExpanded ? '<div class="collection-inspector-source-group-body">' +
                 group.options.map(function renderOption(option) {
                   var isSelected = mappedSource === option.sourceVarKey;
-                  return '<button type="button" class="collection-inspector-source-option' + (isSelected ? ' collection-inspector-source-option-selected' : '') + '" onclick="collectionSelectInputSource(\'' + escapedMappingKey + '\', \'' + this.options.escapeHtml(option.sourceVarKey) + '\')">' + this.options.escapeHtml(this.options.outputDisplayName(option)) + '</button>';
+                  var escapedOptionName = this.options.escapeHtml(this.options.outputDisplayName(option));
+                  return '<button type="button" class="collection-inspector-source-option' + (isSelected ? ' collection-inspector-source-option-selected' : '') + '" title="' + escapedOptionName + '" onclick="collectionSelectInputSource(\'' + escapedMappingKey + '\', \'' + this.options.escapeHtml(option.sourceVarKey) + '\')">' + escapedOptionName + '</button>';
                 }, this).join('') +
               '</div>' : '') +
             '</div>';
@@ -370,24 +424,22 @@
     }
 
     /**
-     * Ayuda plegable para elegir un item concreto dentro de una lista origen.
+     * Contenido del filtro de coleccion (sin envoltorio propio): el
+     * envoltorio colapsable lo pone renderConfigSubsection desde el
+     * llamador, para que "Filtro de coleccion" luzca igual que las otras
+     * secciones del panel en vez de un <details> anidado aparte.
      */
-    renderCollectionFilterBox(mappingKey, mappedOption, filterField, filterValue) {
+    renderCollectionFilterBoxBody(mappingKey, mappedOption, filterField, filterValue) {
       var escapedMappingKey = this.options.escapeHtml(mappingKey);
-      return '<details class="collection-inspector-help">' +
-        '<summary>Elegir un elemento de una coleccion</summary>' +
-        '<div class="collection-inspector-help-body">' +
-          '<p>La salida viene de una coleccion. Elegi que registro tomar antes de pasarlo a este input.</p>' +
-          '<div class="collection-inspector-filter-grid">' +
-            '<select data-inspector-key="' + this.options.escapeHtml('input-filter-field:' + mappingKey) + '" class="collection-inspector-select" onchange="collectionUpdateInputMappingFilterField(\'' + escapedMappingKey + '\', this.value)"><option value="">Sin filtro (primer item util)</option>' +
-              (mappedOption.filterFieldOptions || []).map(function renderFilterOption(option) {
-                var selected = filterField === option.value ? ' selected' : '';
-                return '<option value="' + this.options.escapeHtml(option.value) + '"' + selected + '>' + this.options.escapeHtml(option.label) + '</option>';
-              }, this).join('') + '</select>' +
-            '<input data-inspector-key="' + this.options.escapeHtml('input-filter-value:' + mappingKey) + '" class="collection-inspector-input" type="text" placeholder="Valor esperado" value="' + this.options.escapeHtml(filterValue) + '" oninput="collectionUpdateInputMappingFilterValue(\'' + escapedMappingKey + '\', this.value)">' +
-          '</div>' +
-        '</div>' +
-      '</details>';
+      return '<p class="collection-inspector-subsection-hint">La salida viene de una coleccion. Elegi que registro tomar antes de pasarlo a este input.</p>' +
+        '<div class="collection-inspector-filter-grid">' +
+          '<select data-inspector-key="' + this.options.escapeHtml('input-filter-field:' + mappingKey) + '" class="collection-inspector-select" onchange="collectionUpdateInputMappingFilterField(\'' + escapedMappingKey + '\', this.value)"><option value="">Sin filtro (primer item util)</option>' +
+            (mappedOption.filterFieldOptions || []).map(function renderFilterOption(option) {
+              var selected = filterField === option.value ? ' selected' : '';
+              return '<option value="' + this.options.escapeHtml(option.value) + '"' + selected + '>' + this.options.escapeHtml(option.label) + '</option>';
+            }, this).join('') + '</select>' +
+          '<input data-inspector-key="' + this.options.escapeHtml('input-filter-value:' + mappingKey) + '" class="collection-inspector-input" type="text" placeholder="Valor esperado" value="' + this.options.escapeHtml(filterValue) + '" oninput="collectionUpdateInputMappingFilterValue(\'' + escapedMappingKey + '\', this.value)">' +
+        '</div>';
     }
 
     /**
@@ -428,11 +480,12 @@
     renderOutputAccordionRow(output, shellManager) {
       var isExpanded = !!(shellManager && shellManager.isInspectorOutputExpanded(output.sourceVarKey));
       var escapedKey = this.options.escapeHtml(output.sourceVarKey);
+      var escapedOutputName = this.options.escapeHtml(this.options.outputDisplayName(output));
 
       return '<div class="collection-inspector-accordion' + (isExpanded ? ' collection-inspector-accordion-open' : '') + '">' +
         '<button type="button" class="collection-inspector-accordion-head" aria-expanded="' + (isExpanded ? 'true' : 'false') + '" onclick="collectionToggleInspectorOutput(\'' + escapedKey + '\')">' +
           '<span class="collection-inspector-accordion-title">' +
-            '<span class="collection-inspector-accordion-name">' + this.options.escapeHtml(this.options.outputDisplayName(output)) + '</span>' +
+            '<span class="collection-inspector-accordion-name" title="' + escapedOutputName + '">' + escapedOutputName + '</span>' +
             (output.type ? '<span class="collection-inspector-type-tag">' + this.options.escapeHtml(output.type) + '</span>' : '') +
           '</span>' +
           '<span class="collection-inspector-accordion-chevron" aria-hidden="true">&#9656;</span>' +
@@ -450,8 +503,15 @@
     /**
      * Footer sticky: solo estado (autoguardado), sin botones que no aportan una accion distinta.
      */
+    /**
+     * Indicador de guardado: vive arriba del panel (ver panel.html, junto al
+     * titulo), con icono + texto en vez de solo un punto de color, para que
+     * se note sin depender unicamente del color.
+     */
     renderFooter() {
-      return '<span class="collection-inspector-save-status collection-inspector-save-status-ok"><span class="collection-inspector-save-dot"></span>Guardado</span>';
+      return '<span class="collection-inspector-save-status collection-inspector-save-status-ok">' +
+        '<span class="collection-inspector-save-icon" aria-hidden="true">&#10003;</span>Guardado' +
+      '</span>';
     }
   }
 

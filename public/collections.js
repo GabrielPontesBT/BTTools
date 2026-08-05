@@ -81,12 +81,16 @@ function collectionEnsureScenario() {
   collectionStore.ensureScenario();
 }
 
-function collectionShowStatus(kind, text) {
-  collectionFeedbackManager.showStatus(kind, text);
+function collectionShowStatus(kind, text, title) {
+  collectionFeedbackManager.showStatus(kind, text, title);
 }
 
 function collectionClearStatus() {
   collectionFeedbackManager.clearStatus();
+}
+
+function collectionDismissToast(id) {
+  collectionFeedbackManager.dismissToast(id);
 }
 
 function collectionGetStudioManager() {
@@ -1494,13 +1498,6 @@ collectionHandleExecutionNodeAction = async function collectionHandleExecutionNo
   return collectionGetExecutionCenter().handleNodeAction(actionKey, stepId);
 };
 
-collectionCenterExecutionFlow = function collectionCenterExecutionFlowAdapter() {
-  collectionGetExecutionCenter().resetZoom();
-  var stage = document.querySelector('.collection-exec-flow-stage');
-  if (!stage) return;
-  stage.scrollTo({ left: 0, top: 0, behavior: 'smooth' });
-};
-
 collectionZoomInExecutionFlow = function collectionZoomInExecutionFlowAdapter() {
   collectionGetExecutionCenter().zoomIn();
 };
@@ -1509,8 +1506,18 @@ collectionZoomOutExecutionFlow = function collectionZoomOutExecutionFlowAdapter(
   collectionGetExecutionCenter().zoomOut();
 };
 
-collectionZoomToFitExecutionFlow = function collectionZoomToFitExecutionFlowAdapter() {
-  collectionGetExecutionCenter().zoomToFit();
+// Zoom del canvas de construccion del flujo (no confundir con los de arriba,
+// que son del panel de Ejecucion) — mismo patron, instancia separada.
+collectionZoomInCanvas = function collectionZoomInCanvasAdapter() {
+  collectionGetCanvasManager().zoomIn();
+};
+
+collectionZoomOutCanvas = function collectionZoomOutCanvasAdapter() {
+  collectionGetCanvasManager().zoomOut();
+};
+
+collectionToggleCanvasCompact = function collectionToggleCanvasCompactAdapter() {
+  collectionGetCanvasManager().toggleCompactNodes();
 };
 
 collectionToggleExecutionTimeline = function collectionToggleExecutionTimelineAdapter() {
@@ -1523,6 +1530,10 @@ collectionCloseExecutionTimeline = function collectionCloseExecutionTimelineAdap
 
 collectionToggleExecutionFlowExpanded = function collectionToggleExecutionFlowExpandedAdapter() {
   collectionGetExecutionCenter().toggleFlowExpanded();
+};
+
+collectionStartExecPanelResize = function collectionStartExecPanelResizeAdapter(event) {
+  collectionGetExecutionCenter().startPanelResize(event);
 };
 
 collectionCancelExecutionRun = function collectionCancelExecutionRunAdapter() {

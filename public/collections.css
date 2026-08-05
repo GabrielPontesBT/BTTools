@@ -5,6 +5,7 @@
 #collection-mount{display:flex;flex-direction:column;flex:1;min-height:0}
 .collection-shell-studio{display:flex;flex-direction:column;flex:1;min-height:0}
 .collection-shell-studio-builder{
+  position:relative;
   flex:1;
   min-height:0;
   --builder-page-padding:28px;
@@ -13,12 +14,12 @@
   --builder-gap-lg:22px;
   --builder-title-size:36px;
   --builder-subtitle-size:16px;
-  --builder-label-size:14px;
-  --builder-control-font-size:16px;
-  --builder-control-height:48px;
-  --builder-button-height:48px;
-  --builder-control-padding-x:16px;
-  --builder-button-padding-x:18px;
+  --builder-label-size:13px;
+  --builder-control-font-size:14px;
+  --builder-control-height:42px;
+  --builder-button-height:42px;
+  --builder-control-padding-x:14px;
+  --builder-button-padding-x:15px;
   --builder-mark-size:62px;
   --builder-mark-radius:18px;
   --builder-mark-font-size:26px;
@@ -40,7 +41,7 @@
   --builder-drawer-head-pt:18px;
   --builder-drawer-head-pb:14px;
   --builder-drawer-kicker-size:10px;
-  --builder-drawer-title-size:22px;
+  --builder-drawer-title-size:17px;
   --builder-drawer-meta-size:12px;
   --builder-drawer-field-px:18px;
   --builder-drawer-field-gap:12px;
@@ -97,22 +98,35 @@
 .collection-soon{background:#f5f5f5;color:var(--muted);border-color:#d8d8d8}
 .collection-soon .ccard-title{color:var(--muted)}
 .collection-path{padding:12px 14px;border-radius:10px;background:var(--blue-l);border:1px solid #f0bcbc;font-size:12px;line-height:1.55;margin-bottom:14px}
-.collection-status{display:none;padding:10px 13px;border-radius:8px;font-size:12px;margin-top:10px;line-height:1.5}
-.collection-status.show{display:block}
-.collection-status.ok{background:var(--green-l);color:var(--green)}
-.collection-status.err{background:var(--red-l);color:var(--red)}
+.collection-toast-stack{position:fixed;top:16px;right:16px;z-index:3000;display:flex;flex-direction:column;gap:10px;width:300px;max-width:calc(100vw - 24px);pointer-events:none}
+.collection-toast{pointer-events:auto;display:flex;align-items:flex-start;gap:10px;padding:12px 10px 12px 13px;border-radius:12px;background:#fff;border-left:4px solid var(--muted);box-shadow:0 14px 32px rgba(15,23,42,.16),0 2px 6px rgba(15,23,42,.08);animation:collectionToastIn .24s ease both}
+.collection-toast-leaving{animation:collectionToastOut .18s ease both}
+.collection-toast-icon{flex:0 0 auto;width:22px;height:22px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;background:var(--muted)}
+.collection-toast-body{flex:1;min-width:0;padding-top:1px}
+.collection-toast-title{display:block;font-size:12.5px;font-weight:800;color:var(--text)}
+.collection-toast-text{display:block;font-size:11.5px;color:var(--muted);line-height:1.4;margin-top:2px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.collection-toast-ok{border-left-color:var(--green)}
+.collection-toast-ok .collection-toast-icon{background:var(--green)}
+.collection-toast-ok .collection-toast-title{color:#065f46}
+.collection-toast-err{border-left-color:var(--red)}
+.collection-toast-err .collection-toast-icon{background:var(--red)}
+.collection-toast-err .collection-toast-title{color:var(--red)}
+.collection-toast-warn{border-left-color:var(--warn)}
+.collection-toast-warn .collection-toast-icon{background:var(--warn)}
+.collection-toast-warn .collection-toast-title{color:var(--warn-d)}
+.collection-toast-info{border-left-color:#1d4ed8}
+.collection-toast-info .collection-toast-icon{background:#1d4ed8}
+.collection-toast-info .collection-toast-title{color:#1d4ed8}
+@keyframes collectionToastIn{from{opacity:0;transform:translateX(28px) scale(.96)}to{opacity:1;transform:translateX(0) scale(1)}}
+@keyframes collectionToastOut{from{opacity:1;transform:translateX(0) scale(1)}to{opacity:0;transform:translateX(20px) scale(.97)}}
+@media (prefers-reduced-motion: reduce){
+  .collection-toast, .collection-toast-leaving{animation-duration:.01ms}
+}
+/* Boton "X" del aviso: mismo color que el texto (currentColor via `inherit`)
+   para no tener que repetir la paleta ok/err del contenedor. */
+.collection-status-close{flex:0 0 auto;display:flex;align-items:center;justify-content:center;width:20px;height:20px;padding:0;border:none;border-radius:6px;background:transparent;color:inherit;opacity:.6;font-size:16px;line-height:1;cursor:pointer}
+.collection-status-close:hover{opacity:1;background:rgba(15,23,42,.08)}
 .collection-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
-.collection-scenarios-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px}
-.collection-scenarios{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:12px;margin-bottom:16px}
-.collection-scenario-card{border:1.5px solid var(--border);border-radius:12px;background:#fff;overflow:hidden}
-.collection-scenario-card-active{border-color:#fda4af;box-shadow:0 0 0 1px #fecdd3 inset}
-.collection-scenario-select{display:flex;flex-direction:column;align-items:flex-start;gap:4px;width:100%;padding:12px 14px;border:none;background:linear-gradient(90deg,#fff1f2 0,#ffffff 72%);cursor:pointer;text-align:left}
-.collection-scenario-kicker{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#be123c}
-.collection-scenario-title{font-size:13px;font-weight:700;color:#881337}
-.collection-scenario-meta{font-size:11px;color:var(--muted)}
-.collection-scenario-actions{display:flex;gap:8px;align-items:center;padding:12px 14px;border-top:1px solid var(--border);background:#fff}
-.collection-scenario-input{width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;outline:none}
-.collection-scenario-input:focus{border-color:#e11d48}
 .collection-chain{margin-top:12px}
 .collection-chain-row{display:flex;justify-content:space-between;align-items:flex-start;padding:10px 12px;font-size:12px;gap:10px;border-left:4px solid #e11d48;background:linear-gradient(90deg,#fff1f2 0,#ffffff 22px)}
 .collection-chain-row+.collection-chain-row{border-top:1px solid var(--border)}
@@ -193,6 +207,8 @@
 .collection-result{display:none;padding:12px 13px;border:1.5px solid var(--border);border-radius:12px;background:#fff;margin-top:12px}
 .collection-result.show{display:block}
 .collection-result h4{font-size:13px;font-weight:700;margin-bottom:8px}
+.collection-result-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.collection-result-head h4{margin-bottom:0}
 .collection-result p{font-size:12px;color:var(--muted);line-height:1.55;margin-bottom:10px}
 .collection-run-step{border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;margin-top:12px;background:#fff;box-shadow:0 10px 22px rgba(15,23,42,.05)}
 .collection-run-step:first-child{margin-top:0}
@@ -229,11 +245,11 @@
 .collection-map span{color:var(--muted)}
 .collection-two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .collection-builder-top{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:10px}
-.collection-builder-header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
-.collection-builder-context-fields{display:flex;align-items:center;gap:16px;flex-wrap:wrap;min-width:0}
-.collection-builder-field-inline{display:flex;align-items:center;gap:8px;min-width:0}
-.collection-builder-field-inline label{flex:0 0 auto;font-size:12px;font-weight:700;color:#64748b}
-.collection-builder-field-inline input{height:var(--builder-control-height,40px);width:200px;max-width:40vw;padding:0 var(--builder-control-padding-x,12px);border:1px solid #d7dbe6;border-radius:10px;font-size:var(--builder-control-font-size,13px);color:#111827;outline:none;background:#fff}
+.collection-builder-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.collection-builder-context-fields{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0}
+.collection-builder-field-inline{display:flex;align-items:center;gap:6px;min-width:0}
+.collection-builder-field-inline label{flex:0 0 auto;font-size:11px;font-weight:700;color:#64748b}
+.collection-builder-field-inline input{height:var(--builder-control-height,40px);width:180px;max-width:40vw;padding:0 var(--builder-control-padding-x,12px);border:1px solid #d7dbe6;border-radius:10px;font-size:var(--builder-control-font-size,13px);color:#111827;outline:none;background:#fff}
 .collection-builder-field-inline input:focus{border-color:var(--red);box-shadow:0 0 0 3px var(--red-l)}
 .collection-builder-actions{display:flex;gap:10px;flex-wrap:wrap}
 .collection-builder-menu{position:relative}
@@ -246,6 +262,30 @@
 .collection-builder-menu-item{width:100%;border:none;background:transparent;border-radius:10px;padding:9px 10px;text-align:left;font-size:12px;font-weight:700;color:#334155;cursor:pointer;display:inline-flex;align-items:center;gap:8px;font-family:inherit}
 .collection-builder-menu-item:hover{background:#f8fafc;color:var(--red)}
 .collection-builder-menu-item:disabled{opacity:.5;cursor:not-allowed}
+.collection-scenario-menu-trigger{height:var(--builder-control-height,40px);padding:0 10px;border:1px solid #d7dbe6;border-radius:10px;background:#fff;color:#475569;font-size:15px;display:inline-flex;align-items:center;gap:6px;transition:all .15s ease}
+.collection-scenario-menu[open] .collection-scenario-menu-trigger,
+.collection-scenario-menu-trigger:hover{border-color:var(--red);color:var(--red)}
+.collection-scenario-count-badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:#f1f5f9;color:#475569;font-size:10px;font-weight:800;line-height:1}
+.collection-scenario-menu[open] .collection-scenario-count-badge,
+.collection-scenario-menu-trigger:hover .collection-scenario-count-badge{background:var(--red);color:#fff}
+.collection-scenario-menu-popover{width:240px}
+.collection-scenario-menu-title{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#9f1239;padding:4px 6px 6px}
+.collection-scenario-list{display:flex;flex-direction:column;gap:2px;max-height:220px;overflow:auto;margin-bottom:6px}
+.collection-scenario-row{display:flex;align-items:center;gap:2px;border-radius:10px}
+.collection-scenario-row:hover{background:#f8fafc}
+.collection-scenario-row-active{background:#fff1f2}
+.collection-scenario-row-active:hover{background:#ffe4e6}
+.collection-scenario-row-select{flex:1;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:8px;border:none;background:transparent;padding:8px 9px;border-radius:10px;text-align:left;cursor:pointer;font-family:inherit}
+.collection-scenario-row-name{font-size:12px;font-weight:700;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.collection-scenario-row-active .collection-scenario-row-name{color:#9f1239}
+.collection-scenario-row-count{flex:0 0 auto;font-size:10px;font-weight:700;color:var(--muted);background:#f1f5f9;border-radius:999px;padding:2px 7px}
+.collection-scenario-row-active .collection-scenario-row-count{background:#fecdd3;color:#9f1239}
+.collection-scenario-row-remove{flex:0 0 auto;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:8px;color:#94a3b8;font-size:14px;cursor:pointer;margin-right:4px;font-family:inherit}
+.collection-scenario-row-remove:hover{background:#fee2e2;color:#b91c1c}
+.collection-scenario-row-remove:disabled{opacity:.35;cursor:not-allowed}
+.collection-scenario-row-remove:disabled:hover{background:transparent;color:#94a3b8}
+.collection-scenario-add-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:6px;border:1px dashed #fda4af;background:#fff1f2;color:#be123c;border-radius:10px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:2px}
+.collection-scenario-add-btn:hover{background:#ffe4e6;border-color:var(--red)}
 .collection-builder-feedback{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin-bottom:12px}
 .collection-builder-feedback .collection-result{margin-top:0;max-height:160px;overflow:auto}
 .collection-builder-feedback .collection-actions{margin-top:8px}
@@ -283,17 +323,39 @@
 @keyframes collectionPendingPillIn{from{opacity:0;transform:translate(-50%,-6px)}to{opacity:1;transform:translate(-50%,0)}}
 .collection-canvas-surface{position:relative;min-width:100%;min-height:100%}
 .collection-canvas-svg{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:auto;overflow:visible;z-index:3}
+/* Wrapper de zoom: mismo patron que .collection-exec-flow-rows del panel de
+   Ejecucion (transform:scale sobre un wrapper interno, no sobre el stage
+   scrolleable). position:relative preserva el origen (0,0) para el SVG
+   absoluto de conexiones, que es hermano del surface, no su contenedor. */
+.collection-canvas-zoom-wrap{position:relative;width:max-content;transform-origin:top left;transition:transform .15s ease}
+/* Toolbar de zoom/colapsar del canvas, arriba del stage — mismo stepper
+   de zoom (.collection-zoom-stepper) que el panel de Ejecucion, para verse
+   consistente entre pantallas. */
+.collection-canvas-toolbar{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:10px;flex:0 0 auto}
+/* Sombra propia solo cuando flota sobre el canvas (ver override de posicion
+   mas abajo): al quedar superpuesto sobre las cards y la grilla punteada de
+   fondo, necesita distinguirse como una superficie elevada aparte. */
+.collection-builder-canvas-shell .collection-canvas-toolbar .collection-zoom-stepper,
+.collection-builder-canvas-shell .collection-canvas-toolbar .collection-exec-tool-btn{box-shadow:0 6px 16px rgba(15,23,42,.14)}
 .collection-canvas-empty{width:100%;max-width:360px;padding:20px 18px;border:1px dashed #cbd5e1;border-radius:16px;background:rgba(255,255,255,.88);text-align:center;font-size:12px;color:#64748b;line-height:1.6}
 .collection-canvas-step{position:absolute;z-index:5;width:360px;max-width:360px;border:1px solid #e5e7eb;border-radius:14px;background:#fff;box-shadow:0 12px 24px rgba(15,23,42,.08);padding:12px 14px;cursor:grab;transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease}
 .collection-canvas-step:hover{transform:translateY(-1px);box-shadow:0 20px 38px rgba(15,23,42,.10)}
 .collection-canvas-step:active{cursor:grabbing}
 .collection-canvas-step-selected{border-color:var(--red);box-shadow:0 0 0 3px var(--red-l),0 20px 38px rgba(15,23,42,.12)}
 .collection-canvas-step-head{display:flex;align-items:flex-start;gap:10px}
-.collection-canvas-step-index{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:10px;background:var(--red);color:#fff;font-size:12px;font-weight:800;flex:0 0 28px}
+/* Cuadrado con esquinas redondeadas (no circulo) a proposito: el stepper
+   lateral del wizard (.sdot) ya es un circulo del mismo rojo de marca — la
+   forma distinta es lo que evita que se confundan como el mismo componente. */
+.collection-canvas-step-index{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:7px;background:var(--red);color:#fff;font-size:12px;font-weight:800;flex:0 0 26px}
 .collection-canvas-step-copy{min-width:0;flex:1}
 .collection-canvas-step-title{font-size:14px;font-weight:800;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .collection-canvas-step-desc{font-size:12px;color:#64748b;line-height:1.5;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .collection-canvas-step-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+/* "Colapsar todo": oculta descripcion + chips, deja solo numero y titulo,
+   para ver mas pasos de un vistazo sin tener que alejar el zoom. */
+.collection-canvas-compact .collection-canvas-step-desc,
+.collection-canvas-compact .collection-canvas-step-meta{display:none}
+.collection-canvas-compact .collection-canvas-step{padding:10px 12px}
 .collection-canvas-node-handle{display:inline-flex;align-items:center;justify-content:center;flex:0 0 32px;width:32px;height:32px;border:1px solid #e5e7eb;border-radius:10px;background:#f8fafc;color:#64748b;font-size:15px;font-weight:800;cursor:crosshair;transition:border-color .15s ease,background .15s ease,color .15s ease,transform .15s ease}
 .collection-canvas-node-handle:hover{border-color:var(--red);background:var(--red-l);color:var(--red);transform:translateY(-1px)}
 .collection-canvas-chip{display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:#f4f5f7;color:#475569;font-size:10px;font-weight:700}
@@ -315,12 +377,16 @@
 .collection-inspector-tab-active{color:var(--red);border-bottom-color:var(--red)}
 .collection-inspector-tab-count{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#f4f5f7;color:#64748b;font-size:10px;font-weight:800}
 .collection-inspector-tab-active .collection-inspector-tab-count{background:var(--red-l);color:var(--red)}
-.collection-inspector-footer{display:flex;align-items:center;padding:12px 18px;border-top:1px solid #eef2f7;flex:0 0 auto}
-.collection-inspector-save-status{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:#64748b}
-.collection-inspector-save-dot{width:7px;height:7px;border-radius:999px;background:#94a3b8}
-.collection-inspector-save-status-ok .collection-inspector-save-dot{background:#22c55e}
+/* Ahora arriba del panel (ver panel.html), no al pie: border-bottom en vez
+   de border-top para separarlo de las tabs que quedan debajo. */
+.collection-inspector-footer{display:flex;align-items:center;padding:10px 18px;border-bottom:1px solid #eef2f7;flex:0 0 auto}
+.collection-inspector-save-status{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#166534}
+/* Icono + fondo con mas contraste que el punto de color de antes, para que
+   se note sin depender solo del color (mejor accesibilidad tambien). */
+.collection-inspector-save-icon{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:999px;background:#dcfce7;color:#166534;font-size:10px;font-weight:800;flex:0 0 auto}
+.collection-inspector-save-status-ok .collection-inspector-save-icon{background:#dcfce7;color:#166534}
 .collection-inspector-save-status-error{color:#b91c1c}
-.collection-inspector-save-status-error .collection-inspector-save-dot{background:#ef4444}
+.collection-inspector-save-status-error .collection-inspector-save-icon{background:#fee2e2;color:#b91c1c}
 .collection-inspector-field{padding-bottom:16px}
 .collection-inspector-field:last-child{padding-bottom:0}
 .collection-inspector-label{display:block;font-size:12px;font-weight:700;color:#111827;margin-bottom:6px}
@@ -382,6 +448,22 @@
 .collection-inspector-help-body{margin-top:8px}
 .collection-inspector-help-body p{font-size:11.5px;color:#64748b;line-height:1.5;margin-bottom:8px}
 .collection-inspector-filter-grid{display:grid;grid-template-columns:1fr;gap:8px}
+/* Secciones colapsables del panel "Configurar paso" (Origen del valor,
+   Filtro de coleccion, Salidas disponibles) — mismo lenguaje visual que
+   .collection-inspector-help (icono "i" + texto chico) para que las tres
+   se vean como parte del mismo sistema de acordeones, no como piezas sueltas. */
+.collection-inspector-subsection{margin-top:10px;border-top:1px dashed #e5e7eb;padding-top:10px}
+.collection-inspector-subsection:first-child{margin-top:0;border-top:none;padding-top:0}
+.collection-inspector-subsection-head{cursor:pointer;list-style:none;font-size:11.5px;font-weight:700;color:#64748b;display:flex;align-items:center;gap:6px}
+.collection-inspector-subsection-head::-webkit-details-marker{display:none}
+.collection-inspector-subsection-head::before{content:'\25B8';font-size:9px;color:#94a3b8;transition:transform .15s ease}
+.collection-inspector-subsection[open] .collection-inspector-subsection-head::before{transform:rotate(90deg)}
+.collection-inspector-subsection-body{margin-top:8px}
+.collection-inspector-subsection-hint{font-size:11.5px;color:#64748b;line-height:1.5;margin-bottom:8px}
+.collection-inspector-source-summary-group{margin-bottom:10px}
+.collection-inspector-source-summary-group:last-child{margin-bottom:0}
+.collection-inspector-source-summary-title{font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.collection-inspector-source-summary-item{font-size:11.5px;color:#475569;padding:4px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .collection-inspector-output-search-wrap{position:relative;margin-bottom:10px}
 .collection-inspector-search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:12px;opacity:.5;pointer-events:none}
 .collection-inspector-search-input{width:100%;height:36px;padding:0 10px 0 30px;border:1px solid #d7dbe6;border-radius:9px;background:#fff;font-size:12.5px;color:#111827;outline:none;font-family:inherit}
@@ -448,6 +530,23 @@
 .collection-execution-active .collection-builder-context-fields{display:none}
 .collection-execution-active .collection-builder-header{justify-content:flex-end}
 .collection-execution-active .collection-builder-actions{gap:8px}
+/* Volver + menu de la corrida: solo existen visualmente en modo ejecucion,
+   reemplazando la fila de resumen que antes vivia arriba del canvas. Se
+   apoyan en --builder-button-height para escalar igual que el resto de la
+   barra en cada breakpoint, sin necesitar sus propios ajustes responsive. */
+#btn-collection-exec-back,#collection-exec-header-menu-slot{display:none}
+.collection-execution-active #btn-collection-exec-back{display:inline-flex}
+.collection-execution-active #collection-exec-header-menu-slot{display:flex;align-items:center}
+.collection-exec-back-icon-btn{
+  flex:0 0 auto;width:var(--builder-button-height,40px);height:var(--builder-button-height,40px);
+  display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid #d9dce7;border-radius:10px;background:#fff;color:#475569;
+  font-size:15px;cursor:pointer;margin-right:auto
+}
+.collection-exec-back-icon-btn:hover{border-color:#d33a32;color:#d33a32}
+#collection-exec-header-menu-slot .collection-exec-menu-trigger{
+  width:var(--builder-button-height,40px);height:var(--builder-button-height,40px);font-size:15px
+}
 .collection-execution-active .collection-builder-actions .btn,
 .collection-execution-active .collection-builder-menu-trigger{height:32px;padding:0 12px;font-size:12px;gap:6px}
 .collection-execution-active .collection-builder-actions .collection-btn-icon{font-size:12px}
@@ -514,7 +613,6 @@
 .collection-exec-stat-card-warning .collection-exec-stat-icon{background:#fff7ed;color:#c2410c}
 .collection-exec-stat-value{font-size:22px;font-weight:800;color:#111827;line-height:1}
 .collection-exec-stat-label{font-size:10px;color:#64748b;margin-top:4px;line-height:1.45}
-.collection-exec-panel-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
 .collection-exec-panel-tools{display:flex;align-items:center;gap:8px}
 .collection-exec-tool-btn,.collection-exec-zoom-chip{height:34px;padding:0 12px;border:1px solid #d9dce7;border-radius:10px;background:#fff;color:#475569;font-size:12px;font-weight:700}
 .collection-exec-flow-stage{border:1px dashed #d8dbe6;border-radius:18px;background:radial-gradient(circle at 1px 1px,#eceff6 1px,transparent 0);background-size:20px 20px;overflow:auto;padding:16px;min-height:220px}
@@ -555,7 +653,6 @@
 .collection-exec-svg-line,.collection-exec-svg-arrow,.collection-exec-svg-label,.collection-exec-svg-label-bg{display:none}
 .collection-exec-detail-panel{padding-top:14px}
 .collection-exec-detail-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding-bottom:16px;border-bottom:1px solid #eef2f7}
-.collection-exec-detail-title{font-size:14px;font-weight:800;color:#111827}
 .collection-exec-detail-meta{margin-top:8px}
 .collection-exec-detail-summary{display:flex;align-items:center;gap:14px;font-size:12px;font-weight:700;color:#64748b}
 .collection-exec-tabs{display:flex;gap:8px;flex-wrap:wrap;padding:14px 0 0}
@@ -667,11 +764,25 @@
 .collection-builder-v2{display:flex;flex-direction:column;gap:12px;min-height:0}
 .collection-builder-mode-v2{display:flex;flex-direction:column;gap:var(--builder-gap-sm);min-height:0}
 .collection-builder-workspace{position:relative;min-height:680px;height:calc(100vh - 280px);max-height:860px;border:1px solid #e5e7eb;border-radius:24px;background:linear-gradient(180deg,#ffffff 0,#fbfcff 100%);box-shadow:0 18px 34px rgba(15,23,42,.06);overflow:hidden}
-.collection-builder-stage{position:relative;z-index:15;display:flex;flex-direction:column;height:100%;min-height:0;padding:18px}
+.collection-builder-stage{position:relative;z-index:15;display:flex;flex-direction:column;height:100%;min-height:0;padding:var(--builder-gap-sm)}
 .collection-builder-stage-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-bottom:14px}
 .collection-builder-stage-tools{display:flex;gap:10px;flex-wrap:wrap}
-.collection-builder-canvas-shell{flex:1;min-height:0;height:100%;border:1px dashed #d8dbe6;border-radius:20px;background:linear-gradient(180deg,rgba(255,255,255,.92) 0,rgba(248,250,252,.98) 100%);overflow:hidden}
-.collection-builder-canvas-shell .collection-chain{height:100%;min-height:0;margin-top:0;padding:14px}
+/* display:flex column: el toolbar de zoom (alto fijo) y el canvas (flex:1)
+   se reparten el alto disponible, en vez de que el canvas asuma un 100%
+   que ya no le queda una vez que el toolbar ocupa lugar arriba. */
+/* Unico contenedor visual del canvas: antes .collection-builder-canvas-shell
+   sumaba su propio borde+fondo+padding ADEMAS del borde punteado y fondo
+   punteado de .collection-canvas-stage (el area scrolleable de verdad),
+   dando lugar a dos recuadros anidados haciendo el mismo trabajo visual.
+   Este shell ahora es solo un host de posicionamiento (position:relative
+   para anclar el toolbar flotante) sin borde/fondo/padding propios; el
+   unico recuadro visible queda en .collection-canvas-stage. */
+.collection-builder-canvas-shell{flex:1;min-height:0;height:100%;display:flex;flex-direction:column;position:relative;overflow:hidden;padding:0}
+/* Flota sobre la esquina superior derecha del canvas en vez de ocupar su
+   propia fila (ver .collection-canvas-toolbar mas abajo para el fondo/sombra
+   que lo distingue del contenido de fondo al superponerse). */
+.collection-builder-canvas-shell .collection-canvas-toolbar{position:absolute;top:12px;right:12px;z-index:20;margin-bottom:0}
+.collection-builder-canvas-shell .collection-chain{flex:1;min-height:0;height:100%;margin-top:0;padding:0}
 .collection-builder-backdrop{position:absolute;inset:0;border:none;background:rgba(15,23,42,.16);opacity:0;pointer-events:none;transition:opacity .2s ease;z-index:14}
 .collection-builder-backdrop.show{opacity:1;pointer-events:auto}
 .collection-builder-service-drawer,.collection-builder-inspector-drawer,.collection-chain-suggestion-drawer{position:absolute;top:14px;bottom:14px;width:340px;border:1px solid #e5e7eb;border-radius:22px;background:#fff;box-shadow:0 22px 40px rgba(15,23,42,.14);display:flex;flex-direction:column;min-height:0;z-index:18;transition:transform .24s ease,opacity .24s ease;opacity:0}
@@ -683,7 +794,9 @@
 .collection-chain-suggestion-drawer{width:clamp(360px,32vw,440px)}
 .collection-builder-drawer-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:18px 18px 14px;border-bottom:1px solid #eef2f7}
 .collection-builder-drawer-kicker{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8}
-.collection-builder-drawer-title{font-size:22px;font-weight:800;color:#111827;line-height:1.1;margin-top:4px}
+/* peso maximo 700 (no 800): el titulo de panel no debe competir en peso con
+   el titulo de pantalla (.collection-studio-title en modo builder). */
+.collection-builder-drawer-title{font-size:22px;font-weight:700;color:#111827;line-height:1.1;margin-top:4px}
 .collection-builder-drawer-meta{font-size:12px;color:#64748b;line-height:1.5;margin-top:8px}
 .collection-builder-drawer-close{width:36px;height:36px;border:1px solid #d9dce7;border-radius:12px;background:#fff;color:#64748b;font-size:20px;line-height:1;cursor:pointer}
 .collection-builder-drawer-close:hover{border-color:#c7d2fe;color:#5546ec;background:#f8faff}
@@ -775,8 +888,13 @@
 .collection-catalog-grid input:focus,.collection-catalog-grid select:focus{border-color:#d72b2b;box-shadow:0 0 0 3px rgba(215,43,43,.08)}
 .collection-builder-top h3{font-size:32px;font-weight:800;color:#111827}
 .collection-builder-top .collection-inline-note{font-size:13px;max-width:720px}
-.collection-builder-actions .btn{min-width:136px}
-.collection-builder-actions .btn-primary{min-width:150px}
+/* Acento violeta reservado para la unica accion asistida por IA de la barra
+   (Sugerir cadena) — separado de .btn-outline (rojo de marca) para que se
+   note que es un camino distinto (heuristica/sugerencia) de las acciones
+   deterministicas de al lado. Reusa el mismo violeta ya establecido en el
+   panel de ejecucion (.collection-exec-node-chip y afines), no un color nuevo. */
+.collection-builder-actions .btn-ai-accent{color:#5b21b6;border-color:#ddd6fe}
+.collection-builder-actions .btn-ai-accent:hover{background:#f5f3ff;border-color:#c4b5fd;color:#4c1d95}
 .collection-builder-workspace{height:calc(100vh - 320px);min-height:620px}
 .collection-catalog-actions{display:flex;justify-content:flex-start;align-items:end}
 .collection-catalog-actions .btn{min-width:auto;height:44px;padding:0 18px;white-space:nowrap}
@@ -786,11 +904,12 @@
 .collection-tech-details summary::before{content:'\203A';display:inline-flex;align-items:center;justify-content:center;font-size:13px;color:#94a3b8;transform:rotate(90deg);transition:transform .18s ease}
 .collection-tech-details[open] summary::before{transform:rotate(270deg)}
 .collection-tech-content{margin-top:8px;padding:10px 12px;border:1px solid #e8edf5;border-radius:12px;background:#f8fafc;font-size:11px;color:#64748b;line-height:1.55;word-break:break-word}
-.collection-status{padding:8px 10px;border-radius:10px;font-size:11px;margin-top:10px;line-height:1.45}
-.collection-status.ok{background:#f2fbf5;color:#18794e;border:1px solid #d8f1df}
-.collection-status.err{background:#fff5f5;color:#c53030;border:1px solid #fed7d7}
 .collection-shell-studio-builder .collection-studio-top{display:none}
-.collection-shell-studio-builder .collection-studio-title{font-size:clamp(15px,1vw,18px);line-height:1.15;font-weight:700;color:#64748b}
+/* Es el titulo de PANTALLA mientras se esta en el builder (.collection-studio-top
+   con el titulo grande queda oculto arriba): debe verse mas grande que el
+   titulo del panel lateral "Configurar paso" (.collection-builder-drawer-title,
+   ~15-17px), no mas chico como quedaba antes. */
+.collection-shell-studio-builder .collection-studio-title{font-size:20px;line-height:1.2;font-weight:700;color:#334155}
 .collection-shell-studio-builder .collection-studio-subtitle{display:none}
 .collection-shell-studio-builder .collection-studio-brand{gap:var(--builder-gap-md)}
 .collection-shell-studio-builder .collection-studio-mark{width:var(--builder-mark-size);height:var(--builder-mark-size);border-radius:var(--builder-mark-radius);font-size:var(--builder-mark-font-size)}
@@ -798,14 +917,12 @@
 .collection-shell-studio-builder .collection-builder-mode-v2{flex:1;min-height:0}
 .collection-builder-top{justify-content:flex-end;align-items:center;gap:var(--builder-gap-sm);margin-bottom:0}
 .collection-builder-actions{justify-content:flex-end;gap:var(--builder-gap-sm)}
-.collection-builder-actions .btn{min-width:116px;height:var(--builder-button-height);display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 var(--builder-button-padding-x);font-size:var(--builder-control-font-size);font-weight:600}
-.collection-builder-actions .btn-primary{min-width:130px}
+.collection-builder-actions .btn{min-width:100px;height:var(--builder-button-height);display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 var(--builder-button-padding-x);font-size:var(--builder-control-font-size);font-weight:600}
+.collection-builder-actions .btn-primary{min-width:112px}
 .collection-builder-feedback{gap:var(--builder-gap-sm);margin-bottom:0;min-height:0}
 .collection-builder-workspace{flex:1;min-height:560px;border-radius:var(--builder-workspace-radius)}
 .collection-builder-stage{padding:var(--builder-gap-sm);min-height:0}
 .collection-builder-stage-toolbar{display:none}
-.collection-builder-canvas-shell{border-radius:calc(var(--builder-workspace-radius) - 2px)}
-.collection-builder-canvas-shell .collection-chain{padding:var(--builder-gap-sm)}
 .collection-builder-service-drawer,.collection-builder-inspector-drawer{width:var(--builder-drawer-width)}
 .collection-builder-inspector-drawer{width:clamp(360px,30vw,460px)}
 .collection-builder-drawer-head{padding:var(--builder-drawer-head-pt) var(--builder-drawer-head-px) var(--builder-drawer-head-pb)}
@@ -841,12 +958,12 @@
     --builder-gap-lg:16px;
     --builder-title-size:30px;
     --builder-subtitle-size:13px;
-    --builder-label-size:12px;
-    --builder-control-font-size:14px;
-    --builder-control-height:44px;
-    --builder-button-height:44px;
-    --builder-control-padding-x:14px;
-    --builder-button-padding-x:16px;
+    --builder-label-size:11px;
+    --builder-control-font-size:12px;
+    --builder-control-height:38px;
+    --builder-button-height:38px;
+    --builder-control-padding-x:12px;
+    --builder-button-padding-x:13px;
     --builder-node-width:300px;
     --builder-node-min-height:86px;
     --builder-node-padding:12px;
@@ -871,12 +988,12 @@
     --builder-gap-lg:15px;
     --builder-title-size:27px;
     --builder-subtitle-size:12px;
-    --builder-label-size:11px;
-    --builder-control-font-size:13px;
-    --builder-control-height:42px;
-    --builder-button-height:40px;
-    --builder-control-padding-x:13px;
-    --builder-button-padding-x:15px;
+    --builder-label-size:10px;
+    --builder-control-font-size:11px;
+    --builder-control-height:36px;
+    --builder-button-height:34px;
+    --builder-control-padding-x:11px;
+    --builder-button-padding-x:12px;
     --builder-mark-size:50px;
     --builder-mark-radius:16px;
     --builder-mark-font-size:22px;
@@ -897,15 +1014,15 @@
     --builder-drawer-head-pt:16px;
     --builder-drawer-head-pb:12px;
     --builder-drawer-kicker-size:10px;
-    --builder-drawer-title-size:20px;
+    --builder-drawer-title-size:16px;
     --builder-drawer-meta-size:11px;
     --builder-drawer-field-px:16px;
     --builder-drawer-field-gap:10px;
     --builder-drawer-card-gap:8px;
   }
   .collection-shell-studio-builder .collection-studio-subtitle{max-width:460px}
-  .collection-builder-actions .btn{min-width:108px}
-  .collection-builder-actions .btn-primary{min-width:120px}
+  .collection-builder-actions .btn{min-width:92px}
+  .collection-builder-actions .btn-primary{min-width:104px}
 }
 @media (max-width: 1440px){
   .collection-shell-studio-builder{
@@ -914,12 +1031,12 @@
     --builder-gap-md:12px;
     --builder-title-size:24px;
     --builder-subtitle-size:12px;
-    --builder-label-size:11px;
-    --builder-control-font-size:12px;
-    --builder-control-height:40px;
-    --builder-button-height:40px;
-    --builder-control-padding-x:12px;
-    --builder-button-padding-x:14px;
+    --builder-label-size:10px;
+    --builder-control-font-size:11px;
+    --builder-control-height:34px;
+    --builder-button-height:34px;
+    --builder-control-padding-x:10px;
+    --builder-button-padding-x:11px;
     --builder-mark-size:46px;
     --builder-mark-radius:14px;
     --builder-mark-font-size:20px;
@@ -941,7 +1058,7 @@
     --builder-drawer-head-pt:15px;
     --builder-drawer-head-pb:11px;
     --builder-drawer-kicker-size:9px;
-    --builder-drawer-title-size:18px;
+    --builder-drawer-title-size:15px;
     --builder-drawer-meta-size:11px;
     --builder-drawer-field-px:15px;
     --builder-drawer-field-gap:9px;
@@ -967,12 +1084,12 @@
     zoom: 0.9;
     --builder-gap-sm:7px;
     --builder-gap-md:10px;
-    --builder-label-size:10px;
-    --builder-control-font-size:11px;
-    --builder-control-height:34px;
-    --builder-button-height:34px;
-    --builder-control-padding-x:10px;
-    --builder-button-padding-x:12px;
+    --builder-label-size:9px;
+    --builder-control-font-size:10px;
+    --builder-control-height:30px;
+    --builder-button-height:30px;
+    --builder-control-padding-x:9px;
+    --builder-button-padding-x:10px;
     --builder-node-width:230px;
     --builder-node-min-height:74px;
     --builder-node-padding:9px;
@@ -985,7 +1102,7 @@
     --builder-drawer-head-px:13px;
     --builder-drawer-head-pt:13px;
     --builder-drawer-head-pb:9px;
-    --builder-drawer-title-size:16px;
+    --builder-drawer-title-size:14px;
     --builder-drawer-field-px:13px;
     --builder-drawer-field-gap:8px;
   }
@@ -1006,7 +1123,6 @@
   min-height:420px;
   overflow:hidden;
 }
-.collection-exec-shell-redesign .collection-exec-header-simple,
 .collection-exec-shell-redesign .collection-exec-panel,
 .collection-exec-shell-redesign .collection-exec-side-panel{
   border:1px solid var(--exec-border);
@@ -1014,27 +1130,6 @@
   background:#fff;
   box-shadow:0 14px 34px rgba(15,23,42,.06);
 }
-.collection-exec-header-simple{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:16px;
-  padding:9px 16px;
-}
-.collection-exec-back-link{
-  flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;border:none;background:none;
-  color:#64748b;font-size:13px;font-weight:700;cursor:pointer;padding:6px 4px;margin-right:4px
-}
-.collection-exec-back-link:hover{color:#d33a32}
-.collection-exec-header-simple-copy{min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1}
-.collection-exec-header-title{font-size:14px;font-weight:800;color:var(--exec-strong);line-height:1.2;flex:0 0 auto}
-.collection-exec-header-meta{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.collection-exec-header-line{font-size:12.5px;font-weight:700;color:#475569;display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
-.collection-exec-header-line-success{color:#15803d}
-.collection-exec-header-line-error{color:#b91c1c}
-.collection-exec-header-line-running{color:#2563eb}
-.collection-exec-inline-separator{color:#94a3b8;font-weight:600}
-.collection-exec-header-simple-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .collection-exec-menu{position:relative}
 .collection-exec-menu summary{list-style:none}
 .collection-exec-menu summary::-webkit-details-marker{display:none}
@@ -1055,18 +1150,36 @@
   text-align:left;font-size:12px;font-weight:700;color:#334155;cursor:pointer
 }
 .collection-exec-menu-item:hover{background:#f8fafc;color:#dc2626}
+/* La columna "handle" (grid-template-columns del medio) hace doble trabajo:
+   es el mismo gap visual que separaba flow/inspector antes (por eso usa
+   --exec-gap como ancho) y el area arrastrable del divisor redimensionable.
+   Sin drag, el grid usa fr/minmax normales; mientras se arrastra, JS fija un
+   ancho en px para la columna flow via --exec-flow-col (ver
+   collectionStartExecPanelResize en collections.js). */
 .collection-exec-main-layout{
   position:relative;
   flex:1;min-height:0;display:grid;
-  grid-template-columns:minmax(360px,0.9fr) minmax(420px,1.1fr);
+  grid-template-columns:var(--exec-flow-col,minmax(360px,0.9fr)) var(--exec-gap) minmax(320px,1.1fr);
   grid-template-rows:1fr;
-  grid-template-areas:"flow inspector";
-  gap:var(--exec-gap)
+  grid-template-areas:"flow handle inspector"
 }
+.collection-exec-resize-handle{
+  grid-area:handle;cursor:col-resize;align-self:stretch;position:relative
+}
+.collection-exec-resize-handle::after{
+  content:'';position:absolute;top:10%;bottom:10%;left:50%;width:3px;
+  transform:translateX(-50%);border-radius:999px;background:#d9dce7;
+  transition:background-color .15s ease
+}
+.collection-exec-resize-handle:hover::after,
+.collection-exec-resize-handle-dragging::after{background:#d33a32}
 .collection-exec-flow-panel,.collection-exec-detail-panel,.collection-exec-side-panel-timeline{
   min-height:0;padding:var(--exec-pad)
 }
-.collection-exec-flow-panel{grid-area:flow;height:100%;display:flex;flex-direction:column;overflow:hidden}
+/* position:relative ancla el grupo flotante de controles (zoom/timeline/
+   colapsar): reemplaza la fila fija con titulo "Flujo de ejecucion" que
+   antes ocupaba su propia franja arriba del stage. */
+.collection-exec-flow-panel{grid-area:flow;height:100%;display:flex;flex-direction:column;position:relative;overflow:hidden}
 .collection-exec-flow-breadcrumb-stage{
   flex:1;min-height:0;padding:10px;border:1px dashed #d7dfeb;border-radius:20px;
   background:radial-gradient(circle at 1px 1px,#edf2fa 1px,transparent 0);background-size:20px 20px
@@ -1088,6 +1201,7 @@
 .collection-exec-flow-breadcrumb-item-success .collection-exec-flow-breadcrumb-index{background:#16a34a}
 .collection-exec-flow-breadcrumb-item-error .collection-exec-flow-breadcrumb-index{background:#dc2626}
 .collection-exec-flow-breadcrumb-item-running .collection-exec-flow-breadcrumb-index{background:#2563eb}
+.collection-exec-flow-breadcrumb-item-warning .collection-exec-flow-breadcrumb-index{background:#d97706}
 .collection-exec-flow-breadcrumb-item-selected{border-color:#dc2626;background:var(--red-l,#fdf3f3);color:#0f172a}
 .collection-exec-flow-breadcrumb-arrow{flex:0 0 auto;color:#94a3b8;font-size:14px}
 .collection-exec-detail-panel{grid-area:inspector}
@@ -1096,14 +1210,33 @@
   gap:6px;text-align:center;border:none;background:transparent
 }
 .collection-exec-empty-title{font-size:14px;font-weight:800;color:var(--exec-strong)}
-.collection-exec-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
 .collection-exec-panel-title{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#0f172a}
-.collection-exec-panel-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+/* Flota en la esquina superior derecha del canvas de flujo, agrupando zoom,
+   Linea de tiempo y Colapsar/Expandir en un unico grupo compacto (antes
+   vivian en una fila fija junto al titulo "Flujo de ejecucion"). */
+.collection-exec-flow-panel .collection-exec-panel-tools{
+  position:absolute;top:10px;right:10px;z-index:10;
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap
+}
+.collection-exec-flow-panel .collection-exec-panel-tools .collection-exec-tool-btn,
+.collection-exec-flow-panel .collection-exec-panel-tools .collection-zoom-stepper{
+  box-shadow:0 6px 16px rgba(15,23,42,.14)
+}
 .collection-exec-tool-btn{
   height:36px;padding:0 13px;border:1px solid #d9e0eb;border-radius:12px;background:#fff;
   color:#475569;font-size:12px;font-weight:700;cursor:pointer
 }
 .collection-exec-tool-btn:hover{border-color:#d33a32;color:#d33a32}
+/* Stepper compacto de zoom (-/porcentaje/+), sin menu desplegable: reutilizado
+   tal cual en el canvas del builder y en el panel de Ejecucion. Un solo
+   contenedor con flex centra el texto verticalmente en los tres segmentos,
+   evitando el desalineo que tenia el label dentro de un <summary>. */
+.collection-zoom-stepper{display:flex;align-items:stretch;height:36px;border:1px solid #d9e0eb;border-radius:12px;background:#fff;overflow:hidden}
+.collection-zoom-step-btn{display:flex;align-items:center;justify-content:center;width:32px;border:none;background:transparent;color:#475569;font-size:15px;font-weight:700;line-height:1;cursor:pointer}
+.collection-zoom-step-btn:hover{background:#fef2f2;color:#d33a32}
+.collection-zoom-step-btn:first-child{border-right:1px solid #e5e9f2}
+.collection-zoom-step-btn:last-child{border-left:1px solid #e5e9f2}
+.collection-zoom-percent{display:flex;align-items:center;justify-content:center;min-width:46px;padding:0 4px;font-size:12px;font-weight:700;color:#475569;user-select:none}
 .collection-exec-flow-stage-linear{
   flex:1;min-height:0;padding:14px;border:1px dashed #d7dfeb;border-radius:20px;
   background:radial-gradient(circle at 1px 1px,#edf2fa 1px,transparent 0);
@@ -1170,25 +1303,24 @@
 .collection-exec-node-error .collection-exec-node-index{background:linear-gradient(180deg,#ef4444 0,#dc2626 100%)}
 .collection-exec-node-running{border-color:#60a5fa;background:linear-gradient(180deg,#f8fbff 0,#eff6ff 100%)}
 .collection-exec-node-running .collection-exec-node-index{background:linear-gradient(180deg,#60a5fa 0,#2563eb 100%)}
+.collection-exec-node-warning{border-color:#f59e0b;background:linear-gradient(180deg,#ffffff 0,#fffbeb 100%)}
+.collection-exec-node-warning .collection-exec-node-index{background:linear-gradient(180deg,#f59e0b 0,#d97706 100%)}
 .collection-exec-node-skipped,
 .collection-exec-node-idle{border-color:#cbd5e1;background:#fff}
 .collection-exec-node-skipped .collection-exec-node-index,
 .collection-exec-node-idle .collection-exec-node-index{background:linear-gradient(180deg,#94a3b8 0,#64748b 100%)}
 .collection-exec-node-selected{box-shadow:0 0 0 3px rgba(220,38,38,.10),0 18px 34px rgba(15,23,42,.12)}
 .collection-exec-detail-panel{display:flex;flex-direction:column;overflow:hidden}
-.collection-exec-detail-head-simple{
-  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding-bottom:14px;border-bottom:1px solid #eef2f7
-}
-.collection-exec-detail-head-copy{min-width:0}
-.collection-exec-detail-title{font-size:18px;font-weight:800;color:var(--exec-strong);line-height:1.2}
-.collection-exec-detail-subline{margin-top:6px;font-size:12px;font-weight:700;color:#64748b}
 .collection-exec-detail-body-single{flex:1;min-height:0;padding-top:10px;overflow:hidden}
-.collection-exec-tabs-simple{display:flex;align-items:center;gap:6px;padding-top:10px;border-bottom:1px solid #eef2f7}
+/* Tipografia liviana: los tabs son lo unico que aparece arriba del contenido
+   (sin titulo/estado repetido, ya visible en el step card del canvas), asi
+   que se mantienen livianos para no competir con el bloque de codigo. */
+.collection-exec-tabs-simple{display:flex;align-items:center;gap:4px;padding-top:2px;border-bottom:1px solid #eef2f7}
 .collection-exec-tab{
-  height:38px;padding:0 14px;border:none;border-bottom:2px solid transparent;background:transparent;
-  color:#64748b;font-size:13px;font-weight:700;cursor:pointer
+  height:32px;padding:0 12px;border:none;border-bottom:2px solid transparent;background:transparent;
+  color:#64748b;font-size:12.5px;font-weight:600;cursor:pointer
 }
-.collection-exec-tab.active{color:#dc2626;border-bottom-color:#dc2626}
+.collection-exec-tab.active{color:#dc2626;border-bottom-color:#dc2626;font-weight:700}
 .collection-exec-tab-panel{
   height:100%;min-height:0;display:flex;flex-direction:column;gap:12px;overflow:auto;padding-right:4px
 }
@@ -1216,29 +1348,52 @@
   padding:10px 12px;border:1px solid #edf1f7;border-radius:12px;background:#fff;
   font-size:12px;color:#334155;word-break:break-word
 }
+/* padding-top ampliado: deja lugar a la barra flotante (meta + Copiar) que
+   ahora se superpone en vez de ocupar su propia fila arriba del bloque.
+   min-height:0/max-height:none anulan un limite heredado de una version
+   anterior (no-redesign) de esta misma clase, que impedia que el bloque
+   ocupara todo el alto disponible del panel. */
 .collection-exec-code{
-  margin:0;overflow:auto;padding:14px 16px;border-radius:14px;
+  margin:0;overflow:auto;padding:44px 16px 14px;border-radius:14px;
   background:#f8fafc;border:1px solid #eef2f7;color:#0f172a;
-  font-size:12px;line-height:1.65;word-break:break-word;height:100%
+  font-size:12px;line-height:1.65;word-break:break-word;
+  height:100%;min-height:0;max-height:none
 }
 .collection-exec-code-line{display:flex;white-space:pre-wrap}
+/* Gutter angosto y en un gris mas apagado para que no compita visualmente
+   con el contenido del codigo. */
 .collection-exec-code-line-number{
-  flex:0 0 auto;width:34px;margin-right:12px;text-align:right;color:#94a3b8;user-select:none
+  flex:0 0 auto;width:26px;margin-right:10px;text-align:right;
+  color:#c9d0dc;font-size:11px;user-select:none
 }
 .collection-exec-code-line-text{flex:1;min-width:0}
-.collection-exec-response-view{display:flex;flex-direction:column;flex:1;min-height:0}
+/* height:100% (no solo flex:1) porque su padre directo (.collection-exec-detail-body-single)
+   no es un contenedor flex — sin esto, este bloque crecia a la altura de su
+   contenido (el <pre> de codigo) en vez de quedar acotado y scrollear */
+.collection-exec-response-view{position:relative;display:flex;flex-direction:column;flex:1;height:100%;min-height:0}
+/* Barra flotante (meta + Copiar) superpuesta sobre el bloque de codigo:
+   el contenedor no tiene fondo propio ni intercepta clicks/scroll (solo sus
+   hijos), asi que el hueco entre el texto y el boton deja ver el codigo
+   de fondo sin una franja visual de por medio. */
 .collection-exec-response-toolbar{
-  flex:0 0 auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
-  padding-bottom:8px;margin-bottom:8px;border-bottom:1px solid #f1f4f9
+  position:absolute;top:8px;left:12px;right:12px;z-index:5;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:0;margin:0;border:none;pointer-events:none
 }
-.collection-exec-response-toolbar-slim{padding-bottom:6px;margin-bottom:6px}
+.collection-exec-response-toolbar>*{pointer-events:auto}
 .collection-exec-response-status{
   font-size:13px;font-weight:800;color:var(--exec-strong);
   padding:4px 10px;border-radius:999px;background:#f4f5f7
 }
-.collection-exec-response-meta{font-size:11px;font-weight:600;color:#64748b}
-.collection-exec-response-url{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:Consolas,monospace}
-.collection-exec-response-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+.collection-exec-response-meta{
+  min-width:0;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:11px;font-weight:600;color:#64748b;
+  background:rgba(248,250,252,.95);padding:5px 10px;border-radius:999px;
+  box-shadow:0 2px 8px rgba(15,23,42,.08)
+}
+.collection-exec-response-url{font-family:Consolas,monospace}
+.collection-exec-response-actions{flex:0 0 auto;margin-left:auto;display:flex;gap:8px;align-items:center}
+.collection-exec-response-actions .collection-exec-tool-btn{box-shadow:0 2px 8px rgba(15,23,42,.08)}
 .collection-exec-code-source{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden}
 .collection-exec-response-body{flex:1;min-height:0;overflow:auto}
 .collection-exec-timeline-drawer{
@@ -1272,6 +1427,7 @@
 .collection-exec-timeline-rail-success{background:#22c55e}
 .collection-exec-timeline-rail-error{background:#ef4444}
 .collection-exec-timeline-rail-running{background:#3b82f6}
+.collection-exec-timeline-rail-warning{background:#f59e0b}
 .collection-exec-timeline-icon{
   width:24px;height:24px;border-radius:999px;display:flex;align-items:center;justify-content:center;
   background:#f8fafc;color:#64748b;font-size:10px;font-weight:800
@@ -1279,6 +1435,7 @@
 .collection-exec-timeline-icon-success{background:#ecfdf3;color:#16a34a}
 .collection-exec-timeline-icon-error{background:#fef2f2;color:#dc2626}
 .collection-exec-timeline-icon-running{background:#eff6ff;color:#2563eb}
+.collection-exec-timeline-icon-warning{background:#fffbeb;color:#b45309}
 .collection-exec-timeline-copy{min-width:0}
 .collection-exec-timeline-title{font-size:13px;font-weight:800;color:#0f172a;word-break:break-word}
 .collection-exec-timeline-meta{margin-top:4px;font-size:12px;color:#64748b;word-break:break-word}
@@ -1296,9 +1453,7 @@
     --exec-node-width:195px;
     min-height:380px;
   }
-  .collection-exec-header-title{font-size:16px}
-  .collection-exec-header-line{font-size:12px}
-  .collection-exec-main-layout{grid-template-columns:minmax(320px,0.85fr) minmax(380px,1.15fr)}
+  .collection-exec-main-layout{grid-template-columns:var(--exec-flow-col,minmax(320px,0.85fr)) var(--exec-gap) minmax(320px,1.15fr)}
   .collection-exec-flow-stage-linear{padding:10px}
   .collection-exec-flow-row,.collection-exec-flow-row-connector{gap:8px}
   .collection-exec-flow-arrow{font-size:18px}
@@ -1310,7 +1465,6 @@
   .collection-exec-node-summary{margin-top:5px;font-size:11px;gap:6px}
   .collection-exec-node-menu{top:8px;right:8px}
   .collection-exec-node-menu-trigger{width:20px;height:20px;font-size:12px}
-  .collection-exec-detail-title{font-size:16px}
   .collection-exec-tab{height:34px;padding:0 12px;font-size:12px}
   .collection-exec-code{font-size:11px;line-height:1.55;padding:12px 14px}
   .collection-exec-kv-key,.collection-exec-kv-value,.collection-exec-list-row{font-size:11px}
@@ -1331,7 +1485,7 @@
     padding:14px 14px 10px;
     gap:10px
   }
-  .collection-builder-drawer-title{font-size:18px;line-height:1.05}
+  .collection-builder-drawer-title{font-size:15px;line-height:1.05}
   .collection-builder-drawer-meta{font-size:11px;line-height:1.4;margin-top:6px}
   .collection-inspector-tabs{padding:0 14px}
   .collection-inspector-footer{padding:10px 14px}
@@ -1352,7 +1506,6 @@
   .collection-service-card-name{font-size:12px}
   .collection-service-card-meta{font-size:10px;line-height:1.35}
   .collection-builder-stage{padding:8px}
-  .collection-builder-canvas-shell .collection-chain{padding:10px}
 }
 
 @media (max-width: 1366px){
@@ -1362,7 +1515,7 @@
   .collection-builder-service-drawer{width:clamp(340px,29vw,380px)}
   .collection-builder-inspector-drawer,.collection-chain-suggestion-drawer{width:clamp(340px,32vw,390px)}
   .collection-builder-drawer-head{padding:12px 12px 8px}
-  .collection-builder-drawer-title{font-size:16px}
+  .collection-builder-drawer-title{font-size:14px}
   .collection-service-search-wrap{padding:6px 12px 6px}
   .collection-service-list{padding:6px 12px 12px}
   .collection-service-drawer-actions .btn{height:36px;padding-inline:12px;font-size:11px}
@@ -1372,17 +1525,16 @@
     --exec-node-width:195px;
     min-height:380px;
   }
-  .collection-exec-header-simple{padding:8px 14px}
   .collection-exec-flow-panel,.collection-exec-detail-panel,.collection-exec-side-panel-timeline{padding:12px}
-  .collection-exec-panel-head{margin-bottom:10px}
   .collection-exec-tool-btn{height:32px;padding:0 10px;font-size:11px}
+  .collection-zoom-stepper{height:32px}
+  .collection-zoom-step-btn{width:28px;font-size:14px}
+  .collection-zoom-percent{min-width:40px;font-size:11px}
   .collection-exec-flow-stage-linear{padding:10px}
   .collection-exec-node{min-height:74px}
   .collection-exec-node-main{padding:10px 12px}
   .collection-exec-node-title{font-size:12px}
   .collection-exec-node-summary{font-size:10px;gap:5px}
-  .collection-exec-detail-title{font-size:15px}
-  .collection-exec-detail-subline{font-size:11px;margin-top:4px}
   .collection-exec-tab{height:32px;padding:0 10px;font-size:11px}
   .collection-exec-accordion-trigger{padding:11px 12px;font-size:12px}
   .collection-exec-accordion-body{padding:0 12px 12px}

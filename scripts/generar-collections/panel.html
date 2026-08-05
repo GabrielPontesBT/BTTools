@@ -7,9 +7,11 @@
         <div id="collection-path-note" class="collection-path" style="display:none"></div>
 
         <!-- Vive fuera de collection-config/collection-services a proposito: ambos
-             bloques se ocultan segun el stage (setup/builder), pero el feedback de
-             error debe verse en cualquiera de los dos (ver collection-feedback-manager.js). -->
-        <div id="collection-status" class="collection-status"></div>
+             bloques se ocultan segun el stage (setup/builder), pero el feedback
+             debe verse en cualquiera de los dos (ver collection-feedback-manager.js).
+             position:fixed => flota en la esquina superior derecha de toda la
+             pantalla, nunca tapa ni desplaza la barra de acciones. -->
+        <div id="collection-toast-stack" class="collection-toast-stack" aria-live="polite" aria-atomic="false"></div>
 
         <div id="collection-config" class="collection-block" style="display:none">
           <h3>Cargar servicios</h3>
@@ -57,12 +59,38 @@
                   <div class="collection-builder-field-inline">
                     <label for="collection-scenario-name">Cadena</label>
                     <input type="text" id="collection-scenario-name" value="Caso de uso 1" placeholder="Ej. Alta de operacion" oninput="collectionRenameActiveScenario(this.value)">
+                    <!-- Cada caso de uso se exporta como su propia carpeta en
+                         la collection generada (ver buildJsonPostmanCollection);
+                         este menu deja agregar/cambiar entre varios sin ocupar
+                         su propia fila. Reutiliza el popover de "Mas" para
+                         consistencia visual. -->
+                    <details class="collection-builder-menu collection-scenario-menu">
+                      <summary class="collection-scenario-menu-trigger" onclick="event.stopPropagation()" title="Ver todos los casos de uso">
+                        <span aria-hidden="true">&#9776;</span>
+                        <span id="collection-scenario-count-badge" class="collection-scenario-count-badge">1</span>
+                      </summary>
+                      <div class="collection-builder-menu-popover collection-scenario-menu-popover" onclick="event.stopPropagation()">
+                        <div class="collection-scenario-menu-title">Casos de uso</div>
+                        <div id="collection-scenarios" class="collection-scenario-list"></div>
+                        <button type="button" class="collection-scenario-add-btn" onclick="collectionAddScenario()">
+                          <span aria-hidden="true">+</span><span>Nuevo caso de uso</span>
+                        </button>
+                      </div>
+                    </details>
                   </div>
                 </div>
                 <div class="collection-builder-actions">
+                  <!-- Solo visible en modo ejecucion (ver .collection-execution-active
+                       en collections.css): reemplaza la fila de resumen que antes
+                       vivia arriba del canvas (Volver + Ejecucion #N + menu), que
+                       repetia info ya visible en el step card. -->
+                  <button type="button" class="collection-exec-back-icon-btn" id="btn-collection-exec-back" onclick="collectionCloseExecutionMode()" title="Volver al builder" aria-label="Volver al builder"><span aria-hidden="true">&#8592;</span></button>
                   <button class="btn btn-outline" id="btn-collection-add-service-top" onclick="collectionOpenServiceDrawer()"><span class="collection-btn-icon">＋</span><span>Agregar servicio</span></button>
                   <button class="btn btn-outline" id="btn-collection-execute" onclick="collectionExecuteFlow()" disabled title="Agrega y configura al menos un servicio para probar."><span class="collection-btn-icon">▶</span><span>Probar</span></button>
-                  <button class="btn btn-outline" id="btn-collection-suggest-chain" onclick="collectionOpenChainSuggestionDrawer()" title="Descubre metodos que se conectan por sus datos."><span class="collection-btn-icon">&#10024;</span><span>Sugerir cadena</span></button>
+                  <!-- btn-ai-accent: unica accion asistida por IA de esta barra;
+                       usa un acento violeta (no el rojo de marca) para separarla
+                       visualmente de las acciones deterministicas de al lado. -->
+                  <button class="btn btn-outline btn-ai-accent" id="btn-collection-suggest-chain" onclick="collectionOpenChainSuggestionDrawer()" title="Descubre metodos que se conectan por sus datos."><span class="collection-btn-icon">&#10024;</span><span>Sugerir cadena</span></button>
                   <details class="collection-builder-menu">
                     <summary class="collection-builder-menu-trigger" onclick="event.stopPropagation()"><span>Más</span><span aria-hidden="true">&#9662;</span></summary>
                     <div class="collection-builder-menu-popover" onclick="event.stopPropagation()">
@@ -80,6 +108,9 @@
                        XML/SOAP) depende de collectionState.format (ver el selector
                        "Formato" en el paso Cargar servicios para V3). -->
                   <button class="btn btn-primary" id="btn-collection-generate" onclick="collectionGenerate()" disabled title="Agrega y configura al menos un servicio."><span class="collection-btn-icon">{ }</span><span>Generar collection</span></button>
+                  <!-- Lo llena collectionGetExecutionCenter().render() con las
+                       acciones de la corrida activa (reejecutar/exportar/volver). -->
+                  <div id="collection-exec-header-menu-slot" class="collection-exec-header-menu-slot"></div>
                 </div>
               </div>
             </div>
@@ -109,6 +140,17 @@
 
                 <div class="collection-builder-stage">
                   <div class="collection-builder-canvas-shell">
+                    <!-- Mismas clases que el stepper de zoom del panel de
+                         Ejecucion (collection-zoom-stepper), reutilizadas
+                         para consistencia visual. -->
+                    <div class="collection-canvas-toolbar">
+                      <div class="collection-zoom-stepper" role="group" aria-label="Zoom">
+                        <button type="button" class="collection-zoom-step-btn" onclick="collectionZoomOutCanvas()" aria-label="Alejar">&minus;</button>
+                        <span class="collection-zoom-percent" id="collection-canvas-zoom-label">100%</span>
+                        <button type="button" class="collection-zoom-step-btn" onclick="collectionZoomInCanvas()" aria-label="Acercar">+</button>
+                      </div>
+                      <button type="button" class="collection-exec-tool-btn" id="collection-canvas-collapse-btn" onclick="collectionToggleCanvasCompact()">Colapsar todo</button>
+                    </div>
                     <div id="collection-chain" class="collection-chain"></div>
                   </div>
                 </div>
@@ -122,9 +164,11 @@
                     </div>
                     <button type="button" class="collection-builder-drawer-close" onclick="collectionCloseInspectorDrawer()" aria-label="Cerrar">&times;</button>
                   </div>
+                  <!-- Arriba, junto al titulo: mas visible que al pie del panel,
+                       que es lo primero que se pierde con scroll largo. -->
+                  <div id="collection-inspector-footer" class="collection-inspector-footer"></div>
                   <div id="collection-inspector-tabs" class="collection-inspector-tabs"></div>
                   <div id="collection-step-config" class="collection-step-config"></div>
-                  <div id="collection-inspector-footer" class="collection-inspector-footer"></div>
                 </aside>
 
                 <aside id="collection-chain-suggestion-drawer" class="collection-chain-suggestion-drawer">

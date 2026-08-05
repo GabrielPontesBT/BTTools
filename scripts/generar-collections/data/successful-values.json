@@ -14,20 +14,22 @@
       "1"
     ],
     "token": [
-      "63D0CA37B38C0EED0A402EDB",
-      "5EAE95A72D0518716FA9A818",
-      "40DD98A47E9606AA3D0B5F98",
-      "C063D18F0829F272D0918BAA",
-      "EA3B3DBC5544791B789A47D8",
-      "B8321A9B8D1CB92421067843",
-      "AEDF1598915046A1F35C6750",
-      "9E0D4BB4060958BABBD361B2"
+      "F03B2253816946715E2C7373",
+      "A26B3DC57604062EE73941DC",
+      "E439D6D403BB6D72B73C3390",
+      "A469A3AB08076A1F1B1A99F6",
+      "4D98A82ECCF1301E736F0E20",
+      "EB3091917D7856350BD83825",
+      "849C984AD5C9BB861D5C8B3E",
+      "E0287D2316D39BF7353C1FB2"
     ],
     "ProductGUID": [
       "4eb463cd-eb9d-4c80-9092-7e70ad881968",
+      "cc2dc934-3de1-47c1-bf67-be92cc3ea16e",
       "d6328022-6f93-4afc-b59b-a29f435aba41"
     ],
     "CurrencyDescription": [
+      "PESO MEXICANO",
       "PESO COLOMBIANO",
       "Pesos Uruguayos"
     ],
@@ -500,6 +502,7 @@
       "D.N.I."
     ],
     "personGUID": [
+      "b51b92ac-47e2-42df-8e68-c41bbe6257ce",
       "4a47ca9e-fb87-4555-8f3d-0cca5758cc9e"
     ],
     "countryDescription": [
@@ -533,12 +536,15 @@
       "4eb463cd-eb9d-4c80-9092-7e70ad881968"
     ],
     "defaultValue": [
+      "12",
       "100000"
     ],
     "maximum": [
+      "240",
       "999999999"
     ],
     "minimum": [
+      "6",
       "10000"
     ],
     "PublicLoanParameters_getCapital_minimum": [
@@ -570,6 +576,1093 @@
     ],
     "PublicLoans_getProducts_products_item_ProductGUID": [
       "4eb463cd-eb9d-4c80-9092-7e70ad881968"
+    ],
+    "loanGUID": [
+      "d59d0a0b-ff0e-4264-a425-c8dc87027c0a",
+      "67eeeb62-b0d0-4736-9d22-c32750cc26d5"
+    ],
+    "includePayments": [
+      "true",
+      "false"
+    ],
+    "includeFuturePayments": [
+      "true",
+      "false"
+    ],
+    "DeferredInterestTax1": [
+      "0"
+    ],
+    "Interest": [
+      "0"
+    ],
+    "DeferredInterests": [
+      "0"
+    ],
+    "ArrearInterest": [
+      "0"
+    ],
+    "DeferredInterestTax2": [
+      "0"
+    ],
+    "DeferredInterestTax3": [
+      "0"
+    ],
+    "Concessional": [
+      "0"
+    ],
+    "ArrearFee1": [
+      "0"
+    ],
+    "ArrearFee2": [
+      "0"
+    ],
+    "PunitiveInterest": [
+      "0"
+    ],
+    "ArrearFee3": [
+      "0"
+    ],
+    "Term": [
+      "699",
+      "365",
+      "0"
+    ],
+    "Subvention1": [
+      "0"
+    ],
+    "Subvention2": [
+      "0"
+    ],
+    "InsurancesTotal": [
+      "0"
+    ],
+    "Taxes": [
+      "0"
+    ],
+    "DecimalsNumber": [
+      "0"
+    ],
+    "CapitalConcessional": [
+      "0"
+    ],
+    "InterestTax3": [
+      "0"
+    ],
+    "InterestTax2": [
+      "0"
+    ],
+    "InterestTax1": [
+      "0"
+    ],
+    "CompensatoryInterestTax": [
+      "0"
+    ],
+    "ArrearDays": [
+      "0"
+    ],
+    "SubTotal": [
+      "0"
+    ],
+    "Subvention3": [
+      "0"
+    ],
+    "InstallmentNumber": [
+      "0"
+    ],
+    "CapitalTax": [
+      "0"
+    ],
+    "TaxWithoutSubvention": [
+      "0"
+    ],
+    "PunitiveInterestTax": [
+      "0"
+    ],
+    "GraceInQuota": [
+      "false"
+    ],
+    "ArrearTax": [
+      "0"
+    ],
+    "CompensatoryInterest": [
+      "0"
+    ],
+    "DistributedInsurance1": [
+      "0"
+    ],
+    "DistributedInsurance2": [
+      "0"
+    ],
+    "FeeTotal": [
+      "0"
+    ],
+    "Capital": [
+      "0"
+    ],
+    "InArrear": [
+      "false"
+    ],
+    "InstallmentValue": [
+      "5544.14",
+      "9985",
+      "0"
+    ],
+    "RoundOff": [
+      "0"
+    ],
+    "Total": [
+      "0"
+    ],
+    "DistributedInterest": [
+      "0"
+    ],
+    "DistributedInterestTax1": [
+      "0"
+    ],
+    "InversePlannedPaymentDate": [
+      "0"
+    ],
+    "ExtendsTerm": [
+      "false"
+    ],
+    "DistributedInterestTax2": [
+      "0"
+    ],
+    "DistributedInterestTax3": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_ArrearDays": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_ArrearFee1": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_ArrearFee2": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_ArrearFee3": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_ArrearInterest": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_ArrearTax": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_Capital": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_CapitalConcessional": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_CapitalTax": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_CompensatoryInterest": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_CompensatoryInterestTax": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_Concessional": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_DecimalsNumber": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_DeferredInterests": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_DeferredInterestTax1": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_DeferredInterestTax2": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_DeferredInterestTax3": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_DistributedInsurance1": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_DistributedInsurance2": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_DistributedInterest": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_DistributedInterestTax1": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_DistributedInterestTax2": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_DistributedInterestTax3": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_ExtendsTerm": [
+      "false"
+    ],
+    "PublicLoans_getSchedule_installments_item_FeeTotal": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_GraceInQuota": [
+      "false"
+    ],
+    "PublicLoans_getSchedule_installments_item_InArrear": [
+      "false"
+    ],
+    "PublicLoans_getSchedule_installments_item_InstallmentNumber": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_InstallmentValue": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_InsurancesTotal": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_Interest": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_InterestTax1": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_InterestTax2": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_InterestTax3": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_InversePlannedPaymentDate": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_PunitiveInterest": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_PunitiveInterestTax": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_RoundOff": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_SubTotal": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_Subvention1": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_Subvention2": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_Subvention3": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_Taxes": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_TaxWithoutSubvention": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_Term": [
+      "0"
+    ],
+    "PublicLoans_getSchedule_installments_item_Total": [
+      "0"
+    ],
+    "Loans_getPersonProducts_products_product_item_ProductGUID": [
+      "4eb463cd-eb9d-4c80-9092-7e70ad881968"
+    ],
+    "Loans_getPersonProducts_products_product_item_CurrencyDescription": [
+      "PESO MEXICANO"
+    ],
+    "Loans_getPersonProducts_products_product_item_KindDescription": [
+      "Billete"
+    ],
+    "Loans_getPersonProducts_products_product_item_CurrencySign": [
+      "$"
+    ],
+    "Loans_getPersonProducts_products_product_item_KindId": [
+      "0"
+    ],
+    "Loans_getPersonProducts_products_product_item_ProductDescription": [
+      "COMPRA DE VIVIENDA"
+    ],
+    "Loans_getPersonProducts_products_product_item_CurrencyId": [
+      "0"
+    ],
+    "LoanParameters_getCapital_defaultValue": [
+      "100000"
+    ],
+    "LoanParameters_getCapital_maximum": [
+      "999999999"
+    ],
+    "LoanParameters_getCapital_minimum": [
+      "10000"
+    ],
+    "LoanParameters_getInstallmentCount_defaultValue": [
+      "12"
+    ],
+    "LoanParameters_getInstallmentCount_maximum": [
+      "240"
+    ],
+    "LoanParameters_getInstallmentCount_minimum": [
+      "6"
+    ],
+    "BoardFixedAmount": [
+      "0"
+    ],
+    "InsuranceId": [
+      "46"
+    ],
+    "FixedPercentage": [
+      "0.5"
+    ],
+    "ManagesExtraPremium": [
+      "false"
+    ],
+    "Enabled": [
+      "false"
+    ],
+    "InsuranceTypeDescription": [
+      "VIDA"
+    ],
+    "FixedAmount": [
+      "0"
+    ],
+    "InsuranceDescription": [
+      "seguro prueba"
+    ],
+    "BoardId": [
+      "0"
+    ],
+    "UsesBoard": [
+      "false"
+    ],
+    "BoardPercentage": [
+      "0"
+    ],
+    "InsuranceTypeId": [
+      "1"
+    ],
+    "InsuranceCompanyId": [
+      "12"
+    ],
+    "AllowsModification": [
+      "true"
+    ],
+    "ChargeType": [
+      "S"
+    ],
+    "InsuranceCompanyDescription": [
+      "ASEGURADORA REGIONAL"
+    ],
+    "LoanParameters_getInsurances_insurances_insurance_item_BoardFixedAmount": [
+      "0"
+    ],
+    "LoanParameters_getInsurances_insurances_insurance_item_InsuranceId": [
+      "46"
+    ],
+    "LoanParameters_getInsurances_insurances_insurance_item_FixedPercentage": [
+      "0.5"
+    ],
+    "LoanParameters_getInsurances_insurances_insurance_item_ManagesExtraPremium": [
+      "false"
+    ],
+    "LoanParameters_getInsurances_insurances_insurance_item_Enabled": [
+      "false"
+    ],
+    "LoanParameters_getInsurances_insurances_insurance_item_InsuranceTypeDescription": [
+      "VIDA"
+    ],
+    "LoanParameters_getInsurances_insurances_insurance_item_FixedAmount": [
+      "0"
+    ],
+    "LoanParameters_getInsurances_insurances_insurance_item_InsuranceDescription": [
+      "seguro prueba"
+    ],
+    "LoanParameters_getInsurances_insurances_insurance_item_BoardId": [
+      "0"
+    ],
+    "LoanParameters_getInsurances_insurances_insurance_item_UsesBoard": [
+      "false"
+    ],
+    "LoanParameters_getInsurances_insurances_insurance_item_BoardPercentage": [
+      "0"
+    ],
+    "LoanParameters_getInsurances_insurances_insurance_item_InsuranceTypeId": [
+      "1"
+    ],
+    "LoanParameters_getInsurances_insurances_insurance_item_InsuranceCompanyId": [
+      "12"
+    ],
+    "LoanParameters_getInsurances_insurances_insurance_item_AllowsModification": [
+      "true"
+    ],
+    "LoanParameters_getInsurances_insurances_insurance_item_ChargeType": [
+      "S"
+    ],
+    "LoanParameters_getInsurances_insurances_insurance_item_InsuranceCompanyDescription": [
+      "ASEGURADORA REGIONAL"
+    ],
+    "rateType": [
+      "0"
+    ],
+    "defaultRate": [
+      "0"
+    ],
+    "LoanParameters_getRate_rateType": [
+      "0"
+    ],
+    "LoanParameters_getRate_defaultRate": [
+      "0"
+    ],
+    "ActivityTypeDescription": [
+      "PRODUCCION ANIMAL",
+      "PRODUCCIÓN VEGETAL"
+    ],
+    "ActivityDescription": [
+      "EXPLOTACION GANADERA (EXCEPTO LECHERIA)",
+      "ARROZ"
+    ],
+    "ActivityTypeId": [
+      "2",
+      "1"
+    ],
+    "ActivityId": [
+      "1211",
+      "1111"
+    ],
+    "Persons_getActivities_activities_activity_item_ActivityTypeDescription": [
+      "PRODUCCIÓN VEGETAL"
+    ],
+    "Persons_getActivities_activities_activity_item_ActivityDescription": [
+      "ARROZ"
+    ],
+    "Persons_getActivities_activities_activity_item_ActivityTypeId": [
+      "1"
+    ],
+    "Persons_getActivities_activities_activity_item_ActivityId": [
+      "1111"
+    ],
+    "PublicLoans_getGroups_groups_item_cycleId": [
+      "0"
+    ],
+    "PublicLoans_getGroups_groups_item_groupId": [
+      "130"
+    ],
+    "PublicLoans_getGroups_groups_item_groupName": [
+      "GRUPOFBBVA1"
+    ],
+    "PublicLoans_getGroups_groups_item_lastCycleStatusId": [
+      "1"
+    ],
+    "PublicLoans_getGroups_groups_item_status": [
+      "1"
+    ],
+    "PublicLoans_getGroups_groups_item_statusDescription": [
+      "PRUEBA"
+    ],
+    "PublicLoans_getGroupQuery_totalDebt": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalOfCapital": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalOfCapitalTaxes": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalOfInterest": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalOfInterestTaxes": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalOfDeferredInterest": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalOfDeferredInterestTaxes": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalOfDistributedInterest": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalOfDistributedInterestTaxes": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalOfInterestArrears": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalOfInterestArrearsTaxes": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalOfInterestArrearsFees": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalOfCompensatoryInterest": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalOfCompensatoryInterestFees": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalOfPunitiveInterest": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalOfPunitiveInterestFees": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalOfTaxes": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalOfInsurances": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalOfDistributedInsurances": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalOfConcessional": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalOfCapitalConcessional": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalOfFees": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalTaxesOnFeesInQuotas": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalOfCancelationFee": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalOfTaxesInCancelationFee": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_totalOfRoundOff": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_daysInArrears": [
+      "0"
+    ],
+    "PublicLoans_getGroupQuery_kindValue": [
+      "0"
+    ],
+    "queryMode": [
+      "CON"
+    ],
+    "PublicPersons_getActivityTypes_activityTypes_item_ActivityTypeDescription": [
+      "PRODUCCIÓN VEGETAL"
+    ],
+    "PublicPersons_getActivityTypes_activityTypes_item_ActivityTypeId": [
+      "1"
+    ],
+    "activityTypeId": [
+      "2",
+      "1"
+    ],
+    "PublicPersons_getActivities_activities_item_ActivityDescription": [
+      "EXPLOTACION GANADERA (EXCEPTO LECHERIA)",
+      "ARROZ"
+    ],
+    "PublicPersons_getActivities_activities_item_ActivityId": [
+      "1211",
+      "1111"
+    ],
+    "PublicPersons_getActivities_activities_item_ActivityTypeDescription": [
+      "PRODUCCION ANIMAL",
+      "PRODUCCIÓN VEGETAL"
+    ],
+    "PublicPersons_getActivities_activities_item_ActivityTypeId": [
+      "2",
+      "1"
+    ],
+    "PublicPersons_getActivityTypes_activityTypes_item_ActivityTypeId_filter_ActivityTypeDescription_PRODUCCION_ANIMAL": [
+      "2"
+    ],
+    "amount": [
+      "1000"
+    ],
+    "PublicLoans_getPersonProducts_products_item_CurrencyDescription": [
+      "PESO MEXICANO"
+    ],
+    "PublicLoans_getPersonProducts_products_item_CurrencyId": [
+      "0"
+    ],
+    "PublicLoans_getPersonProducts_products_item_CurrencySign": [
+      "$"
+    ],
+    "PublicLoans_getPersonProducts_products_item_KindDescription": [
+      "Billete"
+    ],
+    "PublicLoans_getPersonProducts_products_item_KindId": [
+      "0"
+    ],
+    "PublicLoans_getPersonProducts_products_item_ProductDescription": [
+      "COMPRA DE VIVIENDA"
+    ],
+    "PublicLoans_getPersonProducts_products_item_ProductGUID": [
+      "4eb463cd-eb9d-4c80-9092-7e70ad881968"
+    ],
+    "PublicLoanParameters_getInstallmentCount_minimum": [
+      "6"
+    ],
+    "PublicLoanParameters_getInstallmentCount_maximum": [
+      "240"
+    ],
+    "PublicLoanParameters_getInstallmentCount_defaultValue": [
+      "12"
+    ],
+    "cancelledLoans": [
+      "false"
+    ],
+    "AmortizationTypeId": [
+      "3"
+    ],
+    "BranchId": [
+      "1"
+    ],
+    "OriginalAmount": [
+      "100000"
+    ],
+    "NumberOfInstallments": [
+      "0"
+    ],
+    "InstallmentPeriodicity": [
+      "30"
+    ],
+    "TotalPaidInstallments": [
+      "0"
+    ],
+    "ExpirationDate": [
+      "2026-12-08",
+      "2026-01-08"
+    ],
+    "FirstUnpaidDate": [
+      "2025-01-08"
+    ],
+    "AccountBalance": [
+      "-100000"
+    ],
+    "ValueDate": [
+      "2025-01-08"
+    ],
+    "StatusId": [
+      "0"
+    ],
+    "LoanGUID": [
+      "d59d0a0b-ff0e-4264-a425-c8dc87027c0a",
+      "67eeeb62-b0d0-4736-9d22-c32750cc26d5"
+    ],
+    "InterestRate": [
+      "23",
+      "12.65"
+    ],
+    "BranchDescription": [
+      "Sucursal Beta"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_AccountBalance": [
+      "-100000"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_AmortizationTypeDescription": [
+      "AMORTIZABLE FRANCÉS (CONSTANTE TOTAL)"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_AmortizationTypeId": [
+      "3"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_BranchDescription": [
+      "Sucursal Beta"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_BranchId": [
+      "1"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_ExpirationDate": [
+      "2026-12-08"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_FirstUnpaidDate": [
+      "2025-01-08"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_InstallmentPeriodicity": [
+      "30"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_InstallmentValue": [
+      "5544.14"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_InterestRate": [
+      "23"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_LoanGUID": [
+      "d59d0a0b-ff0e-4264-a425-c8dc87027c0a"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_NumberOfInstallments": [
+      "24"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_OriginalAmount": [
+      "100000"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_Product_CurrencyDescription": [
+      "PESO MEXICANO"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_Product_CurrencyId": [
+      "0"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_Product_CurrencySign": [
+      "$"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_Product_KindDescription": [
+      "Billete"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_Product_KindId": [
+      "0"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_Product_ProductDescription": [
+      "COMPRA DE VIVIENDA"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_Product_ProductGUID": [
+      "4eb463cd-eb9d-4c80-9092-7e70ad881968"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_StatusDescription": [
+      "Normal"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_StatusId": [
+      "0"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_Term": [
+      "699"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_TotalPaidInstallments": [
+      "0"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_ValueDate": [
+      "2025-01-08"
+    ],
+    "queryDate": [
+      "2026-01-01"
+    ],
+    "AverageDaysInArrears": [
+      "0"
+    ],
+    "tasaMoraVigente_REVISAR": [
+      "0"
+    ],
+    "TotalExpiredInstallments": [
+      "0"
+    ],
+    "Debt": [
+      "0"
+    ],
+    "RateTypeId": [
+      "1"
+    ],
+    "RateClassId": [
+      "2",
+      "0"
+    ],
+    "DayTypeId": [
+      "2"
+    ],
+    "AccruedInterestResult": [
+      "0"
+    ],
+    "AccruedInterest": [
+      "0"
+    ],
+    "PlusRate": [
+      "0"
+    ],
+    "TotalFinancedCost": [
+      "0",
+      "89.19"
+    ],
+    "TotalOfInsurances": [
+      "0"
+    ],
+    "YearTypeId": [
+      "2"
+    ],
+    "ReviewDays": [
+      "0"
+    ],
+    "tasaEfectiva_REVISAR": [
+      "0"
+    ],
+    "TotalOfTaxes": [
+      "0"
+    ],
+    "FirstPaymentDate": [
+      "2025-01-08",
+      "2025-02-08"
+    ],
+    "IVACoefficient": [
+      "0"
+    ],
+    "TotalOfPunitiveInterest": [
+      "0"
+    ],
+    "AccountingAccountId": [
+      "167306001",
+      "163302001"
+    ],
+    "SuspendedInterest": [
+      "0"
+    ],
+    "EconomicActivityId": [
+      "0",
+      "97030"
+    ],
+    "DebtToDate": [
+      "0"
+    ],
+    "OriginalRate": [
+      "23",
+      "12.65"
+    ],
+    "TotalUnpaidInstallments": [
+      "1"
+    ],
+    "TotalOfInterestArrear": [
+      "0"
+    ],
+    "AccruedArrearInterest": [
+      "0"
+    ],
+    "TotalExpiredDebt": [
+      "0"
+    ],
+    "ArrearsRateTypeId": [
+      "0"
+    ],
+    "TotalMissedPaymentInstallments": [
+      "0"
+    ],
+    "tasaMoraOriginal_REVISAR": [
+      "0"
+    ],
+    "TotalOfInstallmentFees": [
+      "0"
+    ],
+    "TotalOfInterest": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_AccountBalance": [
+      "-100000"
+    ],
+    "PublicLoans_getDetail_loanDetail_AccountingAccountId": [
+      "167306001",
+      "163302001"
+    ],
+    "PublicLoans_getDetail_loanDetail_AccruedArrearInterest": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_AccruedInterest": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_AccruedInterestResult": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_AmortizationTypeId": [
+      "3"
+    ],
+    "PublicLoans_getDetail_loanDetail_ArrearDays": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_ArrearsRateTypeId": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_AverageDaysInArrears": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_BranchDescription": [
+      "Sucursal Beta"
+    ],
+    "PublicLoans_getDetail_loanDetail_BranchId": [
+      "1"
+    ],
+    "PublicLoans_getDetail_loanDetail_DayTypeId": [
+      "2"
+    ],
+    "PublicLoans_getDetail_loanDetail_Debt": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_DebtToDate": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_EconomicActivityId": [
+      "0",
+      "97030"
+    ],
+    "PublicLoans_getDetail_loanDetail_ExpirationDate": [
+      "2026-12-08",
+      "2026-01-08"
+    ],
+    "PublicLoans_getDetail_loanDetail_FirstPaymentDate": [
+      "2025-01-08",
+      "2025-02-08"
+    ],
+    "PublicLoans_getDetail_loanDetail_InstallmentPeriodicity": [
+      "30"
+    ],
+    "PublicLoans_getDetail_loanDetail_InstallmentValue": [
+      "5544.14",
+      "9985"
+    ],
+    "PublicLoans_getDetail_loanDetail_InterestRate": [
+      "23",
+      "12.65"
+    ],
+    "PublicLoans_getDetail_loanDetail_IVACoefficient": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_LoanGUID": [
+      "d59d0a0b-ff0e-4264-a425-c8dc87027c0a",
+      "67eeeb62-b0d0-4736-9d22-c32750cc26d5"
+    ],
+    "PublicLoans_getDetail_loanDetail_NumberOfInstallments": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_OriginalAmount": [
+      "100000"
+    ],
+    "PublicLoans_getDetail_loanDetail_OriginalRate": [
+      "23",
+      "12.65"
+    ],
+    "PublicLoans_getDetail_loanDetail_PlusRate": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_Product_CurrencyDescription": [
+      "PESO MEXICANO"
+    ],
+    "PublicLoans_getDetail_loanDetail_Product_CurrencyId": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_Product_CurrencySign": [
+      "$"
+    ],
+    "PublicLoans_getDetail_loanDetail_Product_KindDescription": [
+      "Billete"
+    ],
+    "PublicLoans_getDetail_loanDetail_Product_KindId": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_Product_ProductGUID": [
+      "4eb463cd-eb9d-4c80-9092-7e70ad881968",
+      "cc2dc934-3de1-47c1-bf67-be92cc3ea16e"
+    ],
+    "PublicLoans_getDetail_loanDetail_RateClassId": [
+      "2",
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_RateTypeId": [
+      "1"
+    ],
+    "PublicLoans_getDetail_loanDetail_ReviewDays": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_StatusId": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_SuspendedInterest": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_tasaEfectiva_REVISAR": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_tasaMoraOriginal_REVISAR": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_tasaMoraVigente_REVISAR": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_Term": [
+      "699",
+      "365"
+    ],
+    "PublicLoans_getDetail_loanDetail_TotalExpiredDebt": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_TotalExpiredInstallments": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_TotalFinancedCost": [
+      "0",
+      "89.19"
+    ],
+    "PublicLoans_getDetail_loanDetail_TotalMissedPaymentInstallments": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_TotalOfInstallmentFees": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_TotalOfInsurances": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_TotalOfInterest": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_TotalOfInterestArrear": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_TotalOfPunitiveInterest": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_TotalOfTaxes": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_TotalPaidInstallments": [
+      "0"
+    ],
+    "PublicLoans_getDetail_loanDetail_TotalUnpaidInstallments": [
+      "1"
+    ],
+    "PublicLoans_getDetail_loanDetail_ValueDate": [
+      "2025-01-08"
+    ],
+    "PublicLoans_getDetail_loanDetail_YearTypeId": [
+      "2"
+    ],
+    "PublicLoans_getCustomerLoans_customerLoans_item_LoanGUID_filter_Product_ProductDescription_ADELANTO_SOBRE_SUELDOS": [
+      "67eeeb62-b0d0-4736-9d22-c32750cc26d5"
+    ],
+    "Loans_Groups_groups_group_item_groupName": [
+      "GRUPOFBBVA1"
+    ],
+    "Loans_Groups_groups_group_item_statusDescription": [
+      "PRUEBA"
+    ],
+    "Loans_Groups_groups_group_item_groupId": [
+      "130"
+    ],
+    "Loans_Groups_groups_group_item_cycleId": [
+      "0"
+    ],
+    "Loans_Groups_groups_group_item_lastCycleStatusId": [
+      "1"
+    ],
+    "Loans_Groups_groups_group_item_status": [
+      "1"
+    ],
+    "Loans_Groups_hasNext": [
+      "true"
+    ],
+    "Loans_personProducts_products_product_item_ProductGUID": [
+      "4eb463cd-eb9d-4c80-9092-7e70ad881968"
+    ],
+    "Loans_personProducts_products_product_item_CurrencyDescription": [
+      "PESO MEXICANO"
+    ],
+    "Loans_personProducts_products_product_item_KindDescription": [
+      "Billete"
+    ],
+    "Loans_personProducts_products_product_item_CurrencySign": [
+      "$"
+    ],
+    "Loans_personProducts_products_product_item_KindId": [
+      "0"
+    ],
+    "Loans_personProducts_products_product_item_ProductDescription": [
+      "COMPRA DE VIVIENDA"
+    ],
+    "Loans_personProducts_products_product_item_CurrencyId": [
+      "0"
     ]
   },
   "V4::oracle::10.0.0.4:1521/btv4db::": {
@@ -1086,14 +2179,14 @@
       "1"
     ],
     "token": [
+      "79BCDCC967EAED6292E2C496",
+      "6C1FA996571F38E3950B2965",
+      "C4068EA5CB7F4FF5D54E0409",
+      "2826E7B9B61DA321426C0654",
+      "032045225FAA3CA30C8DB95E",
       "A59F078F661591D1BE7ABF6B",
       "2A187A009D2C6A6749E28EEB",
-      "E48BB33BE09FD96E06361ECF",
-      "A726B9A7AE46E10C1A0AD1C4",
-      "7723DECEBDEF88A5B6204B08",
-      "CB80AE1B8E9BAB78CFF74A5C",
-      "A14C743EC94F294DE458F508",
-      "B19F8FAC95592B0408D02B74"
+      "E48BB33BE09FD96E06361ECF"
     ],
     "BTPartners_ObtenerPartners_sdtPartners_item_clienteUId": [
       "0"
