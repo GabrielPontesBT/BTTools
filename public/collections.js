@@ -1,6 +1,7 @@
-var collectionState = {
-  format: null,
-  target: null,
+﻿var collectionState = {
+  format: 'json',
+  target: 'postman',
+  serviceSource: 'swagger',
   services: [],
   serviceOperations: {},
   swaggerUrl: '',
@@ -9,12 +10,18 @@ var collectionState = {
   swaggerAuthUrl: '',
   collectionName: 'Bantotal JSON Collection',
   authContext: null,
-  studioStage: 'define',
+  studioStage: 'setup',
   scenarios: [],
   activeScenarioId: null,
   contextKey: null,
   nextScenarioId: 1,
-  nextNodeId: 1
+  nextNodeId: 1,
+  builderUi: {
+    serviceDrawerOpen: false,
+    inspectorDrawerOpen: false,
+    pendingInsertIndex: null,
+    selectedCatalogOperations: []
+  }
 };
 
 var collectionButtonsBound = false;
@@ -22,7 +29,6 @@ var collectionFlowResizeBound = false;
 var collectionStudioUpgraded = false;
 var collectionCanvasDragState = null;
 var collectionConnectionDragState = null;
-var collectionExecutionPopup = null;
 var collectionUtils = new window.BTCollectionModules.CollectionUtils({
   getDb: function() { return typeof getDb === 'function' ? getDb() : {}; },
   getApi: function() { return typeof getApi === 'function' ? getApi() : {}; }
@@ -36,10 +42,16 @@ var collectionCanvasInteractionManager = null;
 var collectionInspectorManager = null;
 var collectionScenarioManager = null;
 var collectionServiceCatalogManager = null;
+var collectionChainSuggestionManager = null;
+var collectionImportManager = null;
 var collectionPreviewManager = null;
 var collectionExecutionCenter = null;
+var collectionRequestDataManager = null;
 var collectionEnvironmentManager = null;
 var collectionBootstrapManager = null;
+var collectionResultManager = null;
+var collectionFlowLifecycleManager = null;
+var collectionBuilderShellManager = null;
 
 function collectionCreateScenario(name) {
   return collectionStore.createScenario(name);
@@ -69,12 +81,16 @@ function collectionEnsureScenario() {
   collectionStore.ensureScenario();
 }
 
-function collectionShowStatus(kind, text) {
-  collectionFeedbackManager.showStatus(kind, text);
+function collectionShowStatus(kind, text, title) {
+  collectionFeedbackManager.showStatus(kind, text, title);
 }
 
 function collectionClearStatus() {
   collectionFeedbackManager.clearStatus();
+}
+
+function collectionDismissToast(id) {
+  collectionFeedbackManager.dismissToast(id);
 }
 
 function collectionGetStudioManager() {
@@ -107,7 +123,9 @@ function collectionGetExecutionCenter() {
     refreshContext: collectionRefreshContext,
     syncInspectorInputs: collectionSyncInspectorInputs,
     showStatus: collectionShowStatus,
-    escapeHtml: collectionEscapeHtml
+    escapeHtml: collectionEscapeHtml,
+    ensureScenarioConnections: collectionEnsureScenarioConnections,
+    buildConnectionLabel: collectionBuildCanvasLinkText
   });
   return collectionExecutionCenter;
 }
@@ -146,6 +164,40 @@ function collectionGetServiceCatalogManager() {
   return collectionServiceCatalogManager;
 }
 
+function collectionGetChainSuggestionManager() {
+  if (collectionChainSuggestionManager) return collectionChainSuggestionManager;
+  collectionChainSuggestionManager = new window.BTCollectionModules.CollectionChainSuggestionManager({
+    getState: function() { return collectionState; },
+    getActiveScenario: collectionGetActiveScenario,
+    getSelectedItem: collectionGetSelectedItem,
+    getPreviewManager: collectionGetPreviewManager,
+    apiClient: collectionApiClient,
+    insertOperation: collectionInsertOperation,
+    updateInputMapping: collectionUpdateInputMapping,
+    selectItem: collectionCanvasNodeClick,
+    showStatus: collectionShowStatus,
+    escapeHtml: collectionEscapeHtml
+  });
+  return collectionChainSuggestionManager;
+}
+
+function collectionGetImportManager() {
+  if (collectionImportManager) return collectionImportManager;
+  collectionImportManager = new window.BTCollectionModules.CollectionImportManager({
+    getState: function() { return collectionState; },
+    createScenario: collectionCreateScenario,
+    insertOperation: collectionInsertOperation,
+    getPreviewManager: collectionGetPreviewManager,
+    updateInputMapping: collectionUpdateInputMapping,
+    showStatus: collectionShowStatus,
+    renderScenarios: collectionRenderScenarios,
+    renderItems: collectionRenderItems,
+    renderVariableEditor: collectionRenderVariableEditor,
+    loadPreview: collectionLoadPreview
+  });
+  return collectionImportManager;
+}
+
 function collectionGetPreviewManager() {
   if (collectionPreviewManager) return collectionPreviewManager;
   collectionPreviewManager = new window.BTCollectionModules.CollectionPreviewManager({
@@ -165,6 +217,35 @@ function collectionGetPreviewManager() {
     pathSupported: collectionPathSupported
   });
   return collectionPreviewManager;
+}
+
+function collectionGetRequestDataManager() {
+  if (collectionRequestDataManager) return collectionRequestDataManager;
+
+  collectionRequestDataManager = new window.BTCollectionModules.CollectionRequestDataManager({
+    apiClient: collectionApiClient,
+    getState: function() { return collectionState; },
+    getFormat: function() { return collectionState.format; },
+    getTarget: function() { return collectionState.target; },
+    getVersion: function() { return typeof S !== 'undefined' ? S.version : ''; },
+    getPlatform: function() { return typeof S !== 'undefined' ? S.platform : ''; },
+    getDb: function() { return typeof getDb === 'function' ? getDb() : {}; },
+    getApi: function() { return typeof getApi === 'function' ? getApi() : {}; },
+    getSwaggerBaseUrl: function() { return collectionState.swaggerBaseUrl; },
+    getSwaggerAuthUrl: function() { return collectionState.swaggerAuthUrl; },
+    getCollectionName: function() { return collectionState.collectionName; },
+    pathSupported: collectionPathSupported,
+    syncInspectorInputs: collectionSyncInspectorInputs,
+    refreshContext: collectionRefreshContext,
+    resetResult: collectionResetResult,
+    resetExecution: collectionResetExecution,
+    renderItems: collectionRenderItems,
+    renderVariableEditor: collectionRenderVariableEditor,
+    loadPreview: collectionLoadPreview,
+    showStatus: collectionShowStatus
+  });
+
+  return collectionRequestDataManager;
 }
 
 function collectionGetEnvironmentManager() {
@@ -216,6 +297,58 @@ function collectionGetBootstrapManager() {
   return collectionBootstrapManager;
 }
 
+function collectionGetResultManager() {
+  if (collectionResultManager) return collectionResultManager;
+
+  collectionResultManager = new window.BTCollectionModules.CollectionResultManager({
+    escapeHtml: collectionEscapeHtml
+  });
+
+  return collectionResultManager;
+}
+
+function collectionGetFlowLifecycleManager() {
+  if (collectionFlowLifecycleManager) return collectionFlowLifecycleManager;
+
+  collectionFlowLifecycleManager = new window.BTCollectionModules.CollectionFlowLifecycleManager({
+    getState: function() { return collectionState; },
+    getActiveScenario: collectionGetActiveScenario,
+    getVersion: function() { return typeof S !== 'undefined' ? S.version : ''; },
+    getPlatform: function() { return typeof S !== 'undefined' ? S.platform : ''; },
+    getDb: function() { return typeof getDb === 'function' ? getDb() : {}; },
+    apiClient: collectionApiClient,
+    ensureScenarioConnections: collectionEnsureScenarioConnections,
+    ensureItemNodeId: collectionEnsureItemNodeId,
+    ensureItemLayout: collectionEnsureItemLayout,
+    defaultNodeLayout: collectionDefaultNodeLayout,
+    buildInputMappingKey: collectionBuildInputMappingKey,
+    buildOutputVarKey: collectionBuildOutputVarKey,
+    renderScenarios: collectionRenderScenarios,
+    renderItems: collectionRenderItems,
+    renderVariableEditor: collectionRenderVariableEditor,
+    loadPreview: collectionLoadPreview,
+    resetResult: collectionResetResult,
+    resetExecution: collectionResetExecution
+  });
+
+  return collectionFlowLifecycleManager;
+}
+
+function collectionGetBuilderShellManager() {
+  if (collectionBuilderShellManager) return collectionBuilderShellManager;
+  collectionBuilderShellManager = new window.BTCollectionModules.CollectionBuilderShellManager({
+    getState: function() { return collectionState; },
+    getActiveScenario: collectionGetActiveScenario,
+    getSelectedItem: collectionGetSelectedItem,
+    insertOperation: collectionInsertOperation,
+    renderItems: collectionRenderItems,
+    renderServiceCatalog: function() { return collectionGetServiceCatalogManager().renderServiceCatalog(); },
+    renderInspector: function() { return collectionGetInspectorManager().renderInspector(); },
+    showStatus: collectionShowStatus
+  });
+  return collectionBuilderShellManager;
+}
+
 function collectionGetCanvasManager() {
   if (collectionCanvasManager) return collectionCanvasManager;
   collectionCanvasManager = new window.BTCollectionModules.CollectionCanvasManager({
@@ -247,6 +380,7 @@ function collectionGetCanvasInteractionManager() {
     getActiveScenario: collectionGetActiveScenario,
     getSelectedItem: collectionGetSelectedItem,
     setSelectedItem: collectionSetSelectedItem,
+    openInspector: function() { collectionGetBuilderShellManager().openInspector(); },
     getCanvasDragState: function() { return collectionCanvasDragState; },
     setCanvasDragState: function(value) { collectionCanvasDragState = value; },
     getConnectionDragState: function() { return collectionConnectionDragState; },
@@ -286,6 +420,7 @@ function collectionGetInspectorManager() {
     inputMappingConfig: collectionInputMappingConfig,
     findSourceOption: collectionFindSourceOption,
     inputDisplayName: collectionInputDisplayName,
+    inputMetaLabel: collectionInputMetaLabel,
     outputDisplayName: collectionOutputDisplayName,
     escapeHtml: collectionEscapeHtml,
     domId: collectionDomId,
@@ -331,94 +466,32 @@ function collectionUpgradeStudioLayout() {
   if (existingTitle) existingTitle.style.display = 'none';
   if (existingLead) existingLead.style.display = 'none';
 
-  var formatCard = document.getElementById('col-format-json');
-  var targetCard = document.getElementById('col-target-postman');
-  var formatBlock = formatCard ? formatCard.closest('.collection-block') : null;
-  var targetBlock = targetCard ? targetCard.closest('.collection-block') : null;
-  if (formatBlock) formatBlock.style.display = 'none';
-  if (targetBlock) targetBlock.style.display = 'none';
-
-  var top = document.createElement('div');
-  top.className = 'collection-studio-top';
-  top.innerHTML =
-    '<div class="collection-studio-brand">' +
-      '<div class="collection-studio-mark">C</div>' +
-      '<div>' +
-        '<div class="collection-studio-title">Constructor de Cadenas</div>' +
-        '<div class="collection-studio-subtitle">Genera casos de prueba JSON a partir de Swagger y arma cadenas visuales listas para exportar a Postman.</div>' +
-      '</div>' +
-    '</div>' +
-    '<div class="collection-studio-actions">' +
-      '<button type="button" class="collection-mode-btn collection-mode-btn-soon" id="col-toolbar-format-xml" data-kind="format" onclick="collectionPickToolbarChoice(' + "'" + 'format' + "'" + ',' + "'" + 'xml' + "'" + ', this)">XML</button>' +
-      '<button type="button" class="collection-mode-btn" id="col-toolbar-format-json" data-kind="format" onclick="collectionPickToolbarChoice(' + "'" + 'format' + "'" + ',' + "'" + 'json' + "'" + ', this)">JSON</button>' +
-      '<button type="button" class="collection-mode-btn" id="col-toolbar-target-postman" data-kind="target" onclick="collectionPickToolbarChoice(' + "'" + 'target' + "'" + ',' + "'" + 'postman' + "'" + ', this)">Postman</button>' +
-      '<button type="button" class="collection-mode-btn collection-mode-btn-soon" id="col-toolbar-target-soap" data-kind="target" onclick="collectionPickToolbarChoice(' + "'" + 'target' + "'" + ',' + "'" + 'soap' + "'" + ', this)">SOAP</button>' +
-    '</div>';
-  shell.insertBefore(top, shell.firstChild);
-
-  var stageBar = document.createElement('div');
-  stageBar.className = 'collection-stagebar';
-  stageBar.innerHTML =
-    '<button type="button" class="collection-stage-btn active" data-stage="define" onclick="collectionSetStudioStage(' + "'" + 'define' + "'" + ')">1. Definicion</button>' +
-    '<button type="button" class="collection-stage-btn" data-stage="setup" onclick="collectionSetStudioStage(' + "'" + 'setup' + "'" + ')">2. Ambiente</button>' +
-    '<button type="button" class="collection-stage-btn" data-stage="builder" onclick="collectionSetStudioStage(' + "'" + 'builder' + "'" + ')">3. Builder</button>';
-  shell.insertBefore(stageBar, top.nextSibling);
-
-  var intro = document.createElement('div');
-  intro.id = 'collection-studio-intro';
-  intro.className = 'collection-studio-intro';
-  intro.innerHTML =
-    '<div class="collection-studio-intro-card">' +
-      '<div class="collection-studio-intro-kicker">Paso 1</div>' +
-      '<div class="collection-studio-intro-title">Defini el camino de trabajo</div>' +
-      '<div class="collection-studio-intro-copy">Elegí el formato y el destino desde la barra superior. Cuando confirmes este paso te llevamos a la configuración del ambiente y Swagger.</div>' +
-      '<div id="collection-studio-summary" class="collection-studio-summary">Camino seleccionado: Sin formato + Sin destino.</div>' +
-      '<div class="collection-studio-intro-actions">' +
-        '<button type="button" class="btn btn-primary" id="collection-stage-continue" onclick="collectionSetStudioStage(' + "'" + 'setup' + "'" + ')" disabled>Confirmar y seguir</button>' +
-      '</div>' +
-    '</div>';
-  shell.insertBefore(intro, document.getElementById('collection-config'));
+  if (!shell.querySelector('.collection-studio-top')) {
+    var top = document.createElement('div');
+    top.className = 'collection-studio-top collection-studio-top-simple';
+    top.innerHTML =
+      '<div class="collection-studio-brand">' +
+        '<div class="collection-studio-mark">C</div>' +
+        '<div>' +
+          '<div id="collection-studio-title" class="collection-studio-title">Casos de uso</div>' +
+          '<div id="collection-studio-subtitle" class="collection-studio-subtitle"></div>' +
+        '</div>' +
+      '</div>';
+    shell.insertBefore(top, shell.firstChild);
+  }
 
   var config = document.getElementById('collection-config');
   if (config) {
     config.classList.remove('collection-block');
     config.classList.add('collection-studio-config');
-    var h3 = config.querySelector('h3');
-    if (h3) h3.style.display = 'none';
-    var field = config.querySelector('.field');
-    var actions = config.querySelector('.collection-actions');
     var summary = document.getElementById('collection-env-summary');
-    if (field && actions && !config.querySelector('.collection-studio-config-row')) {
-      var row = document.createElement('div');
-      row.className = 'collection-studio-config-row';
-      var main = document.createElement('div');
-      main.className = 'collection-studio-config-main';
-      main.appendChild(field);
-      var toolbar = document.createElement('div');
-      toolbar.className = 'collection-studio-toolbar';
-      toolbar.appendChild(actions);
-      row.appendChild(main);
-      row.appendChild(toolbar);
-      config.insertBefore(row, summary || config.firstChild);
-    }
-    if (summary) summary.className = 'collection-studio-env';
-    var nav = document.createElement('div');
-    nav.className = 'collection-stage-footer';
-    nav.innerHTML =
-      '<button type="button" class="btn btn-ghost" onclick="collectionSetStudioStage(' + "'" + 'define' + "'" + ')">&#8592; Volver</button>' +
-      '<button type="button" class="btn btn-primary" onclick="collectionLoadServices()">Autenticar y seguir al builder</button>';
-    config.appendChild(nav);
+    if (summary) summary.className = 'collection-tech-content';
   }
 
   var services = document.getElementById('collection-services');
   if (services) {
     services.classList.remove('collection-block');
     services.classList.add('collection-studio-workspace');
-    var footer = document.createElement('div');
-    footer.className = 'collection-stage-footer';
-    footer.innerHTML =
-      '<button type="button" class="btn btn-ghost" onclick="collectionSetStudioStage(' + "'" + 'setup' + "'" + ')">&#8592; Volver al ambiente</button>';
-    services.appendChild(footer);
   }
 
   collectionSyncToolbarChoices();
@@ -429,157 +502,17 @@ function collectionResetResult() {
   collectionFeedbackManager.resetResult();
 }
 
-function collectionResetExecution() {
-  var result = document.getElementById('collection-execution');
-  var inline = document.getElementById('collection-execution-inline');
-  var visibleResult = document.getElementById('collection-result');
-  var modal = document.getElementById('collection-execution-modal');
-  var dock = document.getElementById('collection-execution-dock');
-  var openBtn = document.getElementById('btn-collection-open-console');
-  if (result) result.innerHTML = '';
-  if (inline) {
-    inline.innerHTML = '';
-    inline.style.display = 'none';
-  }
-  if (visibleResult) {
-    visibleResult.className = 'collection-result';
-    visibleResult.innerHTML = '';
-  }
-  if (modal) modal.style.display = 'none';
-  if (dock) dock.style.display = 'none';
-  if (openBtn) {
-    openBtn.style.display = '';
-    openBtn.disabled = false;
-  }
-  collectionState.lastExecutionHtml = '';
-  collectionState.lastExecutionData = null;
-}
 
-function collectionHandleExecutionBackdrop(event) {
-  if (!event || event.target.id !== 'collection-execution-modal') return;
-  collectionCloseExecutionConsole();
-}
 
 // La consola se comporta como una ventana propia: cerrar limpia visibilidad,
 // minimizar la manda a un "dock" flotante y restaurar la trae de vuelta.
-function collectionCloseExecutionConsole() {
-  var modal = document.getElementById('collection-execution-modal');
-  var dock = document.getElementById('collection-execution-dock');
-  if (modal) modal.style.display = 'none';
-  if (dock) dock.style.display = 'none';
-}
 
-function collectionMinimizeExecutionConsole() {
-  var modal = document.getElementById('collection-execution-modal');
-  var dock = document.getElementById('collection-execution-dock');
-  if (modal) modal.style.display = 'none';
-  if (dock) dock.style.display = 'block';
-}
 
-function collectionRestoreExecutionConsole() {
-  var inline = document.getElementById('collection-execution-inline');
-  var dock = document.getElementById('collection-execution-dock');
-  if (inline) {
-    inline.style.display = 'block';
-    if (typeof inline.scrollIntoView === 'function') inline.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-  var modal = document.getElementById('collection-execution-modal');
-  if (modal && inline && inline.innerHTML) modal.style.display = 'flex';
-  if (dock) dock.style.display = 'none';
-}
 
 // Mantiene sincronizadas todas las superficies de salida de la consola.
-function collectionSetExecutionHtml(html, data) {
-  var safeHtml = String(html || '');
-  var el = document.getElementById('collection-execution');
-  var inline = document.getElementById('collection-execution-inline');
-  var visibleResult = document.getElementById('collection-result');
-  var modal = document.getElementById('collection-execution-modal');
-  var dock = document.getElementById('collection-execution-dock');
 
-  collectionState.lastExecutionHtml = safeHtml;
-  collectionState.lastExecutionData = data || null;
 
-  if (el) el.innerHTML = safeHtml;
-  if (inline) {
-    inline.innerHTML = safeHtml;
-    inline.style.display = 'block';
-  }
-  if (visibleResult) {
-    visibleResult.className = 'collection-result show';
-    visibleResult.innerHTML = safeHtml;
-  }
-  if (modal && safeHtml) modal.style.display = 'flex';
-  if (dock) dock.style.display = 'none';
-}
 
-function collectionBuildExecutionPopupShell(content) {
-  return '<!doctype html><html lang="es"><head><meta charset="utf-8">' +
-    '<title>Consola de ejecucion</title>' +
-    '<style>' +
-      'body{margin:0;padding:24px;background:#f8fafc;color:#0f172a;font-family:Segoe UI,Arial,sans-serif}' +
-      '.wrap{max-width:1180px;margin:0 auto}' +
-      '.head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px}' +
-      '.title{font-size:28px;font-weight:800}' +
-      '.sub{font-size:12px;color:#64748b;margin-top:6px}' +
-      '.panel{background:#fff;border:1px solid #e5e7eb;border-radius:22px;box-shadow:0 20px 44px rgba(15,23,42,.10);padding:20px}' +
-    '</style></head><body><div class="wrap"><div class="head"><div><div class="title">Consola de ejecucion</div><div class="sub">Salida del flujo ejecutado desde BTTools</div></div></div><div class="panel">' +
-    content +
-    '</div></div></body></html>';
-}
-
-function collectionOpenExecutionConsole() {
-  var inline = document.getElementById('collection-execution-inline');
-  var html = collectionState.lastExecutionHtml || '';
-  if (!html && collectionState.lastExecutionData) {
-    html = '<div class="collection-run-section"><div class="collection-run-section-title">JSON de ejecucion</div><div class="collection-run-pre">' +
-      collectionEscapeHtml(JSON.stringify(collectionState.lastExecutionData, null, 2)) +
-      '</div></div>';
-  }
-  if (!html) {
-    html = '<div class="collection-run-section"><div class="collection-run-section-title">Consola</div><div class="collection-run-card"><div class="collection-run-card-value-sm">Todavia no hay una ejecucion para mostrar.</div></div></div>';
-  }
-
-  if (inline) {
-    inline.innerHTML = html;
-    inline.style.display = 'block';
-    if (typeof inline.scrollIntoView === 'function') inline.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  try {
-    if (!collectionExecutionPopup || collectionExecutionPopup.closed) {
-      collectionExecutionPopup = window.open('', 'bttools_execution_console', 'width=1280,height=860,resizable=yes,scrollbars=yes');
-    }
-    if (collectionExecutionPopup) {
-      collectionExecutionPopup.document.open();
-      collectionExecutionPopup.document.write(collectionBuildExecutionPopupShell(html));
-      collectionExecutionPopup.document.close();
-      collectionExecutionPopup.focus();
-      return;
-    }
-  } catch (e) {}
-
-  collectionRestoreExecutionConsole();
-}
-
-function collectionRenderExecutionLoading() {
-  var el = document.getElementById('collection-execution');
-  var modal = document.getElementById('collection-execution-modal');
-  var title = document.getElementById('collection-execution-title');
-  if (!el) return;
-  var scenario = collectionGetActiveScenario();
-  if (title) title.textContent = scenario ? scenario.name : 'Ejecucion del flujo';
-  var html =
-    '<div class="collection-run-grid">' +
-      '<div class="collection-run-card"><div class="collection-run-card-label">Estado</div><div class="collection-run-card-value-sm">Ejecutando flujo desde la app...</div></div>' +
-    '</div>' +
-    '<div class="collection-run-section">' +
-      '<div class="collection-run-section-title">Consola</div>' +
-      '<div class="collection-run-card"><div class="collection-run-card-value-sm">Preparando autenticacion, headers y requests del caso activo.</div></div>' +
-    '</div>';
-  collectionSetExecutionHtml(html, { loading: true });
-  if (modal) modal.style.display = 'none';
-}
 
 function collectionContextKey() {
   if (typeof S === 'undefined') return '';
@@ -637,14 +570,10 @@ function collectionResetLoadedData() {
 function collectionGuessSwaggerUrl(api) {
   var publicBaseUrl = String((api && api.BASE_URL) || '').trim().replace(/\/+$/g, '');
   if (!publicBaseUrl) return '';
-  if (/\/api\/publicapi$/i.test(publicBaseUrl)) {
-    return publicBaseUrl.replace(/\/api\/publicapi$/i, '/api/swagger-ui/index.html#/');
-  }
-  return publicBaseUrl.replace(/\/+$/g, '') + '/swagger-ui/index.html#/';
-}
-
-function collectionUpdateSwaggerUrl(value) {
-  collectionState.swaggerUrl = String(value || '').trim();
+  // swagger-ui vive ANIDADO bajo la URL publica completa (ej. .../api/publicapi
+  // -> .../api/publicapi/swagger-ui/...), nunca como hermano reemplazando el
+  // ultimo segmento — antes esto le sacaba el "/publicapi" por error.
+  return publicBaseUrl + '/swagger-ui/index.html#/';
 }
 
 function collectionIsAutoResolvedKey(key, pathLabel) {
@@ -666,102 +595,18 @@ function collectionIsAutoResolvedKey(key, pathLabel) {
   ].indexOf(normalized) >= 0;
 }
 
-function collectionBindButtons() {
-  if (collectionButtonsBound) return;
-  var btnDb = document.getElementById('btn-collection-test-db');
-  var btnAuth = document.getElementById('btn-collection-test-auth');
-  var btnServices = document.getElementById('btn-collection-load-services');
-  if (!btnDb || !btnAuth || !btnServices) return;
-
-  btnDb.addEventListener('click', function(event) {
-    event.preventDefault();
-    collectionTestDb();
-  });
-  btnAuth.addEventListener('click', function(event) {
-    event.preventDefault();
-    collectionTestAuth();
-  });
-  btnServices.addEventListener('click', function(event) {
-    event.preventDefault();
-    collectionLoadServices();
-  });
-  collectionButtonsBound = true;
-}
-
-function collectionRefreshContext() {
-  var summary = document.getElementById('collection-env-summary');
-  if (!summary) return;
-
-  var nextKey = collectionContextKey();
-  if (collectionState.contextKey && nextKey && nextKey !== collectionState.contextKey) {
-    collectionResetLoadedData();
-    collectionShowStatus('ok', 'Cambio el ambiente cargado. Vuelve a traer los servicios para esta collection.');
-  }
-  collectionState.contextKey = nextKey;
-
-  if (typeof S === 'undefined' || typeof getDb !== 'function' || typeof getApi !== 'function') {
-    summary.textContent = 'No se pudo leer la configuracion actual del wizard.';
-    return;
-  }
-  if (!S.version || !S.platform) {
-    summary.textContent = 'Completa primero version, plataforma, BD y API en el wizard principal.';
-    return;
-  }
-
-  var db = getDb();
-  var api = getApi();
-  var dbLabel = S.platform === 'sqlserver'
-    ? [db.DB_SERVER, db.DB_PORT, db.DB_DATABASE].filter(Boolean).join(' / ')
-    : [db.DB_USER, db.DB_CONNECT_STRING].filter(Boolean).join(' @ ');
-  var authLabel = S.version === 'V3'
-    ? (api.API_AUTH_URL || 'sin API_AUTH_URL')
-    : collectionResolveV4AuthUrl(api);
-  var swaggerInput = document.getElementById('collection-swagger-url');
-  if (swaggerInput && !swaggerInput.value) {
-    var guessedSwaggerUrl = collectionState.swaggerUrl || collectionGuessSwaggerUrl(api);
-    if (guessedSwaggerUrl) {
-      swaggerInput.value = guessedSwaggerUrl;
-      collectionState.swaggerUrl = guessedSwaggerUrl;
-    }
-  }
-
-  summary.textContent =
-    'Version: ' + (S.version || '-') +
-    ' | Plataforma: ' + (S.platform || '-') +
-    ' | BD: ' + (dbLabel || 'sin datos completos') +
-    ' | API publica: ' + ((api.BASE_URL || '').trim() || 'sin BASE_URL') +
-    ' | Core: ' + ((api.API_BASE_URL || '').trim() || 'sin API_BASE_URL') +
-    ' | Auth: ' + authLabel;
-}
-
 function collectionToggleConfig() {
   var note = document.getElementById('collection-path-note');
   var config = document.getElementById('collection-config');
   var services = document.getElementById('collection-services');
   if (!note || !config || !services) return;
-  collectionSyncToolbarChoices();
-
-  if (!collectionState.format || !collectionState.target) {
-    note.style.display = 'none';
+  note.style.display = 'none';
+  if (!collectionPathSupported()) {
     config.style.display = 'none';
     services.style.display = 'none';
-    collectionSetStudioStage('define');
     return;
   }
-
-  note.style.display = 'block';
-  if (collectionPathSupported()) {
-    note.innerHTML = '<strong>Camino activo:</strong> JSON + Postman. Se va a generar una collection REST tomando endpoints, parametros y estructuras desde Swagger.';
-    if (collectionState.studioStage === 'define') {
-      config.style.display = 'none';
-      services.style.display = 'none';
-    }
-    collectionRefreshContext();
-  } else {
-    note.innerHTML = '<strong>Camino preparado:</strong> ' + collectionState.format.toUpperCase() + ' + ' + collectionState.target + '. Ese flujo queda encaminado, pero por ahora el generador activo es JSON + Postman.';
-    config.style.display = 'none';
-    services.style.display = 'none';
-  }
+  collectionRefreshContext();
   collectionRenderStudioStage();
 }
 
@@ -774,6 +619,10 @@ function collectionPickChoice(kind, value, el) {
     });
   }
   if (el) el.classList.add('sel');
+  if (kind === 'serviceSource') {
+    collectionResetLoadedData();
+    if (typeof collectionUpdateServiceSource === 'function') collectionUpdateServiceSource(value);
+  }
   collectionSyncToolbarChoices();
   collectionClearStatus();
   collectionResetResult();
@@ -781,678 +630,43 @@ function collectionPickChoice(kind, value, el) {
   collectionToggleConfig();
 }
 
-function collectionUpdateName(value) {
-  collectionState.collectionName = value || 'Bantotal JSON Collection';
-}
 
-function collectionRenameActiveScenario(value) {
-  var scenario = collectionGetActiveScenario();
-  if (!scenario) return;
-  scenario.name = value || 'Caso de uso';
-  collectionRenderScenarios();
-  collectionRenderItems();
-}
 
-function collectionGetSelectedItemIndex() {
-  var scenario = collectionGetActiveScenario();
-  if (!scenario) return -1;
-  if (!scenario.items.length) return -1;
-  if (typeof scenario.selectedItemIndex !== 'number' || scenario.selectedItemIndex < 0 || scenario.selectedItemIndex >= scenario.items.length) {
-    scenario.selectedItemIndex = 0;
-  }
-  return scenario.selectedItemIndex;
-}
 
-function collectionGetSelectedItem() {
-  var scenario = collectionGetActiveScenario();
-  var index = collectionGetSelectedItemIndex();
-  if (!scenario || index < 0) return null;
-  return scenario.items[index] || null;
-}
 
-function collectionSetSelectedItem(index) {
-  var scenario = collectionGetActiveScenario();
-  if (!scenario) return;
-  scenario.selectedItemIndex = index;
-  collectionRenderItems();
-  collectionRenderVariableEditor();
-  collectionResetExecution();
-}
 
-function collectionSetActiveScenario(id) {
-  collectionState.activeScenarioId = id;
-  collectionRenderScenarios();
-  collectionRenderItems();
-  collectionRenderVariableEditor();
-  collectionResetResult();
-  collectionResetExecution();
-}
 
-function collectionBuildCanvasGroupKey(item, index) {
-  return item.service + '.' + item.method + '::' + index;
-}
 
-function collectionFindItemIndexByNodeId(scenario, nodeId) {
-  if (!scenario || !Array.isArray(scenario.items)) return -1;
-  for (var i = 0; i < scenario.items.length; i++) {
-    if (collectionEnsureItemNodeId(scenario.items[i]) === nodeId) return i;
-  }
-  return -1;
-}
 
-function collectionFindOutgoingConnection(scenario, fromId) {
-  var connections = collectionEnsureScenarioConnections(scenario);
-  for (var i = 0; i < connections.length; i++) {
-    if (connections[i].fromId === fromId) return connections[i];
-  }
-  return null;
-}
 
-function collectionFindIncomingConnection(scenario, toId) {
-  var connections = collectionEnsureScenarioConnections(scenario);
-  for (var i = 0; i < connections.length; i++) {
-    if (connections[i].toId === toId) return connections[i];
-  }
-  return null;
-}
 
-function collectionRebuildItemsFromConnections(scenario, selectedItem) {
-  if (!scenario || !Array.isArray(scenario.items) || scenario.items.length < 2) {
-    if (scenario && selectedItem) scenario.selectedItemIndex = scenario.items.indexOf(selectedItem);
-    return false;
-  }
-  var before = scenario.items.slice();
-  var connections = collectionEnsureScenarioConnections(scenario);
-  if (!connections.length) {
-    if (selectedItem) scenario.selectedItemIndex = scenario.items.indexOf(selectedItem);
-    return false;
-  }
-  var itemById = {};
-  var incoming = {};
-  var outgoing = {};
-  scenario.items.forEach(function(item) {
-    var nodeId = collectionEnsureItemNodeId(item);
-    itemById[nodeId] = item;
-  });
-  connections.forEach(function(connection) {
-    incoming[connection.toId] = connection.fromId;
-    outgoing[connection.fromId] = connection.toId;
-  });
-  var ordered = [];
-  var visited = {};
-  scenario.items.forEach(function(item) {
-    var nodeId = collectionEnsureItemNodeId(item);
-    if (incoming[nodeId]) return;
-    var currentId = nodeId;
-    while (currentId && itemById[currentId] && !visited[currentId]) {
-      visited[currentId] = true;
-      ordered.push(itemById[currentId]);
-      currentId = outgoing[currentId] || '';
-    }
-  });
-  scenario.items.forEach(function(item) {
-    var nodeId = collectionEnsureItemNodeId(item);
-    if (!visited[nodeId]) {
-      visited[nodeId] = true;
-      ordered.push(item);
-    }
-  });
-  scenario.items = ordered;
-  if (selectedItem) scenario.selectedItemIndex = scenario.items.indexOf(selectedItem);
-  for (var i = 0; i < before.length; i++) {
-    if (before[i] !== scenario.items[i]) return true;
-  }
-  return false;
-}
 
-function collectionGetConnectedSourceId(scenario, item) {
-  if (!scenario || !item) return '';
-  var nodeId = collectionEnsureItemNodeId(item);
-  var incoming = collectionFindIncomingConnection(scenario, nodeId);
-  return incoming ? incoming.fromId : '';
-}
 
-function collectionInputAliasValue(mappingKey) {
-  var scenario = collectionGetActiveScenario();
-  if (!scenario || !scenario.inputAliases) return '';
-  return scenario.inputAliases[mappingKey] || '';
-}
 
-function collectionUpdateInputAlias(mappingKey, value) {
-  var scenario = collectionGetActiveScenario();
-  if (!scenario) return;
-  if (!scenario.inputAliases) scenario.inputAliases = {};
-  var trimmed = String(value || '').trim();
-  if (trimmed) scenario.inputAliases[mappingKey] = trimmed;
-  else delete scenario.inputAliases[mappingKey];
-  collectionLoadPreview();
-}
 
-function collectionInputDisplayName(input) {
-  return input.alias || input.key;
-}
 
-function collectionSetPendingConnection(nodeId) {
-  var scenario = collectionGetActiveScenario();
-  if (!scenario) return;
-  collectionEnsureScenarioConnections(scenario);
-  scenario.pendingConnectionFromId = scenario.pendingConnectionFromId === nodeId ? '' : nodeId;
-  collectionRenderItems();
-}
 
-function collectionConnectNodes(fromId, toId) {
-  var scenario = collectionGetActiveScenario();
-  if (!scenario || !fromId || !toId || fromId === toId) return;
-  var sourceIndex = collectionFindItemIndexByNodeId(scenario, fromId);
-  var targetIndex = collectionFindItemIndexByNodeId(scenario, toId);
-  if (sourceIndex < 0 || targetIndex < 0) return;
-  var connections = collectionEnsureScenarioConnections(scenario);
-  scenario.connections = connections.filter(function(connection) {
-    if (connection.fromId === fromId) return false;
-    if (connection.toId === toId) return false;
-    if (connection.fromId === toId && connection.toId === fromId) return false;
-    return true;
-  });
-  scenario.connections.push({ fromId: fromId, toId: toId });
-  scenario.connectionsTouched = true;
-  scenario.pendingConnectionFromId = '';
-  var selectedItem = scenario.items[targetIndex];
-  collectionRebuildItemsFromConnections(scenario, selectedItem);
-  collectionRenderScenarios();
-  collectionRenderItems();
-  collectionLoadPreview();
-  collectionResetExecution();
-  collectionShowStatus('ok', 'Flecha creada y mappings sugeridos actualizados.');
-}
 
-function collectionRemoveConnection(fromId, toId) {
-  var scenario = collectionGetActiveScenario();
-  if (!scenario) return;
-  collectionEnsureScenarioConnections(scenario);
-  scenario.connections = scenario.connections.filter(function(connection) {
-    return !(connection.fromId === fromId && connection.toId === toId);
-  });
-  scenario.connectionsTouched = true;
-  scenario.pendingConnectionFromId = '';
-  collectionRebuildItemsFromConnections(scenario, collectionGetSelectedItem());
-  collectionRenderScenarios();
-  collectionRenderItems();
-  collectionLoadPreview();
-  collectionResetExecution();
-  collectionShowStatus('ok', 'Flecha removida.');
-}
 
-function collectionCanvasNodeClick(index) {
-  var scenario = collectionGetActiveScenario();
-  if (!scenario || !scenario.items[index]) return;
-  collectionSetSelectedItem(index);
-}
 
-function collectionBuildCanvasLinkText(sourceItem, sourceIndex, targetItem, targetIndex, scenario) {
-  if (!scenario) return 'Flujo';
-  var sourceGroupKey = collectionBuildCanvasGroupKey(sourceItem, sourceIndex);
-  var targetGroupKey = collectionBuildCanvasGroupKey(targetItem, targetIndex);
-  var outputsByKey = {};
-  (scenario.previewOutputs || []).forEach(function(output) {
-    outputsByKey[output.sourceVarKey] = output;
-  });
-  var mappings = (scenario.previewVariables || []).filter(function(input) {
-    if (input.groupKey !== targetGroupKey || !input.mappingKey) return false;
-    var config = collectionInputMappingConfig(input.mappingKey);
-    if (!config || !config.sourceVarKey) return false;
-    var sourceOption = outputsByKey[config.sourceVarKey];
-    return sourceOption && sourceOption.sourceGroupKey === sourceGroupKey;
-  }).map(function(input) {
-    var config = collectionInputMappingConfig(input.mappingKey);
-    var sourceOption = outputsByKey[config.sourceVarKey];
-    return collectionOutputDisplayName(sourceOption) + ' -> ' + collectionInputDisplayName(input);
-  });
-  if (!mappings.length) return 'Flujo';
-  if (mappings.length === 1) return mappings[0];
-  if (mappings.length === 2) return mappings.join(' · ');
-  return mappings[0] + ' · ' + mappings[1] + ' +' + (mappings.length - 2);
-}
 
-function collectionRenderCanvasConnections() {
-  var scenario = collectionGetActiveScenario();
-  var surface = document.getElementById('collection-canvas-surface');
-  var svg = document.getElementById('collection-canvas-svg');
-  if (!scenario || !surface || !svg) return;
-  var connections = collectionEnsureScenarioConnections(scenario);
-  var stageWidth = surface.offsetWidth || 0;
-  var stageHeight = surface.offsetHeight || 0;
-  svg.setAttribute('viewBox', '0 0 ' + stageWidth + ' ' + stageHeight);
-  svg.setAttribute('width', String(stageWidth));
-  svg.setAttribute('height', String(stageHeight));
-  var rows = [
-    '<defs><marker id="collection-canvas-arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L8,3 z" fill="#7c3aed"></path></marker></defs>'
-  ];
-  for (var i = 0; i < connections.length; i++) {
-    var sourceIndex = collectionFindItemIndexByNodeId(scenario, connections[i].fromId);
-    var targetIndex = collectionFindItemIndexByNodeId(scenario, connections[i].toId);
-    if (sourceIndex < 0 || targetIndex < 0) continue;
-    var sourceEl = document.getElementById('collection-canvas-step-' + sourceIndex);
-    var targetEl = document.getElementById('collection-canvas-step-' + targetIndex);
-    if (!sourceEl || !targetEl) continue;
-    var x1 = sourceEl.offsetLeft + (sourceEl.offsetWidth / 2);
-    var y1 = sourceEl.offsetTop + sourceEl.offsetHeight;
-    var x2 = targetEl.offsetLeft + (targetEl.offsetWidth / 2);
-    var y2 = targetEl.offsetTop;
-    var delta = Math.max(42, Math.abs(y2 - y1) / 2);
-    var midX = x1 + ((x2 - x1) / 2);
-    var midY = y1 + ((y2 - y1) / 2);
-    var label = collectionBuildCanvasLinkText(scenario.items[sourceIndex], sourceIndex, scenario.items[targetIndex], targetIndex, scenario);
-    var labelWidth = Math.min(260, Math.max(92, (String(label || '').length * 6.4)));
-    rows.push(
-      '<path class="collection-canvas-link" marker-end="url(#collection-canvas-arrow)" d="M ' + x1 + ' ' + y1 + ' C ' + x1 + ' ' + (y1 + delta) + ', ' + x2 + ' ' + (y2 - delta) + ', ' + x2 + ' ' + y2 + '"></path>' +
-      '<rect class="collection-canvas-link-label-bg" x="' + (midX - (labelWidth / 2)) + '" y="' + (midY - 12) + '" rx="10" ry="10" width="' + labelWidth + '" height="24"></rect>' +
-      '<text class="collection-canvas-link-label" x="' + midX + '" y="' + (midY + 4) + '" text-anchor="middle">' + collectionEscapeHtml(label) + '</text>' +
-      '<g class="collection-canvas-link-remove" onclick="collectionRemoveConnection(' + "'" + collectionEscapeHtml(connections[i].fromId) + "'" + ',' + "'" + collectionEscapeHtml(connections[i].toId) + "'" + ')">' +
-        '<circle cx="' + (midX + (labelWidth / 2) + 10) + '" cy="' + (midY - 1) + '" r="9"></circle>' +
-        '<text x="' + (midX + (labelWidth / 2) + 10) + '" y="' + (midY + 3) + '" text-anchor="middle">×</text>' +
-      '</g>'
-    );
-  }
-  svg.innerHTML = rows.join('');
-}
 
-function collectionUpdateDraggedNode() {
-  if (!collectionCanvasDragState) return;
-  var item = collectionCanvasDragState.item;
-  var index = collectionCanvasDragState.index;
-  var node = document.getElementById('collection-canvas-step-' + index);
-  if (!item || !node || !item.layout) return;
-  node.style.left = item.layout.x + 'px';
-  node.style.top = item.layout.y + 'px';
-  collectionRenderCanvasConnections();
-}
 
-function collectionHandleCanvasDragMove(event) {
-  if (!collectionCanvasDragState) return;
-  var surface = document.getElementById('collection-canvas-surface');
-  if (!surface) return;
-  var rect = surface.getBoundingClientRect();
-  var nodeWidth = collectionCanvasDragState.nodeWidth || 360;
-  var nodeHeight = collectionCanvasDragState.nodeHeight || 118;
-  var nextX = event.clientX - rect.left - collectionCanvasDragState.offsetX;
-  var nextY = event.clientY - rect.top - collectionCanvasDragState.offsetY;
-  var maxX = Math.max(0, surface.offsetWidth - nodeWidth - 8);
-  var maxY = Math.max(0, surface.offsetHeight - nodeHeight - 8);
-  collectionCanvasDragState.item.layout.x = Math.max(8, Math.min(maxX, nextX));
-  collectionCanvasDragState.item.layout.y = Math.max(8, Math.min(maxY, nextY));
-  collectionUpdateDraggedNode();
-}
 
-function collectionHandleCanvasDragEnd() {
-  if (!collectionCanvasDragState) return;
-  collectionCanvasDragState = null;
-  document.removeEventListener('mousemove', collectionHandleCanvasDragMove);
-  document.removeEventListener('mouseup', collectionHandleCanvasDragEnd);
-  collectionRenderCanvasConnections();
-  collectionRenderVariableEditor();
-  collectionResetExecution();
-}
 
-function collectionBuildTemporaryConnectionPath(anchorX, anchorY, pointerX, pointerY, dragEnd) {
-  var horizontalBias = Math.abs(pointerX - anchorX) > Math.abs(pointerY - anchorY);
-  if (horizontalBias) {
-    var midX = anchorX + ((pointerX - anchorX) / 2);
-    if (dragEnd === 'from') {
-      return 'M ' + pointerX + ' ' + pointerY + ' L ' + midX + ' ' + pointerY + ' L ' + midX + ' ' + anchorY + ' L ' + anchorX + ' ' + anchorY;
-    }
-    return 'M ' + anchorX + ' ' + anchorY + ' L ' + midX + ' ' + anchorY + ' L ' + midX + ' ' + pointerY + ' L ' + pointerX + ' ' + pointerY;
-  }
-  var midY = anchorY + ((pointerY - anchorY) / 2);
-  if (dragEnd === 'from') {
-    return 'M ' + pointerX + ' ' + pointerY + ' L ' + pointerX + ' ' + midY + ' L ' + anchorX + ' ' + midY + ' L ' + anchorX + ' ' + anchorY;
-  }
-  return 'M ' + anchorX + ' ' + anchorY + ' L ' + anchorX + ' ' + midY + ' L ' + pointerX + ' ' + midY + ' L ' + pointerX + ' ' + pointerY;
-}
 
-function collectionHandleConnectionDragMove(event) {
-  if (!collectionConnectionDragState) return;
-  var surface = document.getElementById('collection-canvas-surface');
-  if (!surface) return;
-  var rect = surface.getBoundingClientRect();
-  var pointerX = event.clientX - rect.left;
-  var pointerY = event.clientY - rect.top;
-  collectionConnectionDragState.tempPath = collectionBuildTemporaryConnectionPath(
-    collectionConnectionDragState.anchorX,
-    collectionConnectionDragState.anchorY,
-    pointerX,
-    pointerY,
-    collectionConnectionDragState.dragEnd
-  );
-  collectionRenderCanvasConnections();
-}
 
-function collectionHandleConnectionDragEnd(event) {
-  if (!collectionConnectionDragState) return;
-  var scenario = collectionGetActiveScenario();
-  var drag = collectionConnectionDragState;
-  collectionConnectionDragState = null;
-  document.removeEventListener('mousemove', collectionHandleConnectionDragMove);
-  document.removeEventListener('mouseup', collectionHandleConnectionDragEnd);
-  var nodeElement = null;
-  if (event && document.elementsFromPoint) {
-    var stack = document.elementsFromPoint(event.clientX, event.clientY) || [];
-    for (var i = 0; i < stack.length; i++) {
-      if (stack[i] && stack[i].closest) {
-        var candidate = stack[i].closest('.collection-canvas-step');
-        if (candidate) {
-          nodeElement = candidate;
-          break;
-        }
-      }
-    }
-  } else {
-    var targetElement = event && document.elementFromPoint ? document.elementFromPoint(event.clientX, event.clientY) : null;
-    nodeElement = targetElement && targetElement.closest ? targetElement.closest('.collection-canvas-step') : null;
-  }
-  if (scenario && nodeElement && nodeElement.id) {
-    var indexText = nodeElement.id.replace('collection-canvas-step-', '');
-    var nodeIndex = parseInt(indexText, 10);
-    if (!isNaN(nodeIndex) && scenario.items[nodeIndex]) {
-      var targetNodeId = collectionEnsureItemNodeId(scenario.items[nodeIndex]);
-      if (drag.dragEnd === 'from') {
-        collectionConnectNodes(targetNodeId, drag.fixedNodeId);
-      } else {
-        collectionConnectNodes(drag.fixedNodeId, targetNodeId);
-      }
-      return;
-    }
-  }
-  collectionRenderCanvasConnections();
-}
 
-function collectionStartConnectionDrag(fromId, toId, dragEnd, event) {
-  if (!event) return;
-  var scenario = collectionGetActiveScenario();
-  if (!scenario) return;
-  var fromIndex = collectionFindItemIndexByNodeId(scenario, fromId);
-  var toIndex = collectionFindItemIndexByNodeId(scenario, toId);
-  if (fromIndex < 0 || toIndex < 0) return;
-  var fromEl = document.getElementById('collection-canvas-step-' + fromIndex);
-  var toEl = document.getElementById('collection-canvas-step-' + toIndex);
-  if (!fromEl || !toEl) return;
-  var route = collectionBuildOrthogonalCanvasPath(fromEl, toEl);
-  collectionConnectionDragState = {
-    fromId: fromId,
-    toId: toId,
-    dragEnd: dragEnd,
-    fixedNodeId: dragEnd === 'from' ? toId : fromId,
-    anchorX: dragEnd === 'from' ? route.endX : route.startX,
-    anchorY: dragEnd === 'from' ? route.endY : route.startY,
-    tempPath: ''
-  };
-  document.addEventListener('mousemove', collectionHandleConnectionDragMove);
-  document.addEventListener('mouseup', collectionHandleConnectionDragEnd);
-  event.preventDefault();
-  event.stopPropagation();
-}
 
-function collectionStartNewConnectionDrag(nodeId, event) {
-  if (!event) return;
-  var scenario = collectionGetActiveScenario();
-  if (!scenario || !nodeId) return;
-  var index = collectionFindItemIndexByNodeId(scenario, nodeId);
-  if (index < 0) return;
-  var node = document.getElementById('collection-canvas-step-' + index);
-  if (!node) return;
-  collectionSetSelectedItem(index);
-  var anchorX = node.offsetLeft + (node.offsetWidth / 2);
-  var anchorY = node.offsetTop + node.offsetHeight;
-  collectionConnectionDragState = {
-    fromId: nodeId,
-    toId: '',
-    dragEnd: 'to',
-    fixedNodeId: nodeId,
-    anchorX: anchorX,
-    anchorY: anchorY,
-    tempPath: ''
-  };
-  document.addEventListener('mousemove', collectionHandleConnectionDragMove);
-  document.addEventListener('mouseup', collectionHandleConnectionDragEnd);
-  event.preventDefault();
-  event.stopPropagation();
-}
 
-function collectionStartNodeDrag(index, event) {
-  if (!event || event.button !== 0) return;
-  if (event.target && event.target.closest && (event.target.closest('.svc-rm') || event.target.closest('.collection-canvas-node-handle'))) return;
-  var scenario = collectionGetActiveScenario();
-  if (!scenario || !scenario.items[index]) return;
-  var node = document.getElementById('collection-canvas-step-' + index);
-  if (!node) return;
-  var item = scenario.items[index];
-  collectionEnsureItemLayout(item, index);
-  scenario.selectedItemIndex = index;
-  collectionRenderInspector();
-  var rect = node.getBoundingClientRect();
-  collectionCanvasDragState = {
-    index: index,
-    item: item,
-    offsetX: event.clientX - rect.left,
-    offsetY: event.clientY - rect.top,
-    nodeWidth: rect.width,
-    nodeHeight: rect.height
-  };
-  document.addEventListener('mousemove', collectionHandleCanvasDragMove);
-  document.addEventListener('mouseup', collectionHandleCanvasDragEnd);
-  event.preventDefault();
-}
 
-function collectionBuildOrthogonalCanvasPath(sourceEl, targetEl) {
-  var sourceRect = {
-    left: sourceEl.offsetLeft,
-    top: sourceEl.offsetTop,
-    width: sourceEl.offsetWidth,
-    height: sourceEl.offsetHeight
-  };
-  var targetRect = {
-    left: targetEl.offsetLeft,
-    top: targetEl.offsetTop,
-    width: targetEl.offsetWidth,
-    height: targetEl.offsetHeight
-  };
-  var sourceCenterX = sourceRect.left + (sourceRect.width / 2);
-  var sourceCenterY = sourceRect.top + (sourceRect.height / 2);
-  var targetCenterX = targetRect.left + (targetRect.width / 2);
-  var targetCenterY = targetRect.top + (targetRect.height / 2);
-  var horizontalBias = Math.abs(targetCenterX - sourceCenterX) > Math.abs(targetCenterY - sourceCenterY);
 
-  if (horizontalBias) {
-    var startX = targetCenterX >= sourceCenterX ? (sourceRect.left + sourceRect.width) : sourceRect.left;
-    var startY = sourceCenterY;
-    var endX = targetCenterX >= sourceCenterX ? targetRect.left : (targetRect.left + targetRect.width);
-    var endY = targetCenterY;
-    var midX = startX + ((endX - startX) / 2);
-    return {
-      path: 'M ' + startX + ' ' + startY + ' L ' + midX + ' ' + startY + ' L ' + midX + ' ' + endY + ' L ' + endX + ' ' + endY,
-      startX: startX,
-      startY: startY,
-      endX: endX,
-      endY: endY,
-      labelX: midX,
-      labelY: startY + ((endY - startY) / 2)
-    };
-  }
 
-  var startXVertical = sourceCenterX;
-  var startYVertical = targetCenterY >= sourceCenterY ? (sourceRect.top + sourceRect.height) : sourceRect.top;
-  var endXVertical = targetCenterX;
-  var endYVertical = targetCenterY >= sourceCenterY ? targetRect.top : (targetRect.top + targetRect.height);
-  var midY = startYVertical + ((endYVertical - startYVertical) / 2);
-  return {
-    path: 'M ' + startXVertical + ' ' + startYVertical + ' L ' + startXVertical + ' ' + midY + ' L ' + endXVertical + ' ' + midY + ' L ' + endXVertical + ' ' + endYVertical,
-    startX: startXVertical,
-    startY: startYVertical,
-    endX: endXVertical,
-    endY: endYVertical,
-    labelX: startXVertical + ((endXVertical - startXVertical) / 2),
-    labelY: midY
-  };
-}
 
-function collectionBuildCanvasLinkText(sourceItem, sourceIndex, targetItem, targetIndex, scenario) {
-  if (!scenario) return 'Flujo';
-  var sourceGroupKey = collectionBuildCanvasGroupKey(sourceItem, sourceIndex);
-  var targetGroupKey = collectionBuildCanvasGroupKey(targetItem, targetIndex);
-  var outputsByKey = {};
-  (scenario.previewOutputs || []).forEach(function(output) {
-    outputsByKey[output.sourceVarKey] = output;
-  });
-  var mappings = (scenario.previewVariables || []).filter(function(input) {
-    if (input.groupKey !== targetGroupKey || !input.mappingKey) return false;
-    var config = collectionInputMappingConfig(input.mappingKey);
-    if (!config || !config.sourceVarKey) return false;
-    var sourceOption = outputsByKey[config.sourceVarKey];
-    return sourceOption && sourceOption.sourceGroupKey === sourceGroupKey;
-  }).map(function(input) {
-    var config = collectionInputMappingConfig(input.mappingKey);
-    var sourceOption = outputsByKey[config.sourceVarKey];
-    return collectionOutputDisplayName(sourceOption) + ' -> ' + collectionInputDisplayName(input);
-  });
-  if (!mappings.length) return 'Flujo';
-  if (mappings.length === 1) return mappings[0];
-  if (mappings.length === 2) return mappings.join(' | ');
-  return mappings[0] + ' | ' + mappings[1] + ' +' + (mappings.length - 2);
-}
 
-function collectionRenderCanvasConnections() {
-  var scenario = collectionGetActiveScenario();
-  var surface = document.getElementById('collection-canvas-surface');
-  var svg = document.getElementById('collection-canvas-svg');
-  if (!scenario || !surface || !svg) return;
-  var connections = collectionEnsureScenarioConnections(scenario);
-  var stageWidth = surface.offsetWidth || 0;
-  var stageHeight = surface.offsetHeight || 0;
-  svg.setAttribute('viewBox', '0 0 ' + stageWidth + ' ' + stageHeight);
-  svg.setAttribute('width', String(stageWidth));
-  svg.setAttribute('height', String(stageHeight));
-  var rows = [
-    '<defs><marker id="collection-canvas-arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L8,3 z" fill="#7c3aed"></path></marker></defs>'
-  ];
-  for (var i = 0; i < connections.length; i++) {
-    var sourceIndex = collectionFindItemIndexByNodeId(scenario, connections[i].fromId);
-    var targetIndex = collectionFindItemIndexByNodeId(scenario, connections[i].toId);
-    if (sourceIndex < 0 || targetIndex < 0) continue;
-    var sourceEl = document.getElementById('collection-canvas-step-' + sourceIndex);
-    var targetEl = document.getElementById('collection-canvas-step-' + targetIndex);
-    if (!sourceEl || !targetEl) continue;
-    var route = collectionBuildOrthogonalCanvasPath(sourceEl, targetEl);
-    var label = collectionBuildCanvasLinkText(scenario.items[sourceIndex], sourceIndex, scenario.items[targetIndex], targetIndex, scenario);
-    var labelWidth = Math.min(260, Math.max(92, (String(label || '').length * 6.2)));
-    var removeX = route.labelX + (labelWidth / 2) + 12;
-    var removeY = route.labelY;
-    rows.push(
-      '<path class="collection-canvas-link" marker-end="url(#collection-canvas-arrow)" d="' + route.path + '"></path>' +
-      '<circle class="collection-canvas-link-handle" cx="' + route.startX + '" cy="' + route.startY + '" r="6" onmousedown="collectionStartConnectionDrag(' + "'" + collectionEscapeHtml(connections[i].fromId) + "'" + ',' + "'" + collectionEscapeHtml(connections[i].toId) + "'" + ',' + "'" + 'from' + "'" + ', event)"></circle>' +
-      '<circle class="collection-canvas-link-handle" cx="' + route.endX + '" cy="' + route.endY + '" r="6" onmousedown="collectionStartConnectionDrag(' + "'" + collectionEscapeHtml(connections[i].fromId) + "'" + ',' + "'" + collectionEscapeHtml(connections[i].toId) + "'" + ',' + "'" + 'to' + "'" + ', event)"></circle>' +
-      '<rect class="collection-canvas-link-label-bg" x="' + (route.labelX - (labelWidth / 2)) + '" y="' + (route.labelY - 12) + '" rx="10" ry="10" width="' + labelWidth + '" height="24"></rect>' +
-      '<text class="collection-canvas-link-label" x="' + route.labelX + '" y="' + (route.labelY + 4) + '" text-anchor="middle">' + collectionEscapeHtml(label) + '</text>' +
-      '<g class="collection-canvas-link-remove" onclick="collectionRemoveConnection(' + "'" + collectionEscapeHtml(connections[i].fromId) + "'" + ',' + "'" + collectionEscapeHtml(connections[i].toId) + "'" + ')">' +
-        '<circle cx="' + removeX + '" cy="' + removeY + '" r="9"></circle>' +
-        '<text x="' + removeX + '" y="' + (removeY + 3) + '" text-anchor="middle">x</text>' +
-      '</g>'
-    );
-  }
-  if (collectionConnectionDragState && collectionConnectionDragState.tempPath) {
-    rows.push('<path class="collection-canvas-link collection-canvas-link-temp" d="' + collectionConnectionDragState.tempPath + '"></path>');
-  }
-  svg.innerHTML = rows.join('');
-}
 
-function collectionStartNodeDrag(index, event) {
-  if (!event || event.button !== 0) return;
-  if (event.target && event.target.closest && event.target.closest('.svc-rm')) return;
-  var scenario = collectionGetActiveScenario();
-  if (!scenario || !scenario.items[index]) return;
-  var node = document.getElementById('collection-canvas-step-' + index);
-  if (!node) return;
-  var item = scenario.items[index];
-  collectionEnsureItemLayout(item, index);
-  var nodeId = collectionEnsureItemNodeId(item);
-  scenario.selectedItemIndex = index;
-  collectionRenderInspector();
-  var rect = node.getBoundingClientRect();
-  collectionCanvasDragState = {
-    index: index,
-    item: item,
-    offsetX: event.clientX - rect.left,
-    offsetY: event.clientY - rect.top,
-    nodeWidth: rect.width,
-    nodeHeight: rect.height
-  };
-  document.addEventListener('mousemove', collectionHandleCanvasDragMove);
-  document.addEventListener('mouseup', collectionHandleCanvasDragEnd);
-  event.preventDefault();
-}
 
-function collectionAddScenario() {
-  var scenario = collectionCreateScenario();
-  collectionState.scenarios.push(scenario);
-  collectionState.activeScenarioId = scenario.id;
-  collectionRenderScenarios();
-  collectionRenderItems();
-  collectionRenderVariableEditor();
-  collectionResetResult();
-  collectionResetExecution();
-}
 
-function collectionRenameScenario(id, value) {
-  for (var i = 0; i < collectionState.scenarios.length; i++) {
-    if (collectionState.scenarios[i].id === id) {
-      collectionState.scenarios[i].name = value || ('Caso de uso ' + (i + 1));
-      break;
-    }
-  }
-  collectionRenderScenarios();
-}
-
-function collectionRemoveScenario(id) {
-  if (collectionState.scenarios.length <= 1) return;
-  collectionState.scenarios = collectionState.scenarios.filter(function(scenario) {
-    return scenario.id !== id;
-  });
-  if (!collectionState.scenarios.length) {
-    collectionEnsureScenario();
-  }
-  if (!collectionGetActiveScenario()) {
-    collectionState.activeScenarioId = collectionState.scenarios[0].id;
-  }
-  collectionRenderScenarios();
-  collectionRenderItems();
-  collectionRenderVariableEditor();
-  collectionResetResult();
-  collectionResetExecution();
-}
-
-function collectionRenderScenarios() {
-  var container = document.getElementById('collection-scenarios');
-  collectionEnsureScenario();
-  var active = collectionGetActiveScenario();
-  var scenarioNameInput = document.getElementById('collection-scenario-name');
-  if (scenarioNameInput && active && scenarioNameInput !== document.activeElement) {
-    scenarioNameInput.value = active.name || '';
-  }
-  if (!container) return;
-  container.innerHTML = collectionState.scenarios.map(function(scenario, index) {
-    var activeClass = active && active.id === scenario.id ? ' collection-scenario-card-active' : '';
-    var disabledRemove = collectionState.scenarios.length <= 1 ? ' disabled' : '';
-    return '<div class="collection-scenario-card' + activeClass + '">' +
-      '<button type="button" class="collection-scenario-select" onclick="collectionSetActiveScenario(' + "'" + scenario.id + "'" + ')">' +
-        '<span class="collection-scenario-kicker">Caso ' + (index + 1) + '</span>' +
-        '<span class="collection-scenario-title">' + collectionEscapeHtml(scenario.name) + '</span>' +
-        '<span class="collection-scenario-meta">' + (scenario.items || []).length + ' metodo(s)</span>' +
-      '</button>' +
-      '<div class="collection-scenario-actions">' +
-        '<input class="collection-scenario-input" type="text" value="' + collectionEscapeHtml(scenario.name) + '" oninput="collectionRenameScenario(' + "'" + scenario.id + "'" + ', this.value)" placeholder="Nombre del caso de uso">' +
-        '<button type="button" class="svc-rm" onclick="collectionRemoveScenario(' + "'" + scenario.id + "'" + ')"' + disabledRemove + '>&#10005;</button>' +
-      '</div>' +
-    '</div>';
-  }).join('');
-}
 
 function collectionEscapeHtml(value) {
   return String(value == null ? '' : value)
@@ -1758,7 +972,7 @@ function collectionRenderFlowConnections() {
     rows.push(
       '<path class="collection-flow-link' + manualClass + '" d="M ' + x1 + ' ' + y1 + ' C ' + (x1 + delta) + ' ' + y1 + ', ' + (x2 - delta) + ' ' + y2 + ', ' + x2 + ' ' + y2 + '"></path>' +
       '<rect class="collection-flow-link-label-bg" x="' + (midX - 56) + '" y="' + (midY - 11) + '" rx="8" ry="8" width="112" height="22"></rect>' +
-      '<text class="collection-flow-link-label" x="' + midX + '" y="' + (midY + 4) + '" text-anchor="middle">' + collectionEscapeHtml(collectionOutputDisplayName(option || { sourceVarKey: sourceVarKey })) + ' → ' + collectionEscapeHtml(input.key) + '</text>'
+      '<text class="collection-flow-link-label" x="' + midX + '" y="' + (midY + 4) + '" text-anchor="middle">' + collectionEscapeHtml(collectionOutputDisplayName(option || { sourceVarKey: sourceVarKey })) + ' â†’ ' + collectionEscapeHtml(input.key) + '</text>'
     );
   });
   svg.innerHTML = rows.join('');
@@ -1957,82 +1171,9 @@ function collectionFindOperationByKey(service, operationKey) {
   return null;
 }
 
-function collectionInsertOperation(service, operationKey, insertIndex) {
-  var scenario = collectionGetActiveScenario();
-  var selectedOperation = collectionFindOperationByKey(service, operationKey);
-  if (!scenario || !selectedOperation) return;
-  collectionEnsureScenarioConnections(scenario);
-  var method = selectedOperation.methodName;
-  var operationKind = String(selectedOperation.httpMethod || '').toLowerCase() === 'get' ? 'query' : 'action';
-  var safeIndex = typeof insertIndex === 'number' && insertIndex >= 0 ? insertIndex : scenario.items.length;
-  if (safeIndex > scenario.items.length) safeIndex = scenario.items.length;
-  var previousItem = safeIndex > 0 ? scenario.items[safeIndex - 1] : null;
-  var nextItem = safeIndex < scenario.items.length ? scenario.items[safeIndex] : null;
-  var exists = scenario.items.some(function(item) {
-    return item.service === service && item.method === method;
-  });
-  if (exists) return;
-  var newItem = {
-    service: service,
-    method: method,
-    operationKind: operationKind,
-    httpMethod: selectedOperation.httpMethod,
-    path: selectedOperation.path,
-    summary: selectedOperation.summary || '',
-    operationKey: selectedOperation.operationKey,
-    manualInputs: selectedOperation.manualInputs || [],
-    inputOverrides: {},
-    bodyTemplate: selectedOperation.bodyTemplate || null,
-    outputFields: selectedOperation.outputFields || [],
-    layout: collectionDefaultNodeLayout(safeIndex)
-  };
-  collectionEnsureItemNodeId(newItem);
-  scenario.items.splice(safeIndex, 0, newItem);
-  if (previousItem) {
-    var previousId = collectionEnsureItemNodeId(previousItem);
-    var nextId = nextItem ? collectionEnsureItemNodeId(nextItem) : '';
-  scenario.connections = scenario.connections.filter(function(connection) {
-    return !(nextId && connection.fromId === previousId && connection.toId === nextId);
-  });
-  scenario.connections.push({ fromId: previousId, toId: newItem.nodeId });
-    if (nextId) {
-      scenario.connections.push({ fromId: newItem.nodeId, toId: nextId });
-    }
-  } else if (nextItem) {
-    scenario.connections.push({ fromId: newItem.nodeId, toId: collectionEnsureItemNodeId(nextItem) });
-  }
-  if (scenario.connections.length) scenario.connectionsTouched = true;
-  for (var i = 0; i < scenario.items.length; i++) {
-    collectionEnsureItemLayout(scenario.items[i], i);
-  }
-  scenario.selectedItemIndex = safeIndex;
-  collectionRenderScenarios();
-  collectionRenderItems();
-  collectionLoadPreview();
-  collectionResetResult();
-  collectionResetExecution();
-}
 
-function collectionDragOperation(service, operationKey, event) {
-  if (!event || !event.dataTransfer) return;
-  event.dataTransfer.setData('text/plain', JSON.stringify({ service: service, operationKey: operationKey }));
-  event.dataTransfer.effectAllowed = 'copy';
-}
 
-function collectionAllowCanvasDrop(event) {
-  if (event) event.preventDefault();
-}
 
-function collectionDropOperation(insertIndex, event) {
-  if (!event) return;
-  event.preventDefault();
-  try {
-    var payload = JSON.parse(event.dataTransfer.getData('text/plain') || '{}');
-    if (payload.service && payload.operationKey) {
-      collectionInsertOperation(payload.service, payload.operationKey, insertIndex);
-    }
-  } catch (e) {}
-}
 
 function collectionInferOperationKind(method) {
   var name = String(method || '').toLowerCase();
@@ -3107,6 +2248,17 @@ collectionUpdateSwaggerUrl = function collectionUpdateSwaggerUrlAdapter(value) {
   collectionGetEnvironmentManager().updateSwaggerUrl(value);
 };
 
+collectionUpdateServiceSource = function collectionUpdateServiceSourceAdapter(value) {
+  // El origen del catalogo vive en el manager de ambiente para mantener la UI y la carga alineadas.
+  collectionGetEnvironmentManager().updateServiceSource(value);
+};
+
+collectionUpdateFormat = function collectionUpdateFormatAdapter(value) {
+  // Formato (XML/JSON) solo elegible para V3; vive en el manager de ambiente
+  // junto al resto de la sincronizacion de UI de "Cargar servicios".
+  collectionGetEnvironmentManager().updateFormat(value);
+};
+
 collectionTestDb = async function collectionTestDbAdapter() {
   // La prueba de base ahora entra por la capa de ambiente y servicios.
   return collectionGetEnvironmentManager().testDb();
@@ -3162,6 +2314,105 @@ collectionGuessSwaggerUrl = function collectionGuessSwaggerUrlAdapter(api) {
   return collectionUtils.guessSwaggerUrl(api);
 };
 
+collectionUpdateName = function collectionUpdateNameAdapter(value) {
+  // El nombre exportado de la collection pasa por el lifecycle manager del flujo.
+  collectionGetFlowLifecycleManager().updateCollectionName(value);
+};
+
+collectionRenameActiveScenario = function collectionRenameActiveScenarioAdapter(value) {
+  // Renombrar el caso activo ahora queda encapsulado fuera del coordinador principal.
+  collectionGetFlowLifecycleManager().renameActiveScenario(value);
+};
+
+collectionGetSelectedItemIndex = function collectionGetSelectedItemIndexAdapter() {
+  // La seleccion valida del paso activo se resuelve desde el manager de ciclo de vida.
+  return collectionGetFlowLifecycleManager().getSelectedItemIndex();
+};
+
+collectionGetSelectedItem = function collectionGetSelectedItemAdapter() {
+  // El paso activo ya no se calcula manualmente en el bootstrap.
+  return collectionGetFlowLifecycleManager().getSelectedItem();
+};
+
+collectionSetSelectedItem = function collectionSetSelectedItemAdapter(index) {
+  // Centralizamos el cambio de paso activo para refrescar siempre las mismas vistas.
+  collectionGetFlowLifecycleManager().setSelectedItem(index);
+};
+
+collectionSetActiveScenario = function collectionSetActiveScenarioAdapter(id) {
+  // El cambio de escenario activo ahora sigue un ciclo de refresco consistente.
+  collectionGetFlowLifecycleManager().setActiveScenario(id);
+};
+
+collectionBuildCanvasGroupKey = function collectionBuildCanvasGroupKeyAdapter(item, index) {
+  // La clave grupal del canvas se mantiene en el manager del flujo.
+  return collectionGetFlowLifecycleManager().buildCanvasGroupKey(item, index);
+};
+
+collectionFindItemIndexByNodeId = function collectionFindItemIndexByNodeIdAdapter(scenario, nodeId) {
+  // Resolver nodos a indices queda centralizado para canvas y conexiones.
+  return collectionGetFlowLifecycleManager().findItemIndexByNodeId(scenario, nodeId);
+};
+
+collectionFindOutgoingConnection = function collectionFindOutgoingConnectionAdapter(scenario, fromId) {
+  // La busqueda de conexiones salientes se concentra en el lifecycle manager.
+  return collectionGetFlowLifecycleManager().findOutgoingConnection(scenario, fromId);
+};
+
+collectionFindIncomingConnection = function collectionFindIncomingConnectionAdapter(scenario, toId) {
+  // La busqueda de conexiones entrantes se concentra en el lifecycle manager.
+  return collectionGetFlowLifecycleManager().findIncomingConnection(scenario, toId);
+};
+
+collectionRebuildItemsFromConnections = function collectionRebuildItemsFromConnectionsAdapter(scenario, selectedItem) {
+  // El reordenamiento del flujo segun flechas ya no vive directamente en collections.js.
+  return collectionGetFlowLifecycleManager().rebuildItemsFromConnections(scenario, selectedItem);
+};
+
+collectionGetConnectedSourceId = function collectionGetConnectedSourceIdAdapter(scenario, item) {
+  // Obtener el origen conectado de un paso se delega al manager del flujo.
+  return collectionGetFlowLifecycleManager().getConnectedSourceId(scenario, item);
+};
+
+collectionInputAliasValue = function collectionInputAliasValueAdapter(mappingKey) {
+  // Los aliases funcionales de inputs quedan gobernados por el lifecycle manager.
+  return collectionGetFlowLifecycleManager().inputAliasValue(mappingKey);
+};
+
+collectionUpdateInputAlias = function collectionUpdateInputAliasAdapter(mappingKey, value) {
+  // Actualizar aliases funcionales ahora dispara preview desde el manager del flujo.
+  collectionGetFlowLifecycleManager().updateInputAlias(mappingKey, value);
+};
+
+collectionInputDisplayName = function collectionInputDisplayNameAdapter(input) {
+  // El label visible del input se calcula en el manager que conoce aliases.
+  return collectionGetFlowLifecycleManager().inputDisplayName(input);
+};
+
+collectionInputMetaLabel = function collectionInputMetaLabelAdapter(input) {
+  return collectionGetFlowLifecycleManager().inputMetaLabel(input);
+};
+
+collectionSetPendingConnection = function collectionSetPendingConnectionAdapter(nodeId) {
+  // El nodo origen pendiente de una flecha se mantiene fuera del bootstrap.
+  collectionGetFlowLifecycleManager().setPendingConnection(nodeId);
+};
+
+collectionInsertOperation = async function collectionInsertOperationAdapter(service, operationKey, insertIndex) {
+  // El alta de pasos en el flujo queda centralizada en el lifecycle manager.
+  return collectionGetFlowLifecycleManager().insertOperation(service, operationKey, insertIndex);
+};
+
+collectionClearItemState = function collectionClearItemStateAdapter(scenario, item) {
+  // Limpiar mappings y conexiones de un paso queda encapsulado en el manager del flujo.
+  collectionGetFlowLifecycleManager().clearItemState(scenario, item);
+};
+
+collectionRemoveItem = function collectionRemoveItemAdapter(index) {
+  // La baja de pasos ahora usa un ciclo unico de limpieza y refresco.
+  collectionGetFlowLifecycleManager().removeItem(index);
+};
+
 collectionResetExecution = function collectionResetExecutionAdapter() {
   collectionGetExecutionCenter().reset();
 };
@@ -3200,6 +2451,101 @@ collectionRenderExecutionLoading = function collectionRenderExecutionLoadingAdap
 
 collectionRenderExecutionResult = function collectionRenderExecutionResultAdapter(data) {
   collectionGetExecutionCenter().renderResult(data);
+};
+
+collectionCloseExecutionMode = function collectionCloseExecutionModeAdapter() {
+  collectionGetExecutionCenter().close();
+};
+
+// Vuelve del canvas a la pantalla de Fuente/Ruta Swagger sin tocar nada del
+// escenario ya armado (servicios, casos de uso, mappings): solo cambia que
+// bloque de collection-config/collection-services esta visible (ver
+// CollectionStudioManager.renderStage()).
+collectionBackToSetup = function collectionBackToSetupAdapter() {
+  collectionGetStudioManager().setStage('setup');
+};
+
+collectionSelectExecutionStep = function collectionSelectExecutionStepAdapter(stepId) {
+  collectionGetExecutionCenter().selectStep(stepId);
+};
+
+collectionSetExecutionTab = function collectionSetExecutionTabAdapter(tabKey) {
+  collectionGetExecutionCenter().setTab(tabKey);
+};
+
+collectionRerunExecutionFlow = async function collectionRerunExecutionFlowAdapter() {
+  return collectionGetExecutionCenter().rerunFlow();
+};
+
+collectionRerunExecutionFromSelectedStep = async function collectionRerunExecutionFromSelectedStepAdapter() {
+  return collectionGetExecutionCenter().rerunFromSelectedStep();
+};
+
+collectionExportExecutionRun = function collectionExportExecutionRunAdapter() {
+  collectionGetExecutionCenter().exportRun();
+};
+
+collectionHandleExecutionNodeAction = async function collectionHandleExecutionNodeActionAdapter(actionKey, stepId) {
+  return collectionGetExecutionCenter().handleNodeAction(actionKey, stepId);
+};
+
+collectionZoomInExecutionFlow = function collectionZoomInExecutionFlowAdapter() {
+  collectionGetExecutionCenter().zoomIn();
+};
+
+collectionZoomOutExecutionFlow = function collectionZoomOutExecutionFlowAdapter() {
+  collectionGetExecutionCenter().zoomOut();
+};
+
+// Zoom del canvas de construccion del flujo (no confundir con los de arriba,
+// que son del panel de Ejecucion) — mismo patron, instancia separada.
+collectionZoomInCanvas = function collectionZoomInCanvasAdapter() {
+  collectionGetCanvasManager().zoomIn();
+};
+
+collectionZoomOutCanvas = function collectionZoomOutCanvasAdapter() {
+  collectionGetCanvasManager().zoomOut();
+};
+
+collectionToggleCanvasCompact = function collectionToggleCanvasCompactAdapter() {
+  collectionGetCanvasManager().toggleCompactNodes();
+};
+
+collectionToggleExecutionTimeline = function collectionToggleExecutionTimelineAdapter() {
+  collectionGetExecutionCenter().toggleTimelineOpen();
+};
+
+collectionCloseExecutionTimeline = function collectionCloseExecutionTimelineAdapter() {
+  collectionGetExecutionCenter().closeTimelineOpen();
+};
+
+collectionToggleExecutionFlowExpanded = function collectionToggleExecutionFlowExpandedAdapter() {
+  collectionGetExecutionCenter().toggleFlowExpanded();
+};
+
+collectionStartExecPanelResize = function collectionStartExecPanelResizeAdapter(event) {
+  collectionGetExecutionCenter().startPanelResize(event);
+};
+
+collectionCancelExecutionRun = function collectionCancelExecutionRunAdapter() {
+  collectionGetExecutionCenter().cancelExecution();
+};
+
+collectionCopyExecutionCodeSource = function collectionCopyExecutionCodeSourceAdapter(buttonEl) {
+  var wrap = buttonEl && buttonEl.parentElement;
+  var source = wrap ? wrap.querySelector('.collection-exec-code-source') : null;
+  if (!source || !navigator.clipboard) return;
+
+  navigator.clipboard.writeText(source.value).then(function showCopied() {
+    var originalLabel = buttonEl.textContent;
+    buttonEl.textContent = 'Copiado';
+    setTimeout(function restoreLabel() { buttonEl.textContent = originalLabel; }, 1500);
+  }).catch(function ignoreCopyError() {});
+};
+
+collectionRenderResult = function collectionRenderResultAdapter(data) {
+  // El resumen final de generacion queda en un manager visual chico y reutilizable.
+  collectionGetResultManager().renderResult(data);
 };
 
 collectionExecuteFlow = async function collectionExecuteFlowAdapter() {
@@ -3289,6 +2635,14 @@ collectionRemoveConnection = function collectionRemoveConnectionAdapter(fromId, 
 collectionAllowCanvasDrop = function collectionAllowCanvasDropAdapter(event) {
   // El canvas acepta drops a traves del modulo especializado.
   collectionGetCanvasInteractionManager().allowCanvasDrop(event);
+};
+
+collectionCanvasDragEnter = function collectionCanvasDragEnterAdapter(event) {
+  collectionGetCanvasInteractionManager().dragEnterCanvas(event);
+};
+
+collectionCanvasDragLeave = function collectionCanvasDragLeaveAdapter(event) {
+  collectionGetCanvasInteractionManager().dragLeaveCanvas(event);
 };
 
 collectionDropOperation = function collectionDropOperationAdapter(insertIndex, event) {
@@ -3414,6 +2768,11 @@ collectionLoadPreview = async function collectionLoadPreviewAdapter() {
   return collectionGetPreviewManager().loadPreview();
 };
 
+collectionFillData = async function collectionFillDataAdapter() {
+  return collectionGetRequestDataManager().fillData();
+};
+
+
 collectionFilterServices = function collectionFilterServicesAdapter() {
   collectionGetServiceCatalogManager().filterServices();
 };
@@ -3454,7 +2813,7 @@ collectionGenerate = async function collectionGenerateAdapter() {
     button.innerHTML = '<span class="spin"></span>&nbsp;Generando...';
   }
 
-  collectionShowStatus('ok', 'Generando collection Postman JSON...');
+  collectionShowStatus('ok', 'Generando collection Postman (' + String(collectionState.format || 'json').toUpperCase() + ')...');
   collectionResetResult();
 
   try {
@@ -3476,6 +2835,7 @@ collectionGenerate = async function collectionGenerateAdapter() {
           items: scenario.items,
           variableOverrides: scenario.variableOverrides,
           inputMappings: scenario.inputMappings,
+          inputAliases: scenario.inputAliases,
           outputAliases: scenario.outputAliases,
           repeatableOverrides: scenario.repeatableOverrides
         };
@@ -3506,3 +2866,150 @@ if (document.readyState === 'loading') {
 } else {
   collectionMountPanel();
 }
+
+
+
+
+
+
+
+
+
+
+
+collectionOpenServiceDrawer = function collectionOpenServiceDrawerAdapter() {
+  collectionGetChainSuggestionManager().close();
+  collectionGetBuilderShellManager().openServiceDrawer();
+};
+
+collectionOpenServiceDrawerForNextStep = function collectionOpenServiceDrawerForNextStepAdapter() {
+  collectionGetBuilderShellManager().openServiceDrawerForNextStep();
+};
+
+collectionCloseServiceDrawer = function collectionCloseServiceDrawerAdapter() {
+  collectionGetBuilderShellManager().closeServiceDrawer();
+};
+
+collectionCloseInspectorDrawer = function collectionCloseInspectorDrawerAdapter() {
+  collectionGetBuilderShellManager().closeInspector();
+};
+
+collectionHandleBuilderBackdropClick = function collectionHandleBuilderBackdropClickAdapter() {
+  collectionGetBuilderShellManager().handleBackdropClick();
+  collectionGetChainSuggestionManager().close();
+};
+
+collectionToggleCatalogSelection = function collectionToggleCatalogSelectionAdapter(service, operationKey, checked) {
+  collectionGetBuilderShellManager().toggleCatalogSelection(service, operationKey, checked);
+};
+
+collectionInsertCatalogOperation = async function collectionInsertCatalogOperationAdapter(service, operationKey) {
+  return collectionGetBuilderShellManager().insertCatalogOperation(service, operationKey);
+};
+
+collectionAddSelectedCatalogOperations = async function collectionAddSelectedCatalogOperationsAdapter() {
+  return collectionGetBuilderShellManager().addSelectedOperations();
+};
+
+collectionSyncBuilderShellState = function collectionSyncBuilderShellStateAdapter() {
+  collectionGetBuilderShellManager().syncShellState();
+};
+
+collectionToggleServiceGroup = function collectionToggleServiceGroupAdapter(service) {
+  collectionGetBuilderShellManager().toggleServiceGroup(service);
+};
+
+collectionSetInspectorTab = function collectionSetInspectorTabAdapter(tab) {
+  collectionGetBuilderShellManager().setInspectorTab(tab);
+};
+
+collectionToggleInspectorInput = function collectionToggleInspectorInputAdapter(mappingKey) {
+  collectionGetBuilderShellManager().toggleInspectorInput(mappingKey);
+};
+
+collectionToggleInspectorInputGroup = function collectionToggleInspectorInputGroupAdapter(groupKey) {
+  // Grupo visual de entradas (campos de un mismo SDT/coleccion) — ver
+  // renderInputsTab en collection-inspector-manager.js.
+  collectionGetBuilderShellManager().toggleInspectorInputGroup(groupKey);
+};
+
+collectionToggleInspectorOutput = function collectionToggleInspectorOutputAdapter(sourceVarKey) {
+  collectionGetBuilderShellManager().toggleInspectorOutput(sourceVarKey);
+};
+
+collectionSetOutputSearchTerm = function collectionSetOutputSearchTermAdapter(scopeKey, value) {
+  collectionGetBuilderShellManager().setOutputSearchTerm(scopeKey, value);
+};
+
+collectionToggleSourcePicker = function collectionToggleSourcePickerAdapter(mappingKey) {
+  collectionGetBuilderShellManager().toggleSourcePicker(mappingKey);
+};
+
+collectionToggleSourceGroup = function collectionToggleSourceGroupAdapter(mappingKey, groupLabel) {
+  collectionGetBuilderShellManager().toggleSourceGroup(mappingKey, groupLabel);
+};
+
+collectionSelectInputSource = function collectionSelectInputSourceAdapter(mappingKey, value) {
+  collectionGetBuilderShellManager().closeSourcePicker();
+  collectionUpdateInputMapping(mappingKey, value);
+};
+
+collectionTriggerImportCollection = function collectionTriggerImportCollectionAdapter() {
+  collectionGetImportManager().triggerFileDialog();
+};
+
+collectionImportCollectionFile = function collectionImportCollectionFileAdapter(file) {
+  collectionGetImportManager().handleFileSelected(file);
+};
+
+collectionOpenChainSuggestionDrawer = function collectionOpenChainSuggestionDrawerAdapter() {
+  collectionGetChainSuggestionManager().open();
+};
+
+collectionCloseChainSuggestionDrawer = function collectionCloseChainSuggestionDrawerAdapter() {
+  collectionGetChainSuggestionManager().close();
+};
+
+collectionSetSuggestStartMethod = function collectionSetSuggestStartMethodAdapter(value) {
+  collectionGetChainSuggestionManager().setStartMethod(value);
+};
+
+collectionSetSuggestScope = function collectionSetSuggestScopeAdapter(scope) {
+  collectionGetChainSuggestionManager().setScope(scope);
+};
+
+collectionRunChainSuggestionSearch = function collectionRunChainSuggestionSearchAdapter() {
+  return collectionGetChainSuggestionManager().search();
+};
+
+collectionToggleChainSuggestion = function collectionToggleChainSuggestionAdapter(index) {
+  collectionGetChainSuggestionManager().toggleExpand(index);
+};
+
+collectionConfirmChainSuggestion = function collectionConfirmChainSuggestionAdapter(index) {
+  return collectionGetChainSuggestionManager().confirmInsert(index);
+};
+
+collectionCopyExecutionUrl = function collectionCopyExecutionUrlAdapter(button) {
+  var urlElement = document.getElementById('collection-step-url-preview');
+  var url = urlElement ? urlElement.textContent : '';
+  if (!url || !navigator.clipboard) return;
+
+  navigator.clipboard.writeText(url).then(function showCopied() {
+    if (!button) return;
+    var originalLabel = button.textContent;
+    button.textContent = 'Copiado';
+    setTimeout(function restoreLabel() { button.textContent = originalLabel; }, 1500);
+  }).catch(function ignoreCopyError() {});
+};
+
+collectionClearCatalogSelection = function collectionClearCatalogSelectionAdapter() {
+  collectionGetBuilderShellManager().clearCatalogSelection();
+  collectionGetServiceCatalogManager().renderServiceCatalog();
+};
+
+collectionClearServiceSearch = function collectionClearServiceSearchAdapter() {
+  var searchInput = document.getElementById('collection-service-search');
+  if (searchInput) searchInput.value = '';
+  collectionGetServiceCatalogManager().renderServiceCatalog();
+};

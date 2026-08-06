@@ -23,3 +23,6 @@ npm-debug.log*
 
 # Cache de errores documentados
 error-docs/output/cache/
+
+scripts/generar-collections/output/
+db_history.json

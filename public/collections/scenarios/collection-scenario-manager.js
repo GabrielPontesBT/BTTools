@@ -67,7 +67,7 @@
     }
 
     /**
-     * Renderiza las tarjetas de casos de uso en la parte superior.
+     * Renderiza la lista compacta de casos de uso dentro del popover.
      */
     renderScenarios() {
       var container = document.getElementById('collection-scenarios');
@@ -76,27 +76,28 @@
       var state = this.options.getState();
       var activeScenario = this.options.getActiveScenario();
       var scenarioNameInput = document.getElementById('collection-scenario-name');
+      var countBadge = document.getElementById('collection-scenario-count-badge');
 
       if (scenarioNameInput && activeScenario && scenarioNameInput !== document.activeElement) {
         scenarioNameInput.value = activeScenario.name || '';
       }
 
+      if (countBadge) {
+        countBadge.textContent = state.scenarios.length;
+      }
+
       if (!container) return;
 
-      container.innerHTML = state.scenarios.map(function renderScenarioCard(scenario, index) {
-        var activeClass = activeScenario && activeScenario.id === scenario.id ? ' collection-scenario-card-active' : '';
+      container.innerHTML = state.scenarios.map(function renderScenarioRow(scenario) {
+        var activeClass = activeScenario && activeScenario.id === scenario.id ? ' collection-scenario-row-active' : '';
         var disabledRemove = state.scenarios.length <= 1 ? ' disabled' : '';
 
-        return '<div class="collection-scenario-card' + activeClass + '">' +
-          '<button type="button" class="collection-scenario-select" onclick="collectionSetActiveScenario(' + "'" + scenario.id + "'" + ')">' +
-            '<span class="collection-scenario-kicker">Caso ' + (index + 1) + '</span>' +
-            '<span class="collection-scenario-title">' + this.options.escapeHtml(scenario.name) + '</span>' +
-            '<span class="collection-scenario-meta">' + (scenario.items || []).length + ' metodo(s)</span>' +
+        return '<div class="collection-scenario-row' + activeClass + '">' +
+          '<button type="button" class="collection-scenario-row-select" onclick="collectionSetActiveScenario(' + "'" + scenario.id + "'" + ')">' +
+            '<span class="collection-scenario-row-name">' + this.options.escapeHtml(scenario.name) + '</span>' +
+            '<span class="collection-scenario-row-count">' + (scenario.items || []).length + '</span>' +
           '</button>' +
-          '<div class="collection-scenario-actions">' +
-            '<input class="collection-scenario-input" type="text" value="' + this.options.escapeHtml(scenario.name) + '" oninput="collectionRenameScenario(' + "'" + scenario.id + "'" + ', this.value)" placeholder="Nombre del caso de uso">' +
-            '<button type="button" class="svc-rm" onclick="collectionRemoveScenario(' + "'" + scenario.id + "'" + ')"' + disabledRemove + '>&#10005;</button>' +
-          '</div>' +
+          '<button type="button" class="collection-scenario-row-remove" onclick="collectionRemoveScenario(' + "'" + scenario.id + "'" + ')"' + disabledRemove + ' title="Eliminar caso de uso">&times;</button>' +
         '</div>';
       }, this).join('');
     }

@@ -1,9 +1,21 @@
-(function bootstrapCollectionCanvasManager(global) {
+﻿(function bootstrapCollectionCanvasManager(global) {
   'use strict';
 
+  var GENERIC_DESCRIPTIONS = ['', 'enter a description', 'sin descripcion', 'sin descripcion.', 'sin descripción'];
+
   /**
-   * Encapsula toda la construcción visual del canvas de cadenas.
-   * Este módulo no decide reglas de negocio profundas: se apoya en callbacks
+   * Filtra descripciones vacias o placeholders tecnicos (ej. "Enter a description")
+   * para no mostrarlas tal cual en la tarjeta del nodo.
+   */
+  function describeCanvasItem(item) {
+    var raw = String((item && (item.summary || item.path)) || '').trim();
+    if (!raw || GENERIC_DESCRIPTIONS.indexOf(raw.toLowerCase()) >= 0) return '';
+    return raw;
+  }
+
+  /**
+   * Encapsula toda la construcciÃ³n visual del canvas de cadenas.
+   * Este mÃ³dulo no decide reglas de negocio profundas: se apoya en callbacks
    * del builder principal para leer estado, mappings y acciones.
    */
   class CollectionCanvasManager {
@@ -16,7 +28,7 @@
 
     /**
      * Construye el texto que aparece sobre una flecha del canvas.
-     * Resume qué outputs del paso origen están siendo usados por el paso destino.
+     * Resume quÃ© outputs del paso origen estÃ¡n siendo usados por el paso destino.
      */
     buildCanvasLinkText(sourceItem, sourceIndex, targetItem, targetIndex, scenario) {
       if (!scenario) return 'Flujo';
@@ -25,7 +37,7 @@
       var targetGroupKey = this.options.buildCanvasGroupKey(targetItem, targetIndex);
       var outputsByKey = {};
 
-      // Se indexan las salidas por su clave técnica para poder resolver mappings rápido.
+      // Se indexan las salidas por su clave tÃ©cnica para poder resolver mappings rÃ¡pido.
       (scenario.previewOutputs || []).forEach(function indexOutput(output) {
         outputsByKey[output.sourceVarKey] = output;
       });
@@ -52,7 +64,7 @@
 
     /**
      * Calcula una ruta ortogonal simple entre dos nodos del canvas.
-     * Esto mantiene las flechas prolijas y más cercanas a un diagrama tipo MER.
+     * Esto mantiene las flechas prolijas y mÃ¡s cercanas a un diagrama tipo MER.
      */
     buildOrthogonalCanvasPath(sourceElement, targetElement) {
       var sourceRect = {
@@ -73,7 +85,7 @@
       var targetCenterX = targetRect.left + (targetRect.width / 2);
       var targetCenterY = targetRect.top + (targetRect.height / 2);
 
-      // Se compara el desvío horizontal contra el vertical para elegir la mejor forma.
+      // Se compara el desvÃ­o horizontal contra el vertical para elegir la mejor forma.
       var horizontalBias = Math.abs(targetCenterX - sourceCenterX) > Math.abs(targetCenterY - sourceCenterY);
 
       if (horizontalBias) {
@@ -113,7 +125,7 @@
 
     /**
      * Renderiza todas las flechas del canvas dentro del SVG superpuesto.
-     * También agrega los handles de edición y el ícono para borrar enlaces.
+     * TambiÃ©n agrega los handles de ediciÃ³n y el Ã­cono para borrar enlaces.
      */
     renderCanvasConnections() {
       var scenario = this.options.getActiveScenario();
@@ -125,13 +137,15 @@
       var stageWidth = surface.offsetWidth || 0;
       var stageHeight = surface.offsetHeight || 0;
 
-      // El SVG toma exactamente el tamaño del área renderizada del canvas.
+      // El SVG toma exactamente el tamaÃ±o del Ã¡rea renderizada del canvas.
       svg.setAttribute('viewBox', '0 0 ' + stageWidth + ' ' + stageHeight);
       svg.setAttribute('width', String(stageWidth));
       svg.setAttribute('height', String(stageHeight));
 
       var rows = [
-        '<defs><marker id="collection-canvas-arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L8,3 z" fill="#7c3aed"></path></marker></defs>'
+        // Flecha de conexion: usa el rojo de marca (var(--red)), no un violeta
+        // suelto — el resto del canvas (handles, badges) ya usa ese mismo rojo.
+        '<defs><marker id="collection-canvas-arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L8,3 z" fill="var(--red)"></path></marker></defs>'
       ];
 
       for (var i = 0; i < connections.length; i++) {
@@ -168,7 +182,7 @@
         );
       }
 
-      // Si el usuario está arrastrando una conexión nueva, se dibuja la ruta temporal.
+      // Si el usuario estÃ¡ arrastrando una conexiÃ³n nueva, se dibuja la ruta temporal.
       if (this.options.getConnectionDragState() && this.options.getConnectionDragState().tempPath) {
         rows.push('<path class="collection-canvas-link collection-canvas-link-temp" d="' + this.options.getConnectionDragState().tempPath + '"></path>');
       }
@@ -192,11 +206,11 @@
         return total + ((current.items || []).length);
       }, 0);
 
-      // El catálogo lateral siempre se refresca junto con el canvas principal.
+      // El panel lateral de servicios siempre se refresca junto con el canvas principal.
       this.options.renderServiceCatalog();
 
       if (!items.length) {
-        container.innerHTML = '<div class="collection-canvas-stage" ondragover="collectionAllowCanvasDrop(event)" ondrop="collectionDropOperation(0, event)"><div class="collection-canvas-empty">Arrastra un servicio desde la izquierda o haz clic sobre uno para empezar a construir la cadena.</div></div>';
+        container.innerHTML = '<div class="collection-canvas-stage" ondragover="collectionAllowCanvasDrop(event)" ondragenter="collectionCanvasDragEnter(event)" ondragleave="collectionCanvasDragLeave(event)" ondrop="collectionDropOperation(0, event)"><div class="collection-canvas-empty"><div class="collection-canvas-empty-icon">⊞</div><div class="collection-canvas-empty-title">Todavia no agregaste servicios</div><div class="collection-canvas-empty-copy">Agrega un servicio para comenzar a construir la cadena.</div><button type="button" class="btn btn-outline" onclick="collectionOpenServiceDrawer()"><span class="collection-btn-icon">＋</span><span>Agregar servicio</span></button></div></div>';
       } else {
         var selectedIndex = this.options.getSelectedItemIndex();
         var blocks = [];
@@ -211,14 +225,15 @@
           maxY = Math.max(maxY, layout.y);
 
           var operationKind = String(item.operationKind || this.options.inferOperationKind(item.method)).toLowerCase();
+          var canvasDesc = describeCanvasItem(item);
 
           blocks.push(
             '<div id="collection-canvas-step-' + i + '" class="collection-canvas-step' + (selectedIndex === i ? ' collection-canvas-step-selected' : '') + '" style="left:' + layout.x + 'px;top:' + layout.y + 'px" onclick="collectionCanvasNodeClick(' + i + ')" onmousedown="collectionStartNodeDrag(' + i + ', event)">' +
               '<div class="collection-canvas-step-head">' +
                 '<div class="collection-canvas-step-index">' + (i + 1) + '</div>' +
                 '<div class="collection-canvas-step-copy">' +
-                  '<div class="collection-canvas-step-title">' + this.options.escapeHtml(item.method) + '</div>' +
-                  '<div class="collection-canvas-step-desc">' + this.options.escapeHtml(item.summary || item.path || 'Sin descripcion.') + '</div>' +
+                  '<div class="collection-canvas-step-title" title="' + this.options.escapeHtml(item.method) + '">' + this.options.escapeHtml(item.method) + '</div>' +
+                  (canvasDesc ? '<div class="collection-canvas-step-desc" title="' + this.options.escapeHtml(canvasDesc) + '">' + this.options.escapeHtml(canvasDesc) + '</div>' : '') +
                   '<div class="collection-canvas-step-meta">' +
                     '<span class="collection-canvas-chip">' + this.options.escapeHtml(item.service) + '</span>' +
                     '<span class="collection-canvas-chip">' + this.options.escapeHtml(String(item.httpMethod || 'GET').toUpperCase()) + '</span>' +
@@ -234,28 +249,104 @@
 
         var surfaceWidth = Math.max(980, maxX + 420);
         var surfaceHeight = Math.max(540, maxY + 220);
+        var zoomLevel = this.getZoomLevel();
+        var isCompact = !!this.options.getState().canvasCompact;
 
         container.innerHTML =
-          '<div class="collection-canvas-stage" ondragover="collectionAllowCanvasDrop(event)" ondrop="collectionDropOperation(' + items.length + ', event)">' +
-            '<svg id="collection-canvas-svg" class="collection-canvas-svg"></svg>' +
-            '<div id="collection-canvas-surface" class="collection-canvas-surface" style="width:' + surfaceWidth + 'px;height:' + surfaceHeight + 'px">' +
-              blocks.join('') +
+          '<div class="collection-canvas-stage' + (isCompact ? ' collection-canvas-compact' : '') + '" ondragover="collectionAllowCanvasDrop(event)" ondragenter="collectionCanvasDragEnter(event)" ondragleave="collectionCanvasDragLeave(event)" ondrop="collectionDropOperation(' + items.length + ', event)">' +
+            // El zoom (transform:scale) se aplica a este wrapper, no al stage
+            // scrolleable en si: mismo patron que .collection-exec-flow-rows
+            // en el panel de ejecucion, para que el scroll del stage siga
+            // funcionando con normalidad (position:relative preserva el punto
+            // de referencia (0,0) del SVG absoluto de conexiones).
+            '<div class="collection-canvas-zoom-wrap" style="transform:scale(' + zoomLevel + ')">' +
+              '<svg id="collection-canvas-svg" class="collection-canvas-svg"></svg>' +
+              '<div id="collection-canvas-surface" class="collection-canvas-surface" style="width:' + surfaceWidth + 'px;height:' + surfaceHeight + 'px">' +
+                blocks.join('') +
+              '</div>' +
             '</div>' +
           '</div>';
 
         // El render de flechas se difiere al siguiente tick para asegurar medidas finales del DOM.
         setTimeout(this.renderCanvasConnections.bind(this), 0);
+        this.syncZoomToolbar();
       }
 
-      // Después del canvas se refrescan inspector y botones de acción.
+      // DespuÃ©s del canvas se refrescan inspector y botones de acciÃ³n.
       this.options.renderInspector();
       var generateButton = document.getElementById('btn-collection-generate');
       if (generateButton) generateButton.disabled = !totalItems || !this.options.pathSupported();
       var executeButton = document.getElementById('btn-collection-execute');
       if (executeButton) executeButton.disabled = !items.length || !this.options.pathSupported();
+      var fillButton = document.getElementById('btn-collection-fill-data');
+      if (fillButton) fillButton.disabled = !items.length || !this.options.pathSupported();
+      var addServiceWrap = document.getElementById('collection-builder-add-service-wrap');
+      if (addServiceWrap) addServiceWrap.style.display = items.length ? 'flex' : 'none';
+      if (generateButton) generateButton.classList.toggle('btn-soft-disabled', generateButton.disabled);
+      if (executeButton) executeButton.classList.toggle('btn-soft-disabled', executeButton.disabled);
+      if (fillButton) fillButton.classList.toggle('btn-soft-disabled', fillButton.disabled);
+      var openConsoleButton = document.getElementById('btn-collection-open-console');
+      if (openConsoleButton) openConsoleButton.classList.toggle('btn-soft-disabled', openConsoleButton.disabled);
+      if (typeof collectionSyncBuilderShellState === 'function') collectionSyncBuilderShellState();
+    }
+
+    // ================================================================
+    // Zoom del canvas
+    // ----------------------------------------------------------------
+    // Mismo patron ya usado en el panel de Ejecucion (CollectionExecutionCenter:
+    // transform:scale() sobre un wrapper interno, con zoomLevel guardado en
+    // estado, clamp 0.5-1.5, pasos de 0.1). El estado vive en collectionState
+    // (state.canvasZoom/canvasCompact) para sobrevivir a un renderItems()
+    // completo (ej. al agregar/mover un paso), pero un simple +/- no dispara
+    // un re-render completo del canvas (mas caro e innecesario): solo
+    // actualiza el transform y el label del toolbar directamente en el DOM.
+    // ================================================================
+
+    getZoomLevel() {
+      return this.options.getState().canvasZoom || 1;
+    }
+
+    /**
+     * Aplica el zoom actual al wrapper ya existente en el DOM y refresca el
+     * label del toolbar, sin reconstruir el canvas entero.
+     */
+    syncZoomToolbar() {
+      var zoomLevel = this.getZoomLevel();
+      var wrap = document.querySelector('.collection-canvas-zoom-wrap');
+      if (wrap) wrap.style.transform = 'scale(' + zoomLevel + ')';
+
+      var label = document.getElementById('collection-canvas-zoom-label');
+      if (label) label.textContent = Math.round(zoomLevel * 100) + '%';
+    }
+
+    zoomIn() {
+      var state = this.options.getState();
+      state.canvasZoom = Math.min(1.5, Math.round((this.getZoomLevel() + 0.1) * 100) / 100);
+      this.syncZoomToolbar();
+    }
+
+    zoomOut() {
+      var state = this.options.getState();
+      state.canvasZoom = Math.max(0.5, Math.round((this.getZoomLevel() - 0.1) * 100) / 100);
+      this.syncZoomToolbar();
+    }
+
+    /**
+     * "Colapsar todo": oculta la descripcion y los chips de cada tarjeta del
+     * canvas (deja solo numero + titulo), para ver mas pasos de un vistazo
+     * sin tener que alejar el zoom. Se persiste en estado (no solo en el DOM)
+     * para sobrevivir a un renderItems() completo.
+     */
+    toggleCompactNodes() {
+      var state = this.options.getState();
+      state.canvasCompact = !state.canvasCompact;
+      var btn = document.getElementById('collection-canvas-collapse-btn');
+      if (btn) btn.textContent = state.canvasCompact ? 'Expandir todo' : 'Colapsar todo';
+      this.renderItems();
     }
   }
 
   global.BTCollectionModules = global.BTCollectionModules || {};
   global.BTCollectionModules.CollectionCanvasManager = CollectionCanvasManager;
 })(window);
+

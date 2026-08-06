@@ -19,32 +19,11 @@
     bindButtons() {
       if (this.options.isButtonsBound()) return;
 
-      var buttonTestDb = document.getElementById('btn-collection-test-db');
-      var buttonTestAuth = document.getElementById('btn-collection-test-auth');
       var buttonLoadServices = document.getElementById('btn-collection-load-services');
-      if (!buttonTestDb || !buttonTestAuth || !buttonLoadServices) return;
-
-      buttonTestDb.addEventListener('click', this.handleTestDbClick.bind(this));
-      buttonTestAuth.addEventListener('click', this.handleTestAuthClick.bind(this));
+      if (!buttonLoadServices) return;
       buttonLoadServices.addEventListener('click', this.handleLoadServicesClick.bind(this));
 
       this.options.setButtonsBound(true);
-    }
-
-    /**
-     * Wrapper del click de prueba de BD.
-     */
-    handleTestDbClick(event) {
-      event.preventDefault();
-      this.options.testDb();
-    }
-
-    /**
-     * Wrapper del click de prueba de autenticacion.
-     */
-    handleTestAuthClick(event) {
-      event.preventDefault();
-      this.options.testAuth();
     }
 
     /**
@@ -79,7 +58,7 @@
         this.pickDefaultChoices();
         this.options.refreshContext();
       } catch (error) {
-        mount.innerHTML = '<div class="collection-block"><div class="collection-status show err">No se pudo cargar el builder de collections. ' + this.options.escapeHtml(error.message || '') + '</div></div>';
+        mount.innerHTML = '<div class="collection-block"><div style="padding:10px 13px;border-radius:8px;background:var(--red-l);color:var(--red);font-size:12px;line-height:1.5">No se pudo cargar el builder de collections. ' + this.options.escapeHtml(error.message || '') + '</div></div>';
       }
     }
 
@@ -107,9 +86,11 @@
     pickDefaultChoices() {
       var jsonButton = document.getElementById('col-toolbar-format-json') || document.getElementById('col-format-json');
       if (jsonButton) this.options.pickChoice('format', 'json', jsonButton);
+      else this.options.pickChoice('format', 'json', null);
 
       var postmanButton = document.getElementById('col-toolbar-target-postman') || document.getElementById('col-target-postman');
       if (postmanButton) this.options.pickChoice('target', 'postman', postmanButton);
+      else this.options.pickChoice('target', 'postman', null);
     }
   }
 
