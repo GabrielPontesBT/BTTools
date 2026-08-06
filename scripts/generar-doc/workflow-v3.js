@@ -4,6 +4,7 @@
 // Uso: node generar_workflow.js <Servicio> [archivo-salida.json] [--debug]
 // ============================================================
 
+require('./_node-modules')(module, 'V3');
 require('dotenv').config();
 const sql = require('mssql');
 const fs  = require('fs');

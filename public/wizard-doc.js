@@ -1,5 +1,8 @@
 ﻿// ── Estado compartido ────────────────────────────────────────
-var S = { step: 1, version: null, platform: null, action: null };
+var S = { step: 1, version: null, platform: null, action: null, engine: null, apiMode: 'publica' };
+// Acciones que soportan trabajar contra la API Interna (tablas BTCBS);
+// Documentar y Validar siguen siempre contra la API Publica (BTI).
+var APIMODE_ACTIONS = new Set(['scripts', 'collections', 'sdtgen']);
 var _connOk = false, _connTimer = null;
 var loadedEnv = null;
 (function keepAlive() {
@@ -22,6 +25,314 @@ var sgServiceGroups = [];
 var sgMultiData = null;
 var sgServicesLoaded = false;
 
+// ── Estado flujo Generar SDT ─────────────────────────────────
+var sdtgenNames = [];
+var sdtgenSelectedName = null;
+var sdtgenBaseData = null; // { bti025, bti026 }
+var sdtgenFields = []; // copia de trabajo de bti026, reordenada/filtrada
+var sdtgenDragIdx = null;
+var sdtgenExistingCopies = []; // copias no nativas ya creadas a partir del mismo SDT nativo
+
+async function sdtgenLoadList() {
+  var loading = document.getElementById('sdtgen-list-loading'), err = document.getElementById('sdtgen-list-err');
+  if (err) err.className = 'cres';
+  if (loading) loading.style.display = 'flex';
+  // Cada (re)ingreso al paso 4 es un pedido fresco: una seleccion vieja no
+  // tiene por que seguir siendo valida si se volvio atras y se cambio de
+  // conexion/ambiente antes de volver a este paso.
+  sdtgenSelectedName = null;
+  var btnNext = document.getElementById('btn-next');
+  if (btnNext) btnNext.disabled = true;
+  try {
+    var r = await fetch('/api/sdtgen/list', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), apiMode: S.apiMode }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    sdtgenNames = d.names || [];
+    sdtgenRenderList(sdtgenNames);
+  } catch(e) {
+    if (err) { err.className = 'cres show err'; err.textContent = e.message; }
+  }
+  if (loading) loading.style.display = 'none';
+}
+
+function sdtgenRenderList(names) {
+  var container = document.getElementById('sdtgen-list');
+  container.innerHTML = '';
+  names.forEach(function(nom) {
+    var row = document.createElement('div');
+    row.className = 'sdtgen-row' + (nom === sdtgenSelectedName ? ' sel' : '');
+    row.textContent = nom;
+    row.onclick = function() {
+      sdtgenSelectedName = nom;
+      container.querySelectorAll('.sdtgen-row').forEach(function(r) { r.classList.remove('sel'); });
+      row.classList.add('sel');
+      var btn = document.getElementById('btn-next');
+      if (btn) btn.disabled = false;
+    };
+    container.appendChild(row);
+  });
+}
+
+function sdtgenFilterList() {
+  var q = v('sdtgen-search').toLowerCase();
+  var filtered = q ? sdtgenNames.filter(function(n) { return n.toLowerCase().indexOf(q) !== -1; }) : sdtgenNames;
+  sdtgenRenderList(filtered);
+}
+
+var SDTGEN_FIELD_NAME_RE = /^[A-Za-z][A-Za-z0-9_]{0,99}$/;
+var SDTGEN_DIGITS_RE = /^\d{1,9}$/;
+var SDTGEN_FORBIDDEN_TEXT_RE = /['";\\\r\n]/;
+
+function sdtgenEscapeAttr(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Misma regla que valida el server (buildSdtCopy) - da feedback inmediato
+// en el editor, pero la autoridad final sigue siendo el server.
+function sdtgenValidateField(f) {
+  if (!SDTGEN_FIELD_NAME_RE.test(f.elemnom || '')) return 'Nombre invalido: debe empezar con una letra y usar solo letras, numeros o guion bajo.';
+  if (!SDTGEN_DIGITS_RE.test(f.elemlargo != null ? String(f.elemlargo) : '')) return 'Largo invalido: debe ser un numero entero (0 o mayor).';
+  if (!SDTGEN_DIGITS_RE.test(f.elemdeci != null ? String(f.elemdeci) : '0')) return 'Decimales invalidos: debe ser un numero entero (0 o mayor).';
+  if (SDTGEN_FORBIDDEN_TEXT_RE.test(f.elemdsc || '')) return 'Descripcion invalida: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
+  if (f.nomit && SDTGEN_FORBIDDEN_TEXT_RE.test(f.nomit)) return 'Nombre de iterador invalido: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
+  return null;
+}
+
+function sdtgenFieldsAllValid() {
+  return sdtgenFields.every(function(f) { return !sdtgenValidateField(f); });
+}
+
+async function sdtgenGoToEdit() {
+  if (!sdtgenSelectedName) return;
+  var btn = document.getElementById('btn-next');
+  if (btn) { btn.innerHTML = '<span class="spin"></span>&nbsp;Cargando...'; btn.disabled = true; }
+  try {
+    var r = await fetch('/api/sdtgen/sdt', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, nom: sdtgenSelectedName, apiMode: S.apiMode }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    sdtgenBaseData = { bti025: d.bti025, bti026: d.bti026 };
+    // Copia editable independiente del origen; origElemnom queda fijo para
+    // que el server pueda ubicar el campo real aunque se le cambie el nombre.
+    sdtgenFields = (d.bti026 || []).map(function(f) {
+      return Object.assign({}, f, { origElemnom: f.elemnom, elemdeci: f.elemdeci || '0', nomit: f.nomit || '' });
+    });
+    setVal('sdtgen-new-name', '');
+    document.getElementById('sdtgen-base-name').textContent = sdtgenSelectedName;
+    show(5);
+    sdtgenLoadExistingCopies(d.bti025 && d.bti025.nomint);
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
+  if (btn) { btn.innerHTML = 'Siguiente &#8594;'; btn.disabled = false; }
+}
+
+async function sdtgenLoadExistingCopies(nomint) {
+  var wrap = document.getElementById('sdtgen-existing-wrap');
+  sdtgenExistingCopies = [];
+  if (wrap) wrap.style.display = 'none';
+  if (!nomint) return;
+  try {
+    var r = await fetch('/api/sdtgen/existing-copies', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, nomint: nomint, apiMode: S.apiMode }) });
+    var d = await r.json();
+    if (!d.ok || !d.copies || !d.copies.length) return;
+    sdtgenExistingCopies = d.copies;
+    sdtgenRenderExistingCopies();
+    if (wrap) wrap.style.display = '';
+  } catch(e) { /* no bloquea el flujo si falla esta busqueda informativa */ }
+}
+
+function sdtgenRenderExistingCopies() {
+  var container = document.getElementById('sdtgen-existing-list');
+  container.innerHTML = '';
+  sdtgenExistingCopies.forEach(function(copy) {
+    var row = document.createElement('div');
+    row.className = 'sdtgen-existing-item';
+
+    var head = document.createElement('div');
+    head.className = 'sdtgen-existing-head';
+    head.innerHTML = '<span class="sdtgen-existing-caret">&#9656;</span>' +
+      '<span class="sdtgen-existing-name">' + sdtgenEscapeAttr(copy.nom) + '</span>' +
+      '<span class="sdtgen-existing-estado">' + sdtgenEscapeAttr(copy.estado) + '</span>';
+    row.appendChild(head);
+
+    var body = document.createElement('div');
+    body.className = 'sdtgen-existing-body';
+    body.style.display = 'none';
+    row.appendChild(body);
+
+    var loaded = false;
+    head.onclick = function() {
+      var isOpen = body.style.display !== 'none';
+      if (isOpen) { body.style.display = 'none'; head.querySelector('.sdtgen-existing-caret').innerHTML = '&#9656;'; return; }
+      body.style.display = '';
+      head.querySelector('.sdtgen-existing-caret').innerHTML = '&#9662;';
+      if (loaded) return;
+      loaded = true;
+      body.innerHTML = '<span class="sdtgen-existing-loading">Cargando campos...</span>';
+      fetch('/api/sdtgen/sdt', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, nom: copy.nom, apiMode: S.apiMode }) })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!d.ok) { body.innerHTML = '<span class="sdtgen-existing-loading">' + sdtgenEscapeAttr(d.message) + '</span>'; return; }
+          var fields = d.bti026 || [];
+          if (!fields.length) { body.innerHTML = '<span class="sdtgen-existing-loading">Sin campos.</span>'; return; }
+          body.innerHTML = fields.map(function(f) {
+            return '<div class="sdtgen-existing-field"><span>' + sdtgenEscapeAttr(f.elemnom) + '</span><span>' + sdtgenEscapeAttr(f.elemtipo) + '</span><span>' + sdtgenEscapeAttr(f.elemdsc) + '</span></div>';
+          }).join('');
+        })
+        .catch(function(e) { body.innerHTML = '<span class="sdtgen-existing-loading">Error: ' + sdtgenEscapeAttr(e.message) + '</span>'; });
+    };
+
+    container.appendChild(row);
+  });
+}
+
+function sdtgenFieldGridCols(showV4Extras) {
+  return '24px 160px 70px 60px' + (showV4Extras ? ' 60px' : '') + ' minmax(160px,1fr)' + (showV4Extras ? ' 110px' : '') + ' 28px';
+}
+
+function sdtgenRenderEditor() {
+  var container = document.getElementById('sdtgen-fields');
+  container.innerHTML = '';
+  var showV4Extras = S.version === 'V4';
+  var gridCols = sdtgenFieldGridCols(showV4Extras);
+
+  var header = document.createElement('div');
+  header.className = 'sdtgen-fields-header';
+  header.style.gridTemplateColumns = gridCols;
+  header.innerHTML = '<span></span><span>Nombre</span><span>Tipo</span><span>Largo</span>' +
+    (showV4Extras ? '<span>Decimales</span>' : '') +
+    '<span>Descripción</span>' +
+    (showV4Extras ? '<span>Iterador</span>' : '') +
+    '<span></span>';
+  container.appendChild(header);
+
+  sdtgenFields.forEach(function(field, idx) {
+    var item = document.createElement('div');
+    item.className = 'sdtgen-field-item';
+    item.style.gridTemplateColumns = gridCols;
+    item.draggable = true;
+    item.innerHTML = '<span class="sdtgen-drag-handle">&#9776;</span>' +
+      '<input type="text" class="sdtgen-field-input sdtgen-field-input-nom" value="' + sdtgenEscapeAttr(field.elemnom) + '">' +
+      '<span class="sdtgen-field-type">' + sdtgenEscapeAttr(field.elemtipo) + '</span>' +
+      '<input type="text" class="sdtgen-field-input sdtgen-field-input-largo" value="' + sdtgenEscapeAttr(field.elemlargo) + '">' +
+      (showV4Extras ? '<input type="text" class="sdtgen-field-input sdtgen-field-input-deci" value="' + sdtgenEscapeAttr(field.elemdeci) + '">' : '') +
+      '<input type="text" class="sdtgen-field-input sdtgen-field-input-dsc" value="' + sdtgenEscapeAttr(field.elemdsc) + '">' +
+      (showV4Extras ? '<input type="text" class="sdtgen-field-input sdtgen-field-input-nomit" value="' + sdtgenEscapeAttr(field.nomit) + '">' : '') +
+      '<button type="button" class="sdtgen-field-rm" title="Quitar">&times;</button>' +
+      '<div class="sdtgen-field-err"></div>';
+
+    var err = item.querySelector('.sdtgen-field-err');
+    function updateErr() {
+      var msg = sdtgenValidateField(field);
+      err.textContent = msg || '';
+      item.classList.toggle('invalid', !!msg);
+    }
+
+    item.querySelector('.sdtgen-field-input-nom').addEventListener('input', function() { field.elemnom = this.value; updateErr(); });
+    item.querySelector('.sdtgen-field-input-largo').addEventListener('input', function() { field.elemlargo = this.value; updateErr(); });
+    item.querySelector('.sdtgen-field-input-dsc').addEventListener('input', function() { field.elemdsc = this.value; updateErr(); });
+    if (showV4Extras) {
+      item.querySelector('.sdtgen-field-input-deci').addEventListener('input', function() { field.elemdeci = this.value; updateErr(); });
+      item.querySelector('.sdtgen-field-input-nomit').addEventListener('input', function() { field.nomit = this.value; updateErr(); });
+    }
+    updateErr();
+
+    item.querySelector('.sdtgen-field-rm').onclick = function() {
+      sdtgenFields.splice(idx, 1);
+      sdtgenRenderEditor();
+    };
+    item.addEventListener('dragstart', function(e) {
+      if (e.target && e.target.tagName === 'INPUT') { e.preventDefault(); return; }
+      sdtgenDragIdx = idx; item.classList.add('dragging');
+    });
+    item.addEventListener('dragend', function() { item.classList.remove('dragging'); });
+    item.addEventListener('dragover', function(e) { e.preventDefault(); });
+    item.addEventListener('drop', function(e) {
+      e.preventDefault();
+      if (sdtgenDragIdx === null || sdtgenDragIdx === idx) return;
+      var moved = sdtgenFields.splice(sdtgenDragIdx, 1)[0];
+      sdtgenFields.splice(idx, 0, moved);
+      sdtgenDragIdx = null;
+      sdtgenRenderEditor();
+    });
+    container.appendChild(item);
+  });
+}
+
+function sdtgenGoToResult() {
+  var nombre = v('sdtgen-new-name');
+  var err = document.getElementById('sdtgen-name-err');
+  if (!nombre) { err.className = 'cres show err'; err.textContent = 'Ingresá un nombre para la copia.'; return; }
+  if (nombre === sdtgenSelectedName) { err.className = 'cres show err'; err.textContent = 'El nombre debe ser distinto al del SDT base.'; return; }
+  if (sdtgenNames.indexOf(nombre) !== -1) { err.className = 'cres show err'; err.textContent = 'Ya existe un SDT con ese nombre. Elegí otro.'; return; }
+  if (sdtgenFields.length === 0) { err.className = 'cres show err'; err.textContent = 'La copia necesita al menos un campo.'; return; }
+  if (!sdtgenFieldsAllValid()) { err.className = 'cres show err'; err.textContent = 'Hay campos con datos invalidos, revisalos antes de continuar.'; return; }
+  err.className = 'cres';
+  show(6);
+}
+
+function sdtgenBuildEditedFields() {
+  return sdtgenFields.map(function(f) {
+    return { origElemnom: f.origElemnom, elemnom: f.elemnom, elemlargo: f.elemlargo, elemdsc: f.elemdsc, elemdeci: f.elemdeci, nomit: f.nomit };
+  });
+}
+
+async function sdtgenDoGenerate() {
+  var ta = document.getElementById('sdtgen-sql-out');
+  ta.value = 'Generando...';
+  try {
+    var r = await fetch('/api/sdtgen/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+      version: S.version,
+      apiMode: S.apiMode,
+      nuevoNombre: v('sdtgen-new-name'),
+      sourceBti025: sdtgenBaseData.bti025,
+      sourceBti026: sdtgenBaseData.bti026,
+      editedFields: sdtgenBuildEditedFields()
+    }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    ta.value = d.script || '';
+  } catch(e) { ta.value = 'Error: ' + e.message; }
+}
+
+function sdtgenCopyScript() {
+  var ta = document.getElementById('sdtgen-sql-out'); if (!ta.value.trim()) return;
+  navigator.clipboard.writeText(ta.value).then(function() {
+    var res = document.getElementById('sdtgen-exec-res');
+    res.className = 'cres show ok'; res.textContent = 'Copiado al portapapeles ✓';
+    setTimeout(function() { res.className = 'cres'; }, 2000);
+  }).catch(function() { ta.select(); document.execCommand('copy'); });
+}
+
+async function sdtgenExecute() {
+  if (!confirm('Esto va a ejecutar DELETE + INSERT contra la base conectada. ¿Confirmás?')) return;
+  var res = document.getElementById('sdtgen-exec-res');
+  res.className = 'cres show'; res.textContent = 'Ejecutando...';
+  try {
+    var r = await fetch('/api/sdtgen/execute', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+      platform: S.platform, db: getDbSG(), version: S.version, apiMode: S.apiMode,
+      nom: sdtgenSelectedName,
+      nuevoNombre: v('sdtgen-new-name'),
+      editedFields: sdtgenBuildEditedFields()
+    }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    res.className = 'cres show ok'; res.textContent = 'Ejecutado correctamente (' + d.statementsRun + ' sentencias) ✓';
+  } catch(e) {
+    res.className = 'cres show err'; res.textContent = 'Error: ' + e.message;
+  }
+}
+
+function sdtgenReset() {
+  sdtgenSelectedName = null; sdtgenBaseData = null; sdtgenFields = [];
+  sdtgenDragIdx = null; sdtgenExistingCopies = [];
+  var existingWrap = document.getElementById('sdtgen-existing-wrap'); if (existingWrap) existingWrap.style.display = 'none';
+  setVal('sdtgen-search', ''); setVal('sdtgen-new-name', '');
+  document.getElementById('sdtgen-sql-out').value = '';
+  var res = document.getElementById('sdtgen-exec-res'); if (res) res.className = 'cres';
+  show(4); // show() ya recarga la lista siempre al entrar al paso 4
+}
+
 // ── Historial de conexiones ───────────────────────────────────
 var _dbHistory = [];
 
@@ -29,7 +340,11 @@ var _dbHistory = [];
 var _VALIDATE_ENGLISH_RE = /\b(the|this|that|these|those|is|are|was|were|has|have|had|get|gets|set|sets|update|updates|create|creates|delete|deletes|return|returns|method|service|parameter|value|field|list|object|type|name|code|date|amount|flag|allow|allows|perform|performs|retrieve|retrieves)\b/i;
 var _VALIDATE_LARGO_TYPES = new Set(['long','int','double','byte','short','string']);
 
-function validateItems(items) {
+// Los controles de descripcion/largo/decimales son el estandar de la API
+// Publica (de ahi sale la documentacion). La API Interna (tablas BTCBS) no
+// los tiene que cumplir, asi que no se valida nada.
+function validateItems(items, apiMode) {
+  if (apiMode === 'interna') return [];
   var warns = [];
   (items || []).forEach(function(item) {
     var svc = (item.header && item.header.BTISrvNom) || item.service || '?';
@@ -129,10 +444,100 @@ function pick(key, val, el) {
   if (key === 'version') {
     S.platform = val === 'V3' ? 'sqlserver' : 'oracle';
     tryLoadEnv(val);
+    toggleEngineSection(val === 'V4');
   }
-  if (key === 'action') updateStepLabels(val);
+  if (key === 'engine') {
+    // El bloque de API recien aparece cuando ya se eligio el motor.
+    toggleApiModeSection(APIMODE_ACTIONS.has(S.action));
+  }
+  if (key === 'action') {
+    updateStepLabels(val);
+    if (val === 'sdtgen') {
+      // Generar SDT solo trabaja contra V4 (Oracle) y se saltea el paso 2
+      // (version/motor), pero si elige API: ese toggle vive en el paso de
+      // conexion (conn-apimode-section), no se puede fijar de antemano.
+      S.version = 'V4';
+      S.platform = 'oracle';
+      S.engine = 'oracle';
+      S.apiMode = null;
+      tryLoadEnv('V4');
+      hideVersionExtras();
+    } else {
+      resetVersionSelection();
+    }
+  }
+  refreshNextBtn();
+}
+
+function hideVersionExtras() {
+  ['engine-section', 'apimode-section'].forEach(function(id) {
+    var sec = document.getElementById(id);
+    if (!sec) return;
+    sec.style.display = 'none';
+    sec.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
+  });
+}
+
+// El paso de version tiene que arrancar limpio: si el usuario paso antes por
+// "Generar SDT" (o por V4) quedaban seteados version/motor/API y las tarjetas
+// marcadas al volver a entrar.
+function resetVersionSelection() {
+  S.version = null;
+  S.platform = null;
+  S.engine = null;
+  S.apiMode = 'publica';
+  loadedEnv = null;
+  var p1 = document.getElementById('p1');
+  if (p1) p1.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
+  hideVersionExtras();
+}
+
+function toggleEngineSection(show) {
+  var sec = document.getElementById('engine-section');
+  if (!sec) return;
+  hideVersionExtras();
+  sec.style.display = show ? 'block' : 'none';
+  // Aparece sin nada marcado: el motor se elige a mano y eso destraba el
+  // bloque siguiente (API). V3 no pregunta motor, queda en null.
+  S.engine = null;
+  S.apiMode = 'publica';
+}
+
+function toggleApiModeSection(show) {
+  var sec = document.getElementById('apimode-section');
+  if (!sec) return;
+  sec.style.display = show ? 'block' : 'none';
+  sec.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
+  // Mientras la seccion esta visible no hay default: hay que elegir.
+  S.apiMode = show ? null : 'publica';
+}
+
+// Toggle de API en el paso de conexion (solo Generar SDT: ese flujo saltea
+// el paso de version, donde vive el toggle equivalente para Scripts/Collections).
+function pickConnApiMode(val, el) {
+  S.apiMode = val;
+  el.closest('.cards').querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
+  el.classList.add('sel');
+  updateConnBtn();
+}
+
+function sectionVisible(id) {
+  var sec = document.getElementById(id);
+  return !!sec && sec.style.display !== 'none';
+}
+
+// El paso 2 se completa de a un bloque: version -> motor -> API.
+function step2Ready() {
+  if (!S.version) return false;
+  if (sectionVisible('engine-section') && !S.engine) return false;
+  if (sectionVisible('apimode-section') && !S.apiMode) return false;
+  return true;
+}
+
+function refreshNextBtn() {
   var nb = document.getElementById('btn-next');
-  if (nb) nb.disabled = false;
+  if (!nb) return;
+  nb.disabled = S.step === 2 ? !step2Ready() : false;
 }
 
 function updateStepLabels(action) {
@@ -143,6 +548,9 @@ function updateStepLabels(action) {
   } else if (action === 'collections') {
     if (lb4) lb4.textContent = 'API';
     if (lb5) lb5.textContent = 'Collections';
+  } else if (action === 'sdtgen') {
+    if (lb4) lb4.textContent = 'SDT base';
+    if (lb5) lb5.textContent = 'Editar';
   } else {
     if (lb4) lb4.textContent = 'API';
     if (lb5) lb5.textContent = 'Servicios';
@@ -189,6 +597,7 @@ function panelId(step) {
   if (S.action === 'validate') return 'p4v';
   if (S.action === 'collections') return step === 4 ? 'p4' : 'p4c';
   if (S.action === 'scripts') return step === 4 ? 'p4s' : 'p5s';
+  if (S.action === 'sdtgen') return step === 4 ? 'p-sdtbase' : step === 5 ? 'p-sdtedit' : 'p-sdtresult';
   return 'p' + step; // doc: p4, p5, p6
 }
 
@@ -203,6 +612,16 @@ function show(step) {
   if (step === 3) { // paso de conexión (ahora es el paso 3)
     document.getElementById('sql-fields').style.display = S.platform === 'sqlserver' ? 'block' : 'none';
     document.getElementById('ora-fields').style.display  = S.platform === 'oracle'    ? 'block' : 'none';
+    var connApiSec = document.getElementById('conn-apimode-section');
+    if (connApiSec) {
+      var showConnApiMode = S.action === 'sdtgen';
+      connApiSec.style.display = showConnApiMode ? 'block' : 'none';
+      connApiSec.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
+      if (showConnApiMode && S.apiMode) {
+        var card = document.getElementById('conn-apimode-' + S.apiMode);
+        if (card) card.classList.add('sel');
+      }
+    }
     clearDbFields();
     loadDbHistory();
     setTimeout(setupConnWatchers, 0);
@@ -231,6 +650,11 @@ function show(step) {
     if (typeof collectionToggleConfig === 'function') collectionToggleConfig();
   }
   if (step === 4 && S.action === 'scripts' && !sgServicesLoaded) sgLoadServices();
+  // Siempre se recarga (no solo la primera vez): si el usuario vuelve atras
+  // y cambia de conexion/ambiente, la lista vieja en memoria quedaria stale.
+  if (step === 4 && S.action === 'sdtgen') sdtgenLoadList();
+  if (step === 5 && S.action === 'sdtgen') sdtgenRenderEditor();
+  if (step === 6 && S.action === 'sdtgen') sdtgenDoGenerate();
 }
 
 function foot(step) {
@@ -240,20 +664,26 @@ function foot(step) {
   if (step === 1) { // acción
     ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (S.action ? '' : ' disabled') + '>Siguiente &#8594;</button>';
   } else if (step === 2) { // versión
-    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (S.version ? '' : ' disabled') + '>Siguiente &#8594;</button>';
+    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (step2Ready() ? '' : ' disabled') + '>Siguiente &#8594;</button>';
   } else if (step === 3) { // conexión
     ftr.innerHTML = '<button class="btn btn-outline" id="btn-test" onclick="testConn()">Probar conexión</button>&nbsp;&nbsp;' +
-      '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (_connOk ? '' : ' disabled') + '>Siguiente &#8594;</button>';
+      '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (step3Ready() ? '' : ' disabled') + '>Siguiente &#8594;</button>';
   } else if (step === 4 && S.action === 'validate') {
     ftr.innerHTML = '';
   } else if (step === 5 && S.action === 'collections') {
     ftr.innerHTML = '';
   } else if (step === 4 && S.action === 'scripts') {
     ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()" disabled>Generar script &#8594;</button>';
+  } else if (step === 4 && S.action === 'sdtgen') {
+    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (sdtgenSelectedName ? '' : ' disabled') + '>Siguiente &#8594;</button>';
   } else if (step === 5 && S.action === 'doc') {
     ftr.innerHTML = '<button class="btn btn-success" id="btn-save" onclick="saveEnv()" disabled>Guardar y finalizar &#10003;</button>';
   } else if (step === 5 && S.action === 'scripts') {
     ftr.innerHTML = '<button class="btn btn-ghost" onclick="sgReset()">&#8635; Nuevo script</button>';
+  } else if (step === 5 && S.action === 'sdtgen') {
+    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()">Siguiente &#8594;</button>';
+  } else if (step === 6 && S.action === 'sdtgen') {
+    ftr.innerHTML = '<button class="btn btn-ghost" onclick="sdtgenReset()">&#8635; Nueva copia</button>';
   } else if (step === 6) {
     ftr.innerHTML = '';
   } else {
@@ -265,10 +695,11 @@ function goNext() {
   var s = S.step;
   if (s === 1 && !S.action) return;
   if (s === 1 && S.action === 'validate') { show(4); return; } // saltar versión y conexión
+  if (s === 1 && S.action === 'sdtgen') { show(3); return; } // Generar SDT es siempre V4, saltar versión
   if (s === 1) { show(2); return; }
-  if (s === 2 && !S.version) return;
+  if (s === 2 && !step2Ready()) return;
   if (s === 2) { show(3); return; }
-  if (s === 3 && !_connOk) return;
+  if (s === 3 && !step3Ready()) return;
   if (s === 3) { show(4); return; }
   if (s === 4 && S.action === 'collections') { show(5); return; }
   if (s === 4 && S.action === 'scripts') {
@@ -277,12 +708,15 @@ function goNext() {
     sgFetchAndShowOutput(grps);
     return;
   }
+  if (s === 4 && S.action === 'sdtgen') { sdtgenGoToEdit(); return; }
+  if (s === 5 && S.action === 'sdtgen') { sdtgenGoToResult(); return; }
   if (s < 6) show(s + 1);
 }
 
 function goBack() {
   var s = S.step;
   if (s === 4 && S.action === 'validate') { show(1); return; } // saltar versión y conexión
+  if (s === 3 && S.action === 'sdtgen') { show(1); return; } // Generar SDT es siempre V4, saltar versión
   if (s === 5 && S.action === 'collections') { show(4); return; }
   if (s === 4) { show(3); return; }
   if (s === 5 && S.action === 'scripts') { show(4); return; }
@@ -297,6 +731,9 @@ async function tryLoadEnv(version) {
     var r = await fetch('/api/load-env', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ version: version }) });
     var d = await r.json();
     if (!d.ok) return;
+    // La respuesta puede llegar despues de que el usuario cambio (o limpio) la
+    // version elegida: en ese caso el resultado ya no aplica.
+    if (S.version !== version) return;
     loadedEnv = d.data;
     if (d.data.DB_CONNECT_STRING) S.platform = 'oracle';
     else if (d.data.DB_SERVER) S.platform = 'sqlserver';
@@ -406,11 +843,21 @@ function scheduleConnTest() {
 // ── Historial de conexiones ───────────────────────────────────
 
 async function loadDbHistory() {
+  var err = document.getElementById('db-hist-err');
+  if (err) { err.className = 'cres'; err.textContent = ''; }
   try {
     var r = await fetch('/sg/api/db-history', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action: 'list' }) });
     var d = await r.json();
-    if (d.ok) { _dbHistory = d.history || []; renderDbHistory(); }
-  } catch(e) {}
+    if (d.ok) {
+      _dbHistory = d.history || [];
+      renderDbHistory();
+    } else if (err) {
+      err.className = 'cres show err';
+      err.textContent = 'No se pudieron cargar las conexiones guardadas: ' + (d.message || 'error desconocido');
+    }
+  } catch(e) {
+    if (err) { err.className = 'cres show err'; err.textContent = 'No se pudo conectar con el servidor para cargar las conexiones guardadas.'; }
+  }
 }
 
 function renderDbHistory() {
@@ -511,8 +958,16 @@ async function testConn() {
   if (btn) { btn.innerHTML = 'Probar conexión'; btn.disabled = false; }
 }
 
+// El paso de conexion se completa con la prueba OK y, solo para Generar SDT
+// (unico flujo que muestra el toggle de API en este paso), con la API elegida.
+function step3Ready() {
+  if (!_connOk) return false;
+  if (S.action === 'sdtgen' && !S.apiMode) return false;
+  return true;
+}
+
 function updateConnBtn() {
-  if (S.step === 3) { var btn = document.getElementById('btn-next'); if (btn) btn.disabled = !_connOk; }
+  if (S.step === 3) { var btn = document.getElementById('btn-next'); if (btn) btn.disabled = !step3Ready(); }
 }
 
 // ── Paso 4 Doc: API ────────────────────────────────────────────
@@ -1201,7 +1656,7 @@ async function sgLoadServices() {
   if (err) err.className = 'cres';
   if (loading) loading.style.display = 'flex';
   try {
-    var r = await fetch('/sg/api/services', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version }) });
+    var r = await fetch('/sg/api/services', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, apiMode: S.apiMode }) });
     var d = await r.json();
     if (!d.ok) throw new Error(d.message);
     var sel = document.getElementById('sg-sel-svc');
@@ -1228,8 +1683,8 @@ async function sgAddServiceToList() {
   container.appendChild(div);
   try {
     var results = await Promise.all([
-      fetch('/sg/api/methods', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, service: svc }) }),
-      fetch('/sg/api/service-versions', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, service: svc }) }),
+      fetch('/sg/api/methods', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, service: svc, apiMode: S.apiMode }) }),
+      fetch('/sg/api/service-versions', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, service: svc, apiMode: S.apiMode }) }),
     ]);
     var dm = await results[0].json(), dv = await results[1].json();
     if (!dm.ok) throw new Error(dm.message);
@@ -1314,11 +1769,11 @@ async function sgFetchAndShowOutput(groups) {
     var allItems = [];
     await Promise.all(groups.map(async function(group) {
       var methods = Array.from(group.selected);
-      var r = await fetch('/sg/api/methods-full', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, service: group.name, srvver: group.version, methods: methods }) });
+      var r = await fetch('/sg/api/methods-full', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, service: group.name, srvver: group.version, methods: methods, apiMode: S.apiMode }) });
       var d = await r.json(); if (!d.ok) throw new Error(d.message);
       d.items.forEach(function(item) { allItems.push(item); });
     }));
-    var warnings = validateItems(allItems);
+    var warnings = validateItems(allItems, S.apiMode);
     console.log('[SG] validateItems result:', warnings.length, 'warnings', warnings);
     var valEl = document.getElementById('sg-val-block');
     if (warnings.length) {
@@ -1412,7 +1867,7 @@ function _valRenderResults(results, basePath) {
       html += '<div class="vf-item ok">✅ ' + _escHtml(r.relPath) + tag + '</div>';
     } else {
       var errHtml = r.problemas.map(function(p) { return '<div>' + _escHtml(p) + '</div>'; }).join('');
-      html += '<div class="vf-item err" data-abs="' + _escHtml(r.absPath) + '">'
+      html += '<div class="vf-item err expanded" data-abs="' + _escHtml(r.absPath) + '">'
         + '<input type="checkbox" class="val-file-cb" value="' + _escHtml(r.absPath) + '" onchange="updateFixBar()">'
         + '<div style="flex:1;min-width:0">'
         + '<div class="vf-name" onclick="this.closest(\'.vf-item\').classList.toggle(\'expanded\')">'

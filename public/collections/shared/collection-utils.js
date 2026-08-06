@@ -85,10 +85,10 @@
     guessSwaggerUrl(api) {
       var publicBaseUrl = String((api && api.BASE_URL) || '').trim().replace(/\/+$/g, '');
       if (!publicBaseUrl) return '';
-      if (/\/api\/publicapi$/i.test(publicBaseUrl)) {
-        return publicBaseUrl.replace(/\/api\/publicapi$/i, '/api/swagger-ui/index.html#/');
-      }
-      return publicBaseUrl.replace(/\/+$/g, '') + '/swagger-ui/index.html#/';
+      // swagger-ui vive ANIDADO bajo la URL publica completa (ej. .../api/publicapi
+      // -> .../api/publicapi/swagger-ui/...), nunca como hermano reemplazando el
+      // ultimo segmento — antes esto le sacaba el "/publicapi" por error.
+      return publicBaseUrl + '/swagger-ui/index.html#/';
     }
   }
 

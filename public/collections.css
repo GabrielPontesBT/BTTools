@@ -90,6 +90,9 @@
 .collection-lead{font-size:12px;color:var(--muted);line-height:1.55;margin-bottom:18px}
 .collection-block{border:1.5px solid var(--border);border-radius:10px;padding:16px 16px 14px;background:#fff;margin-bottom:14px}
 .collection-block h3{font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text)}
+.collection-setup-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.collection-setup-head h3{margin-bottom:0}
+.collection-setup-head .btn-ghost{height:32px;padding:0 12px;font-size:12px}
 .collection-inline-note{font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5}
 .collection-mini-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .collection-mini-cards .ccard{padding:18px 14px;text-align:left}
@@ -536,6 +539,7 @@
    barra en cada breakpoint, sin necesitar sus propios ajustes responsive. */
 #btn-collection-exec-back,#collection-exec-header-menu-slot{display:none}
 .collection-execution-active #btn-collection-exec-back{display:inline-flex}
+.collection-execution-active #btn-collection-setup-back{display:none}
 .collection-execution-active #collection-exec-header-menu-slot{display:flex;align-items:center}
 .collection-exec-back-icon-btn{
   flex:0 0 auto;width:var(--builder-button-height,40px);height:var(--builder-button-height,40px);

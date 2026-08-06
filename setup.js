@@ -6,6 +6,7 @@ const os     = require('os');
 const crypto = require('crypto');
 const { exec, spawn } = require('child_process');
 const { createCollectionFeature } = require('./scripts/generar-collections');
+const { createSdtGenFeature } = require('./scripts/generar-sdt');
 
 const PORT = 3777;
 const ROOT = __dirname;
@@ -104,7 +105,7 @@ async function testSqlServer(db) {
 async function testOracle(db) {
   const mod = path.join(ROOT, 'V4', 'node_modules', 'oracledb');
   if (!fs.existsSync(mod)) throw new Error('oracledb no instalado - ejecuta npm install en V4/');
-  const oracledb = require(mod);
+  const oracledb = oraFetchLobsAsString(require(mod));
   const conn = await oracledb.getConnection({
     user: db.DB_USER,
     password: db.DB_PASSWORD,
@@ -113,7 +114,11 @@ async function testOracle(db) {
   await conn.close();
 }
 
-async function queryServices(platform, db) {
+// 1/0 (BTCBS, NUMBER(1,0)) -> 'S'/'N', para que el resto del codigo (que
+// espera el formato CHAR 'S'/'N' de las BTI) no tenga que saber de apiMode.
+function num_sn(val) { return (val == 1 || val === '1') ? 'S' : 'N'; }
+
+async function queryServices(platform, db, apiMode) {
   if (platform === 'sqlserver') {
     const mod = path.join(ROOT, 'V3', 'node_modules', 'mssql');
     if (!fs.existsSync(mod)) throw new Error('mssql no instalado - ejecuta npm install en V3/');
@@ -131,10 +136,64 @@ async function queryServices(platform, db) {
   } else {
     const mod = path.join(ROOT, 'V4', 'node_modules', 'oracledb');
     if (!fs.existsSync(mod)) throw new Error('oracledb no instalado - ejecuta npm install en V4/');
-    const oracledb = require(mod);
+    const oracledb = oraFetchLobsAsString(require(mod));
     const conn = await oracledb.getConnection({
       user: db.DB_USER, password: db.DB_PASSWORD, connectString: db.DB_CONNECT_STRING,
     });
+    const interna = apiMode === 'interna';
+    const r = await conn.execute(
+      interna ? 'SELECT DISTINCT BSSRVNAME FROM BTCBS014 ORDER BY BSSRVNAME' : 'SELECT DISTINCT BTISRVNOM FROM BTI014 ORDER BY BTISRVNOM', [],
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    await conn.close();
+    const col = interna ? 'BSSRVNAME' : 'BTISRVNOM';
+    return r.rows.map(function(row) { return (row[col] || '').trim(); }).filter(Boolean);
+  }
+}
+
+/**
+ * Trae TODOS los servicios y metodos de BTI014 en una sola consulta y una
+ * sola conexion, en vez de una consulta por servicio. Pensado para el
+ * builder de Collections, que necesita el catalogo completo de una vez y
+ * puede apuntar a ambientes de produccion: minimizar la cantidad de golpes
+ * a la base es mas importante que la simplicidad del codigo por servicio.
+ */
+async function queryServicesWithMethods(platform, db) {
+  function groupRows(rows) {
+    const services = [];
+    const methodsByService = {};
+    (rows || []).forEach(function(row) {
+      const service = String(row.BTISRVNOM || '').trim();
+      const method = String(row.BTIMTDNOM || '').trim();
+      if (!service || !method) return;
+      if (!methodsByService[service]) { methodsByService[service] = []; services.push(service); }
+      methodsByService[service].push(method);
+    });
+    return { services, methodsByService };
+  }
+
+  if (platform === 'sqlserver') {
+    const mod = path.join(ROOT, 'V3', 'node_modules', 'mssql');
+    if (!fs.existsSync(mod)) throw new Error('mssql no instalado - ejecuta npm install en V3/');
+    const mssql = require(mod);
+    const pool = new mssql.ConnectionPool({
+      server: db.DB_SERVER, port: Number(db.DB_PORT) || 1433,
+      database: db.DB_DATABASE, user: db.DB_USER, password: db.DB_PASSWORD,
+      options: { trustServerCertificate: true }, connectionTimeout: 8000,
+    });
+    await pool.connect();
+    const r = await pool.request()
+      .query('SELECT BTISRVNOM, BTIMTDNOM FROM BTI014 ORDER BY BTISRVNOM, BTIMTDNOM');
+    await pool.close();
+    return groupRows(r.recordset);
+  } else {
+    const mod = path.join(ROOT, 'V4', 'node_modules', 'oracledb');
+    if (!fs.existsSync(mod)) throw new Error('oracledb no instalado - ejecuta npm install en V4/');
+    const oracledb = oraFetchLobsAsString(require(mod));
+    const conn = await oracledb.getConnection({
+      user: db.DB_USER, password: db.DB_PASSWORD, connectString: db.DB_CONNECT_STRING,
+    });
+    const interna = apiMode === 'interna';
     const r = await conn.execute(
       'SELECT DISTINCT BTISRVNOM FROM BTI014 ORDER BY BTISRVNOM', [],
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
@@ -195,7 +254,7 @@ async function queryServicesWithMethods(platform, db) {
   }
 }
 
-async function queryMethods(platform, db, service) {
+async function queryMethods(platform, db, service, apiMode) {
   if (platform === 'sqlserver') {
     const mod = path.join(ROOT, 'V3', 'node_modules', 'mssql');
     if (!fs.existsSync(mod)) throw new Error('mssql no instalado - ejecuta npm install en V3/');
@@ -214,16 +273,18 @@ async function queryMethods(platform, db, service) {
   } else {
     const mod = path.join(ROOT, 'V4', 'node_modules', 'oracledb');
     if (!fs.existsSync(mod)) throw new Error('oracledb no instalado - ejecuta npm install en V4/');
-    const oracledb = require(mod);
+    const oracledb = oraFetchLobsAsString(require(mod));
     const conn = await oracledb.getConnection({
       user: db.DB_USER, password: db.DB_PASSWORD, connectString: db.DB_CONNECT_STRING,
     });
+    const interna = apiMode === 'interna';
     const r = await conn.execute(
-      'SELECT BTIMTDNOM FROM BTI014 WHERE BTISRVNOM = :1 ORDER BY BTIMTDNOM', [service],
+      interna ? 'SELECT BSMTDNAME FROM BTCBS014 WHERE BSSRVNAME = :1 ORDER BY BSMTDNAME' : 'SELECT BTIMTDNOM FROM BTI014 WHERE BTISRVNOM = :1 ORDER BY BTIMTDNOM', [service],
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
     await conn.close();
-    return r.rows.map(function(row) { return (row.BTIMTDNOM || '').trim(); }).filter(Boolean);
+    const col = interna ? 'BSMTDNAME' : 'BTIMTDNOM';
+    return r.rows.map(function(row) { return (row[col] || '').trim(); }).filter(Boolean);
   }
 }
 
@@ -307,7 +368,7 @@ async function queryInputParams(platform, db, service, method) {
   } else {
     const mod = path.join(ROOT, 'V4', 'node_modules', 'oracledb');
     if (!fs.existsSync(mod)) throw new Error('oracledb no instalado - ejecuta npm install en V4/');
-    const oracledb = require(mod);
+    const oracledb = oraFetchLobsAsString(require(mod));
     const conn = await oracledb.getConnection({
       user: db.DB_USER, password: db.DB_PASSWORD, connectString: db.DB_CONNECT_STRING,
     });
@@ -411,6 +472,7 @@ const {
   V3_BTI019_COLS, V4_BTI019_COLS,
   V3_BTI025_COLS, V4_BTI025_COLS,
   V3_BTI026_COLS, V4_BTI026_COLS,
+  sg_serviceNamePrefix, sg_serviceListQuery, sg_cellText,
 } = require('./scripts/generar-scripts/index.js');
 
 function sg_loadEnvForVersion(version) {
@@ -427,8 +489,20 @@ function sg_findModule(name) {
     path.join(process.env.APPDATA || '', 'npm', 'node_modules', name),
     path.join(process.execPath, '..', '..', 'lib', 'node_modules', name),
   ];
-  for (const c of candidates) if (fs.existsSync(c)) return require(c);
+  for (const c of candidates) if (fs.existsSync(c)) return name === 'oracledb' ? oraFetchLobsAsString(require(c)) : require(c);
   throw new Error('Modulo "' + name + '" no encontrado. Ejecuta npm install primero.');
+}
+
+// Por defecto oracledb devuelve las columnas CLOB como objeto Lob, y ese
+// objeto terminaba escrito como '[object Object]' en el script generado.
+// Pidiendolas como string se trae el texto real. sg_cellText queda como red
+// de seguridad para cualquier otro tipo no primitivo (RAW -> Buffer, etc).
+function oraFetchLobsAsString(oracledb) {
+  if (oracledb && !oracledb._btapiLobsAsString) {
+    oracledb.fetchAsString = [oracledb.CLOB];
+    oracledb._btapiLobsAsString = true;
+  }
+  return oracledb;
 }
 
 var _sg_sqlPool = null, _sg_sqlPoolKey = '';
@@ -469,24 +543,26 @@ async function sg_testConn(platform, db) {
   else { const { conn } = await sg_getOra(db); await conn.close(); }
 }
 
-async function sg_queryServices(platform, db, version) {
-  const prefix = version === 'V3' ? 'BT' : 'Public';
+async function sg_queryServices(platform, db, version, apiMode) {
   if (platform === 'sqlserver') {
+    // La API Interna (BTCBS) es Oracle-only, aca el prefijo siempre aplica.
+    const prefix = sg_serviceNamePrefix(version, 'publica');
     const { pool } = await sg_getPool(db);
     const col = version === 'V3' ? 'BTISrvNom' : 'BTISRVNOM';
     const r = await pool.request().query("SELECT DISTINCT " + col + " FROM BTI014 WHERE " + col + " LIKE '" + prefix + "%' ORDER BY " + col);
     return r.recordset.map(function(row) { return (row[col] || '').trim(); }).filter(Boolean);
   } else {
+    const q = sg_serviceListQuery(version, apiMode);
     const { conn, oracledb } = await sg_getOra(db);
     try {
-      const r = await conn.execute('SELECT DISTINCT BTISRVNOM FROM BTI014 WHERE BTISRVNOM LIKE :1 ORDER BY BTISRVNOM', [prefix + '%'], { outFormat: oracledb.OUT_FORMAT_OBJECT });
+      const r = await conn.execute(q.sql, q.binds, { outFormat: oracledb.OUT_FORMAT_OBJECT });
       await conn.close();
-      return r.rows.map(function(row) { return (row.BTISRVNOM || '').trim(); }).filter(Boolean);
+      return r.rows.map(function(row) { return (row[q.col] || '').trim(); }).filter(Boolean);
     } catch(e) { await conn.close(); throw e; }
   }
 }
 
-async function sg_queryMethods(platform, db, version, service) {
+async function sg_queryMethods(platform, db, version, service, apiMode) {
   if (platform === 'sqlserver') {
     const { pool, mssql } = await sg_getPool(db);
     const col = version === 'V3' ? 'BTIMtdNom' : 'BTIMTDNOM';
@@ -495,15 +571,20 @@ async function sg_queryMethods(platform, db, version, service) {
     return r.recordset.map(function(row) { return (row[col] || '').trim(); }).filter(Boolean);
   } else {
     const { conn, oracledb } = await sg_getOra(db);
+    const interna = apiMode === 'interna';
     try {
-      const r = await conn.execute('SELECT DISTINCT BTIMTDNOM FROM BTI014 WHERE BTISRVNOM = :1 ORDER BY BTIMTDNOM', [service], { outFormat: oracledb.OUT_FORMAT_OBJECT });
+      const r = await conn.execute(
+        interna ? 'SELECT DISTINCT BSMTDNAME FROM BTCBS014 WHERE BSSRVNAME = :1 ORDER BY BSMTDNAME' : 'SELECT DISTINCT BTIMTDNOM FROM BTI014 WHERE BTISRVNOM = :1 ORDER BY BTIMTDNOM',
+        [service], { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      );
       await conn.close();
-      return r.rows.map(function(row) { return (row.BTIMTDNOM || '').trim(); }).filter(Boolean);
+      const col = interna ? 'BSMTDNAME' : 'BTIMTDNOM';
+      return r.rows.map(function(row) { return (row[col] || '').trim(); }).filter(Boolean);
     } catch(e) { await conn.close(); throw e; }
   }
 }
 
-async function sg_queryMethodDetails(platform, db, version, service, method) {
+async function sg_queryMethodDetails(platform, db, version, service, method, apiMode) {
   if (platform === 'sqlserver') {
     const { pool, mssql } = await sg_getPool(db);
     const v3 = version === 'V3';
@@ -511,29 +592,41 @@ async function sg_queryMethodDetails(platform, db, version, service, method) {
     const cols = v3 ? 'BTIMtdDsc,BTIMtdNSBT,BTIMtdPgmNom,BTIMtdPgmMtd,BTIMtdStatus,BTIMtdFPath,BTIMtdEnbTra,BTIMtdEsPgGx' : 'BTIMTDDSC,BTIMTDNSBT,BTIMTDPGMNOM,BTIMTDPGMMTD,BTIMTDSTATUS,BTIMTDFPATH,BTIMTDENBTRA,BTIMTDESPGGX';
     const r = await pool.request().input('svc', mssql.VarChar(100), service).input('mtd', mssql.VarChar(100), method).query('SELECT TOP 1 ' + cols + ' FROM BTI014 WHERE ' + svcCol + '=@svc AND ' + mtdCol + '=@mtd');
     if (!r.recordset.length) return null;
-    const row = r.recordset[0], g = (k) => row[k] == null ? null : String(row[k]), p = v3 ? 'BTIMtd' : 'BTIMTD';
+    const row = r.recordset[0], g = (k) => sg_cellText(row[k], null), p = v3 ? 'BTIMtd' : 'BTIMTD';
     return { dsc:(g(p+(v3?'Dsc':'DSC'))||'').trim(), nsbt:g(p+'NSBT'), pgmnom:(g(p+(v3?'PgmNom':'PGMNOM'))||'').trim(), pgmmtd:(g(p+(v3?'PgmMtd':'PGMMTD'))||'execute').trim(), status:(g(p+(v3?'Status':'STATUS'))||'Validado').trim(), fpath:g(p+(v3?'FPath':'FPATH')), enbtra:row[p+(v3?'EnbTra':'ENBTRA')]==null?'NULL':g(p+(v3?'EnbTra':'ENBTRA')), espggx:g(p+(v3?'EsPgGx':'ESPGGX')) };
   } else {
     const { conn, oracledb } = await sg_getOra(db);
+    const interna = apiMode === 'interna';
     try {
+      if (interna) {
+        const r = await conn.execute('SELECT BSMTDDESC,BSMTDNSBT,BSMTDPRG,BSPRGENTPO,BSMTDSTAT,BSMTDPATH,BSMTDTRACE,BSMTDGXPRG FROM BTCBS014 WHERE BSSRVNAME=:1 AND BSMTDNAME=:2 AND ROWNUM=1', [service, method], { outFormat: oracledb.OUT_FORMAT_OBJECT });
+        await conn.close();
+        if (!r.rows.length) return null;
+        const row = r.rows[0];
+        return { dsc:(row.BSMTDDESC||'').trim(), nsbt:num_sn(row.BSMTDNSBT), pgmnom:(row.BSMTDPRG||'').trim(), pgmmtd:(row.BSPRGENTPO||'execute').trim(), status:(row.BSMTDSTAT||'Validado').trim(), fpath:row.BSMTDPATH, enbtra:num_sn(row.BSMTDTRACE), espggx:num_sn(row.BSMTDGXPRG) };
+      }
       const r = await conn.execute('SELECT BTIMTDDSC,BTIMTDNSBT,BTIMTDPGMNOM,BTIMTDPGMMTD,BTIMTDSTATUS,BTIMTDFPATH,BTIMTDENBTRA,BTIMTDESPGGX FROM BTI014 WHERE BTISRVNOM=:1 AND BTIMTDNOM=:2 AND ROWNUM=1', [service, method], { outFormat: oracledb.OUT_FORMAT_OBJECT });
       await conn.close();
       if (!r.rows.length) return null;
-      const row = r.rows[0], g = (k) => row[k] == null ? null : String(row[k]);
+      const row = r.rows[0], g = (k) => sg_cellText(row[k], null);
       return { dsc:(g('BTIMTDDSC')||'').trim(), nsbt:g('BTIMTDNSBT'), pgmnom:(g('BTIMTDPGMNOM')||'').trim(), pgmmtd:(g('BTIMTDPGMMTD')||'execute').trim(), status:(g('BTIMTDSTATUS')||'Validado').trim(), fpath:g('BTIMTDFPATH'), enbtra:row.BTIMTDENBTRA==null?'NULL':g('BTIMTDENBTRA'), espggx:g('BTIMTDESPGGX') };
     } catch(e) { await conn.close(); throw e; }
   }
 }
 
-function sg_mapParamRow(row, version) {
-  const g = function(k) { const val = row[k]; if (val == null || typeof val === 'object') return ''; return String(val).trim(); };
+function sg_mapParamRow(row, version, apiMode) {
+  if (apiMode === 'interna') {
+    const g = function(k) { return sg_cellText(row[k]).trim(); };
+    return { nom:g('BSPARNAME'), nomjava:g('BSPARINTNM')||'param0', dir:g('BSPARDIR')||'I', tipo:g('BSPARTYPE'), ittipo:g('BSPARITTYP'), valor:'', sdtver:g('BSPARSDTVE'), cat:g('BSPARCAT')||'B', catit:g('BSPARITCAT')||'B', largo:row.BSPARLEN!=null?String(row.BSPARLEN):'0', lval:'', itnom:g('BSPARITNAM'), deci:row.BSPARDECI!=null?String(row.BSPARDECI):'0', dsc:'' };
+  }
+  const g = function(k) { return sg_cellText(row[k]).trim(); };
   if (version === 'V3') {
     return { nom:g('BTISrvParNom'), nomjava:g('BTISrvParNomJava')||'param0', dir:g('BTISrvParDir')||'I', tipo:g('BTISrvVarTipo'), ittipo:g('BTISrvParItTipo'), valor:g('BTISrvParValor'), sdtver:g('BTISrvSDTVer'), cat:g('BTISrvCat')||'B', catit:g('BTISrvCatIt')||'B', largo:row.BTISrvParLargo!=null?String(row.BTISrvParLargo):'0', lval:g('BTISrvParLVal'), itnom:g('BTISrvParItNom'), deci:row.BTISRVPARDECI!=null?String(row.BTISRVPARDECI):'0' };
   }
   return { nom:g('BTISRVPARNOM'), nomjava:g('BTISRVPARNOMJAVA')||'param0', dir:g('BTISRVPARDIR')||'I', tipo:g('BTISRVVARTIPO'), ittipo:g('BTISRVPARITTIPO'), valor:g('BTISRVPARVALOR'), sdtver:g('BTISRVSDTVER'), cat:g('BTISRVCAT')||'B', catit:g('BTISRVCATIT')||'B', largo:row.BTISRVPARLARGO!=null?String(row.BTISRVPARLARGO):'0', lval:g('BTISRVPARLVAL'), itnom:g('BTISRVPARITNOM'), deci:row.BTISRVPARDECI!=null?String(row.BTISRVPARDECI):'0', dsc:g('BTISRVPARDSC') };
 }
 
-async function sg_queryMethodParams(platform, db, version, service, srvver, method) {
+async function sg_queryMethodParams(platform, db, version, service, srvver, method, apiMode) {
   const v3 = version === 'V3', ver = String(srvver || '1');
   const selectCols = v3 ? 'BTISrvParPosi,BTISrvParNom,BTISrvParNomJava,BTISrvParDir,BTISrvVarTipo,BTISrvParItTipo,BTISrvParValor,BTISrvSDTVer,BTISrvCat,BTISrvCatIt,BTISrvParLargo,BTISrvParLVal,BTISrvParItNom,BTISRVPARDECI' : 'BTISRVPARPOSI,BTISRVPARNOM,BTISRVPARNOMJAVA,BTISRVPARDIR,BTISRVVARTIPO,BTISRVPARITTIPO,BTISRVPARVALOR,BTISRVCATIT,BTISRVCAT,BTISRVSDTVER,BTISRVPARLARGO,BTISRVPARLVAL,BTISRVPARITNOM,BTISRVPARDECI,BTISRVPARDSC';
   if (platform === 'sqlserver') {
@@ -543,7 +636,13 @@ async function sg_queryMethodParams(platform, db, version, service, srvver, meth
     return r.recordset.map(function(row) { return sg_mapParamRow(row, version); });
   } else {
     const { conn, oracledb } = await sg_getOra(db);
+    const interna = apiMode === 'interna';
     try {
+      if (interna) {
+        const r = await conn.execute('SELECT BSPARPOS,BSPARNAME,BSPARINTNM,BSPARDIR,BSPARTYPE,BSPARITTYP,BSPARITCAT,BSPARITNAM,BSPARCAT,BSPARSDTVE,BSPARLEN,BSPARDECI FROM BTCBS019 WHERE BSSRVNAME=:1 AND BSSRVVER=:2 AND BSMTDNAME=:3 ORDER BY BSPARPOS', [service, ver, method], { outFormat: oracledb.OUT_FORMAT_OBJECT });
+        await conn.close();
+        return r.rows.map(function(row) { return sg_mapParamRow(row, version, 'interna'); });
+      }
       const r = await conn.execute('SELECT BTISRVPARPOSI,BTISRVPARNOM,BTISRVPARNOMJAVA,BTISRVPARDIR,BTISRVVARTIPO,BTISRVPARITTIPO,BTISRVPARVALOR,BTISRVCATIT,BTISRVCAT,BTISRVSDTVER,BTISRVPARLARGO,BTISRVPARLVAL,BTISRVPARITNOM,BTISRVPARDECI,BTISRVPARDSC FROM BTI019 WHERE BTISRVNOM=:1 AND BTISRVVER=:2 AND BTIMTDNOM=:3 ORDER BY BTISRVPARPOSI', [service, ver, method], { outFormat: oracledb.OUT_FORMAT_OBJECT });
       await conn.close();
       return r.rows.map(function(row) { return sg_mapParamRow(row, version); });
@@ -551,7 +650,7 @@ async function sg_queryMethodParams(platform, db, version, service, srvver, meth
   }
 }
 
-async function sg_queryServiceVersions(platform, db, version, service) {
+async function sg_queryServiceVersions(platform, db, version, service, apiMode) {
   const v3 = version === 'V3', svcCol = v3?'BTISrvNom':'BTISRVNOM', verCol = v3?'BTISrvVer':'BTISRVVER';
   if (platform === 'sqlserver') {
     const { pool, mssql } = await sg_getPool(db);
@@ -559,10 +658,15 @@ async function sg_queryServiceVersions(platform, db, version, service) {
     return r.recordset.map(function(row) { return (row[verCol]||'').trim(); }).filter(Boolean);
   } else {
     const { conn, oracledb } = await sg_getOra(db);
+    const interna = apiMode === 'interna';
     try {
-      const r = await conn.execute('SELECT DISTINCT BTISRVVER FROM BTI014 WHERE BTISRVNOM=:1 ORDER BY BTISRVVER', [service], { outFormat: oracledb.OUT_FORMAT_OBJECT });
+      const r = await conn.execute(
+        interna ? 'SELECT DISTINCT BSSRVVER FROM BTCBS014 WHERE BSSRVNAME=:1 ORDER BY BSSRVVER' : 'SELECT DISTINCT BTISRVVER FROM BTI014 WHERE BTISRVNOM=:1 ORDER BY BTISRVVER',
+        [service], { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      );
       await conn.close();
-      return r.rows.map(function(row) { return (row.BTISRVVER||'').trim(); }).filter(Boolean);
+      const col = interna ? 'BSSRVVER' : 'BTISRVVER';
+      return r.rows.map(function(row) { return (row[col]||'').trim(); }).filter(Boolean);
     } catch(e) { await conn.close(); throw e; }
   }
 }
@@ -575,7 +679,7 @@ async function sg_queryServiceBTI004(platform, db, service) {
   return { dsc:(r.recordset[0].BTISrvDsc||'').trim(), pgmnom:(r.recordset[0].BTISrvPgmName||'').trim() };
 }
 
-async function sg_queryParamOptions(platform, db, version) {
+async function sg_queryParamOptions(platform, db, version, apiMode) {
   if (platform === 'sqlserver') {
     const { pool } = await sg_getPool(db);
     const t=version==='V3'?'BTISrvVarTipo':'BTISRVVARTIPO', i=version==='V3'?'BTISrvParItTipo':'BTISRVPARITTIPO', n=version==='V3'?'BTISrvParItNom':'BTISRVPARITNOM';
@@ -587,12 +691,15 @@ async function sg_queryParamOptions(platform, db, version) {
     return { tipos:r1.recordset.map(function(r){return(r.v||'').trim();}).filter(Boolean), ittipos:r2.recordset.map(function(r){return(r.v||'').trim();}).filter(Boolean), itnoms:r3.recordset.map(function(r){return(r.v||'').trim();}).filter(Boolean) };
   } else {
     const { conn, oracledb } = await sg_getOra(db);
+    const interna = apiMode === 'interna';
     try {
       const opts = { outFormat: oracledb.OUT_FORMAT_OBJECT };
+      const [t,i,n] = interna ? ['BSPARTYPE','BSPARITTYP','BSPARITNAM'] : ['BTISRVVARTIPO','BTISRVPARITTIPO','BTISRVPARITNOM'];
+      const tbl = interna ? 'BTCBS019' : 'BTI019';
       const [r1,r2,r3] = await Promise.all([
-        conn.execute("SELECT DISTINCT BTISRVVARTIPO v FROM BTI019 WHERE BTISRVVARTIPO IS NOT NULL AND TRIM(BTISRVVARTIPO)!='' ORDER BY BTISRVVARTIPO", [], opts),
-        conn.execute("SELECT DISTINCT BTISRVPARITTIPO v FROM BTI019 WHERE BTISRVPARITTIPO IS NOT NULL AND TRIM(BTISRVPARITTIPO)!='' ORDER BY BTISRVPARITTIPO", [], opts),
-        conn.execute("SELECT DISTINCT BTISRVPARITNOM v FROM BTI019 WHERE BTISRVPARITNOM IS NOT NULL AND TRIM(BTISRVPARITNOM)!='' ORDER BY BTISRVPARITNOM", [], opts),
+        conn.execute(`SELECT DISTINCT ${t} v FROM ${tbl} WHERE ${t} IS NOT NULL AND TRIM(${t})!='' ORDER BY ${t}`, [], opts),
+        conn.execute(`SELECT DISTINCT ${i} v FROM ${tbl} WHERE ${i} IS NOT NULL AND TRIM(${i})!='' ORDER BY ${i}`, [], opts),
+        conn.execute(`SELECT DISTINCT ${n} v FROM ${tbl} WHERE ${n} IS NOT NULL AND TRIM(${n})!='' ORDER BY ${n}`, [], opts),
       ]);
       await conn.close();
       return { tipos:r1.rows.map(function(r){return(r.V||'').trim();}).filter(Boolean), ittipos:r2.rows.map(function(r){return(r.V||'').trim();}).filter(Boolean), itnoms:r3.rows.map(function(r){return(r.V||'').trim();}).filter(Boolean) };
@@ -600,13 +707,16 @@ async function sg_queryParamOptions(platform, db, version) {
   }
 }
 
-async function sg_queryMethodDetailsBatch(platform, db, version, service, methods) {
+async function sg_queryMethodDetailsBatch(platform, db, version, service, methods, apiMode) {
   if (!methods.length) return {};
   const v3 = version === 'V3', svcCol = v3?'BTISrvNom':'BTISRVNOM', mtdCol = v3?'BTIMtdNom':'BTIMTDNOM';
   const cols = v3 ? 'BTIMtdNom,BTIMtdDsc,BTIMtdNSBT,BTIMtdPgmNom,BTIMtdPgmMtd,BTIMtdStatus,BTIMtdFPath,BTIMtdEnbTra,BTIMtdEsPgGx' : 'BTIMTDNOM,BTIMTDDSC,BTIMTDNSBT,BTIMTDPGMNOM,BTIMTDPGMMTD,BTIMTDSTATUS,BTIMTDFPATH,BTIMTDENBTRA,BTIMTDESPGGX';
   function toDetail(row) {
-    const g = (k) => row[k] == null ? null : String(row[k]), p = v3?'BTIMtd':'BTIMTD';
+    const g = (k) => sg_cellText(row[k], null), p = v3?'BTIMtd':'BTIMTD';
     return { dsc:(g(p+(v3?'Dsc':'DSC'))||'').trim(), nsbt:g(p+'NSBT'), pgmnom:(g(p+(v3?'PgmNom':'PGMNOM'))||'').trim(), pgmmtd:(g(p+(v3?'PgmMtd':'PGMMTD'))||'execute').trim(), status:(g(p+(v3?'Status':'STATUS'))||'Validado').trim(), fpath:g(p+(v3?'FPath':'FPATH')), enbtra:row[p+(v3?'EnbTra':'ENBTRA')]==null?'NULL':g(p+(v3?'EnbTra':'ENBTRA')), espggx:g(p+(v3?'EsPgGx':'ESPGGX')) };
+  }
+  function toDetailInterna(row) {
+    return { dsc:(row.BSMTDDESC||'').trim(), nsbt:num_sn(row.BSMTDNSBT), pgmnom:(row.BSMTDPRG||'').trim(), pgmmtd:(row.BSPRGENTPO||'execute').trim(), status:(row.BSMTDSTAT||'Validado').trim(), fpath:row.BSMTDPATH, enbtra:num_sn(row.BSMTDTRACE), espggx:num_sn(row.BSMTDGXPRG) };
   }
   if (platform === 'sqlserver') {
     const { pool, mssql } = await sg_getPool(db);
@@ -616,15 +726,20 @@ async function sg_queryMethodDetailsBatch(platform, db, version, service, method
     const result = {}; r.recordset.forEach(function(row) { result[(row[mtdCol]||'').trim()] = toDetail(row); }); return result;
   } else {
     const { conn, oracledb } = await sg_getOra(db);
+    const interna = apiMode === 'interna';
     try {
       const placeholders = methods.map((_,i) => ':'+(i+2)).join(',');
+      if (interna) {
+        const r = await conn.execute('SELECT BSMTDNAME,BSMTDDESC,BSMTDNSBT,BSMTDPRG,BSPRGENTPO,BSMTDSTAT,BSMTDPATH,BSMTDTRACE,BSMTDGXPRG FROM BTCBS014 WHERE BSSRVNAME=:1 AND BSMTDNAME IN ('+placeholders+')', [service,...methods], { outFormat: oracledb.OUT_FORMAT_OBJECT });
+        const result = {}; r.rows.forEach(function(row) { result[(row.BSMTDNAME||'').trim()] = toDetailInterna(row); }); return result;
+      }
       const r = await conn.execute('SELECT '+cols+' FROM BTI014 WHERE BTISRVNOM=:1 AND BTIMTDNOM IN ('+placeholders+')', [service,...methods], { outFormat: oracledb.OUT_FORMAT_OBJECT });
       const result = {}; r.rows.forEach(function(row) { result[(row.BTIMTDNOM||'').trim()] = toDetail(row); }); return result;
     } finally { await conn.close(); }
   }
 }
 
-async function sg_queryMethodParamsBatch(platform, db, version, service, srvver, methods) {
+async function sg_queryMethodParamsBatch(platform, db, version, service, srvver, methods, apiMode) {
   if (!methods.length) return {};
   const v3 = version==='V3', ver = String(srvver||'1');
   const svcCol=v3?'BTISrvNom':'BTISRVNOM', verCol=v3?'BTISrvVer':'BTISRVVER', mtdCol=v3?'BTIMtdNom':'BTIMTDNOM', posiCol=v3?'BTISrvParPosi':'BTISRVPARPOSI';
@@ -638,49 +753,68 @@ async function sg_queryMethodParamsBatch(platform, db, version, service, srvver,
     const result = emptyResult(); r.recordset.forEach(function(row) { const name=(row[v3?'BTIMtdNom':'BTIMTDNOM']||'').trim(); if(result[name])result[name].push(sg_mapParamRow(row,version)); }); return result;
   } else {
     const { conn, oracledb } = await sg_getOra(db);
+    const interna = apiMode === 'interna';
     try {
       const placeholders = methods.map((_,i) => ':'+(i+3)).join(',');
+      if (interna) {
+        const r = await conn.execute('SELECT BSMTDNAME,BSPARPOS,BSPARNAME,BSPARINTNM,BSPARDIR,BSPARTYPE,BSPARITTYP,BSPARITCAT,BSPARITNAM,BSPARCAT,BSPARSDTVE,BSPARLEN,BSPARDECI FROM BTCBS019 WHERE BSSRVNAME=:1 AND BSSRVVER=:2 AND BSMTDNAME IN ('+placeholders+') ORDER BY BSMTDNAME,BSPARPOS', [service,ver,...methods], { outFormat: oracledb.OUT_FORMAT_OBJECT });
+        const result = emptyResult(); r.rows.forEach(function(row) { const name=(row.BSMTDNAME||'').trim(); if(result[name])result[name].push(sg_mapParamRow(row,version,'interna')); }); return result;
+      }
       const r = await conn.execute('SELECT '+selectCols+' FROM BTI019 WHERE BTISRVNOM=:1 AND BTISRVVER=:2 AND BTIMTDNOM IN ('+placeholders+') ORDER BY BTIMTDNOM,BTISRVPARPOSI', [service,ver,...methods], { outFormat: oracledb.OUT_FORMAT_OBJECT });
       const result = emptyResult(); r.rows.forEach(function(row) { const name=(row.BTIMTDNOM||'').trim(); if(result[name])result[name].push(sg_mapParamRow(row,version)); }); return result;
     } finally { await conn.close(); }
   }
 }
 
-async function sg_queryBti025(platform, db, version, sdtNom) {
+async function sg_queryBti025(platform, db, version, sdtNom, apiMode) {
   if (platform === 'sqlserver') {
     const { pool, mssql } = await sg_getPool(db);
     const r = await pool.request().input('nom',mssql.VarChar(100),sdtNom).query('SELECT TOP 1 BTISDTNom,BTISDTVersion,BTISDTDescrip,BTISDTNativo,BTISDTFecha,BTISDTNomInt,BTISDTEstado,BTISDTTipo,BTISDTNameSpace FROM BTI025 WHERE BTISDTNom=@nom');
     if (!r.recordset.length) return null;
-    const row = r.recordset[0], g = k => row[k] == null ? '' : String(row[k]).trim();
+    const row = r.recordset[0], g = k => sg_cellText(row[k]).trim();
     return { nom:g('BTISDTNom'), version:g('BTISDTVersion'), descrip:g('BTISDTDescrip'), nativo:g('BTISDTNativo'), fecha:row.BTISDTFecha, nomint:g('BTISDTNomInt'), estado:(g('BTISDTEstado')||'Desarrollo').padEnd(20).slice(0,20), tipo:row.BTISDTTipo!=null?String(row.BTISDTTipo):'0', namespace:g('BTISDTNameSpace') };
   } else {
     const { conn, oracledb } = await sg_getOra(db);
+    const interna = apiMode === 'interna';
     try {
-      const r = await conn.execute('SELECT BTISDTNOM,BTISDTVERSION,BTISDTNOMINT,BTISDTESTADO,BTISDTTIPO,BTISDTNAMESPACE,BTISDTFECHA,BTISDTDESCRIP,BTISDTNATIVO FROM BTI025 WHERE BTISDTNOM=:1 AND ROWNUM=1', [sdtNom], { outFormat: oracledb.OUT_FORMAT_OBJECT });
+      if (interna) {
+        const r = await conn.execute('SELECT BSSDTNAME,BSSDTVER,BSSDTINTNM,BSSDTSTAT,BSSDTTYPE,BSSDTNMSP,BSSDTDATE,BSSDTDESC,BSSDTNATIV FROM BTCBS025 WHERE TRIM(BSSDTNAME)=:1 AND ROWNUM=1', [sdtNom], { outFormat: oracledb.OUT_FORMAT_OBJECT });
+        await conn.close();
+        if (!r.rows.length) return null;
+        const row = r.rows[0], g = k => sg_cellText(row[k]).trim();
+        return { nom:g('BSSDTNAME'), version:g('BSSDTVER'), descrip:g('BSSDTDESC'), nativo:num_sn(row.BSSDTNATIV), fecha:row.BSSDTDATE, nomint:g('BSSDTINTNM'), estado:(g('BSSDTSTAT')||'Desarrollo').padEnd(20).slice(0,20), tipo:row.BSSDTTYPE!=null?String(row.BSSDTTYPE):'0', namespace:g('BSSDTNMSP') };
+      }
+      const r = await conn.execute('SELECT BTISDTNOM,BTISDTVERSION,BTISDTNOMINT,BTISDTESTADO,BTISDTTIPO,BTISDTNAMESPACE,BTISDTFECHA,BTISDTDESCRIP,BTISDTNATIVO FROM BTI025 WHERE TRIM(BTISDTNOM)=:1 AND ROWNUM=1', [sdtNom], { outFormat: oracledb.OUT_FORMAT_OBJECT });
       await conn.close();
       if (!r.rows.length) return null;
-      const row = r.rows[0], g = k => row[k] == null ? '' : String(row[k]).trim();
+      const row = r.rows[0], g = k => sg_cellText(row[k]).trim();
       return { nom:g('BTISDTNOM'), version:g('BTISDTVERSION'), descrip:g('BTISDTDESCRIP'), nativo:g('BTISDTNATIVO'), fecha:row.BTISDTFECHA, nomint:g('BTISDTNOMINT'), estado:(g('BTISDTESTADO')||'Desarrollo').padEnd(20).slice(0,20), tipo:row.BTISDTTIPO!=null?String(row.BTISDTTIPO):'0', namespace:g('BTISDTNAMESPACE') };
     } catch(e) { await conn.close(); throw e; }
   }
 }
 
-async function sg_queryBti026(platform, db, version, sdtNom) {
+async function sg_queryBti026(platform, db, version, sdtNom, apiMode) {
   if (platform === 'sqlserver') {
     const { pool, mssql } = await sg_getPool(db);
-    const r = await pool.request().input('nom',mssql.VarChar(100),sdtNom).query('SELECT BTISDTELEMNOM,BTISDTELEMTIPO,BTISDTELEMLARGO,BTISDTELEMCAT,BTISDTELEMDSC,BTISDTELEMSDT FROM BTI026 WHERE BTISDTNOM=@nom ORDER BY BTISDTELEMNOM');
-    return r.recordset.map(function(row) { const g=k=>row[k]==null?'':String(row[k]).trim(); return {elemnom:g('BTISDTELEMNOM'),elemtipo:g('BTISDTELEMTIPO'),elemlargo:row.BTISDTELEMLARGO!=null?String(row.BTISDTELEMLARGO):'0',elemdeci:'0',elemcat:g('BTISDTELEMCAT'),elemdsc:g('BTISDTELEMDSC'),elemsdt:g('BTISDTELEMSDT')}; });
+    const r = await pool.request().input('nom',mssql.VarChar(100),sdtNom).query('SELECT BTISDTELEMNOM,BTISDTELEMTIPO,BTISDTELEMLARGO,BTISDTELEMCAT,BTISDTELEMDSC,BTISDTELEMSDT,BTISDTELEMPOSI FROM BTI026 WHERE BTISDTNOM=@nom ORDER BY BTISDTELEMPOSI');
+    return r.recordset.map(function(row) { const g=k=>sg_cellText(row[k]).trim(); return {elemnom:g('BTISDTELEMNOM'),elemtipo:g('BTISDTELEMTIPO'),elemlargo:row.BTISDTELEMLARGO!=null?String(row.BTISDTELEMLARGO):'0',elemdeci:'0',elemcat:g('BTISDTELEMCAT'),elemdsc:g('BTISDTELEMDSC'),elemsdt:g('BTISDTELEMSDT'),posi:row.BTISDTELEMPOSI!=null?String(row.BTISDTELEMPOSI):'0'}; });
   } else {
     const { conn, oracledb } = await sg_getOra(db);
+    const interna = apiMode === 'interna';
     try {
-      const r = await conn.execute('SELECT BTISDTELEMNOM,BTISDTELEMTIPO,BTISDTELEMLARGO,BTISDTELEMDECI,BTISDTELEMCAT,BTISDTELEMDSC,BTISDTELEMSDT FROM BTI026 WHERE BTISDTNOM=:1 ORDER BY BTISDTELEMNOM', [sdtNom], { outFormat: oracledb.OUT_FORMAT_OBJECT });
+      if (interna) {
+        const r = await conn.execute('SELECT BSSDTVER,BSELMNAME,BSELMINTNM,BSELMISREQ,BSELMCAT,BSEIMITCAT,BSELMITNAM,BSELMTYPE,BSELMSDTNM,BSELMSDTVE,BSELMFLAT,BSELMLEN,BSELMENUM,BSELMVALS,BSELMDESC,BSELMPOS,BSELMDECI FROM BTCBS026 WHERE TRIM(BSSDTNAME)=:1 ORDER BY BSELMPOS', [sdtNom], { outFormat: oracledb.OUT_FORMAT_OBJECT });
+        await conn.close();
+        return r.rows.map(function(row) { const g=k=>sg_cellText(row[k]).trim(); return {version:g('BSSDTVER'),elemnom:g('BSELMNAME'),nint:g('BSELMINTNM'),obl:num_sn(row.BSELMISREQ),elemcat:g('BSELMCAT'),elemtipo:g('BSELMTYPE'),elemsdt:g('BSELMSDTNM'),sdtve:g('BSELMSDTVE'),plano:g('BSELMFLAT'),elemlargo:row.BSELMLEN!=null?String(row.BSELMLEN):'0',enu:g('BSELMENUM'),val:g('BSELMVALS'),elemdsc:g('BSELMDESC'),posi:row.BSELMPOS!=null?String(row.BSELMPOS):'0',catit:g('BSEIMITCAT'),elemdeci:row.BSELMDECI!=null?String(row.BSELMDECI):'0',nomit:g('BSELMITNAM')}; });
+      }
+      const r = await conn.execute('SELECT BTISDTVERSION,BTISDTELEMNOM,BTISDTELEMNINT,BTISDTELEMOBL,BTISDTELEMCAT,BTISDTELEMTIPO,BTISDTELEMSDT,BTISDTELEMSDTVE,BTISDTELEMPLANO,BTISDTELEMLARGO,BTISDTELEMENU,BTISDTELEMVAL,BTISDTELEMDSC,BTISDTELEMPOSI,BTISDTELEMCATIT,BTISDTELEMDECI,BTISDTELEMNOMIT FROM BTI026 WHERE TRIM(BTISDTNOM)=:1 ORDER BY BTISDTELEMPOSI', [sdtNom], { outFormat: oracledb.OUT_FORMAT_OBJECT });
       await conn.close();
-      return r.rows.map(function(row) { const g=k=>row[k]==null?'':String(row[k]).trim(); return {elemnom:g('BTISDTELEMNOM'),elemtipo:g('BTISDTELEMTIPO'),elemlargo:row.BTISDTELEMLARGO!=null?String(row.BTISDTELEMLARGO):'0',elemdeci:row.BTISDTELEMDECI!=null?String(row.BTISDTELEMDECI):'0',elemcat:g('BTISDTELEMCAT'),elemdsc:g('BTISDTELEMDSC'),elemsdt:g('BTISDTELEMSDT')}; });
+      return r.rows.map(function(row) { const g=k=>sg_cellText(row[k]).trim(); return {version:g('BTISDTVERSION'),elemnom:g('BTISDTELEMNOM'),nint:g('BTISDTELEMNINT'),obl:g('BTISDTELEMOBL'),elemcat:g('BTISDTELEMCAT'),elemtipo:g('BTISDTELEMTIPO'),elemsdt:g('BTISDTELEMSDT'),sdtve:g('BTISDTELEMSDTVE'),plano:g('BTISDTELEMPLANO'),elemlargo:row.BTISDTELEMLARGO!=null?String(row.BTISDTELEMLARGO):'0',enu:g('BTISDTELEMENU'),val:g('BTISDTELEMVAL'),elemdsc:g('BTISDTELEMDSC'),posi:row.BTISDTELEMPOSI!=null?String(row.BTISDTELEMPOSI):'0',catit:g('BTISDTELEMCATIT'),elemdeci:row.BTISDTELEMDECI!=null?String(row.BTISDTELEMDECI):'0',nomit:g('BTISDTELEMNOMIT')}; });
     } catch(e) { await conn.close(); throw e; }
   }
 }
 
-async function sg_querySdtsBatch(platform, db, version, initialSdtNames) {
+async function sg_querySdtsBatch(platform, db, version, initialSdtNames, apiMode) {
   const result = new Map();
   const toProcess = [...new Set(initialSdtNames.filter(Boolean).map(function(s){return s.trim();}).filter(Boolean))];
   const processed = new Set();
@@ -688,8 +822,8 @@ async function sg_querySdtsBatch(platform, db, version, initialSdtNames) {
     const sdtNom = toProcess.shift();
     if (processed.has(sdtNom)) continue;
     processed.add(sdtNom);
-    const b25 = await sg_queryBti025(platform, db, version, sdtNom);
-    const b26 = await sg_queryBti026(platform, db, version, sdtNom);
+    const b25 = await sg_queryBti025(platform, db, version, sdtNom, apiMode);
+    const b26 = await sg_queryBti026(platform, db, version, sdtNom, apiMode);
     result.set(sdtNom, { nom: sdtNom, bti025: b25, bti026: b26 });
     for (var i = 0; i < b26.length; i++) {
       const e = b26[i];
@@ -835,7 +969,42 @@ function mapBti026SchemaRow(row) {
 // ninguna variable intermedia). Tocar una rama NUNCA debe requerir
 // tocar la otra.
 // ================================================================
-async function queryMethodSchema(platform, db, service, method) {
+// Equivalentes de mapMethodSchemaRow/mapBti026SchemaRow para BTCBS (API Interna).
+function mapMethodSchemaRowInterna(row) {
+  const name = (row.BSPARNAME || '').trim();
+  const type = (row.BSPARTYPE || '').trim();
+  const direction = (row.BSPARDIR || '').trim();
+  const category = (row.BSPARITCAT || '').trim();
+  const itemType = (row.BSPARITTYP || '').trim();
+  const itemName = (row.BSPARITNAM || '').trim();
+  const sdtType = itemType || (type.startsWith('Sdt') ? type : '');
+  return {
+    name, type, direction, category, itemType, itemName, sdtType,
+    isComplex: !!sdtType,
+    isCollection: category === 'C' || (category === 'S' && !!itemType),
+    description: '', // BTCBS019 no tiene columna de descripcion de parametro
+    length: row.BSPARLEN,
+    decimals: row.BSPARDECI
+  };
+}
+
+function mapBti026SchemaRowInterna(row) {
+  const type = (row.BSELMTYPE || '').trim();
+  const category = (row.BSELMCAT || '').trim();
+  const sdtType = (row.BSELMSDTNM && row.BSELMSDTNM.trim()) ||
+                  (type.startsWith('Sdt') ? type : '');
+  return {
+    name: (row.BSELMNAME || '').trim(),
+    type, category, sdtType,
+    isComplex: !!sdtType,
+    isCollection: category === 'C',
+    description: (row.BSELMDESC || '').trim(),
+    length: row.BSELMLEN,
+    decimals: row.BSELMDECI
+  };
+}
+
+async function queryMethodSchema(platform, db, service, method, apiMode) {
   if (platform === 'sqlserver') {
     // ==============================================================
     // RAMA V3 (SQL Server / GeneXus BT clasico - tablas BTI014/BTI019/BTI026)
@@ -944,24 +1113,32 @@ async function queryMethodSchema(platform, db, service, method) {
   // ==================================================================
   const mod = path.join(ROOT, 'V4', 'node_modules', 'oracledb');
   if (!fs.existsSync(mod)) throw new Error('oracledb no instalado - ejecuta npm install en V4/');
-  const oracledb = require(mod);
+  const oracledb = oraFetchLobsAsString(require(mod));
   const conn = await oracledb.getConnection({
     user: db.DB_USER,
     password: db.DB_PASSWORD,
     connectString: db.DB_CONNECT_STRING,
   });
+  const interna = apiMode === 'interna';
   try {
     const meta = await conn.execute(
-      `SELECT BTISRVPARNOM, BTISRVVARTIPO, BTISRVPARDIR, BTISRVPARDSC, BTISRVPARLARGO, BTISRVPARDECI, BTISRVCATIT, BTISRVPARITTIPO, BTISRVPARITNOM
-         FROM BTI019
-        WHERE BTISRVNOM = :1 AND BTIMTDNOM = :2
-        ORDER BY BTISRVPARPOSI`,
+      interna
+        ? `SELECT BSPARNAME, BSPARTYPE, BSPARDIR, BSPARLEN, BSPARDECI, BSPARITCAT, BSPARITTYP, BSPARITNAM
+             FROM BTCBS019
+            WHERE BSSRVNAME = :1 AND BSMTDNAME = :2
+            ORDER BY BSPARPOS`
+        : `SELECT BTISRVPARNOM, BTISRVVARTIPO, BTISRVPARDIR, BTISRVPARDSC, BTISRVPARLARGO, BTISRVPARDECI, BTISRVCATIT, BTISRVPARITTIPO, BTISRVPARITNOM
+             FROM BTI019
+            WHERE BTISRVNOM = :1 AND BTIMTDNOM = :2
+            ORDER BY BTISRVPARPOSI`,
       [service, method],
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
 
     const info = await conn.execute(
-      'SELECT BTIMTDDSC FROM BTI014 WHERE BTISRVNOM = :1 AND BTIMTDNOM = :2',
+      interna
+        ? 'SELECT BSMTDDESC FROM BTCBS014 WHERE BSSRVNAME = :1 AND BSMTDNAME = :2'
+        : 'SELECT BTIMTDDSC FROM BTI014 WHERE BTISRVNOM = :1 AND BTIMTDNOM = :2',
       [service, method],
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
@@ -971,28 +1148,34 @@ async function queryMethodSchema(platform, db, service, method) {
       if (!sdtName || sdts[sdtName]) return;
       // BTISDTELEMNOMIT: ver el comentario identico en la rama V3 de arriba.
       const r26 = await conn.execute(
-        `SELECT BTISDTELEMNOM, BTISDTELEMTIPO, BTISDTELEMLARGO, BTISDTELEMDECI, BTISDTELEMCAT, BTISDTELEMDSC, BTISDTELEMSDT, BTISDTELEMNOMIT
-           FROM BTI026
-          WHERE BTISDTNOM = :1
-          ORDER BY BTISDTELEMNOM`,
+        interna
+          ? `SELECT BSELMNAME, BSELMTYPE, BSELMLEN, BSELMDECI, BSELMCAT, BSELMDESC, BSELMSDTNM
+               FROM BTCBS026
+              WHERE BSSDTNAME = :1
+              ORDER BY BSELMNAME`
+          : `SELECT BTISDTELEMNOM, BTISDTELEMTIPO, BTISDTELEMLARGO, BTISDTELEMDECI, BTISDTELEMCAT, BTISDTELEMDSC, BTISDTELEMSDT, BTISDTELEMNOMIT
+               FROM BTI026
+              WHERE BTISDTNOM = :1
+              ORDER BY BTISDTELEMNOM`,
         [sdtName],
         { outFormat: oracledb.OUT_FORMAT_OBJECT }
       );
-      sdts[sdtName] = r26.rows.map(mapBti026SchemaRow).filter(function(field) { return field.name; });
+      sdts[sdtName] = r26.rows.map(interna ? mapBti026SchemaRowInterna : mapBti026SchemaRow).filter(function(field) { return field.name; });
       for (const field of sdts[sdtName]) {
         if (field.sdtType) await loadSdt(field.sdtType);
       }
     }
 
-    const params = meta.rows.map(mapMethodSchemaRow).filter(function(param) { return param.name; });
+    const params = meta.rows.map(interna ? mapMethodSchemaRowInterna : mapMethodSchemaRow).filter(function(param) { return param.name; });
     for (const param of params) {
       if (param.sdtType) await loadSdt(param.sdtType);
     }
 
+    const descCol = interna ? 'BSMTDDESC' : 'BTIMTDDSC';
     return {
       service,
       method,
-      description: info.rows[0] && info.rows[0].BTIMTDDSC ? info.rows[0].BTIMTDDSC.trim() : '',
+      description: info.rows[0] && info.rows[0][descCol] ? info.rows[0][descCol].trim() : '',
       inputs: params.filter(function(param) { return param.direction === 'I'; }),
       outputs: params.filter(function(param) { return param.direction === 'O' || param.direction === 'R'; }),
       sdts
@@ -1007,6 +1190,13 @@ async function queryMethodSchema(platform, db, service, method) {
     queryServicesWithMethods,
     queryMethodSchema
   });
+
+const sdtGenFeature = createSdtGenFeature({
+  getPool: sg_getPool,
+  getOra: sg_getOra,
+  queryBti025: sg_queryBti025,
+  queryBti026: sg_queryBti026,
+});
 
 // -- server ------------------------------------------------
 
@@ -1049,6 +1239,10 @@ http.createServer(async (req, res) => {
   }
 
   if (await collectionFeature.handleApi(req, res, { readBody, json })) {
+    return;
+  }
+
+  if (await sdtGenFeature.handleApi(req, res, { readBody, json })) {
     return;
   }
 
@@ -1154,8 +1348,8 @@ http.createServer(async (req, res) => {
 
   if (req.method === 'POST' && req.url === '/api/services') {
     try {
-      const { platform, db } = await readBody(req);
-      const services = await queryServices(platform, db);
+      const { platform, db, apiMode } = await readBody(req);
+      const services = await queryServices(platform, db, apiMode);
       json(200, { ok: true, services });
     } catch (e) {
       json(200, { ok: false, message: e.message });
@@ -1165,8 +1359,8 @@ http.createServer(async (req, res) => {
 
   if (req.method === 'POST' && req.url === '/api/methods') {
     try {
-      const { platform, db, service } = await readBody(req);
-      const methods = await queryMethods(platform, db, service);
+      const { platform, db, service, apiMode } = await readBody(req);
+      const methods = await queryMethods(platform, db, service, apiMode);
       json(200, { ok: true, methods });
     } catch (e) {
       json(200, { ok: false, message: e.message });
@@ -1402,15 +1596,15 @@ http.createServer(async (req, res) => {
         return;
       }
       if (route === 'services') {
-        try { const services = await sg_queryServices(payload.platform, payload.db, payload.version); j(200, { ok: true, services }); } catch(e) { j(200, { ok: false, message: e.message }); }
+        try { const services = await sg_queryServices(payload.platform, payload.db, payload.version, payload.apiMode); j(200, { ok: true, services }); } catch(e) { j(200, { ok: false, message: e.message }); }
         return;
       }
       if (route === 'methods') {
-        try { const methods = await sg_queryMethods(payload.platform, payload.db, payload.version, payload.service); j(200, { ok: true, methods }); } catch(e) { j(200, { ok: false, message: e.message }); }
+        try { const methods = await sg_queryMethods(payload.platform, payload.db, payload.version, payload.service, payload.apiMode); j(200, { ok: true, methods }); } catch(e) { j(200, { ok: false, message: e.message }); }
         return;
       }
       if (route === 'service-versions') {
-        try { const versions = await sg_queryServiceVersions(payload.platform, payload.db, payload.version, payload.service); j(200, { ok: true, versions }); } catch(e) { j(200, { ok: false, message: e.message }); }
+        try { const versions = await sg_queryServiceVersions(payload.platform, payload.db, payload.version, payload.service, payload.apiMode); j(200, { ok: true, versions }); } catch(e) { j(200, { ok: false, message: e.message }); }
         return;
       }
       if (route === 'bti004') {
@@ -1418,7 +1612,7 @@ http.createServer(async (req, res) => {
         return;
       }
       if (route === 'param-options') {
-        try { const opts = await sg_queryParamOptions(payload.platform, payload.db, payload.version); j(200, { ok: true, opts }); } catch(e) { j(200, { ok: false, message: e.message }); }
+        try { const opts = await sg_queryParamOptions(payload.platform, payload.db, payload.version, payload.apiMode); j(200, { ok: true, opts }); } catch(e) { j(200, { ok: false, message: e.message }); }
         return;
       }
       if (route === 'validate') {
@@ -1459,14 +1653,16 @@ http.createServer(async (req, res) => {
       }
       if (route === 'methods-full') {
         try {
-          const details = await sg_queryMethodDetailsBatch(payload.platform, payload.db, payload.version, payload.service, payload.methods);
-          const params  = await sg_queryMethodParamsBatch(payload.platform, payload.db, payload.version, payload.service, payload.srvver, payload.methods);
+          const details = await sg_queryMethodDetailsBatch(payload.platform, payload.db, payload.version, payload.service, payload.methods, payload.apiMode);
+          const params  = await sg_queryMethodParamsBatch(payload.platform, payload.db, payload.version, payload.service, payload.srvver, payload.methods, payload.apiMode);
           const allSdtNames = new Set();
           (payload.methods || []).forEach(function(m) { sg_extractSdtNames(params[m] || []).forEach(function(n) { allSdtNames.add(n); }); });
-          const sdts = allSdtNames.size > 0 ? await sg_querySdtsBatch(payload.platform, payload.db, payload.version, [...allSdtNames]) : [];
+          const sdts = allSdtNames.size > 0 ? await sg_querySdtsBatch(payload.platform, payload.db, payload.version, [...allSdtNames], payload.apiMode) : [];
+          const bti004 = await sg_queryServiceBTI004(payload.platform, payload.db, payload.service);
           const items = (payload.methods || []).map(method => ({
             version: payload.version,
-            header: { BTINom: 'BTSERVICES', BTISrvNom: payload.service, BTISrvVer: payload.srvver || '1', BTIMtdNom: method },
+            apiMode: payload.apiMode,
+            header: { BTINom: 'BTSERVICES', BTISrvNom: payload.service, BTISrvVer: payload.srvver || '1', BTIMtdNom: method, BTISrvDsc: bti004 ? bti004.dsc : '', BTISrvPgmName: bti004 ? bti004.pgmnom : '' },
             method: details[method] || {},
             params: params[method] || [],
             sdts
@@ -1481,8 +1677,8 @@ http.createServer(async (req, res) => {
           const items = Array.isArray(data) ? data : [data];
           const methodPart = items.map(function(item) { return sg_generateScript(item, mode); }).join('\n\n');
           const sdtMap = new Map();
-          items.forEach(function(item) { (item.sdts || []).forEach(function(sdt) { if (!sdtMap.has(sdt.nom)) sdtMap.set(sdt.nom, { sdt, version: item.version }); }); });
-          const sdtPart = [...sdtMap.values()].map(function(e) { return sg_generateSdtScript(e.sdt, mode, e.version); }).filter(Boolean).join('\n\n');
+          items.forEach(function(item) { (item.sdts || []).forEach(function(sdt) { if (!sdtMap.has(sdt.nom)) sdtMap.set(sdt.nom, { sdt, version: item.version, apiMode: item.apiMode }); }); });
+          const sdtPart = [...sdtMap.values()].map(function(e) { return sg_generateSdtScript(e.sdt, mode, e.version, e.apiMode); }).filter(Boolean).join('\n\n');
           const script = [methodPart, sdtPart].filter(Boolean).join('\n\n');
           j(200, { ok: true, script });
         } catch(e) { j(200, { ok: false, message: e.message }); }

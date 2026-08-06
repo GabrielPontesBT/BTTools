@@ -2179,14 +2179,14 @@
       "1"
     ],
     "token": [
-      "79BCDCC967EAED6292E2C496",
-      "6C1FA996571F38E3950B2965",
-      "C4068EA5CB7F4FF5D54E0409",
-      "2826E7B9B61DA321426C0654",
-      "032045225FAA3CA30C8DB95E",
-      "A59F078F661591D1BE7ABF6B",
-      "2A187A009D2C6A6749E28EEB",
-      "E48BB33BE09FD96E06361ECF"
+      "3030C2CAF4C6CB76B41C7FCA",
+      "AC0172DE39A752B2C133946D",
+      "2A7D46F2498CBB0DF8D2B984",
+      "F28028F6A48109C2DEDE538B",
+      "E5FEE2C265C47167DE7DA2BD",
+      "CC8AD5E3FB66604E6DCFE145",
+      "B7A658CC3E01A04541CF036F",
+      "79BCDCC967EAED6292E2C496"
     ],
     "BTPartners_ObtenerPartners_sdtPartners_item_clienteUId": [
       "0"
@@ -2226,6 +2226,36 @@
     ],
     "BTPartners_ObtenerVendedores_sdtVendedores_item_vendedorUId": [
       "1"
+    ],
+    "BTPartners_ObtenerNiveles_sdtNiveles_item_Descripcion": [
+      "Debe ingresar el identificador del tipo de partner."
+    ],
+    "BTPartners_ObtenerPuntosDeVenta_sdtPuntosVenta_item_codigoComision": [
+      "0"
+    ],
+    "BTPartners_ObtenerPuntosDeVenta_sdtPuntosVenta_item_nombre": [
+      "Punto de Venta 2"
+    ],
+    "BTPartners_ObtenerPuntosDeVenta_sdtPuntosVenta_item_partnerUId": [
+      "1"
+    ],
+    "BTPartners_ObtenerPuntosDeVenta_sdtPuntosVenta_item_puntoVentaUId": [
+      "2"
+    ],
+    "BTPartners_ObtenerPuntosDeVenta_sdtPuntosVenta_item_sucursal": [
+      "0"
+    ],
+    "BTPartners_ObtenerProductosPartner_sdtProductos_item_moneda": [
+      "$"
+    ],
+    "BTPartners_ObtenerProductosPartner_sdtProductos_item_nombre": [
+      "PRESTAMOS VEHICULARES, Vehiculares"
+    ],
+    "BTPartners_ObtenerProductosPartner_sdtProductos_item_papel": [
+      "$"
+    ],
+    "BTPartners_ObtenerProductosPartner_sdtProductos_item_productoUId": [
+      "200"
     ]
   },
   "V3::sqlserver::SQLSERVER1|1433|ProductoGx16::https://pioneroapp2:6004/productogx16/servlet/": {

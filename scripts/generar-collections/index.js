@@ -1761,7 +1761,7 @@ function createCollectionFeature(deps) {
     const schemas = [];
     for (let i = 0; i < body.items.length; i++) {
       const item = body.items[i];
-      const schema = await queryMethodSchema(body.platform, body.db, item.service, item.method);
+      const schema = await queryMethodSchema(body.platform, body.db, item.service, item.method, body.apiMode);
       schema.service = item.service;
       schema.method = item.method;
       schema.orderLabel = i + 1;
@@ -1871,6 +1871,7 @@ function createCollectionFeature(deps) {
       const schemas = await loadSchemasForItems({
         platform: body.platform,
         db: body.db,
+        apiMode: body.apiMode,
         items: scenario.items
       });
       const bindingsInfo = computeBindingsAndMappings(schemas);

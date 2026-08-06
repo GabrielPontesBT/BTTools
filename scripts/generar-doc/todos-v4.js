@@ -4,6 +4,7 @@
 // Ejemplo: node generar_todos.js PublicGeneral "PUBLIC GENERAL V4"
 // ============================================================
 
+require('./_node-modules')(module, 'V4');
 require('dotenv').config();
 const oracledb = require('oracledb');
 const fs = require('fs');

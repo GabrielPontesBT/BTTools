@@ -3,6 +3,7 @@
 // Uso: node generar_md.js PublicCASHManagement getServices
 // ============================================================
 
+require('./_node-modules')(module, 'V4');
 require('dotenv').config();
 const oracledb = require('oracledb');
 const fs = require('fs');
@@ -726,6 +727,12 @@ ${tabla}
       Token:          '23B342928917607ECECF65BD'
     };
 
+    // ── Split entrada: GUID → query string, resto → body ──
+    const esGuid       = r => (r.BTISRVPARNOM || '').toUpperCase().includes('GUID');
+    const usaQueryAll  = httpMethod === 'GET' || httpMethod === 'DELETE';
+    const entradaQuery = usaQueryAll ? entrada : entrada.filter(esGuid);
+    const entradaBody  = usaQueryAll ? []      : entrada.filter(r => !esGuid(r));
+
     // ── Ejemplos JSON (body sin Btinreq) ──
     const entradaNombres = new Set(entrada.map(r => r.BTISRVPARNOM));
     const filteredParams = inputParams
@@ -764,12 +771,6 @@ ${tabla}
         console.log(`⚠️  ${e.message} — usando valores de ejemplo`);
       }
     }
-
-    // ── Split entrada: GUID → query string, resto → body ──
-    const esGuid       = r => (r.BTISRVPARNOM || '').toUpperCase().includes('GUID');
-    const usaQueryAll  = httpMethod === 'GET' || httpMethod === 'DELETE';
-    const entradaQuery = usaQueryAll ? entrada : entrada.filter(esGuid);
-    const entradaBody  = usaQueryAll ? []      : entrada.filter(r => !esGuid(r));
 
     // ── Tablas ──
     const tablaEntrada = generarTabla(entrada);
@@ -1080,7 +1081,14 @@ if (require.main === module) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
   if (metodo) {
-    generarMd(servicio, metodo, dir, ejecutar, inputParams, cachedData);
+    generarMd(servicio, metodo, dir, ejecutar, inputParams, cachedData)
+      .then(() => {
+        if (!fs.existsSync(`${dir}\\${metodo}.md`)) process.exitCode = 1;
+      })
+      .catch(e => {
+        console.error('❌ Error inesperado:', e.message);
+        process.exitCode = 1;
+      });
   } else {
     (async () => {
       let conn;

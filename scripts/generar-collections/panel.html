@@ -14,7 +14,10 @@
         <div id="collection-toast-stack" class="collection-toast-stack" aria-live="polite" aria-atomic="false"></div>
 
         <div id="collection-config" class="collection-block" style="display:none">
-          <h3>Cargar servicios</h3>
+          <div class="collection-setup-head">
+            <h3>Cargar servicios</h3>
+            <button type="button" class="btn btn-ghost" onclick="goBack()">&#8592; Volver</button>
+          </div>
           <div class="collection-catalog-grid">
           <div class="field" style="margin-bottom:14px">
             <label>Fuente</label>
@@ -84,6 +87,7 @@
                        en collections.css): reemplaza la fila de resumen que antes
                        vivia arriba del canvas (Volver + Ejecucion #N + menu), que
                        repetia info ya visible en el step card. -->
+                  <button type="button" class="collection-exec-back-icon-btn" id="btn-collection-setup-back" onclick="collectionBackToSetup()" title="Volver a la configuracion de servicios" aria-label="Volver a la configuracion de servicios"><span aria-hidden="true">&#8592;</span></button>
                   <button type="button" class="collection-exec-back-icon-btn" id="btn-collection-exec-back" onclick="collectionCloseExecutionMode()" title="Volver al builder" aria-label="Volver al builder"><span aria-hidden="true">&#8592;</span></button>
                   <button class="btn btn-outline" id="btn-collection-add-service-top" onclick="collectionOpenServiceDrawer()"><span class="collection-btn-icon">＋</span><span>Agregar servicio</span></button>
                   <button class="btn btn-outline" id="btn-collection-execute" onclick="collectionExecuteFlow()" disabled title="Agrega y configura al menos un servicio para probar."><span class="collection-btn-icon">▶</span><span>Probar</span></button>

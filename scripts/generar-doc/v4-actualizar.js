@@ -8,6 +8,7 @@
 //   node actualizar_comentarios.js <archivo.md> --dry-run
 // ============================================================
 
+require('./_node-modules')(module, 'V4');
 require('dotenv').config();
 const oracledb = require('oracledb');
 const fs = require('fs');

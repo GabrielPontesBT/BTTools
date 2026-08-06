@@ -570,10 +570,10 @@ function collectionResetLoadedData() {
 function collectionGuessSwaggerUrl(api) {
   var publicBaseUrl = String((api && api.BASE_URL) || '').trim().replace(/\/+$/g, '');
   if (!publicBaseUrl) return '';
-  if (/\/api\/publicapi$/i.test(publicBaseUrl)) {
-    return publicBaseUrl.replace(/\/api\/publicapi$/i, '/api/swagger-ui/index.html#/');
-  }
-  return publicBaseUrl.replace(/\/+$/g, '') + '/swagger-ui/index.html#/';
+  // swagger-ui vive ANIDADO bajo la URL publica completa (ej. .../api/publicapi
+  // -> .../api/publicapi/swagger-ui/...), nunca como hermano reemplazando el
+  // ultimo segmento — antes esto le sacaba el "/publicapi" por error.
+  return publicBaseUrl + '/swagger-ui/index.html#/';
 }
 
 function collectionIsAutoResolvedKey(key, pathLabel) {
@@ -1238,10 +1238,479 @@ function collectionRestoreInspectorState(container, state) {
   }
 }
 
+async function collectionLoadPreview() {
+  var scenario = collectionGetActiveScenario();
+  if (!scenario || !scenario.items.length) {
+    if (scenario) {
+      scenario.previewVariables = [];
+      scenario.previewOutputs = [];
+      scenario.previewMappings = [];
+    }
+    collectionRenderVariableEditor();
+    return;
+  }
 
+  if (collectionPathSupported()) {
+      scenario.previewVariables = [];
+      scenario.previewOutputs = [];
+      scenario.previewMappings = [];
+      var availableOutputs = [];
+      scenario.items.forEach(function(item, itemIndex) {
+        collectionEnsureItemNodeId(item);
+        (item.manualInputs || []).forEach(function(input) {
+          if (collectionIsAutoResolvedKey(input.key, input.pathLabel)) return;
+          var mappingKey = collectionBuildInputMappingKey(item, input);
+          var sourceOptions = availableOutputs.slice();
+          var inputAlias = (scenario.inputAliases && scenario.inputAliases[mappingKey]) ? scenario.inputAliases[mappingKey] : '';
+          scenario.previewVariables.push({
+            key: input.key,
+            pathLabel: input.pathLabel || input.key,
+            type: input.type || '',
+            description: input.description || '',
+            defaultValue: input.defaultValue || '',
+            suggestions: [],
+            alias: inputAlias,
+            mappingKey: mappingKey,
+            sourceOptions: sourceOptions,
+            groupKey: item.service + '.' + item.method + '::' + itemIndex,
+            groupTitle: (itemIndex + 1) + '. ' + item.service + '.' + item.method,
+            sourceNodeId: collectionGetConnectedSourceId(scenario, item)
+          });
+        });
+        (item.outputFields || []).forEach(function(outputField) {
+          var sourceVarKey = collectionBuildOutputVarKey(item, outputField);
+          var output = {
+            key: outputField.key || '',
+            pathLabel: outputField.pathLabel || outputField.key || '',
+            type: outputField.type || '',
+            description: outputField.description || '',
+            sourceVarKey: sourceVarKey,
+            sourceGroupKey: item.service + '.' + item.method + '::' + itemIndex,
+            sourceNodeId: item.nodeId,
+            sourceLabel: (itemIndex + 1) + '. ' + item.service + '.' + item.method,
+            displayLabel: outputField.key || outputField.pathLabel || sourceVarKey,
+            alias: scenario.outputAliases[sourceVarKey] || ''
+          };
+          availableOutputs.push(output);
+          scenario.previewOutputs.push(output);
+        });
+      });
+      scenario.previewOutputs = collectionDecoratePreviewOutputs(scenario.previewOutputs || []);
+      var outputsByKey = {};
+      (scenario.previewOutputs || []).forEach(function(output) {
+        outputsByKey[output.sourceVarKey] = output;
+      });
+      (scenario.previewVariables || []).forEach(function(input) {
+        var sourceNodeId = input.sourceNodeId || '';
+        input.sourceOptions = (input.sourceOptions || []).map(function(option) {
+          return outputsByKey[option.sourceVarKey] || option;
+        }).filter(function(option) {
+          if (!sourceNodeId) return true;
+          return option.sourceNodeId === sourceNodeId;
+        });
+        if (!collectionInputMappingValue(input.mappingKey)) {
+          var suggestedSource = collectionSuggestMappingForInput(input, input.sourceOptions || []);
+          if (suggestedSource) {
+            scenario.inputMappings[input.mappingKey] = suggestedSource;
+            scenario.previewMappings.push({
+              target: input.groupTitle || '',
+              input: input.pathLabel || input.key,
+              source: suggestedSource
+            });
+          }
+        }
+        var currentMapping = input.mappingKey ? collectionInputMappingConfig(input.mappingKey) : null;
+        var selectedOption = currentMapping ? collectionFindSourceOption(input, currentMapping.sourceVarKey) : null;
+        if (currentMapping && selectedOption && selectedOption.isCollectionItemOutput) {
+          currentMapping.collectionPathLabel = selectedOption.collectionPathLabel || '';
+          currentMapping.itemPathLabel = selectedOption.itemPathLabel || '';
+          scenario.inputMappings[input.mappingKey] = currentMapping;
+        }
+      });
+      collectionRenderVariableEditor();
+      return;
+    }
 
+  try {
+    var r = await fetch('/api/collection/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        version: S.version,
+        platform: S.platform,
+        apiMode: S.apiMode,
+        db: getDb(),
+        api: getApi(),
+        items: scenario.items
+      })
+    });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    scenario.previewVariables = d.variables || [];
+    scenario.previewMappings = d.mappings || [];
+    collectionRenderVariableEditor();
+  } catch (e) {
+    scenario.previewVariables = [];
+    scenario.previewMappings = [];
+    collectionRenderVariableEditor();
+    collectionShowStatus('err', e.message || 'No se pudo preparar la preview de variables.');
+  }
+}
 
+async function collectionTestDb() {
+  collectionRefreshContext();
+  if (typeof S === 'undefined' || !S.platform) {
+    collectionShowStatus('err', 'Completa primero la plataforma en el wizard principal.');
+    return;
+  }
 
+  collectionShowStatus('ok', 'Probando conexion a la base de datos actual...');
+  try {
+    var r = await fetch('/api/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform: S.platform, db: getDb() })
+    });
+    var d = await r.json();
+    collectionShowStatus(d.ok ? 'ok' : 'err', d.ok ? 'Conexion a BD exitosa.' : d.message);
+  } catch (e) {
+    collectionShowStatus('err', 'No se pudo probar la conexion a la base de datos.');
+  }
+}
+
+async function collectionTestAuth() {
+  collectionRefreshContext();
+  if (typeof S === 'undefined' || !S.version) {
+    collectionShowStatus('err', 'Completa primero la version en el wizard principal.');
+    return;
+  }
+
+  collectionShowStatus('ok', 'Probando autenticacion del ambiente actual...');
+  try {
+    var r = await fetch('/api/test-auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ version: S.version, api: getApi() })
+    });
+    var d = await r.json();
+    if (d.ok && d.authContext) {
+      collectionState.authContext = d.authContext;
+    }
+    collectionShowStatus(d.ok ? 'ok' : 'err', d.ok ? 'Autenticacion exitosa.' : d.message);
+  } catch (e) {
+    collectionShowStatus('err', 'No se pudo probar la autenticacion.');
+  }
+}
+
+async function collectionLoadServices() {
+  collectionRefreshContext();
+  if (!collectionPathSupported()) {
+    collectionShowStatus('err', 'Por ahora solo esta disponible el camino JSON + Postman.');
+    return;
+  }
+  if (typeof S === 'undefined' || !S.platform) {
+    collectionShowStatus('err', 'Completa primero la plataforma en el wizard principal.');
+    return;
+  }
+
+  collectionState.swaggerUrl = String(collectionState.swaggerUrl || ((document.getElementById('collection-swagger-url') || {}).value || '')).trim();
+  if (!collectionState.swaggerUrl) {
+    collectionShowStatus('err', 'Indica primero la ruta Swagger del ambiente.');
+    return;
+  }
+
+  collectionShowStatus('ok', 'Leyendo Swagger del ambiente...');
+  try {
+    var r = await fetch('/api/collection/swagger/load', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ swaggerUrl: collectionState.swaggerUrl, api: getApi() })
+    });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+
+    collectionState.services = d.services || [];
+    collectionState.serviceOperations = d.operationsByService || {};
+    collectionState.swaggerResolvedUrl = d.resolvedUrl || '';
+    collectionState.swaggerBaseUrl = d.baseUrl || '';
+    collectionState.swaggerAuthUrl = d.authUrl || '';
+    document.getElementById('collection-services').style.display = 'block';
+
+    collectionShowStatus('ok', 'Swagger resuelto. Autenticando contra ese mismo ambiente...');
+    var authResponse = await fetch('/api/test-auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ version: S.version, api: getApi(), authUrl: collectionState.swaggerAuthUrl })
+    });
+    var authData = await authResponse.json();
+    if (!authData.ok) throw new Error(authData.message || 'No se pudo autenticar usando el Authenticate del Swagger.');
+    collectionState.authContext = authData.authContext || null;
+
+    collectionFilterServices();
+    collectionRenderVariableEditor();
+    collectionSetStudioStage('builder');
+    collectionShowStatus('ok', 'Swagger cargado y autenticacion resuelta usando ese mismo Swagger. Ahora arma el flujo.');
+  } catch (e) {
+    collectionShowStatus('err', e.message || 'No se pudieron cargar los servicios.');
+  }
+}
+
+function collectionFilterServices() {
+  var serviceFilterEl = document.getElementById('col-svc-filter');
+  var methodFilterEl = document.getElementById('col-method-filter');
+  var serviceFilter = ((serviceFilterEl && serviceFilterEl.value) || '').toLowerCase().trim();
+  var methodFilter = ((methodFilterEl && methodFilterEl.value) || '').toLowerCase().trim();
+  var sel = document.getElementById('col-sel-svc');
+  if (sel) {
+    var prev = sel.value;
+    sel.innerHTML = '<option value="">-- Seleccionar --</option>';
+    collectionState.services.filter(function(service) {
+      if (serviceFilter && service.toLowerCase().indexOf(serviceFilter) < 0) return false;
+      if (!methodFilter) return true;
+      return (collectionState.serviceOperations[service] || []).some(function(operation) {
+        var methodName = String(operation.methodName || '').toLowerCase();
+        return methodName.indexOf(methodFilter) >= 0;
+      });
+    }).forEach(function(service) {
+      var opt = document.createElement('option');
+      opt.value = service;
+      opt.textContent = service;
+      if (service === prev) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    if (prev && sel.value !== prev) {
+      var methodSel = document.getElementById('col-sel-mtd');
+      if (methodSel) methodSel.innerHTML = '<option value="">-- Seleccionar --</option>';
+    }
+  }
+  collectionRenderItems();
+}
+
+async function collectionLoadMethods(service) {
+  var sel = document.getElementById('col-sel-mtd');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Cargando...</option>';
+  if (!service) {
+    sel.innerHTML = '<option value="">-- Seleccionar --</option>';
+    return;
+  }
+
+  sel.innerHTML = '<option value="">-- Seleccionar --</option>';
+  (collectionState.serviceOperations[service] || []).forEach(function(operation, index) {
+    var opt = document.createElement('option');
+    opt.value = operation.operationKey || (service + '::' + operation.methodName + '::' + index);
+    opt.textContent = operation.methodName + ' [' + String(operation.httpMethod || 'GET').toUpperCase() + ']';
+    sel.appendChild(opt);
+  });
+}
+
+function collectionRenderServiceCatalog() {
+  var container = document.getElementById('collection-service-list');
+  if (!container) return;
+  var serviceFilter = ((document.getElementById('col-svc-filter') || {}).value || '').toLowerCase().trim();
+  var methodFilter = ((document.getElementById('col-method-filter') || {}).value || '').toLowerCase().trim();
+  var groups = collectionState.services.map(function(service) {
+    if (serviceFilter && service.toLowerCase().indexOf(serviceFilter) < 0) {
+      return { service: service, operations: [] };
+    }
+    var operations = (collectionState.serviceOperations[service] || []).filter(function(operation) {
+      var methodName = String(operation.methodName || '').toLowerCase();
+      var summary = String(operation.summary || operation.path || '').toLowerCase();
+      if (methodFilter && methodName.indexOf(methodFilter) < 0 && summary.indexOf(methodFilter) < 0) return false;
+      return true;
+    });
+    return { service: service, operations: operations };
+  }).filter(function(group) {
+    return group.operations.length > 0;
+  });
+
+  if (!groups.length) {
+    container.innerHTML = '<div class="collection-step-empty">Todavia no hay servicios cargados o el filtro no encontro resultados.</div>';
+    return;
+  }
+
+  container.innerHTML = groups.map(function(group) {
+    return '<div class="collection-service-group">' +
+      '<div class="collection-service-group-title">' + collectionEscapeHtml(group.service) + '</div>' +
+      group.operations.map(function(operation) {
+        return '<div class="collection-service-card" draggable="true" onclick="collectionInsertOperation(' + "'" + collectionEscapeHtml(group.service) + "'" + ', ' + "'" + collectionEscapeHtml(operation.operationKey) + "'" + ')" ondragstart="collectionDragOperation(' + "'" + collectionEscapeHtml(group.service) + "'" + ', ' + "'" + collectionEscapeHtml(operation.operationKey) + "'" + ', event)">' +
+          '<div class="collection-service-card-main">' +
+            '<div class="collection-service-card-name">' + collectionEscapeHtml(operation.methodName) + '</div>' +
+            '<div class="collection-service-card-meta">' + collectionEscapeHtml(String(operation.httpMethod || 'GET').toUpperCase() + ' | ' + (operation.summary || operation.path || 'Sin descripcion')) + '</div>' +
+          '</div>' +
+          '<span class="collection-service-card-tag">+</span>' +
+        '</div>';
+      }).join('') +
+    '</div>';
+  }).join('');
+}
+
+function collectionRenderInspector() {
+  var container = document.getElementById('collection-step-config');
+  if (!container) return;
+  var inspectorState = collectionCaptureInspectorState(container);
+  var scenario = collectionGetActiveScenario();
+  var selectedItem = collectionGetSelectedItem();
+  if (!scenario || !selectedItem) {
+    container.innerHTML = '<div class="collection-step-empty">Selecciona un paso del flujo para ver sus entradas, salidas y ajustes manuales.</div>';
+    collectionRestoreInspectorState(container, inspectorState);
+    return;
+  }
+  var selectedIndex = collectionGetSelectedItemIndex();
+  var groupKey = selectedItem.service + '.' + selectedItem.method + '::' + selectedIndex;
+  var scalarInputs = (scenario.previewVariables || []).filter(function(input) {
+    return input.groupKey === groupKey && !input.repeatableGroupKey;
+  });
+  var repeatableInputs = (scenario.previewVariables || []).filter(function(input) {
+    return input.groupKey === groupKey && !!input.repeatableGroupKey;
+  });
+  var outputs = (scenario.previewOutputs || []).filter(function(output) {
+    return output.sourceGroupKey === groupKey;
+  });
+  var executionUrl = collectionBuildSelectedItemExecutionUrl();
+
+  container.innerHTML =
+    '<div class="collection-config-section">' +
+      '<div class="collection-config-title">Servicio seleccionado</div>' +
+      '<div class="collection-config-service">' +
+        '<div class="collection-config-service-badge">' + (selectedIndex + 1) + '</div>' +
+        '<div class="collection-config-service-copy">' +
+          '<div class="collection-config-service-name">' + collectionEscapeHtml(selectedItem.method) + '</div>' +
+          '<div class="collection-config-service-meta">' + collectionEscapeHtml(selectedItem.service + ' | ' + String(selectedItem.httpMethod || 'GET').toUpperCase()) + '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="collection-config-section">' +
+      '<div class="collection-config-title">Descripcion</div>' +
+      '<div class="collection-config-item"><div class="collection-config-item-meta">' + collectionEscapeHtml(selectedItem.summary || selectedItem.path || 'Sin descripcion disponible en Swagger.') + '</div></div>' +
+    '</div>' +
+    '<div class="collection-config-section">' +
+      '<div class="collection-config-title">URL de ejecucion</div>' +
+      '<div class="collection-config-item">' +
+        '<div class="collection-config-item-row">' +
+          '<button type="button" class="btn btn-outline btn-sm" onclick="collectionSaveSelectedStepInputs()">Guardar entradas</button>' +
+        '</div>' +
+        '<div class="collection-config-item-row">' +
+          '<div id="collection-step-url-preview" class="collection-config-url-preview">' + collectionEscapeHtml(executionUrl || 'Sin URL para mostrar.') + '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="collection-config-section">' +
+      '<div class="collection-config-title">Entradas</div>' +
+      (scalarInputs.length ? scalarInputs.map(function(input) {
+        var currentValue = collectionSelectedItemInputValue(input.key, input.defaultValue || '');
+        var mappingKey = input.mappingKey || '';
+        var mappingConfig = mappingKey ? collectionInputMappingConfig(mappingKey) : null;
+        var mappedSource = mappingConfig ? mappingConfig.sourceVarKey : '';
+        var mappedOption = mappedSource ? collectionFindSourceOption(input, mappedSource) : null;
+        var filterField = mappingConfig ? (mappingConfig.filterField || '') : '';
+        var filterValue = mappingConfig ? (mappingConfig.filterValue || '') : '';
+        if (mappingKey && mappingConfig && mappedOption && mappedOption.isCollectionItemOutput) {
+          mappingConfig.collectionPathLabel = mappedOption.collectionPathLabel || '';
+          mappingConfig.itemPathLabel = mappedOption.itemPathLabel || '';
+          if (!scenario.inputMappings) scenario.inputMappings = {};
+          scenario.inputMappings[mappingKey] = mappingConfig;
+        }
+        return '<div class="collection-config-item">' +
+          '<div class="collection-config-item-name">' + collectionEscapeHtml(collectionInputDisplayName(input)) + '</div>' +
+          '<div class="collection-config-item-meta">' + collectionEscapeHtml((input.pathLabel || input.key) + (input.type ? ' | ' + input.type : '') + (input.description ? ' | ' + input.description : '')) + '</div>' +
+          '<div class="collection-config-item-row"><input data-inspector-key="' + collectionEscapeHtml('input-alias:' + mappingKey) + '" class="collection-var-input" type="text" value="' + collectionEscapeHtml(input.alias || '') + '" placeholder="Nombre funcional para match" oninput="collectionUpdateInputAlias(' + "'" + collectionEscapeHtml(mappingKey) + "'" + ', this.value)"></div>' +
+          (input.sourceOptions && input.sourceOptions.length ? '<div class="collection-config-item-row"><select data-inspector-key="' + collectionEscapeHtml('input-map:' + mappingKey) + '" class="collection-var-input" onchange="collectionUpdateInputMapping(' + "'" + collectionEscapeHtml(mappingKey) + "'" + ', this.value)"><option value=\"\">Completar a mano</option>' + input.sourceOptions.map(function(option) {
+            var selected = mappedSource === option.sourceVarKey ? ' selected' : '';
+            return '<option value="' + collectionEscapeHtml(option.sourceVarKey) + '"' + selected + '>' + collectionEscapeHtml(collectionOutputDisplayName(option)) + '</option>';
+          }).join('') + '</select></div>' : '') +
+          (mappedOption && mappedOption.isCollectionItemOutput ? '<div class="collection-config-filter-box">' +
+            '<div class="collection-config-filter-title">Filtrar item de la lista origen</div>' +
+            '<div class="collection-config-item-meta">La salida viene de una coleccion. Puedes elegir que registro tomar antes de pasarlo a este input.</div>' +
+            '<div class="collection-config-filter-grid">' +
+              '<select data-inspector-key="' + collectionEscapeHtml('input-filter-field:' + mappingKey) + '" class="collection-var-input" onchange="collectionUpdateInputMappingFilterField(' + "'" + collectionEscapeHtml(mappingKey) + "'" + ', this.value)"><option value=\"\">Sin filtro (primer item util)</option>' + (mappedOption.filterFieldOptions || []).map(function(option) {
+                var selected = filterField === option.value ? ' selected' : '';
+                return '<option value="' + collectionEscapeHtml(option.value) + '"' + selected + '>' + collectionEscapeHtml(option.label) + '</option>';
+              }).join('') + '</select>' +
+              '<input data-inspector-key="' + collectionEscapeHtml('input-filter-value:' + mappingKey) + '" class="collection-var-input" type="text" placeholder="Valor esperado" value="' + collectionEscapeHtml(filterValue) + '" oninput="collectionUpdateInputMappingFilterValue(' + "'" + collectionEscapeHtml(mappingKey) + "'" + ', this.value)">' +
+            '</div>' +
+          '</div>' : '') +
+          '<div class="collection-config-item-row"><input id="' + collectionEscapeHtml(collectionDomId(input.key)) + '" data-inspector-key="' + collectionEscapeHtml('input-value:' + input.key) + '" data-collection-input-key="' + collectionEscapeHtml(input.key) + '" class="collection-var-input" type="text" value="' + collectionEscapeHtml(currentValue) + '" oninput="collectionUpdateVar(' + "'" + collectionEscapeHtml(input.key) + "'" + ', this.value)"' + (mappedSource ? ' disabled' : '') + '></div>' +
+        '</div>';
+      }).join('') : '<div class="collection-step-empty">Este paso no necesita variables manuales simples.</div>') +
+    '</div>' +
+    '<div class="collection-config-section">' +
+      '<div class="collection-config-title">Salidas disponibles</div>' +
+      (outputs.length ? outputs.map(function(output) {
+        return '<div class="collection-config-item">' +
+          '<div class="collection-config-item-name">' + collectionEscapeHtml(collectionOutputDisplayName(output)) + '</div>' +
+          '<div class="collection-config-item-meta">' + collectionEscapeHtml((output.pathLabel || output.displayLabel || output.sourceVarKey) + (output.type ? ' | ' + output.type : '')) + '</div>' +
+          '<div class="collection-config-item-row"><input data-inspector-key="' + collectionEscapeHtml('output-alias:' + output.sourceVarKey) + '" class="collection-var-input" type="text" value="' + collectionEscapeHtml(output.alias || '') + '" placeholder="Renombre funcional" oninput="collectionUpdateOutputAlias(' + "'" + collectionEscapeHtml(output.sourceVarKey) + "'" + ', this.value)"></div>' +
+          '<div class="collection-config-item-row"><span class="collection-config-output-tag">' + collectionEscapeHtml(output.sourceVarKey) + '</span></div>' +
+        '</div>';
+      }).join('') : '<div class="collection-step-empty">Swagger no expuso salidas simples para este metodo.</div>') +
+    '</div>' +
+    (repeatableInputs.length ? '<div class="collection-config-section"><div class="collection-config-title">Listas y estructuras</div><div class="collection-step-empty">Este paso tiene ' + repeatableInputs.length + ' campo(s) complejos/repetibles. Los seguimos resolviendo con el motor actual, pero la edicion visual fina queda para la siguiente iteracion.</div></div>' : '');
+  collectionRestoreInspectorState(container, inspectorState);
+}
+
+function collectionRenderItems() {
+  var container = document.getElementById('collection-chain');
+  if (!container) return;
+  var scenario = collectionGetActiveScenario();
+  var items = scenario ? scenario.items : [];
+  if (scenario) collectionEnsureScenarioConnections(scenario);
+  var totalItems = collectionState.scenarios.reduce(function(total, current) {
+    return total + ((current.items || []).length);
+  }, 0);
+
+  collectionRenderServiceCatalog();
+  if (!items.length) {
+    container.innerHTML = '<div class="collection-canvas-stage" ondragover="collectionAllowCanvasDrop(event)" ondrop="collectionDropOperation(0, event)"><div class="collection-canvas-empty">Arrastra un servicio desde la izquierda o haz clic sobre uno para empezar a construir la cadena.</div></div>';
+  } else {
+    var selectedIndex = collectionGetSelectedItemIndex();
+    var blocks = [];
+    var maxX = 0;
+    var maxY = 0;
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      var layout = collectionEnsureItemLayout(item, i);
+      var nodeId = collectionEnsureItemNodeId(item);
+      maxX = Math.max(maxX, layout.x);
+      maxY = Math.max(maxY, layout.y);
+      var op = String(item.operationKind || collectionInferOperationKind(item.method)).toLowerCase();
+      blocks.push(
+        '<div id="collection-canvas-step-' + i + '" class="collection-canvas-step' + (selectedIndex === i ? ' collection-canvas-step-selected' : '') + '" style="left:' + layout.x + 'px;top:' + layout.y + 'px" onclick="collectionCanvasNodeClick(' + i + ')" onmousedown="collectionStartNodeDrag(' + i + ', event)">' +
+          '<div class="collection-canvas-step-head">' +
+            '<div class="collection-canvas-step-index">' + (i + 1) + '</div>' +
+            '<div class="collection-canvas-step-copy">' +
+              '<div class="collection-canvas-step-title">' + collectionEscapeHtml(item.method) + '</div>' +
+              '<div class="collection-canvas-step-desc">' + collectionEscapeHtml(item.summary || item.path || 'Sin descripcion.') + '</div>' +
+              '<div class="collection-canvas-step-meta">' +
+                '<span class="collection-canvas-chip">' + collectionEscapeHtml(item.service) + '</span>' +
+                '<span class="collection-canvas-chip">' + collectionEscapeHtml(String(item.httpMethod || 'GET').toUpperCase()) + '</span>' +
+                '<span class="collection-canvas-chip">' + collectionEscapeHtml(op === 'query' ? 'Consulta' : 'Ejecucion') + '</span>' +
+              '</div>' +
+            '</div>' +
+            '<button class="collection-canvas-node-handle" title="Crear flecha desde este paso" onmousedown="collectionStartNewConnectionDrag(' + "'" + collectionEscapeHtml(nodeId) + "'" + ', event)" onclick="event.stopPropagation()" type="button">&#8595;</button>' +
+            '<button class="svc-rm" onclick="event.stopPropagation(); collectionRemoveItem(' + i + ')">&#10005;</button>' +
+          '</div>' +
+        '</div>'
+      );
+    }
+    var surfaceWidth = Math.max(980, maxX + 420);
+    var surfaceHeight = Math.max(540, maxY + 220);
+    container.innerHTML =
+      '<div class="collection-canvas-stage" ondragover="collectionAllowCanvasDrop(event)" ondrop="collectionDropOperation(' + items.length + ', event)">' +
+        '<svg id="collection-canvas-svg" class="collection-canvas-svg"></svg>' +
+        '<div id="collection-canvas-surface" class="collection-canvas-surface" style="width:' + surfaceWidth + 'px;height:' + surfaceHeight + 'px">' +
+          blocks.join('') +
+        '</div>' +
+      '</div>';
+    setTimeout(collectionRenderCanvasConnections, 0);
+  }
+
+  collectionRenderInspector();
+  var btn = document.getElementById('btn-collection-generate');
+  if (btn) btn.disabled = !totalItems || !collectionPathSupported();
+  var execBtn = document.getElementById('btn-collection-execute');
+  if (execBtn) execBtn.disabled = !items.length || !collectionPathSupported();
+}
 
 function collectionAddItem() {
   var serviceSel = document.getElementById('col-sel-svc');
@@ -1251,7 +1720,521 @@ function collectionAddItem() {
   collectionInsertOperation(serviceSel.value, methodSel.value);
 }
 
+function collectionClearItemState(scenario, item) {
+  if (!scenario || !item) return;
+  collectionEnsureScenarioConnections(scenario);
+  var nodeId = collectionEnsureItemNodeId(item);
+  var incoming = collectionFindIncomingConnection(scenario, nodeId);
+  var outgoing = collectionFindOutgoingConnection(scenario, nodeId);
+  var manualInputs = Array.isArray(item.manualInputs) ? item.manualInputs : [];
+  manualInputs.forEach(function(input) {
+    var key = input && input.key ? input.key : '';
+    if (key && scenario.variableOverrides && Object.prototype.hasOwnProperty.call(scenario.variableOverrides, key)) {
+      delete scenario.variableOverrides[key];
+    }
+    if (key && scenario.repeatableOverrides && Object.prototype.hasOwnProperty.call(scenario.repeatableOverrides, key)) {
+      delete scenario.repeatableOverrides[key];
+    }
+    var mappingKey = collectionBuildInputMappingKey(item, input);
+    if (mappingKey && scenario.inputMappings && Object.prototype.hasOwnProperty.call(scenario.inputMappings, mappingKey)) {
+      delete scenario.inputMappings[mappingKey];
+    }
+  });
 
+  var outputs = Array.isArray(item.outputFields) ? item.outputFields : [];
+  outputs.forEach(function(output) {
+    var sourceVarKey = collectionBuildOutputVarKey(item, output);
+    if (sourceVarKey && scenario.outputAliases && Object.prototype.hasOwnProperty.call(scenario.outputAliases, sourceVarKey)) {
+      delete scenario.outputAliases[sourceVarKey];
+    }
+  });
+
+  scenario.connections = scenario.connections.filter(function(connection) {
+    return connection.fromId !== nodeId && connection.toId !== nodeId;
+  });
+  if (incoming && outgoing && incoming.fromId !== outgoing.toId) {
+    scenario.connections.push({ fromId: incoming.fromId, toId: outgoing.toId });
+  }
+  if (scenario.pendingConnectionFromId === nodeId) scenario.pendingConnectionFromId = '';
+  item.inputOverrides = {};
+}
+
+function collectionRemoveItem(index) {
+  var scenario = collectionGetActiveScenario();
+  if (!scenario) return;
+  var item = scenario.items[index];
+  collectionClearItemState(scenario, item);
+  scenario.items.splice(index, 1);
+  if (!scenario.items.length) scenario.selectedItemIndex = -1;
+  else if (scenario.selectedItemIndex >= scenario.items.length) scenario.selectedItemIndex = scenario.items.length - 1;
+  collectionRenderScenarios();
+  collectionRenderItems();
+  collectionLoadPreview();
+  collectionResetResult();
+  collectionResetExecution();
+}
+
+function collectionRenderExecutionResult(data) {
+  var el = document.getElementById('collection-execution');
+  var inline = document.getElementById('collection-execution-inline');
+  var visibleResult = document.getElementById('collection-result');
+  var modal = document.getElementById('collection-execution-modal');
+  var dock = document.getElementById('collection-execution-dock');
+  var title = document.getElementById('collection-execution-title');
+  var openBtn = document.getElementById('btn-collection-open-console');
+  if (!el) return;
+  var scenario = collectionGetActiveScenario();
+  var steps = Array.isArray(data.steps) ? data.steps : [];
+  var runtimeValues = data.runtimeValues || {};
+  var okCount = steps.filter(function(step) { return !!step.ok; }).length;
+  var errCount = steps.filter(function(step) { return !step.ok; }).length;
+  var finalVars = Object.keys(runtimeValues).length
+    ? '<div class="collection-run-vars">' + Object.keys(runtimeValues).map(function(key) {
+        return '<span class="collection-run-var"><strong>' + collectionEscapeHtml(key) + '</strong> ' + collectionEscapeHtml(runtimeValues[key]) + '</span>';
+      }).join('') + '</div>'
+    : '<p>Sin variables finales para mostrar.</p>';
+
+  // Resume BusinessErrors al formato negocio esperado y deja el payload completo
+  // accesible solo como detalle para que la consola siga siendo clara.
+  function summarizeBusinessError(rawText) {
+    if (!rawText) return null;
+    try {
+      var parsed = typeof rawText === 'string' ? JSON.parse(rawText) : rawText;
+      var errors = parsed && parsed.BusinessErrors && parsed.BusinessErrors.BusinessError;
+      var first = Array.isArray(errors) ? errors[0] : errors;
+      if (!first) return null;
+      return {
+        code: first.Code || first.code || '',
+        description: first.Description || first.description || 'Business error',
+        severity: first.Severity || first.severity || ''
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function prettyPayload(text) {
+    if (!text) return '';
+    try {
+      return JSON.stringify(JSON.parse(text), null, 2);
+    } catch (e) {
+      return String(text);
+    }
+  }
+
+  var stepHtml = steps.map(function(step) {
+    var extracted = step.extractedValues || {};
+    var businessError = summarizeBusinessError(step.error || '');
+    var extractedHtml = Object.keys(extracted).length
+      ? '<div class="collection-run-vars">' + Object.keys(extracted).map(function(key) {
+          return '<span class="collection-run-var"><strong>' + collectionEscapeHtml(key) + '</strong> ' + collectionEscapeHtml(extracted[key]) + '</span>';
+        }).join('') + '</div>'
+      : '';
+    var requestBlock = step.requestXml
+      ? '<details class="collection-run-toggle"><summary>Ver request</summary><div class="collection-run-pre">' + collectionEscapeHtml(prettyPayload(step.requestXml)) + '</div></details>'
+      : '';
+    var responseBlock = step.responseXml
+      ? '<details class="collection-run-toggle"><summary>Ver response</summary><div class="collection-run-pre">' + collectionEscapeHtml(prettyPayload(step.responseXml)) + '</div></details>'
+      : '';
+    return '<div class="collection-run-step">' +
+      '<div class="collection-run-head">' +
+        '<div>' +
+          '<div class="collection-run-title">' + collectionEscapeHtml(step.name || ('Paso ' + step.index)) + '</div>' +
+          '<div class="collection-run-subtitle">Paso ' + collectionEscapeHtml(String(step.index || '')) + (step.responseStatus ? ' · HTTP ' + collectionEscapeHtml(String(step.responseStatus)) : '') + '</div>' +
+        '</div>' +
+        '<div class="' + (step.ok ? 'collection-run-ok' : 'collection-run-err') + '">' + (step.ok ? 'OK' : 'ERROR') + '</div>' +
+      '</div>' +
+      '<div class="collection-run-body">' +
+        '<div class="collection-run-meta"><strong>URL:</strong> ' + collectionEscapeHtml(step.requestUrl || '-') + (step.soapAction ? ' | <strong>SOAPAction:</strong> ' + collectionEscapeHtml(step.soapAction) : '') + '</div>' +
+        (businessError
+          ? '<div class="collection-run-error"><div class="collection-run-error-icon">❌</div><div><div class="collection-run-error-title">Error de negocio ' + collectionEscapeHtml(String(businessError.code || '').trim() || '-') + '</div><div class="collection-run-error-text">' + collectionEscapeHtml(businessError.description || 'Sin descripcion.') + '</div></div></div>'
+          : (step.error ? '<div class="collection-run-error"><div class="collection-run-error-icon">❌</div><div><div class="collection-run-error-title">Error de ejecucion</div><div class="collection-run-error-text">' + collectionEscapeHtml(step.error) + '</div></div></div>' : '')) +
+        (extractedHtml ? '<div class="collection-run-section"><div class="collection-run-section-title">Valores detectados</div>' + extractedHtml + '</div>' : '') +
+        requestBlock +
+        responseBlock +
+      '</div>' +
+    '</div>';
+  }).join('');
+  var topBusinessError = !data.ok ? summarizeBusinessError(data.message || '') : null;
+  var topError = !data.ok && data.message
+    ? (topBusinessError
+      ? '<div class="collection-run-error"><div class="collection-run-error-icon">❌</div><div><div class="collection-run-error-title">Error general ' + collectionEscapeHtml(String(topBusinessError.code || '').trim() || '-') + '</div><div class="collection-run-error-text">' + collectionEscapeHtml(topBusinessError.description || 'Sin descripcion.') + '</div></div></div>'
+      : '<div class="collection-run-error"><div class="collection-run-error-icon">❌</div><div><div class="collection-run-error-title">Error general</div><div class="collection-run-error-text">' + collectionEscapeHtml(data.message) + '</div></div></div>')
+    : '';
+
+  if (title) title.textContent = scenario ? scenario.name : 'Ejecucion del flujo';
+  var html =
+    '<div class="collection-run-grid">' +
+      '<div class="collection-run-card"><div class="collection-run-card-label">Estado</div><div class="collection-run-card-value-sm">' + (data.ok ? 'Flujo completado correctamente' : 'La ejecucion se detuvo en el primer error') + '</div></div>' +
+      '<div class="collection-run-card"><div class="collection-run-card-label">Pasos OK</div><div class="collection-run-card-value">' + okCount + '</div></div>' +
+      '<div class="collection-run-card"><div class="collection-run-card-label">Pasos con error</div><div class="collection-run-card-value">' + errCount + '</div></div>' +
+      '<div class="collection-run-card"><div class="collection-run-card-label">Variables finales</div><div class="collection-run-card-value">' + Object.keys(runtimeValues).length + '</div></div>' +
+    '</div>' +
+    topError +
+    stepHtml +
+    '<div class="collection-run-section"><div class="collection-run-section-title">Variables finales</div>' +
+    finalVars +
+    '</div>';
+  el.innerHTML = html;
+  if (inline) {
+    inline.innerHTML = html;
+    inline.style.display = 'block';
+  }
+  if (visibleResult) {
+    visibleResult.className = 'collection-result show';
+    visibleResult.innerHTML = html;
+  }
+  if (modal) modal.style.display = 'flex';
+  if (dock) dock.style.display = 'none';
+  if (openBtn) {
+    openBtn.style.display = '';
+    openBtn.disabled = false;
+  }
+}
+
+async function collectionExecuteFlow() {
+  if (!collectionPathSupported()) {
+    collectionShowStatus('err', 'Por ahora solo esta disponible JSON + Postman.');
+    return;
+  }
+  collectionSyncInspectorInputs();
+  collectionRefreshContext();
+  if (typeof S === 'undefined' || !S.version) {
+    collectionShowStatus('err', 'Completa primero version y ambiente en el wizard principal.');
+    return;
+  }
+  var scenario = collectionGetActiveScenario();
+  if (!scenario || !scenario.items.length) {
+    collectionShowStatus('err', 'Agrega al menos un metodo al caso de uso activo.');
+    return;
+  }
+
+  var btn = document.getElementById('btn-collection-execute');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin dk"></span>&nbsp;Probando...';
+  }
+  collectionShowStatus('ok', 'Ejecutando flujo JSON desde la app...');
+  collectionResetExecution();
+  collectionRenderExecutionLoading();
+
+  try {
+    var r = await fetch('/api/collection/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        format: collectionState.format,
+        version: S.version,
+        platform: S.platform,
+        apiMode: S.apiMode,
+        db: typeof getDb === 'function' ? getDb() : {},
+        api: getApi(),
+        authContext: collectionState.authContext,
+        swaggerBaseUrl: collectionState.swaggerBaseUrl,
+        swaggerAuthUrl: collectionState.swaggerAuthUrl,
+        items: scenario.items,
+        variableOverrides: scenario.variableOverrides,
+        inputMappings: scenario.inputMappings,
+        outputAliases: scenario.outputAliases,
+        repeatableOverrides: scenario.repeatableOverrides
+      })
+    });
+    var d = await r.json();
+    if (!d.ok) {
+      collectionShowStatus('err', d.message || 'La ejecucion del flujo fallo.');
+      collectionRenderExecutionResult(d);
+    } else {
+      collectionShowStatus('ok', 'Flujo ejecutado correctamente.');
+      collectionRenderExecutionResult(d);
+    }
+  } catch (e) {
+    collectionShowStatus('err', e.message || 'No se pudo ejecutar el flujo.');
+  }
+
+  if (btn) {
+    btn.disabled = false;
+    btn.innerHTML = 'Probar flujo';
+  }
+}
+
+function collectionRenderResult(data) {
+  var result = document.getElementById('collection-result');
+  if (!result) return;
+
+  var mappings = data.mappings || [];
+  var mapHtml = mappings.length
+    ? '<div class="collection-maps">' + mappings.map(function(map) {
+        var label = (map.scenario ? map.scenario + ' / ' : '') + map.target + ' / ' + map.input;
+        return '<div class="collection-map"><strong>' + label + '</strong><span>' + map.source + '</span></div>';
+      }).join('') + '</div>'
+    : '<p>No se detectaron variables top-level para machear automaticamente en esta primera version.</p>';
+
+  result.className = 'collection-result show';
+  result.innerHTML =
+    '<h4>Collection generada</h4>' +
+    '<p>Se genero una collection Postman con <strong>' + data.requestCount + '</strong> requests repartidos en <strong>' + (data.scenarioCount || 1) + '</strong> caso(s) de uso. Cada carpeta incluye Authenticate y los requests JSON descubiertos desde Swagger.</p>' +
+    '<div class="collection-actions" style="margin-bottom:12px">' +
+      '<a class="btn btn-primary" href="' + data.downloadUrl + '">&#8595; Descargar ' + data.fileName + '</a>' +
+    '</div>' +
+    '<h4>Auto-matching detectado</h4>' +
+    mapHtml;
+}
+
+async function collectionGenerate() {
+  if (!collectionPathSupported()) {
+    collectionShowStatus('err', 'Por ahora solo esta disponible JSON + Postman.');
+    return;
+  }
+
+  collectionSyncInspectorInputs();
+  collectionRefreshContext();
+  if (typeof S === 'undefined' || !S.version) {
+    collectionShowStatus('err', 'Completa primero version y ambiente en el wizard principal.');
+    return;
+  }
+  var scenarios = collectionState.scenarios.filter(function(scenario) {
+    return scenario.items && scenario.items.length;
+  });
+  if (!scenarios.length) {
+    collectionShowStatus('err', 'Agrega al menos un metodo en algun caso de uso.');
+    return;
+  }
+
+  var btn = document.getElementById('btn-collection-generate');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin"></span>&nbsp;Generando...';
+  }
+  collectionShowStatus('ok', 'Generando collection Postman JSON...');
+  collectionResetResult();
+
+  try {
+    var r = await fetch('/api/collection/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        format: collectionState.format,
+        target: collectionState.target,
+        version: S.version,
+        platform: S.platform,
+        apiMode: S.apiMode,
+        db: getDb(),
+        api: getApi(),
+        swaggerBaseUrl: collectionState.swaggerBaseUrl,
+        swaggerAuthUrl: collectionState.swaggerAuthUrl,
+        collectionName: collectionState.collectionName,
+        scenarios: scenarios.map(function(scenario) {
+          return {
+            id: scenario.id,
+            name: scenario.name,
+            items: scenario.items,
+            variableOverrides: scenario.variableOverrides,
+            inputMappings: scenario.inputMappings,
+            outputAliases: scenario.outputAliases,
+            repeatableOverrides: scenario.repeatableOverrides
+          };
+        })
+      })
+    });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+
+    collectionShowStatus('ok', 'Collection generada correctamente.');
+    collectionRenderResult(d);
+  } catch (e) {
+    collectionShowStatus('err', e.message || 'No se pudo generar la collection.');
+  }
+
+  if (btn) {
+    btn.disabled = false;
+    btn.innerHTML = 'Generar collection';
+  }
+}
+
+function collectionRenderExecutionResult(data) {
+  var title = document.getElementById('collection-execution-title');
+  var openBtn = document.getElementById('btn-collection-open-console');
+  var dock = document.getElementById('collection-execution-dock');
+  var scenario = collectionGetActiveScenario();
+
+  try {
+    var steps = Array.isArray(data && data.steps) ? data.steps : [];
+    var runtimeValues = data && data.runtimeValues ? data.runtimeValues : {};
+    var okCount = steps.filter(function(step) { return !!step.ok; }).length;
+    var errCount = steps.filter(function(step) { return !step.ok; }).length;
+
+    function summarizeBusinessError(rawText) {
+      if (!rawText) return null;
+      try {
+        var parsed = typeof rawText === 'string' ? JSON.parse(rawText) : rawText;
+        var errors = parsed && parsed.BusinessErrors && parsed.BusinessErrors.BusinessError;
+        var first = Array.isArray(errors) ? errors[0] : errors;
+        if (!first) return null;
+        return {
+          code: first.Code || first.code || '',
+          description: first.Description || first.description || 'Business error'
+        };
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function prettyPayload(text) {
+      if (!text) return '';
+      try {
+        return JSON.stringify(typeof text === 'string' ? JSON.parse(text) : text, null, 2);
+      } catch (e) {
+        return String(text);
+      }
+    }
+
+    var finalVars = Object.keys(runtimeValues).length
+      ? '<div class="collection-run-vars">' + Object.keys(runtimeValues).map(function(key) {
+          return '<span class="collection-run-var"><strong>' + collectionEscapeHtml(key) + '</strong> ' + collectionEscapeHtml(runtimeValues[key]) + '</span>';
+        }).join('') + '</div>'
+      : '<p>Sin variables finales para mostrar.</p>';
+
+    var stepHtml = steps.map(function(step) {
+      var extracted = step && step.extractedValues ? step.extractedValues : {};
+      var businessError = summarizeBusinessError(step && step.error ? step.error : '');
+      var extractedHtml = Object.keys(extracted).length
+        ? '<div class="collection-run-vars">' + Object.keys(extracted).map(function(key) {
+            return '<span class="collection-run-var"><strong>' + collectionEscapeHtml(key) + '</strong> ' + collectionEscapeHtml(extracted[key]) + '</span>';
+          }).join('') + '</div>'
+        : '';
+      var requestPayload = step.requestJson || step.requestXml || step.requestBody || step.request || '';
+      var responsePayload = step.responseJson || step.responseXml || step.responseBody || step.response || '';
+      var requestBlock = requestPayload
+        ? '<details class="collection-run-toggle"><summary>Ver request</summary><div class="collection-run-pre">' + collectionEscapeHtml(prettyPayload(requestPayload)) + '</div></details>'
+        : '';
+      var responseBlock = responsePayload
+        ? '<details class="collection-run-toggle"><summary>Ver response</summary><div class="collection-run-pre">' + collectionEscapeHtml(prettyPayload(responsePayload)) + '</div></details>'
+        : '';
+      var errorBlock = '';
+      if (businessError) {
+        errorBlock = '<div class="collection-run-error"><div class="collection-run-error-icon">X</div><div><div class="collection-run-error-title">Error de negocio ' + collectionEscapeHtml(String(businessError.code || '').trim() || '-') + '</div><div class="collection-run-error-text">' + collectionEscapeHtml(businessError.description || 'Sin descripcion.') + '</div></div></div>';
+      } else if (step.error) {
+        errorBlock = '<div class="collection-run-error"><div class="collection-run-error-icon">X</div><div><div class="collection-run-error-title">Error de ejecucion</div><div class="collection-run-error-text">' + collectionEscapeHtml(step.error) + '</div></div></div>';
+      }
+
+      return '<div class="collection-run-step">' +
+        '<div class="collection-run-head">' +
+          '<div>' +
+            '<div class="collection-run-title">' + collectionEscapeHtml(step.name || ('Paso ' + step.index)) + '</div>' +
+            '<div class="collection-run-subtitle">Paso ' + collectionEscapeHtml(String(step.index || '')) + (step.responseStatus ? ' · HTTP ' + collectionEscapeHtml(String(step.responseStatus)) : '') + '</div>' +
+          '</div>' +
+          '<div class="' + (step.ok ? 'collection-run-ok' : 'collection-run-err') + '">' + (step.ok ? 'OK' : 'ERROR') + '</div>' +
+        '</div>' +
+        '<div class="collection-run-body">' +
+          '<div class="collection-run-meta"><strong>URL:</strong> ' + collectionEscapeHtml(step.requestUrl || '-') + (step.soapAction ? ' | <strong>SOAPAction:</strong> ' + collectionEscapeHtml(step.soapAction) : '') + '</div>' +
+          errorBlock +
+          (extractedHtml ? '<div class="collection-run-section"><div class="collection-run-section-title">Valores detectados</div>' + extractedHtml + '</div>' : '') +
+          requestBlock +
+          responseBlock +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    var topBusinessError = !data.ok ? summarizeBusinessError(data.message || '') : null;
+    var topError = !data.ok && data.message
+      ? (topBusinessError
+        ? '<div class="collection-run-error"><div class="collection-run-error-icon">X</div><div><div class="collection-run-error-title">Error general ' + collectionEscapeHtml(String(topBusinessError.code || '').trim() || '-') + '</div><div class="collection-run-error-text">' + collectionEscapeHtml(topBusinessError.description || 'Sin descripcion.') + '</div></div></div>'
+        : '<div class="collection-run-error"><div class="collection-run-error-icon">X</div><div><div class="collection-run-error-title">Error general</div><div class="collection-run-error-text">' + collectionEscapeHtml(data.message) + '</div></div></div>')
+      : '';
+
+    if (title) title.textContent = scenario ? scenario.name : 'Ejecucion del flujo';
+    collectionSetExecutionHtml(
+      '<div class="collection-run-grid">' +
+        '<div class="collection-run-card"><div class="collection-run-card-label">Estado</div><div class="collection-run-card-value-sm">' + (data.ok ? 'Flujo completado correctamente' : 'La ejecucion se detuvo en el primer error') + '</div></div>' +
+        '<div class="collection-run-card"><div class="collection-run-card-label">Pasos OK</div><div class="collection-run-card-value">' + okCount + '</div></div>' +
+        '<div class="collection-run-card"><div class="collection-run-card-label">Pasos con error</div><div class="collection-run-card-value">' + errCount + '</div></div>' +
+        '<div class="collection-run-card"><div class="collection-run-card-label">Variables finales</div><div class="collection-run-card-value">' + Object.keys(runtimeValues).length + '</div></div>' +
+      '</div>' +
+      topError +
+      stepHtml +
+      '<div class="collection-run-section"><div class="collection-run-section-title">Variables finales</div>' + finalVars + '</div>' +
+      '<div class="collection-run-section"><div class="collection-run-section-title">JSON de ejecucion</div><div class="collection-run-pre">' + collectionEscapeHtml(JSON.stringify(data, null, 2)) + '</div></div>',
+      data
+    );
+  } catch (error) {
+    collectionSetExecutionHtml(
+      '<div class="collection-run-error"><div class="collection-run-error-icon">X</div><div><div class="collection-run-error-title">No se pudo maquetar la consola</div><div class="collection-run-error-text">' + collectionEscapeHtml(error && error.message ? error.message : 'Sin detalle') + '</div></div></div>' +
+      '<div class="collection-run-section"><div class="collection-run-section-title">JSON de ejecucion</div><div class="collection-run-pre">' + collectionEscapeHtml(JSON.stringify(data, null, 2)) + '</div></div>',
+      data
+    );
+  }
+
+  if (dock) dock.style.display = 'none';
+  if (openBtn) {
+    openBtn.style.display = '';
+    openBtn.disabled = false;
+  }
+}
+
+async function collectionExecuteFlow() {
+  if (!collectionPathSupported()) {
+    collectionShowStatus('err', 'Por ahora solo esta disponible JSON + Postman.');
+    return;
+  }
+  collectionSyncInspectorInputs();
+  collectionRefreshContext();
+  if (typeof S === 'undefined' || !S.version) {
+    collectionShowStatus('err', 'Completa primero version y ambiente en el wizard principal.');
+    return;
+  }
+  var scenario = collectionGetActiveScenario();
+  if (!scenario || !scenario.items.length) {
+    collectionShowStatus('err', 'Agrega al menos un metodo al caso de uso activo.');
+    return;
+  }
+
+  var btn = document.getElementById('btn-collection-execute');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin dk"></span>&nbsp;Probando...';
+  }
+  collectionShowStatus('ok', 'Ejecutando flujo JSON desde la app...');
+  collectionResetExecution();
+  collectionRenderExecutionLoading();
+
+  try {
+    var r = await fetch('/api/collection/execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        format: collectionState.format,
+        version: S.version,
+        platform: S.platform,
+        apiMode: S.apiMode,
+        db: typeof getDb === 'function' ? getDb() : {},
+        api: getApi(),
+        authContext: collectionState.authContext,
+        swaggerBaseUrl: collectionState.swaggerBaseUrl,
+        swaggerAuthUrl: collectionState.swaggerAuthUrl,
+        items: scenario.items,
+        variableOverrides: scenario.variableOverrides,
+        inputMappings: scenario.inputMappings,
+        outputAliases: scenario.outputAliases,
+        repeatableOverrides: scenario.repeatableOverrides
+      })
+    });
+    var d = await r.json();
+    if (!d.ok) collectionShowStatus('err', d.message || 'La ejecucion del flujo fallo.');
+    else collectionShowStatus('ok', 'Flujo ejecutado correctamente.');
+    collectionRenderExecutionResult(d);
+  } catch (e) {
+    collectionShowStatus('err', e.message || 'No se pudo ejecutar el flujo.');
+    collectionSetExecutionHtml(
+      '<div class="collection-run-error"><div class="collection-run-error-icon">X</div><div><div class="collection-run-error-title">Error general</div><div class="collection-run-error-text">' + collectionEscapeHtml(e.message || 'No se pudo ejecutar el flujo.') + '</div></div></div>',
+      { ok: false, message: e.message || 'No se pudo ejecutar el flujo.' }
+    );
+  }
+
+  if (btn) {
+    btn.disabled = false;
+    btn.innerHTML = 'Probar flujo';
+  }
+}
 
 // Adaptador de compatibilidad: desde aca delegamos la experiencia de ejecucion
 // al modulo especializado sin romper la API global que ya consume el builder.
@@ -1472,6 +2455,14 @@ collectionRenderExecutionResult = function collectionRenderExecutionResultAdapte
 
 collectionCloseExecutionMode = function collectionCloseExecutionModeAdapter() {
   collectionGetExecutionCenter().close();
+};
+
+// Vuelve del canvas a la pantalla de Fuente/Ruta Swagger sin tocar nada del
+// escenario ya armado (servicios, casos de uso, mappings): solo cambia que
+// bloque de collection-config/collection-services esta visible (ver
+// CollectionStudioManager.renderStage()).
+collectionBackToSetup = function collectionBackToSetupAdapter() {
+  collectionGetStudioManager().setStage('setup');
 };
 
 collectionSelectExecutionStep = function collectionSelectExecutionStepAdapter(stepId) {
@@ -1831,6 +2822,7 @@ collectionGenerate = async function collectionGenerateAdapter() {
       target: collectionState.target,
       version: S.version,
       platform: S.platform,
+      apiMode: (typeof S !== 'undefined' ? S.apiMode : undefined),
       db: typeof getDb === 'function' ? getDb() : {},
       api: typeof getApi === 'function' ? getApi() : {},
       swaggerBaseUrl: collectionState.swaggerBaseUrl,

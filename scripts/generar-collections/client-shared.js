@@ -579,7 +579,7 @@ async function collectionLoadServices() {
     var r = await fetch('/api/services', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ platform: S.platform, db: getDb() })
+      body: JSON.stringify({ platform: S.platform, db: getDb(), apiMode: S.apiMode })
     });
     var d = await r.json();
     if (!d.ok) throw new Error(d.message);
@@ -588,7 +588,9 @@ async function collectionLoadServices() {
     document.getElementById('collection-services').style.display = 'block';
 
     var filter = document.getElementById('col-svc-filter');
-    if (filter && !filter.value) filter.value = S.version === 'V3' ? 'BT' : 'Public';
+    // Los servicios de la API Interna (BTCBS) no arrancan con BT/Public:
+    // precargar ese prefijo dejaba la lista filtrada a cero.
+    if (filter && !filter.value && S.apiMode !== 'interna') filter.value = S.version === 'V3' ? 'BT' : 'Public';
 
     collectionFilterServices();
     collectionRenderVariableEditor();
@@ -631,7 +633,7 @@ async function collectionLoadMethods(service) {
     var r = await fetch('/api/methods', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ platform: S.platform, db: getDb(), service: service })
+      body: JSON.stringify({ platform: S.platform, db: getDb(), service: service, apiMode: S.apiMode })
     });
     var d = await r.json();
     if (!d.ok) throw new Error(d.message);

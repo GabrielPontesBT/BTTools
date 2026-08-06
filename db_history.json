@@ -1,36 +1,23 @@
 [
   {
-    "id": "1782167130470",
+    "id": "1785960030690",
     "key": "V4|ora|10.0.0.4:1521/btv4db|BTDESAV23CPA",
     "version": "V4",
     "platform": "oracle",
-    "label": "POC - LOCAL",
+    "label": "POC",
     "db": {
       "user": "BTDESAV23CPA",
       "password": "CPAbtv23",
       "connectString": "10.0.0.4:1521/btv4db"
     },
-    "savedAt": "2026-08-04T17:50:41.121Z"
+    "savedAt": "2026-08-06T12:57:24.566Z"
   },
   {
-    "id": "1783454243711",
-    "key": "V4|ora|10.0.0.4:1521/btv4db|btdesav23",
-    "version": "V4",
-    "platform": "oracle",
-    "label": "DESA",
-    "db": {
-      "user": "btdesav23",
-      "password": "Bantotal$2020",
-      "connectString": "10.0.0.4:1521/btv4db"
-    },
-    "savedAt": "2026-07-29T20:07:13.674Z"
-  },
-  {
-    "id": "1784665280221",
+    "id": "1785960924098",
     "key": "V3|ss|SQLSERVER1|ProductoGx16|productogx16",
     "version": "V3",
     "platform": "sqlserver",
-    "label": "ProductoGx16 · SQLSERVER1 (SQL Server)",
+    "label": "productogx16",
     "db": {
       "server": "SQLSERVER1",
       "port": "1433",
@@ -38,6 +25,6 @@
       "user": "productogx16",
       "password": "prodGx16"
     },
-    "savedAt": "2026-07-24T14:16:52.947Z"
+    "savedAt": "2026-08-05T20:22:08.029Z"
   }
 ]
