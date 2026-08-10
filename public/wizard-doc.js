@@ -1814,6 +1814,21 @@ function sgCopyScript() {
   }).catch(function() { ta.select(); document.execCommand('copy'); });
 }
 
+function sgDownloadScript() {
+  var ta = document.getElementById('sg-sql-out'); if (!ta.value.trim()) return;
+  var svcs = (sgMultiData || []).reduce(function(a, it) { if (a.indexOf(it.header.BTISrvNom) < 0) a.push(it.header.BTISrvNom); return a; }, []);
+  var name = svcs.join('_').replace(/[^a-zA-Z0-9_-]/g, '_');
+  var blob = new Blob([ta.value], { type: 'text/plain' });
+  var url = URL.createObjectURL(blob);
+  var link = document.createElement('a');
+  link.href = url;
+  link.download = name ? 'script_' + name + '.sql' : 'script.sql';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 function sgReset() {
   sgServiceGroups = []; sgMultiData = null; sgServicesLoaded = false;
   document.getElementById('sg-service-groups').innerHTML = '';
