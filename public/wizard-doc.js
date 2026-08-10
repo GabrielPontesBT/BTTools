@@ -1814,19 +1814,40 @@ function sgCopyScript() {
   }).catch(function() { ta.select(); document.execCommand('copy'); });
 }
 
-function sgDownloadScript() {
-  var ta = document.getElementById('sg-sql-out'); if (!ta.value.trim()) return;
+function sgScriptFileName() {
   var svcs = (sgMultiData || []).reduce(function(a, it) { if (a.indexOf(it.header.BTISrvNom) < 0) a.push(it.header.BTISrvNom); return a; }, []);
   var name = svcs.join('_').replace(/[^a-zA-Z0-9_-]/g, '_');
-  var blob = new Blob([ta.value], { type: 'text/plain' });
+  return name ? 'script_' + name + '.sql' : 'script.sql';
+}
+
+function sgDownloadScriptFallback(text, fileName) {
+  var blob = new Blob([text], { type: 'text/plain' });
   var url = URL.createObjectURL(blob);
   var link = document.createElement('a');
   link.href = url;
-  link.download = name ? 'script_' + name + '.sql' : 'script.sql';
+  link.download = fileName;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+}
+
+async function sgDownloadScript() {
+  var ta = document.getElementById('sg-sql-out'); if (!ta.value.trim()) return;
+  var text = ta.value, fileName = sgScriptFileName();
+  if (typeof window.showSaveFilePicker !== 'function') { sgDownloadScriptFallback(text, fileName); return; }
+  try {
+    var handle = await window.showSaveFilePicker({
+      suggestedName: fileName,
+      types: [{ description: 'Script SQL', accept: { 'text/plain': ['.sql'] } }],
+    });
+    var writable = await handle.createWritable();
+    await writable.write(text);
+    await writable.close();
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;
+    sgDownloadScriptFallback(text, fileName);
+  }
 }
 
 function sgReset() {
