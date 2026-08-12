@@ -82,8 +82,23 @@ test('validateItems no advierte nada cuando la descripcion cumple el estandar', 
   const ok = item({
     method: { dsc: 'Método para asociar garantías a un préstamo.' },
     params: [{ nom: 'idEmpresa', dsc: 'Identificador de la empresa.', tipo: 'int', largo: '4', deci: '0' }],
+    channels: [{ chnname: 'REST', srvenab: 'S' }],
   });
   assert.equal(validateItems([ok], 'publica').length, 0);
+});
+
+// Igual que con BTCBS012 en interna: sin ninguna fila en BTI012 el metodo no
+// queda expuesto por ningun canal, aunque BTI014/019 esten completos.
+test('validateItems con apiMode publica advierte si el metodo no tiene ningun canal en BTI012', () => {
+  const { validateItems } = loadWizard();
+  const ok = item({
+    method: { dsc: 'Método para asociar garantías a un préstamo.' },
+    params: [{ nom: 'idEmpresa', dsc: 'Identificador de la empresa.', tipo: 'int', largo: '4', deci: '0' }],
+  }); // sin channels
+  const warns = validateItems([ok], 'publica');
+  assert.equal(warns.length, 1);
+  assert.equal(warns[0].field, 'BTISRVHAB');
+  assert.match(warns[0].msg, /BTI012/);
 });
 
 test('el paso 2 solo habilita Siguiente cuando los bloques visibles estan elegidos', () => {

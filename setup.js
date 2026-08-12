@@ -790,6 +790,43 @@ async function sg_queryBtcbs012Batch(platform, db, service, srvver, methods) {
   } finally { await conn.close(); }
 }
 
+// BTI012: habilitacion por canal de cada metodo (API Publica, V3 y V4).
+// Sin al menos una fila aca el metodo no queda expuesto por ningun canal,
+// aunque BTI014/019 esten completos (equivalente a BTCBS012 en interna,
+// ver sg_queryBtcbs012Batch). BTISrvHab es CHAR(1) nullable, se preserva
+// tal cual viene (sin forzar un default 'S'/'N').
+async function sg_queryBti012Batch(platform, db, version, service, srvver, methods) {
+  const emptyResult = () => { const r = {}; methods.forEach(m => { r[m] = []; }); return r; };
+  if (!methods.length) return emptyResult();
+  const ver = String(srvver || '1');
+  if (platform === 'sqlserver') {
+    const { pool, mssql } = await sg_getPool(db);
+    const req = pool.request().input('svc',mssql.VarChar(100),service).input('ver',mssql.VarChar(40),ver);
+    const inParams = methods.map((m,i) => { req.input('m'+i,mssql.VarChar(100),m); return '@m'+i; });
+    const r = await req.query('SELECT BTIMtdNom,BTICanNom,BTISrvHab FROM BTI012 WHERE BTISrvNom=@svc AND BTISrvVer=@ver AND BTIMtdNom IN ('+inParams.join(',')+') ORDER BY BTIMtdNom,BTICanNom');
+    const result = emptyResult();
+    r.recordset.forEach(function(row) {
+      const name = (row.BTIMtdNom || '').trim();
+      if (result[name]) result[name].push({ chnname: (row.BTICanNom || '').trim(), srvenab: sg_cellText(row.BTISrvHab).trim() });
+    });
+    return result;
+  }
+  const { conn, oracledb } = await sg_getOra(db);
+  try {
+    const placeholders = methods.map((_, i) => ':' + (i + 3)).join(',');
+    const r = await conn.execute(
+      'SELECT BTIMTDNOM,BTICANNOM,BTISRVHAB FROM BTI012 WHERE BTISRVNOM=:1 AND BTISRVVER=:2 AND BTIMTDNOM IN (' + placeholders + ') ORDER BY BTIMTDNOM,BTICANNOM',
+      [service, ver, ...methods], { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    const result = emptyResult();
+    r.rows.forEach(function(row) {
+      const name = (row.BTIMTDNOM || '').trim();
+      if (result[name]) result[name].push({ chnname: (row.BTICANNOM || '').trim(), srvenab: sg_cellText(row.BTISRVHAB).trim() });
+    });
+    return result;
+  } finally { await conn.close(); }
+}
+
 async function sg_queryBti025(platform, db, version, sdtNom, apiMode) {
   if (platform === 'sqlserver') {
     const { pool, mssql } = await sg_getPool(db);
@@ -1681,7 +1718,7 @@ http.createServer(async (req, res) => {
           const params  = await sg_queryMethodParamsBatch(payload.platform, payload.db, payload.version, payload.service, payload.srvver, payload.methods, payload.apiMode);
           const channels = payload.apiMode === 'interna'
             ? await sg_queryBtcbs012Batch(payload.platform, payload.db, payload.service, payload.srvver, payload.methods || [])
-            : {};
+            : await sg_queryBti012Batch(payload.platform, payload.db, payload.version, payload.service, payload.srvver, payload.methods || []);
           const allSdtNames = new Set();
           (payload.methods || []).forEach(function(m) { sg_extractSdtNames(params[m] || [], payload.apiMode).forEach(function(n) { allSdtNames.add(n); }); });
           const sdts = allSdtNames.size > 0 ? await sg_querySdtsBatch(payload.platform, payload.db, payload.version, [...allSdtNames], payload.apiMode) : [];

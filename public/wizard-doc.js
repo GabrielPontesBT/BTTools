@@ -365,18 +365,21 @@ function validateSdtFields(allSdts) {
   return warns;
 }
 
-// Sin ninguna fila en BTCBS012 el metodo no queda expuesto por ningun
-// canal, aunque BTCBS014/019 esten completos: es un error funcional, no
-// una cuestion de estilo de documentacion, asi que se chequea siempre
-// (a diferencia del resto de validateItems, que es especifico de la API
-// Publica).
-function validateChannels(items) {
+// Sin ninguna fila en BTCBS012 (interna) / BTI012 (publica) el metodo no
+// queda expuesto por ningun canal, aunque BTCBS014/019 o BTI014/019 esten
+// completos: es un error funcional, no una cuestion de estilo de
+// documentacion, asi que se chequea siempre en los dos modos (a diferencia
+// del resto de validateItems, que es especifico de la API Publica).
+function validateChannels(items, apiMode) {
+  var interna = apiMode === 'interna';
+  var field = interna ? 'BSSRVENAB' : 'BTISRVHAB';
+  var tabla = interna ? 'BTCBS012' : 'BTI012';
   var warns = [];
   (items || []).forEach(function(item) {
-    var svc = (item.header && item.header.BTISrvNom) || '?';
-    var mtd = (item.header && item.header.BTIMtdNom) || '?';
+    var svc = (item.header && item.header.BTISrvNom) || item.service || '?';
+    var mtd = (item.header && item.header.BTIMtdNom) || item.method_name || '?';
     if (!(item.channels || []).length) {
-      warns.push({ service: svc, method: mtd, field: 'BSSRVENAB', msg: 'No se encontró ningún canal en BTCBS012: sin ese registro el método no funciona.' });
+      warns.push({ service: svc, method: mtd, field: field, msg: 'No se encontró ningún canal en ' + tabla + ': sin ese registro el método no funciona.' });
     }
   });
   return warns;
@@ -387,7 +390,7 @@ function validateChannels(items) {
 // los tiene que cumplir, asi que no se valida nada de eso, pero si se
 // chequean los canales (BTCBS012, ver validateChannels).
 function validateItems(items, apiMode) {
-  if (apiMode === 'interna') return validateChannels(items);
+  if (apiMode === 'interna') return validateChannels(items, apiMode);
   var warns = [];
   var allSdts = [];
   (items || []).forEach(function(item) {
@@ -420,6 +423,7 @@ function validateItems(items, apiMode) {
     (item.sdts || []).forEach(function(sdt) { allSdts.push(sdt); });
   });
   warns = warns.concat(validateSdtFields(allSdts));
+  warns = warns.concat(validateChannels(items, apiMode));
   return warns;
 }
 
@@ -428,6 +432,7 @@ var _FIELD_TABLE = {
   BTISRVPARDSC:    'BTI019',
   BTISRVPARLARGO:  'BTI019',
   BTISRVPARDECI:   'BTI019',
+  BTISRVHAB:       'BTI012',
   BTISDTELEMLARGO: 'BTI026',
   BTISDTELEMDSC:   'BTI026',
   BSSRVENAB:       'BTCBS012'

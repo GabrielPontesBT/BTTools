@@ -160,6 +160,60 @@ test('sg_generateScript con apiMode=publica no genera BTCBS012 (esa tabla no exi
   assert.doesNotMatch(script, /BTCBS012/);
 });
 
+test('sg_generateScript V4 publica genera DELETE+INSERT de BTI012 por cada canal', () => {
+  const data = methodData({ apiMode: 'publica', channels: [
+    { chnname: 'REST', srvenab: 'S' },
+    { chnname: 'SOAP', srvenab: 'N' },
+  ] });
+  const script = sg_generateScript(data, 'both');
+  assert.match(script, /DELETE FROM BTI012 WHERE BTINOM='BTSERVICES' AND BTISRVNOM='PublicCustomers' AND BTISRVVER='1' AND BTIMTDNOM='get';/);
+  assert.match(script, /INSERT INTO BTI012 \(BTICANNOM, BTINOM, BTISRVNOM, BTISRVVER, BTIMTDNOM, BTISRVHAB\) VALUES\('REST', 'BTSERVICES', 'PublicCustomers', '1', 'get', 'S'\);/);
+  assert.match(script, /VALUES\('SOAP', 'BTSERVICES', 'PublicCustomers', '1', 'get', 'N'\);/);
+});
+
+test('sg_generateScript V3 publica genera BTI012 con el casing y quoting N\'\' propios de V3', () => {
+  const data = methodData({ version: 'V3', apiMode: 'publica', channels: [{ chnname: 'REST', srvenab: 'S' }] });
+  const script = sg_generateScript(data, 'both');
+  assert.match(script, /DELETE FROM BTI012 WHERE BTINom=N'BTSERVICES' AND BTISrvNom=N'PublicCustomers' AND BTISrvVer=N'1' AND BTIMtdNom=N'get';/);
+  assert.match(script, /INSERT INTO BTI012 \(BTICanNom, BTINom, BTISrvNom, BTISrvVer, BTIMtdNom, BTISrvHab\) VALUES\(N'REST', N'BTSERVICES', N'PublicCustomers', N'1', N'get', N'S'\);/);
+});
+
+test('sg_generateScript publica modo insert/delete de BTI012 solo trae la mitad correspondiente', () => {
+  const data = methodData({ apiMode: 'publica', channels: [{ chnname: 'REST', srvenab: 'S' }] });
+  const onlyInsert = sg_generateScript(data, 'insert');
+  assert.doesNotMatch(onlyInsert, /DELETE FROM BTI012/);
+  assert.match(onlyInsert, /INSERT INTO BTI012/);
+  const onlyDelete = sg_generateScript(data, 'delete');
+  assert.match(onlyDelete, /DELETE FROM BTI012/);
+  assert.doesNotMatch(onlyDelete, /INSERT INTO BTI012/);
+});
+
+test('sg_generateScript publica sin canales: DELETE de BTI012 igual corre, pero sin INSERT', () => {
+  const script = sg_generateScript(methodData({ apiMode: 'publica' }), 'both'); // sin channels
+  assert.match(script, /DELETE FROM BTI012 WHERE BTINOM='BTSERVICES' AND BTISRVNOM='PublicCustomers' AND BTISRVVER='1' AND BTIMTDNOM='get';/);
+  assert.doesNotMatch(script, /INSERT INTO BTI012/);
+});
+
+// BTISrvHab es nullable (a diferencia de BSSRVENAB en BTCBS012, NUMBER NOT
+// NULL): si el canal no trae valor, el INSERT tiene que preservar NULL en
+// vez de inventar un default.
+test('sg_generateScript publica emite NULL en BTISRVHAB cuando el canal no trae valor', () => {
+  const data = methodData({ apiMode: 'publica', channels: [{ chnname: 'REST', srvenab: '' }] });
+  const script = sg_generateScript(data, 'insert');
+  assert.match(script, /VALUES\('REST', 'BTSERVICES', 'PublicCustomers', '1', 'get', NULL\);/);
+});
+
+test('sg_generateScript publica escapa comillas en BTICANNOM de BTI012', () => {
+  const data = methodData({ apiMode: 'publica', channels: [{ chnname: "REST'API", srvenab: 'S' }] });
+  const script = sg_generateScript(data, 'insert');
+  assert.match(script, /VALUES\('REST''API', /);
+});
+
+test('sg_generateScript interna (BTCBS) no genera BTI012 (esa tabla es de la API Publica)', () => {
+  const script = sg_generateScript(methodData({ channels: [{ chnname: 'REST', srvenab: 'S' }] }), 'both');
+  assert.doesNotMatch(script, /BTI012/);
+});
+
 test('sg_generateScript con apiMode=publica (o ausente) sigue generando BTI014/BTI019 igual que antes', () => {
   const script = sg_generateScript(methodData({ apiMode: 'publica' }), 'both');
   assert.match(script, /INSERT INTO BTI014/);

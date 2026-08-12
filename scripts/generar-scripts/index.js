@@ -8,6 +8,11 @@ const V3_BTI014_COLS = ['BTINom','BTISrvNom','BTISrvVer','BTIMtdNom','BTIMtdDsc'
 const V4_BTI014_COLS = ['BTINOM','BTISRVNOM','BTISRVVER','BTIMTDNOM','BTIMTDDSC','BTIMTDNSBT','BTIMTDPGMNOM','BTIMTDPGMMTD','BTIMTDSTATUS','BTIMTDFPATH','BTIMTDENBTRA','BTIMTDESPGGX'];
 const V3_BTI019_COLS = ['BTINom','BTISrvNom','BTISrvVer','BTIMtdNom','BTISrvParPosi','BTISrvParNom','BTISrvParNomJava','BTISrvParDir','BTISrvVarTipo','BTISrvParItTipo','BTISrvParValor','BTISrvSDTVer','BTISrvCat','BTISrvCatIt','BTISrvParLargo','BTISrvParLVal','BTISrvParItNom','BTISRVPARDECI'];
 const V4_BTI019_COLS = ['BTINOM','BTISRVNOM','BTISRVVER','BTIMTDNOM','BTISRVPARPOSI','BTISRVPARNOM','BTISRVPARNOMJAVA','BTISRVPARDIR','BTISRVVARTIPO','BTISRVPARITTIPO','BTISRVPARVALOR','BTISRVCATIT','BTISRVCAT','BTISRVSDTVER','BTISRVPARLARGO','BTISRVPARLVAL','BTISRVPARITNOM','BTISRVPARDECI','BTISRVPARDSC'];
+// BTI012: habilitacion por canal de cada metodo (API Publica, V3 y V4).
+// Sin al menos una fila aca el metodo no queda expuesto por ningun canal,
+// aunque BTI014/019 esten completos (equivalente a BTCBS012 en interna).
+const V3_BTI012_COLS = ['BTICanNom','BTINom','BTISrvNom','BTISrvVer','BTIMtdNom','BTISrvHab'];
+const V4_BTI012_COLS = ['BTICANNOM','BTINOM','BTISRVNOM','BTISRVVER','BTIMTDNOM','BTISRVHAB'];
 const V3_BTI025_COLS = ['BTISDTNom','BTISDTVersion','BTISDTDescrip','BTISDTNativo','BTISDTFecha','BTISDTNomInt','BTISDTEstado','BTISDTTipo','BTISDTNameSpace'];
 const V4_BTI025_COLS = ['BTISDTNOM','BTISDTVERSION','BTISDTNOMINT','BTISDTESTADO','BTISDTTIPO','BTISDTNAMESPACE','BTISDTFECHA','BTISDTDESCRIP','BTISDTNATIVO'];
 const V3_BTI026_COLS = ['BTISDTNom','BTISDTElemNom','BTISDTElemTipo','BTISDTElemLargo','BTISDTElemCat','BTISDTElemDsc','BTISDTElemSDT','BTISDTElemPosi'];
@@ -190,12 +195,23 @@ function btcbs_generateScript(data, mode) {
 function sg_generateScript(data, mode) {
   const ver = data.version, apiMode = data.apiMode || 'publica';
   if (ver === 'V4' && apiMode === 'interna') return btcbs_generateScript(data, mode);
-  const h = sg_normalizeHeader(data.header), m = sg_normalizeMethod(data.method), ps = data.params || [], lines = [];
+  const h = sg_normalizeHeader(data.header), m = sg_normalizeMethod(data.method), ps = data.params || [], chs = data.channels || [], lines = [];
   const BTINom = h.BTINom, BTISrvNom = h.BTISrvNom, BTISrvVer = h.BTISrvVer, BTIMtdNom = h.BTIMtdNom;
   const q = (v) => sg_sq(v, ver);
   function delBti019() { return["DELETE FROM BTI019 WHERE "+(ver==='V3'?'BTINom':'BTINOM')+"="+q(BTINom)+" AND "+(ver==='V3'?'BTISrvNom':'BTISRVNOM')+"="+q(BTISrvNom)+" AND "+(ver==='V3'?'BTIMtdNom':'BTIMTDNOM')+"="+q(BTIMtdNom)+";"]; }
   function delBti014() { return["DELETE FROM BTI014 WHERE "+(ver==='V3'?'BTINom':'BTINOM')+"="+q(BTINom)+" AND "+(ver==='V3'?'BTISrvNom':'BTISRVNOM')+"="+q(BTISrvNom)+" AND "+(ver==='V3'?'BTIMtdNom':'BTIMTDNOM')+"="+q(BTIMtdNom)+";"]; }
   function delBti004() { return["DELETE FROM BTI004 WHERE BTINom="+q(BTINom)+" AND BTISrvNom="+q(BTISrvNom)+";"]; }
+  function delBti012() { return["DELETE FROM BTI012 WHERE "+(ver==='V3'?'BTINom':'BTINOM')+"="+q(BTINom)+" AND "+(ver==='V3'?'BTISrvNom':'BTISRVNOM')+"="+q(BTISrvNom)+" AND "+(ver==='V3'?'BTISrvVer':'BTISRVVER')+"="+q(BTISrvVer)+" AND "+(ver==='V3'?'BTIMtdNom':'BTIMTDNOM')+"="+q(BTIMtdNom)+";"]; }
+  function insBti012() {
+    // BTISrvHab es nullable (a diferencia de BSSRVENAB en BTCBS012, que es
+    // NUMBER NOT NULL): si el origen no tiene valor, se preserva como NULL
+    // en vez de inventar un default.
+    const cols=(ver==='V3'?V3_BTI012_COLS:V4_BTI012_COLS).join(', ');
+    return chs.map(function(c) {
+      const vals=[q(c.chnname||''),q(BTINom),q(BTISrvNom),q(BTISrvVer),q(BTIMtdNom),sg_sq(c.srvenab,ver,true)].join(', ');
+      return 'INSERT INTO BTI012 ('+cols+') VALUES('+vals+');';
+    });
+  }
   function insBti004() { const cols=V3_BTI004_COLS.join(', '),dsc=h.BTISrvDsc||'',pgm=(h.BTISrvPgmName||'').trim()||' '; return['INSERT INTO BTI004 ('+cols+') VALUES('+q(BTINom)+', '+q(BTISrvNom)+', '+q(BTISrvVer)+', '+q(dsc)+", N' ', 0, 0, 0, "+q(pgm)+", N'                    ', N' ');"]; }
   function insBti014() {
     const status=(m.status||'Validado').padEnd(20).slice(0,20), enbtra=m.enbtra||'N', enbtraV=enbtra==='NULL'?'NULL':(ver==='V3'?"N'"+enbtra+"'":"'"+enbtra+"'");
@@ -213,9 +229,9 @@ function sg_generateScript(data, mode) {
       return 'INSERT INTO BTI019 ('+cols+') VALUES('+vals+');';
     });
   }
-  if(mode==='delete'){if(ver==='V3')lines.push(...delBti004(),''); lines.push(...delBti014(),'', ...delBti019());}
-  else if(mode==='insert'){if(ver==='V3')lines.push(...insBti004(),''); lines.push(...insBti014(),'', ...insBti019());}
-  else{if(ver==='V3')lines.push(...delBti004(),...insBti004(),''); lines.push(...delBti014(),...insBti014(),'', ...delBti019(),...insBti019());}
+  if(mode==='delete'){if(ver==='V3')lines.push(...delBti004(),''); lines.push(...delBti014(),'', ...delBti019(),'', ...delBti012());}
+  else if(mode==='insert'){if(ver==='V3')lines.push(...insBti004(),''); lines.push(...insBti014(),'', ...insBti019(),'', ...insBti012());}
+  else{if(ver==='V3')lines.push(...delBti004(),...insBti004(),''); lines.push(...delBti014(),...insBti014(),'', ...delBti019(),...insBti019(),'', ...delBti012(),...insBti012());}
   return lines.join('\n');
 }
 
@@ -306,7 +322,7 @@ module.exports = {
   sg_sq,
   sg_nq,
   sg_fmtDate,
-  V3_BTI004_COLS, V3_BTI014_COLS, V4_BTI014_COLS,
+  V3_BTI004_COLS, V3_BTI012_COLS, V4_BTI012_COLS, V3_BTI014_COLS, V4_BTI014_COLS,
   V3_BTI019_COLS, V4_BTI019_COLS,
   V3_BTI025_COLS, V4_BTI025_COLS,
   V3_BTI026_COLS, V4_BTI026_COLS,
