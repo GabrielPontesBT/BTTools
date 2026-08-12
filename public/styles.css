@@ -15,7 +15,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .wizard{background:#fff;border-radius:0;box-shadow:none;width:100%;height:100vh;overflow:hidden;display:flex;flex-direction:column}
 
 .wiz-hd{background:#fff;padding:12px 24px;color:var(--text);display:flex;align-items:center;gap:var(--sp-4);border-bottom:1px solid var(--border);flex-shrink:0}
-.wiz-hd-logo{flex-shrink:0;display:flex;align-items:center}
+.wiz-hd-logo{flex-shrink:0;display:flex;align-items:center;cursor:pointer}
 .wiz-hd-logo img{height:70px;width:auto;display:block;object-fit:contain}
 .wiz-hd-title{font-size:var(--fs-lg);font-weight:700;color:var(--text)}
 
