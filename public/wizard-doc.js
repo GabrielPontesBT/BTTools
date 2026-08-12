@@ -365,11 +365,29 @@ function validateSdtFields(allSdts) {
   return warns;
 }
 
+// Sin ninguna fila en BTCBS012 el metodo no queda expuesto por ningun
+// canal, aunque BTCBS014/019 esten completos: es un error funcional, no
+// una cuestion de estilo de documentacion, asi que se chequea siempre
+// (a diferencia del resto de validateItems, que es especifico de la API
+// Publica).
+function validateChannels(items) {
+  var warns = [];
+  (items || []).forEach(function(item) {
+    var svc = (item.header && item.header.BTISrvNom) || '?';
+    var mtd = (item.header && item.header.BTIMtdNom) || '?';
+    if (!(item.channels || []).length) {
+      warns.push({ service: svc, method: mtd, field: 'BSSRVENAB', msg: 'No se encontró ningún canal en BTCBS012: sin ese registro el método no funciona.' });
+    }
+  });
+  return warns;
+}
+
 // Los controles de descripcion/largo/decimales son el estandar de la API
 // Publica (de ahi sale la documentacion). La API Interna (tablas BTCBS) no
-// los tiene que cumplir, asi que no se valida nada.
+// los tiene que cumplir, asi que no se valida nada de eso, pero si se
+// chequean los canales (BTCBS012, ver validateChannels).
 function validateItems(items, apiMode) {
-  if (apiMode === 'interna') return [];
+  if (apiMode === 'interna') return validateChannels(items);
   var warns = [];
   var allSdts = [];
   (items || []).forEach(function(item) {
@@ -411,7 +429,8 @@ var _FIELD_TABLE = {
   BTISRVPARLARGO:  'BTI019',
   BTISRVPARDECI:   'BTI019',
   BTISDTELEMLARGO: 'BTI026',
-  BTISDTELEMDSC:   'BTI026'
+  BTISDTELEMDSC:   'BTI026',
+  BSSRVENAB:       'BTCBS012'
 };
 
 function renderWarnings(containerId, warnings) {

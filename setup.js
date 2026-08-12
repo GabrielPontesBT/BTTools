@@ -766,6 +766,30 @@ async function sg_queryMethodParamsBatch(platform, db, version, service, srvver,
   }
 }
 
+// BTCBS012: habilitacion por canal de cada metodo (API Interna, solo
+// Oracle). Un metodo sin ninguna fila aca no queda expuesto por ningun
+// canal aunque BTCBS014/019 esten completos, asi que methods-full la trae
+// para que el wizard pueda advertir/bloquear cuando venga vacia.
+async function sg_queryBtcbs012Batch(platform, db, service, srvver, methods) {
+  const emptyResult = () => { const r = {}; methods.forEach(m => { r[m] = []; }); return r; };
+  if (!methods.length || platform !== 'oracle') return emptyResult();
+  const { conn, oracledb } = await sg_getOra(db);
+  try {
+    const ver = String(srvver || '1');
+    const placeholders = methods.map((_, i) => ':' + (i + 3)).join(',');
+    const r = await conn.execute(
+      'SELECT BSMTDNAME,BSCHNNAME,BSSRVENAB FROM BTCBS012 WHERE BSSRVNAME=:1 AND BSSRVVER=:2 AND BSMTDNAME IN (' + placeholders + ') ORDER BY BSMTDNAME,BSCHNNAME',
+      [service, ver, ...methods], { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    const result = emptyResult();
+    r.rows.forEach(function(row) {
+      const name = (row.BSMTDNAME || '').trim();
+      if (result[name]) result[name].push({ chnname: (row.BSCHNNAME || '').trim(), srvenab: num_sn(row.BSSRVENAB) });
+    });
+    return result;
+  } finally { await conn.close(); }
+}
+
 async function sg_queryBti025(platform, db, version, sdtNom, apiMode) {
   if (platform === 'sqlserver') {
     const { pool, mssql } = await sg_getPool(db);
@@ -1655,6 +1679,9 @@ http.createServer(async (req, res) => {
         try {
           const details = await sg_queryMethodDetailsBatch(payload.platform, payload.db, payload.version, payload.service, payload.methods, payload.apiMode);
           const params  = await sg_queryMethodParamsBatch(payload.platform, payload.db, payload.version, payload.service, payload.srvver, payload.methods, payload.apiMode);
+          const channels = payload.apiMode === 'interna'
+            ? await sg_queryBtcbs012Batch(payload.platform, payload.db, payload.service, payload.srvver, payload.methods || [])
+            : {};
           const allSdtNames = new Set();
           (payload.methods || []).forEach(function(m) { sg_extractSdtNames(params[m] || [], payload.apiMode).forEach(function(n) { allSdtNames.add(n); }); });
           const sdts = allSdtNames.size > 0 ? await sg_querySdtsBatch(payload.platform, payload.db, payload.version, [...allSdtNames], payload.apiMode) : [];
@@ -1665,6 +1692,7 @@ http.createServer(async (req, res) => {
             header: { BTINom: 'BTSERVICES', BTISrvNom: payload.service, BTISrvVer: payload.srvver || '1', BTIMtdNom: method, BTISrvDsc: bti004 ? bti004.dsc : '', BTISrvPgmName: bti004 ? bti004.pgmnom : '' },
             method: details[method] || {},
             params: params[method] || [],
+            channels: channels[method] || [],
             sdts
           }));
           j(200, { ok: true, items });

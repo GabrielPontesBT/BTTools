@@ -19,6 +19,10 @@ const V4_BTI026_COLS = ['BTISDTNOM','BTISDTVERSION','BTISDTELEMNOM','BTISDTELEMN
 // (BTCBS019) y una tabla a nivel de servicio (equivalente a BTI004) no
 // existen / no se completan: BTI004 tampoco se toca para V4, solo para V3.
 const INTERNA_BTCBS014_COLS = ['BSINTNAME','BSSRVNAME','BSSRVVER','BSMTDNAME','BSMTDDESC','BSMTDNSBT','BSMTDPRG','BSPRGENTPO','BSMTDSTAT','BSMTDPATH','BSMTDTRACE','BSMTDGXPRG','BSMTDUUID'];
+// BTCBS012: habilitacion por canal de cada metodo. Sin al menos una fila
+// aca el metodo no queda expuesto por ningun canal, aunque BTCBS014/019
+// esten completos (ver sg_extractChannelWarnings).
+const INTERNA_BTCBS012_COLS = ['BSCHNNAME','BSINTNAME','BSSRVNAME','BSSRVVER','BSMTDNAME','BSSRVENAB'];
 const INTERNA_BTCBS019_COLS = ['BSINTNAME','BSSRVNAME','BSSRVVER','BSMTDNAME','BSPARPOS','BSPARNAME','BSPARINTNM','BSPARDIR','BSPARTYPE','BSPARITTYP','BSPARITCAT','BSPARITNAM','BSPARCAT','BSPARSDTVE','BSPARLEN','BSPARDECI'];
 const INTERNA_BTCBS025_COLS = ['BSSDTNAME','BSSDTVER','BSSDTDESC','BSSDTNATIV','BSSDTDATE','BSSDTINTNM','BSSDTSTAT','BSSDTTYPE','BSSDTNMSP'];
 const INTERNA_BTCBS026_COLS = ['BSSDTNAME','BSSDTVER','BSELMNAME','BSELMPOS','BSELMDESC','BSELMINTNM','BSELMISREQ','BSELMCAT','BSEIMITCAT','BSELMITNAM','BSELMTYPE','BSELMSDTNM','BSELMSDTVE','BSELMFLAT','BSELMLEN','BSELMDECI','BSELMENUM','BSELMVALS']; // BSEIMITCAT: typo de origen, la tabla real esta creada asi
@@ -150,11 +154,12 @@ function sg_nq(val) { const n = parseInt(String(val == null ? '0' : val).trim(),
 // sg_generateScript arma para BTI014/BTI019 en V4. Se usa aparte porque el
 // mapeo de columnas y tipos es distinto (ver INTERNA_BTCBS0xx_COLS arriba).
 function btcbs_generateScript(data, mode) {
-  const h = sg_normalizeHeader(data.header), m = sg_normalizeMethod(data.method), ps = data.params || [], lines = [];
+  const h = sg_normalizeHeader(data.header), m = sg_normalizeMethod(data.method), ps = data.params || [], chs = data.channels || [], lines = [];
   const BTINom = h.BTINom, BTISrvNom = h.BTISrvNom, BTISrvVer = h.BTISrvVer, BTIMtdNom = h.BTIMtdNom;
   const q = (v, nullable) => btcbs_sq(v, nullable);
   function delBtcbs014() { return ["DELETE FROM BTCBS014 WHERE BSINTNAME="+q(BTINom)+" AND BSSRVNAME="+q(BTISrvNom)+" AND BSMTDNAME="+q(BTIMtdNom)+";"]; }
   function delBtcbs019() { return ["DELETE FROM BTCBS019 WHERE BSINTNAME="+q(BTINom)+" AND BSSRVNAME="+q(BTISrvNom)+" AND BSMTDNAME="+q(BTIMtdNom)+";"]; }
+  function delBtcbs012() { return ["DELETE FROM BTCBS012 WHERE BSSRVNAME="+q(BTISrvNom)+" AND BSSRVVER="+q(BTISrvVer)+" AND BSMTDNAME="+q(BTIMtdNom)+";"]; }
   function insBtcbs014() {
     const status=(m.status||'Validado').padEnd(20).slice(0,20);
     const cols = INTERNA_BTCBS014_COLS.join(', ');
@@ -169,9 +174,16 @@ function btcbs_generateScript(data, mode) {
       return 'INSERT INTO BTCBS019 ('+cols+') VALUES('+vals+');';
     });
   }
-  if(mode==='delete'){lines.push(...delBtcbs014(),'', ...delBtcbs019());}
-  else if(mode==='insert'){lines.push(...insBtcbs014(),'', ...insBtcbs019());}
-  else{lines.push(...delBtcbs014(),...insBtcbs014(),'', ...delBtcbs019(),...insBtcbs019());}
+  function insBtcbs012() {
+    const cols = INTERNA_BTCBS012_COLS.join(', ');
+    return chs.map(function(c) {
+      const vals=[q(c.chnname||''),q(BTINom),q(BTISrvNom),q(BTISrvVer),q(BTIMtdNom),sn_num(c.srvenab)].join(', ');
+      return 'INSERT INTO BTCBS012 ('+cols+') VALUES('+vals+');';
+    });
+  }
+  if(mode==='delete'){lines.push(...delBtcbs014(),'', ...delBtcbs019(),'', ...delBtcbs012());}
+  else if(mode==='insert'){lines.push(...insBtcbs014(),'', ...insBtcbs019(),'', ...insBtcbs012());}
+  else{lines.push(...delBtcbs014(),...insBtcbs014(),'', ...delBtcbs019(),...insBtcbs019(),'', ...delBtcbs012(),...insBtcbs012());}
   return lines.join('\n');
 }
 
@@ -298,7 +310,7 @@ module.exports = {
   V3_BTI019_COLS, V4_BTI019_COLS,
   V3_BTI025_COLS, V4_BTI025_COLS,
   V3_BTI026_COLS, V4_BTI026_COLS,
-  INTERNA_BTCBS014_COLS, INTERNA_BTCBS019_COLS,
+  INTERNA_BTCBS012_COLS, INTERNA_BTCBS014_COLS, INTERNA_BTCBS019_COLS,
   INTERNA_BTCBS025_COLS, INTERNA_BTCBS026_COLS,
   sn_num, btcbs_sq, btcbs_fmtDate,
   sg_serviceNamePrefix, sg_serviceListQuery, sg_cellText,

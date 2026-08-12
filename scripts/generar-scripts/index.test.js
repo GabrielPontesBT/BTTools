@@ -122,6 +122,44 @@ test('sg_extractSdtNames respeta SG_SDT_EXCLUDE tambien para tipos sBT', () => {
   assert.deepEqual(sg_extractSdtNames(params, 'interna'), ['sBTBusinessErrors']);
 });
 
+test('sg_generateScript interna genera DELETE+INSERT de BTCBS012 por cada canal', () => {
+  const data = methodData({ channels: [
+    { chnname: 'REST', srvenab: 'S' },
+    { chnname: 'SOAP', srvenab: 'N' },
+  ] });
+  const script = sg_generateScript(data, 'both');
+  assert.match(script, /DELETE FROM BTCBS012 WHERE BSSRVNAME='PublicCustomers' AND BSSRVVER='1' AND BSMTDNAME='get';/);
+  assert.match(script, /INSERT INTO BTCBS012 \(BSCHNNAME, BSINTNAME, BSSRVNAME, BSSRVVER, BSMTDNAME, BSSRVENAB\) VALUES\('REST', 'BTSERVICES', 'PublicCustomers', '1', 'get', 1\);/);
+  assert.match(script, /INSERT INTO BTCBS012 \(BSCHNNAME, BSINTNAME, BSSRVNAME, BSSRVVER, BSMTDNAME, BSSRVENAB\) VALUES\('SOAP', 'BTSERVICES', 'PublicCustomers', '1', 'get', 0\);/);
+});
+
+test('sg_generateScript interna modo insert/delete de BTCBS012 solo trae la mitad correspondiente', () => {
+  const data = methodData({ channels: [{ chnname: 'REST', srvenab: 'S' }] });
+  const onlyInsert = sg_generateScript(data, 'insert');
+  assert.doesNotMatch(onlyInsert, /DELETE FROM BTCBS012/);
+  assert.match(onlyInsert, /INSERT INTO BTCBS012/);
+  const onlyDelete = sg_generateScript(data, 'delete');
+  assert.match(onlyDelete, /DELETE FROM BTCBS012/);
+  assert.doesNotMatch(onlyDelete, /INSERT INTO BTCBS012/);
+});
+
+test('sg_generateScript interna sin canales: DELETE de BTCBS012 igual corre, pero sin INSERT', () => {
+  const script = sg_generateScript(methodData(), 'both'); // methodData() no trae channels
+  assert.match(script, /DELETE FROM BTCBS012 WHERE BSSRVNAME='PublicCustomers' AND BSSRVVER='1' AND BSMTDNAME='get';/);
+  assert.doesNotMatch(script, /INSERT INTO BTCBS012/);
+});
+
+test('sg_generateScript interna escapa comillas en BSCHNNAME de BTCBS012', () => {
+  const data = methodData({ channels: [{ chnname: "REST'API", srvenab: 'S' }] });
+  const script = sg_generateScript(data, 'insert');
+  assert.match(script, /VALUES\('REST''API', /);
+});
+
+test('sg_generateScript con apiMode=publica no genera BTCBS012 (esa tabla no existe ahi)', () => {
+  const script = sg_generateScript(methodData({ apiMode: 'publica', channels: [{ chnname: 'REST', srvenab: 'S' }] }), 'both');
+  assert.doesNotMatch(script, /BTCBS012/);
+});
+
 test('sg_generateScript con apiMode=publica (o ausente) sigue generando BTI014/BTI019 igual que antes', () => {
   const script = sg_generateScript(methodData({ apiMode: 'publica' }), 'both');
   assert.match(script, /INSERT INTO BTI014/);
@@ -231,6 +269,7 @@ test('ningun script generado puede contener [object Object]', () => {
   const withLobs = methodData({
     method: { dsc: lobLike(), nsbt: 'S', pgmnom: 'CustomersWS', pgmmtd: 'execute', status: 'Validado', enbtra: 'N', espggx: 'S' },
     params: [{ nom: 'id', nomjava: 'id', dir: 'I', tipo: 'Numeric', ittipo: '', cat: 'B', catit: 'B', sdtver: '', largo: '9', deci: '0', dsc: lobLike() }],
+    channels: [{ chnname: lobLike(), srvenab: 'S' }],
   });
   ['interna', 'publica'].forEach(function(mode) {
     ['delete', 'insert', 'both'].forEach(function(m) {

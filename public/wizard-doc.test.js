@@ -37,9 +37,27 @@ function item(overrides) {
 
 // Los arrays vienen del contexto del vm (otro realm), asi que se compara
 // longitud/contenido y no deepEqual estricto (los prototipos no son los mismos).
-test('validateItems con apiMode interna no devuelve ninguna advertencia', () => {
+test('validateItems con apiMode interna no valida descripcion/largo (eso es exclusivo de la API Publica)', () => {
   const { validateItems } = loadWizard();
-  assert.equal(validateItems([item()], 'interna').length, 0);
+  const withChannels = item({ channels: [{ chnname: 'REST', srvenab: 'S' }] });
+  assert.equal(validateItems([withChannels], 'interna').length, 0);
+});
+
+// Sin ninguna fila en BTCBS012 el metodo no queda expuesto por ningun canal,
+// aunque BTCBS014/019 esten completos: es un chequeo aparte del estandar de
+// documentacion, y corre siempre (incluso en interna).
+test('validateItems con apiMode interna advierte si el metodo no tiene ningun canal en BTCBS012', () => {
+  const { validateItems } = loadWizard();
+  const warns = validateItems([item()], 'interna'); // item() no trae channels
+  assert.equal(warns.length, 1);
+  assert.equal(warns[0].field, 'BSSRVENAB');
+  assert.match(warns[0].msg, /BTCBS012/);
+});
+
+test('validateItems con apiMode interna no advierte cuando el metodo tiene al menos un canal', () => {
+  const { validateItems } = loadWizard();
+  const withChannels = item({ channels: [{ chnname: 'REST', srvenab: 'N' }] });
+  assert.equal(validateItems([withChannels], 'interna').length, 0);
 });
 
 test('validateItems con apiMode publica sigue advirtiendo lo mismo que antes', () => {
@@ -187,6 +205,6 @@ test('validateItems no duplica advertencias cuando el mismo SDT aparece en dos i
 
 test('validateItems con apiMode interna no valida SDT', () => {
   const { validateItems } = loadWizard();
-  const it = item({ sdts: [sdtItem({ elemdsc: '' })] });
+  const it = item({ sdts: [sdtItem({ elemdsc: '' })], channels: [{ chnname: 'REST', srvenab: 'S' }] });
   assert.equal(validateItems([it], 'interna').length, 0);
 });
