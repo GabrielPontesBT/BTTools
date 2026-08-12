@@ -357,7 +357,7 @@ function validateItems(items, apiMode) {
       warns.push({ service: svc, method: mtd, field: 'BTIMTDDSC', msg: 'Descripción vacía.' });
     } else {
       if (!/^m[eé]todo para /i.test(dsc)) warns.push({ service: svc, method: mtd, field: 'BTIMTDDSC', msg: 'No comienza con "Método para".' });
-      if (!dsc.endsWith('.'))                          warns.push({ service: svc, method: mtd, field: 'BTIMTDDSC', msg: 'No termina con punto.' });
+      if (!dsc.endsWith('.') && !dsc.endsWith('?'))    warns.push({ service: svc, method: mtd, field: 'BTIMTDDSC', msg: 'No termina con punto ni signo de pregunta.' });
       if (_VALIDATE_ENGLISH_RE.test(dsc))              warns.push({ service: svc, method: mtd, field: 'BTIMTDDSC', msg: 'Podría estar en inglés.' });
     }
     params.forEach(function(p) {
@@ -366,7 +366,7 @@ function validateItems(items, apiMode) {
       if (pdsc !== undefined) {
         if (!pdsc) warns.push({ service: svc, method: mtd, field: 'BTISRVPARDSC', param: pnom, msg: 'Descripción vacía.' });
         else {
-          if (!pdsc.endsWith('.'))                          warns.push({ service: svc, method: mtd, field: 'BTISRVPARDSC', param: pnom, msg: 'No termina con punto.' });
+          if (!pdsc.endsWith('.') && !pdsc.endsWith('?'))   warns.push({ service: svc, method: mtd, field: 'BTISRVPARDSC', param: pnom, msg: 'No termina con punto ni signo de pregunta.' });
           if (_VALIDATE_ENGLISH_RE.test(pdsc))              warns.push({ service: svc, method: mtd, field: 'BTISRVPARDSC', param: pnom, msg: 'Podría estar en inglés.' });
         }
       }

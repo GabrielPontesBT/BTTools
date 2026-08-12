@@ -48,7 +48,7 @@ test('validateItems con apiMode publica sigue advirtiendo lo mismo que antes', (
   const msgs = warns.map(w => w.field + ': ' + w.msg);
   assert.ok(warns.length > 0, 'la API Publica tiene que seguir validando');
   assert.ok(msgs.includes('BTIMTDDSC: No comienza con "Método para".'), msgs.join(' | '));
-  assert.ok(msgs.includes('BTIMTDDSC: No termina con punto.'), msgs.join(' | '));
+  assert.ok(msgs.includes('BTIMTDDSC: No termina con punto ni signo de pregunta.'), msgs.join(' | '));
   assert.ok(msgs.some(m => m === 'BTISRVPARDSC: Descripción vacía.'), msgs.join(' | '));
   assert.ok(msgs.some(m => m.startsWith('BTISRVPARLARGO: Largo es 0')), msgs.join(' | '));
 });
@@ -106,6 +106,23 @@ test('step3Ready exige conexion probada, y ademas API elegida solo para Generar 
 
   w.S.apiMode = 'interna';
   assert.equal(w.step3Ready(), true);
+});
+
+test('validateItems acepta descripcion de metodo o parametro terminada en signo de pregunta', () => {
+  const { validateItems } = loadWizard();
+  const it = item({
+    method: { dsc: 'Método para saber si el cliente existe?' },
+    params: [{ nom: 'id', dsc: '¿Es un cliente activo?', tipo: 'int', largo: '4' }],
+  });
+  const warns = validateItems([it], 'publica');
+  assert.ok(!warns.some(function(w) { return /No termina con punto/.test(w.msg); }), JSON.stringify(warns));
+});
+
+test('validateItems sigue advirtiendo cuando la descripcion no termina ni en punto ni en signo de pregunta', () => {
+  const { validateItems } = loadWizard();
+  const it = item({ method: { dsc: 'Método para saber si el cliente existe' } });
+  const warns = validateItems([it], 'publica');
+  assert.ok(warns.some(function(w) { return w.field === 'BTIMTDDSC' && w.msg === 'No termina con punto ni signo de pregunta.'; }), JSON.stringify(warns));
 });
 
 test('pickConnApiMode setea S.apiMode y marca la tarjeta clickeada', () => {
