@@ -186,9 +186,9 @@ function btcbs_generateScript(data, mode) {
       return 'INSERT INTO BTCBS012 ('+cols+') VALUES('+vals+');';
     });
   }
-  if(mode==='delete'){lines.push(...delBtcbs014(),'', ...delBtcbs019(),'', ...delBtcbs012());}
-  else if(mode==='insert'){lines.push(...insBtcbs014(),'', ...insBtcbs019(),'', ...insBtcbs012());}
-  else{lines.push(...delBtcbs014(),...insBtcbs014(),'', ...delBtcbs019(),...insBtcbs019(),'', ...delBtcbs012(),...insBtcbs012());}
+  if(mode==='delete'){lines.push(...delBtcbs012(),'', ...delBtcbs014(),'', ...delBtcbs019());}
+  else if(mode==='insert'){lines.push(...insBtcbs012(),'', ...insBtcbs014(),'', ...insBtcbs019());}
+  else{lines.push(...delBtcbs012(),...insBtcbs012(),'', ...delBtcbs014(),...insBtcbs014(),'', ...delBtcbs019(),...insBtcbs019());}
   return lines.join('\n');
 }
 
@@ -229,9 +229,9 @@ function sg_generateScript(data, mode) {
       return 'INSERT INTO BTI019 ('+cols+') VALUES('+vals+');';
     });
   }
-  if(mode==='delete'){if(ver==='V3')lines.push(...delBti004(),''); lines.push(...delBti014(),'', ...delBti019(),'', ...delBti012());}
-  else if(mode==='insert'){if(ver==='V3')lines.push(...insBti004(),''); lines.push(...insBti014(),'', ...insBti019(),'', ...insBti012());}
-  else{if(ver==='V3')lines.push(...delBti004(),...insBti004(),''); lines.push(...delBti014(),...insBti014(),'', ...delBti019(),...insBti019(),'', ...delBti012(),...insBti012());}
+  if(mode==='delete'){if(ver==='V3')lines.push(...delBti004(),''); lines.push(...delBti012(),'', ...delBti014(),'', ...delBti019());}
+  else if(mode==='insert'){if(ver==='V3')lines.push(...insBti004(),''); lines.push(...insBti012(),'', ...insBti014(),'', ...insBti019());}
+  else{if(ver==='V3')lines.push(...delBti004(),...insBti004(),''); lines.push(...delBti012(),...insBti012(),'', ...delBti014(),...insBti014(),'', ...delBti019(),...insBti019());}
   return lines.join('\n');
 }
 

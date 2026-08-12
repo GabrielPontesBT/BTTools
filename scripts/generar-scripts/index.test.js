@@ -155,6 +155,15 @@ test('sg_generateScript interna escapa comillas en BSCHNNAME de BTCBS012', () =>
   assert.match(script, /VALUES\('REST''API', /);
 });
 
+test('sg_generateScript interna genera las tablas en orden numerico: 012, 014, 019', () => {
+  const data = methodData({ channels: [{ chnname: 'REST', srvenab: 'S' }] });
+  const script = sg_generateScript(data, 'both');
+  const p012 = script.indexOf('BTCBS012'), p014 = script.indexOf('BTCBS014'), p019 = script.indexOf('BTCBS019');
+  assert.ok(p012 >= 0 && p014 >= 0 && p019 >= 0, script);
+  assert.ok(p012 < p014, 'BTCBS012 tiene que ir antes que BTCBS014');
+  assert.ok(p014 < p019, 'BTCBS014 tiene que ir antes que BTCBS019');
+});
+
 test('sg_generateScript con apiMode=publica no genera BTCBS012 (esa tabla no existe ahi)', () => {
   const script = sg_generateScript(methodData({ apiMode: 'publica', channels: [{ chnname: 'REST', srvenab: 'S' }] }), 'both');
   assert.doesNotMatch(script, /BTCBS012/);
@@ -176,6 +185,25 @@ test('sg_generateScript V3 publica genera BTI012 con el casing y quoting N\'\' p
   const script = sg_generateScript(data, 'both');
   assert.match(script, /DELETE FROM BTI012 WHERE BTINom=N'BTSERVICES' AND BTISrvNom=N'PublicCustomers' AND BTISrvVer=N'1' AND BTIMtdNom=N'get';/);
   assert.match(script, /INSERT INTO BTI012 \(BTICanNom, BTINom, BTISrvNom, BTISrvVer, BTIMtdNom, BTISrvHab\) VALUES\(N'REST', N'BTSERVICES', N'PublicCustomers', N'1', N'get', N'S'\);/);
+});
+
+test('sg_generateScript V4 publica genera las tablas en orden numerico: 012, 014, 019', () => {
+  const data = methodData({ apiMode: 'publica', channels: [{ chnname: 'REST', srvenab: 'S' }] });
+  const script = sg_generateScript(data, 'both');
+  const p012 = script.indexOf('BTI012'), p014 = script.indexOf('BTI014'), p019 = script.indexOf('BTI019');
+  assert.ok(p012 >= 0 && p014 >= 0 && p019 >= 0, script);
+  assert.ok(p012 < p014, 'BTI012 tiene que ir antes que BTI014');
+  assert.ok(p014 < p019, 'BTI014 tiene que ir antes que BTI019');
+});
+
+test('sg_generateScript V3 publica genera las tablas en orden numerico: 004, 012, 014, 019', () => {
+  const data = methodData({ version: 'V3', apiMode: 'publica', channels: [{ chnname: 'REST', srvenab: 'S' }] });
+  const script = sg_generateScript(data, 'both');
+  const p004 = script.indexOf('BTI004'), p012 = script.indexOf('BTI012'), p014 = script.indexOf('BTI014'), p019 = script.indexOf('BTI019');
+  assert.ok(p004 >= 0 && p012 >= 0 && p014 >= 0 && p019 >= 0, script);
+  assert.ok(p004 < p012, 'BTI004 tiene que ir antes que BTI012');
+  assert.ok(p012 < p014, 'BTI012 tiene que ir antes que BTI014');
+  assert.ok(p014 < p019, 'BTI014 tiene que ir antes que BTI019');
 });
 
 test('sg_generateScript publica modo insert/delete de BTI012 solo trae la mitad correspondiente', () => {
