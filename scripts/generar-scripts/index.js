@@ -141,8 +141,8 @@ function btcbs_generateScript(data, mode) {
   const h = sg_normalizeHeader(data.header), m = sg_normalizeMethod(data.method), ps = data.params || [], lines = [];
   const BTINom = h.BTINom, BTISrvNom = h.BTISrvNom, BTISrvVer = h.BTISrvVer, BTIMtdNom = h.BTIMtdNom;
   const q = (v, nullable) => btcbs_sq(v, nullable);
-  function delBtcbs014() { return ["DELETE FROM BTCBS014 WHERE BSINTNAME='"+BTINom+"' AND BSSRVNAME='"+BTISrvNom+"' AND BSMTDNAME='"+BTIMtdNom+"';"]; }
-  function delBtcbs019() { return ["DELETE FROM BTCBS019 WHERE BSINTNAME='"+BTINom+"' AND BSSRVNAME='"+BTISrvNom+"' AND BSMTDNAME='"+BTIMtdNom+"';"]; }
+  function delBtcbs014() { return ["DELETE FROM BTCBS014 WHERE BSINTNAME="+q(BTINom)+" AND BSSRVNAME="+q(BTISrvNom)+" AND BSMTDNAME="+q(BTIMtdNom)+";"]; }
+  function delBtcbs019() { return ["DELETE FROM BTCBS019 WHERE BSINTNAME="+q(BTINom)+" AND BSSRVNAME="+q(BTISrvNom)+" AND BSMTDNAME="+q(BTIMtdNom)+";"]; }
   function insBtcbs014() {
     const status=(m.status||'Validado').padEnd(20).slice(0,20);
     const cols = INTERNA_BTCBS014_COLS.join(', ');

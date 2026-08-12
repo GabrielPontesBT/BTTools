@@ -857,7 +857,7 @@ async function sg_validateSdts(platform, db, version, params, svcNom, mtdNom) {
       if (!dsc) {
         w.push({ service: svcNom, method: mtdNom, field: 'BTISDTELEMDSC', param: campo, msg: 'Descripción vacía.' });
       } else {
-        if (!dsc.endsWith('.'))            w.push({ service: svcNom, method: mtdNom, field: 'BTISDTELEMDSC', param: campo, msg: 'No termina con punto.' });
+        if (!dsc.endsWith('.') && !dsc.endsWith('?')) w.push({ service: svcNom, method: mtdNom, field: 'BTISDTELEMDSC', param: campo, msg: 'No termina con punto ni signo de pregunta.' });
         if (VALIDATE_ENGLISH_RE.test(dsc)) w.push({ service: svcNom, method: mtdNom, field: 'BTISDTELEMDSC', param: campo, msg: 'Podría estar en inglés.' });
       }
       const tipoRaw = (f.elemtipo || '').toUpperCase();
