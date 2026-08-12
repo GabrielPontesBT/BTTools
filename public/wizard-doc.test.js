@@ -48,7 +48,7 @@ test('validateItems con apiMode publica sigue advirtiendo lo mismo que antes', (
   const msgs = warns.map(w => w.field + ': ' + w.msg);
   assert.ok(warns.length > 0, 'la API Publica tiene que seguir validando');
   assert.ok(msgs.includes('BTIMTDDSC: No comienza con "Método para".'), msgs.join(' | '));
-  assert.ok(msgs.includes('BTIMTDDSC: No termina con punto.'), msgs.join(' | '));
+  assert.ok(msgs.includes('BTIMTDDSC: No termina con punto ni signo de pregunta.'), msgs.join(' | '));
   assert.ok(msgs.some(m => m === 'BTISRVPARDSC: Descripción vacía.'), msgs.join(' | '));
   assert.ok(msgs.some(m => m.startsWith('BTISRVPARLARGO: Largo es 0')), msgs.join(' | '));
 });
@@ -108,6 +108,23 @@ test('step3Ready exige conexion probada, y ademas API elegida solo para Generar 
   assert.equal(w.step3Ready(), true);
 });
 
+test('validateItems acepta descripcion de metodo o parametro terminada en signo de pregunta', () => {
+  const { validateItems } = loadWizard();
+  const it = item({
+    method: { dsc: 'Método para saber si el cliente existe?' },
+    params: [{ nom: 'id', dsc: '¿Es un cliente activo?', tipo: 'int', largo: '4' }],
+  });
+  const warns = validateItems([it], 'publica');
+  assert.ok(!warns.some(function(w) { return /No termina con punto/.test(w.msg); }), JSON.stringify(warns));
+});
+
+test('validateItems sigue advirtiendo cuando la descripcion no termina ni en punto ni en signo de pregunta', () => {
+  const { validateItems } = loadWizard();
+  const it = item({ method: { dsc: 'Método para saber si el cliente existe' } });
+  const warns = validateItems([it], 'publica');
+  assert.ok(warns.some(function(w) { return w.field === 'BTIMTDDSC' && w.msg === 'No termina con punto ni signo de pregunta.'; }), JSON.stringify(warns));
+});
+
 test('pickConnApiMode setea S.apiMode y marca la tarjeta clickeada', () => {
   const w = loadWizard();
   var marked = [];
@@ -119,4 +136,57 @@ test('pickConnApiMode setea S.apiMode y marca la tarjeta clickeada', () => {
   w.pickConnApiMode('interna', clicked);
   assert.equal(w.S.apiMode, 'interna');
   assert.ok(marked.some(m => m[0] === 'int' && m[1] === 'add' && m[2] === 'sel'));
+});
+
+function sdtItem(elemOverrides) {
+  return {
+    nom: 'SdtDatosCliente',
+    bti026: [Object.assign({ elemnom: 'nombre', elemtipo: 'C', elemlargo: '100', elemdsc: 'Nombre del cliente.' }, elemOverrides || {})],
+  };
+}
+
+test('validateItems detecta descripcion vacia en un campo SDT', () => {
+  const { validateItems } = loadWizard();
+  const it = item({ sdts: [sdtItem({ elemdsc: '' })] });
+  const warns = validateItems([it], 'publica');
+  assert.ok(warns.some(function(w) { return w.field === 'BTISDTELEMDSC' && w.msg === 'Descripción vacía.'; }), JSON.stringify(warns));
+});
+
+test('validateItems acepta descripcion de campo SDT terminada en ? o en punto, advierte si no termina en ninguno', () => {
+  const { validateItems } = loadWizard();
+  const conPregunta = item({ sdts: [sdtItem({ elemdsc: '¿Incluye datos personales?' })] });
+  const conPunto = item({ sdts: [sdtItem({ elemdsc: 'Incluye datos personales.' })] });
+  const sinNinguno = item({ sdts: [sdtItem({ elemdsc: 'Incluye datos personales' })] });
+  assert.equal(validateItems([conPregunta], 'publica').filter(function(w) { return w.field === 'BTISDTELEMDSC'; }).length, 0);
+  assert.equal(validateItems([conPunto], 'publica').filter(function(w) { return w.field === 'BTISDTELEMDSC'; }).length, 0);
+  assert.ok(validateItems([sinNinguno], 'publica').some(function(w) { return w.field === 'BTISDTELEMDSC' && /No termina con punto/.test(w.msg); }));
+});
+
+test('validateItems detecta largo 0 en campo SDT de tipo C/N/F', () => {
+  const { validateItems } = loadWizard();
+  const it = item({ sdts: [sdtItem({ elemtipo: 'C', elemlargo: '0' })] });
+  const warns = validateItems([it], 'publica');
+  assert.ok(warns.some(function(w) { return w.field === 'BTISDTELEMLARGO'; }), JSON.stringify(warns));
+});
+
+test('validateItems no advierte largo 0 en campo SDT de tipo distinto a C/N/F', () => {
+  const { validateItems } = loadWizard();
+  const it = item({ sdts: [sdtItem({ elemtipo: 'B', elemlargo: '0' })] });
+  const warns = validateItems([it], 'publica');
+  assert.equal(warns.filter(function(w) { return w.field === 'BTISDTELEMLARGO'; }).length, 0);
+});
+
+test('validateItems no duplica advertencias cuando el mismo SDT aparece en dos items', () => {
+  const { validateItems } = loadWizard();
+  const sdt = sdtItem({ elemdsc: '' });
+  const it1 = item({ sdts: [sdt] });
+  const it2 = item({ header: { BTISrvNom: 'Otro', BTIMtdNom: 'otroMetodo' }, sdts: [sdt] });
+  const warns = validateItems([it1, it2], 'publica');
+  assert.equal(warns.filter(function(w) { return w.field === 'BTISDTELEMDSC' && w.param === 'SdtDatosCliente.nombre'; }).length, 1);
+});
+
+test('validateItems con apiMode interna no valida SDT', () => {
+  const { validateItems } = loadWizard();
+  const it = item({ sdts: [sdtItem({ elemdsc: '' })] });
+  assert.equal(validateItems([it], 'interna').length, 0);
 });

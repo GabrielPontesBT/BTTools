@@ -52,10 +52,11 @@ Además, varias funciones de `sg_generateScript` interpolan campos a mano sin pa
 Cambiar la condición `!dsc.endsWith('.')` por `!dsc.endsWith('.') && !dsc.endsWith('?')` en:
 
 - `setup.js` → `sg_validateOne` (`BTIMTDDSC`, `BTISRVPARDSC`)
+- `setup.js` → `sg_validateSdts` (`BTISDTELEMDSC`)
 - `public/wizard-doc.js` → `validateItems` (`BTIMTDDSC`, `BTISRVPARDSC`)
 - la nueva `validateSdtFields` (`BTISDTELEMDSC`)
 
-Mensaje de advertencia actualizado a `"No termina con punto ni signo de pregunta."` en los tres lugares para que sea consistente.
+Mensaje de advertencia actualizado a `"No termina con punto ni signo de pregunta."` en los cuatro lugares para que sea consistente.
 
 ## Testing
 

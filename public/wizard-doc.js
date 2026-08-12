@@ -339,6 +339,31 @@ var _dbHistory = [];
 // ── Validaciones ──────────────────────────────────────────────
 var _VALIDATE_ENGLISH_RE = /\b(the|this|that|these|those|is|are|was|were|has|have|had|get|gets|set|sets|update|updates|create|creates|delete|deletes|return|returns|method|service|parameter|value|field|list|object|type|name|code|date|amount|flag|allow|allows|perform|performs|retrieve|retrieves)\b/i;
 var _VALIDATE_LARGO_TYPES = new Set(['long','int','double','byte','short','string']);
+var _VALIDATE_SDT_LARGO_TYPES = new Set(['C', 'N', 'F']);
+
+function validateSdtFields(allSdts) {
+  var warns = [];
+  var seen = new Set();
+  (allSdts || []).forEach(function(sdt) {
+    if (!sdt || !sdt.nom || seen.has(sdt.nom)) return;
+    seen.add(sdt.nom);
+    (sdt.bti026 || []).forEach(function(f) {
+      var campo = sdt.nom + '.' + f.elemnom;
+      var dsc = (f.elemdsc || '').trim();
+      if (!dsc) {
+        warns.push({ method: sdt.nom, field: 'BTISDTELEMDSC', param: campo, msg: 'Descripción vacía.' });
+      } else {
+        if (!dsc.endsWith('.') && !dsc.endsWith('?')) warns.push({ method: sdt.nom, field: 'BTISDTELEMDSC', param: campo, msg: 'No termina con punto ni signo de pregunta.' });
+        if (_VALIDATE_ENGLISH_RE.test(dsc))           warns.push({ method: sdt.nom, field: 'BTISDTELEMDSC', param: campo, msg: 'Podría estar en inglés.' });
+      }
+      var tipoRaw = (f.elemtipo || '').toUpperCase();
+      if (_VALIDATE_SDT_LARGO_TYPES.has(tipoRaw) && parseInt(f.elemlargo || '0') === 0) {
+        warns.push({ method: sdt.nom, field: 'BTISDTELEMLARGO', param: campo, msg: 'Largo es 0 para tipo ' + f.elemtipo + '.' });
+      }
+    });
+  });
+  return warns;
+}
 
 // Los controles de descripcion/largo/decimales son el estandar de la API
 // Publica (de ahi sale la documentacion). La API Interna (tablas BTCBS) no
@@ -346,6 +371,7 @@ var _VALIDATE_LARGO_TYPES = new Set(['long','int','double','byte','short','strin
 function validateItems(items, apiMode) {
   if (apiMode === 'interna') return [];
   var warns = [];
+  var allSdts = [];
   (items || []).forEach(function(item) {
     var svc = (item.header && item.header.BTISrvNom) || item.service || '?';
     var mtd = (item.header && item.header.BTIMtdNom) || item.method_name || '?';
@@ -357,7 +383,7 @@ function validateItems(items, apiMode) {
       warns.push({ service: svc, method: mtd, field: 'BTIMTDDSC', msg: 'Descripción vacía.' });
     } else {
       if (!/^m[eé]todo para /i.test(dsc)) warns.push({ service: svc, method: mtd, field: 'BTIMTDDSC', msg: 'No comienza con "Método para".' });
-      if (!dsc.endsWith('.'))                          warns.push({ service: svc, method: mtd, field: 'BTIMTDDSC', msg: 'No termina con punto.' });
+      if (!dsc.endsWith('.') && !dsc.endsWith('?'))    warns.push({ service: svc, method: mtd, field: 'BTIMTDDSC', msg: 'No termina con punto ni signo de pregunta.' });
       if (_VALIDATE_ENGLISH_RE.test(dsc))              warns.push({ service: svc, method: mtd, field: 'BTIMTDDSC', msg: 'Podría estar en inglés.' });
     }
     params.forEach(function(p) {
@@ -366,14 +392,16 @@ function validateItems(items, apiMode) {
       if (pdsc !== undefined) {
         if (!pdsc) warns.push({ service: svc, method: mtd, field: 'BTISRVPARDSC', param: pnom, msg: 'Descripción vacía.' });
         else {
-          if (!pdsc.endsWith('.'))                          warns.push({ service: svc, method: mtd, field: 'BTISRVPARDSC', param: pnom, msg: 'No termina con punto.' });
+          if (!pdsc.endsWith('.') && !pdsc.endsWith('?'))   warns.push({ service: svc, method: mtd, field: 'BTISRVPARDSC', param: pnom, msg: 'No termina con punto ni signo de pregunta.' });
           if (_VALIDATE_ENGLISH_RE.test(pdsc))              warns.push({ service: svc, method: mtd, field: 'BTISRVPARDSC', param: pnom, msg: 'Podría estar en inglés.' });
         }
       }
       if (_VALIDATE_LARGO_TYPES.has(tipo) && parseInt(p.largo || '0') === 0) warns.push({ service: svc, method: mtd, field: 'BTISRVPARLARGO', param: pnom, msg: 'Largo es 0 para tipo ' + p.tipo + '.' });
       if (tipo === 'double' && parseInt(p.deci || '0') === 0)                warns.push({ service: svc, method: mtd, field: 'BTISRVPARDECI',  param: pnom, msg: 'Decimales son 0 para tipo double.' });
     });
+    (item.sdts || []).forEach(function(sdt) { allSdts.push(sdt); });
   });
+  warns = warns.concat(validateSdtFields(allSdts));
   return warns;
 }
 

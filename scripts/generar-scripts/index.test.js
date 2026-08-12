@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { sg_generateScript, sg_generateSdtScript, sn_num, sg_serviceNamePrefix, sg_serviceListQuery, sg_cellText } = require('./index.js');
+const { sg_generateScript, sg_generateSdtScript, sn_num, sg_serviceNamePrefix, sg_serviceListQuery, sg_cellText, sg_sq, btcbs_sq } = require('./index.js');
 
 const UUID_RE = /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/;
 
@@ -193,4 +193,60 @@ test('ningun script de SDT generado puede contener [object Object]', () => {
       assert.doesNotMatch(script, /\[object Object\]/, pair.join('/') + '/' + m);
     });
   });
+});
+
+test('sg_sq escapa comillas simples duplicandolas', () => {
+  assert.equal(sg_sq("O'Connor", 'V4'), "'O''Connor'");
+  assert.equal(sg_sq("Debe indicarse 'S' o 'N'.", 'V3'), "N'Debe indicarse ''S'' o ''N''.'");
+});
+
+test('btcbs_sq escapa comillas simples duplicandolas', () => {
+  assert.equal(btcbs_sq("Debe indicarse 'S'.", false), "'Debe indicarse ''S''.'");
+});
+
+function methodDataWithQuotes(version, apiMode) {
+  return methodData({
+    version: version,
+    apiMode: apiMode,
+    header: { BTINom: 'BTSERVICES', BTISrvNom: 'PublicCustomers', BTISrvVer: '1', BTIMtdNom: 'get', BTISrvDsc: "Servicio de 'clientes'.", BTISrvPgmName: "Customers'WS" },
+    method: { dsc: "Debe indicarse 'S' o 'N'.", nsbt: 'S', pgmnom: "Pgm'X", pgmmtd: 'execute', status: 'Validado', fpath: "C:\\ruta'con'comilla", enbtra: 'N', espggx: 'S' },
+  });
+}
+
+test('sg_generateScript V3 escapa comillas en BTISrvDsc (BTI004) y en dsc/pgmnom/fpath (BTI014)', () => {
+  const script = sg_generateScript(methodDataWithQuotes('V3', 'publica'), 'insert');
+  assert.match(script, /INSERT INTO BTI004[^\n]*N'Servicio de ''clientes''\.'/);
+  assert.match(script, /INSERT INTO BTI004[^\n]*N'Customers''WS'/);
+  assert.match(script, /INSERT INTO BTI014[^\n]*N'Debe indicarse ''S'' o ''N''\.'/);
+  assert.match(script, /N'Pgm''X'/);
+  assert.match(script, /N'C:\\ruta''con''comilla'/);
+});
+
+test('sg_generateScript V4 publica escapa comillas en dsc (BTI014)', () => {
+  const script = sg_generateScript(methodDataWithQuotes('V4', 'publica'), 'insert');
+  assert.match(script, /'Debe indicarse ''S'' o ''N''\.'/);
+});
+
+test('sg_generateScript V4 interna (BTCBS) escapa comillas en dsc', () => {
+  const script = sg_generateScript(methodDataWithQuotes('V4', 'interna'), 'insert');
+  assert.match(script, /'Debe indicarse ''S'' o ''N''\.'/);
+});
+
+test('sg_generateScript V3 delete escapa comillas en identificadores (BTI004/BTI014/BTI019)', () => {
+  const script = sg_generateScript(methodDataWithQuotes('V3', 'publica'), 'delete');
+  assert.match(script, /DELETE FROM BTI004 WHERE BTINom=N'BTSERVICES' AND BTISrvNom=N'PublicCustomers';/);
+  assert.match(script, /DELETE FROM BTI014 WHERE BTINom=N'BTSERVICES' AND BTISrvNom=N'PublicCustomers' AND BTIMtdNom=N'get';/);
+  assert.match(script, /DELETE FROM BTI019 WHERE BTINom=N'BTSERVICES' AND BTISrvNom=N'PublicCustomers' AND BTIMtdNom=N'get';/);
+});
+
+test('sg_generateScript V4 interna (BTCBS) delete escapa comillas via q() en delBtcbs014/delBtcbs019', () => {
+  const data = methodData({
+    version: 'V4',
+    apiMode: 'interna',
+    header: { BTINom: 'BTSERVICES', BTISrvNom: "Public'Customers", BTISrvVer: '1', BTIMtdNom: 'get', BTISrvDsc: 'Servicio.', BTISrvPgmName: 'CustomersWS' },
+    method: { dsc: 'Metodo.', nsbt: 'S', pgmnom: 'PgmX', pgmmtd: 'execute', status: 'Validado', fpath: 'C:\\ruta', enbtra: 'N', espggx: 'S' },
+  });
+  const script = sg_generateScript(data, 'delete');
+  assert.match(script, /DELETE FROM BTCBS014 WHERE BSINTNAME='BTSERVICES' AND BSSRVNAME='Public''Customers' AND BSMTDNAME='get';/);
+  assert.match(script, /DELETE FROM BTCBS019 WHERE BSINTNAME='BTSERVICES' AND BSSRVNAME='Public''Customers' AND BSMTDNAME='get';/);
 });
