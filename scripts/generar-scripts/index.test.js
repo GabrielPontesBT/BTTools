@@ -95,6 +95,14 @@ test('sg_extractSdtNames detecta tipos sBT en apiMode interna (tipo e ittipo)', 
   assert.deepEqual(sg_extractSdtNames(params, 'interna'), ['sBTProductosDepositoAPlazo', 'sBTDatoExtendido']);
 });
 
+test('sg_extractSdtNames detecta Sdt y sBT mezclados en la misma llamada interna', () => {
+  const params = [
+    { nom: 'legacy', tipo: 'SdtDatosCliente', ittipo: '' },
+    { nom: 'nuevo', tipo: 'sBTProductosDepositoAPlazo', ittipo: '' },
+  ];
+  assert.deepEqual(sg_extractSdtNames(params, 'interna'), ['SdtDatosCliente', 'sBTProductosDepositoAPlazo']);
+});
+
 test('sg_extractSdtNames NO trata prefijo sBT como SDT fuera de apiMode interna', () => {
   const params = [{ nom: 'producto', tipo: 'sBTProductosDepositoAPlazo', ittipo: '' }];
   assert.deepEqual(sg_extractSdtNames(params, 'publica'), []);
