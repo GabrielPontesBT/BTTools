@@ -466,7 +466,7 @@ function buildEnv(version, platform, db, api) {
 
 // ── Script Generator backend ──────────────────────────────
 const {
-  sg_generateScript, sg_generateSdtScript, sg_extractSdtNames,
+  sg_generateScript, sg_generateSdtScript, sg_extractSdtNames, sg_isSdtType,
   sg_sq, sg_nq, sg_fmtDate, SG_SDT_EXCLUDE,
   V3_BTI004_COLS, V3_BTI014_COLS, V4_BTI014_COLS,
   V3_BTI019_COLS, V4_BTI019_COLS,
@@ -827,7 +827,7 @@ async function sg_querySdtsBatch(platform, db, version, initialSdtNames, apiMode
     result.set(sdtNom, { nom: sdtNom, bti025: b25, bti026: b26 });
     for (var i = 0; i < b26.length; i++) {
       const e = b26[i];
-      const ns = e.elemsdt || (e.elemtipo && e.elemtipo.startsWith('Sdt') ? e.elemtipo : '');
+      const ns = e.elemsdt || (e.elemtipo && sg_isSdtType(e.elemtipo, apiMode) ? e.elemtipo : '');
       if (ns && !SG_SDT_EXCLUDE.has(ns) && !processed.has(ns)) toProcess.push(ns);
     }
   }
@@ -1656,7 +1656,7 @@ http.createServer(async (req, res) => {
           const details = await sg_queryMethodDetailsBatch(payload.platform, payload.db, payload.version, payload.service, payload.methods, payload.apiMode);
           const params  = await sg_queryMethodParamsBatch(payload.platform, payload.db, payload.version, payload.service, payload.srvver, payload.methods, payload.apiMode);
           const allSdtNames = new Set();
-          (payload.methods || []).forEach(function(m) { sg_extractSdtNames(params[m] || []).forEach(function(n) { allSdtNames.add(n); }); });
+          (payload.methods || []).forEach(function(m) { sg_extractSdtNames(params[m] || [], payload.apiMode).forEach(function(n) { allSdtNames.add(n); }); });
           const sdts = allSdtNames.size > 0 ? await sg_querySdtsBatch(payload.platform, payload.db, payload.version, [...allSdtNames], payload.apiMode) : [];
           const bti004 = await sg_queryServiceBTI004(payload.platform, payload.db, payload.service);
           const items = (payload.methods || []).map(method => ({

@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { sg_generateScript, sg_generateSdtScript, sn_num, sg_serviceNamePrefix, sg_serviceListQuery, sg_cellText, sg_sq, btcbs_sq } = require('./index.js');
+const { sg_generateScript, sg_generateSdtScript, sn_num, sg_serviceNamePrefix, sg_serviceListQuery, sg_cellText, sg_sq, btcbs_sq, sg_extractSdtNames, sg_isSdtType } = require('./index.js');
 
 const UUID_RE = /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/;
 
@@ -60,6 +60,58 @@ test('sg_generateScript interna no incluye BSPARENUM/BSPARDFVAL (se descartan)',
   const script = sg_generateScript(methodData(), 'insert');
   assert.doesNotMatch(script, /BSPARENUM/);
   assert.doesNotMatch(script, /BSPARDFVAL/);
+});
+
+// Regresion: en API interna los tipos SDT reales no llevan el prefijo 'Sdt'
+// (eso es exclusivo de las BTI/API publica), van directo como 'sBT<Nombre>'
+// (ej. sBTProductosDepositoAPlazo, confirmado en scripts/validar-doc). Antes
+// de este fix, sg_extractSdtNames los descartaba y nunca se generaba su
+// bloque BTCBS025/026.
+test('sg_isSdtType reconoce prefijo Sdt en cualquier apiMode', () => {
+  assert.equal(sg_isSdtType('SdtDatosCliente'), true);
+  assert.equal(sg_isSdtType('SdtDatosCliente', 'publica'), true);
+  assert.equal(sg_isSdtType('SdtDatosCliente', 'interna'), true);
+});
+
+test('sg_isSdtType reconoce prefijo sBT solo en apiMode interna', () => {
+  assert.equal(sg_isSdtType('sBTProductosDepositoAPlazo', 'interna'), true);
+  assert.equal(sg_isSdtType('sBTProductosDepositoAPlazo', 'publica'), false);
+  assert.equal(sg_isSdtType('sBTProductosDepositoAPlazo'), false);
+});
+
+test('sg_isSdtType rechaza tipos primitivos y valores vacios', () => {
+  assert.equal(sg_isSdtType('String', 'interna'), false);
+  assert.equal(sg_isSdtType('Numeric', 'interna'), false);
+  assert.equal(sg_isSdtType('', 'interna'), false);
+  assert.equal(sg_isSdtType(null, 'interna'), false);
+});
+
+test('sg_extractSdtNames detecta tipos sBT en apiMode interna (tipo e ittipo)', () => {
+  const params = [
+    { nom: 'producto', tipo: 'sBTProductosDepositoAPlazo', ittipo: '' },
+    { nom: 'items', tipo: 'Collection', ittipo: 'sBTDatoExtendido' },
+    { nom: 'id', tipo: 'Numeric', ittipo: '' },
+  ];
+  assert.deepEqual(sg_extractSdtNames(params, 'interna'), ['sBTProductosDepositoAPlazo', 'sBTDatoExtendido']);
+});
+
+test('sg_extractSdtNames NO trata prefijo sBT como SDT fuera de apiMode interna', () => {
+  const params = [{ nom: 'producto', tipo: 'sBTProductosDepositoAPlazo', ittipo: '' }];
+  assert.deepEqual(sg_extractSdtNames(params, 'publica'), []);
+  assert.deepEqual(sg_extractSdtNames(params), []);
+});
+
+test('sg_extractSdtNames sigue detectando el prefijo Sdt en apiMode interna', () => {
+  const params = [{ nom: 'x', tipo: 'SdtDatosCliente', ittipo: '' }];
+  assert.deepEqual(sg_extractSdtNames(params, 'interna'), ['SdtDatosCliente']);
+});
+
+test('sg_extractSdtNames respeta SG_SDT_EXCLUDE tambien para tipos sBT', () => {
+  const params = [{ nom: 'errores', tipo: 'sBTBusinessErrors', ittipo: '' }];
+  // No esta en SG_SDT_EXCLUDE (solo 'SdtsBTBusinessError' lo esta), asi que
+  // hoy SI se detecta como SDT: este test documenta el comportamiento actual,
+  // no una exclusion nueva.
+  assert.deepEqual(sg_extractSdtNames(params, 'interna'), ['sBTBusinessErrors']);
 });
 
 test('sg_generateScript con apiMode=publica (o ausente) sigue generando BTI014/BTI019 igual que antes', () => {

@@ -115,12 +115,24 @@ function sg_fmtDate(val, ver) {
 
 const SG_SDT_EXCLUDE = new Set(['SdtsBTBusinessError']);
 
-function sg_extractSdtNames(params) {
+// Prefijo de tipo estructurado (SDT): en API publica (BTI) siempre es 'Sdt'.
+// En API interna (BTCBS) el tipo real no lleva ese prefijo, va directo como
+// 'sBT<Nombre>' (confirmado contra la documentacion real, ver
+// scripts/validar-doc/index.test.js: sBTProductosDepositoAPlazo, sBTSimulacion).
+function sg_isSdtType(name, apiMode) {
+  if (!name) return false;
+  const n = name.trim();
+  if (n.startsWith('Sdt')) return true;
+  if (apiMode === 'interna' && n.startsWith('sBT')) return true;
+  return false;
+}
+
+function sg_extractSdtNames(params, apiMode) {
   const names = new Set();
   for (var i = 0; i < params.length; i++) {
     const p = params[i];
-    if (p.tipo && p.tipo.startsWith('Sdt') && !SG_SDT_EXCLUDE.has(p.tipo.trim())) names.add(p.tipo.trim());
-    if (p.ittipo && p.ittipo.trim().startsWith('Sdt') && !SG_SDT_EXCLUDE.has(p.ittipo.trim())) names.add(p.ittipo.trim());
+    if (p.tipo && sg_isSdtType(p.tipo, apiMode) && !SG_SDT_EXCLUDE.has(p.tipo.trim())) names.add(p.tipo.trim());
+    if (p.ittipo && sg_isSdtType(p.ittipo, apiMode) && !SG_SDT_EXCLUDE.has(p.ittipo.trim())) names.add(p.ittipo.trim());
   }
   return [...names];
 }
@@ -278,6 +290,7 @@ module.exports = {
   sg_generateScript,
   sg_generateSdtScript,
   sg_extractSdtNames,
+  sg_isSdtType,
   sg_sq,
   sg_nq,
   sg_fmtDate,
