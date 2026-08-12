@@ -465,7 +465,21 @@ function getApi() {
 
 // ── Navegación del wizard ─────────────────────────────────────
 
+// Cualquier eleccion en los pasos 1-2 (accion/version/motor/API) es un
+// cambio de "ambiente": la lista de servicios y el script ya generado por
+// Generar Scripts quedan invalidos aunque la conexion a la base sea la
+// misma (ese otro caso, cambiar los datos de conexion, ya lo cubre el
+// reset de runAutoConnTest). Sin esto, volver atras y tocar version/API
+// dejaba el paso 4 mostrando la lista/seleccion de la corrida anterior.
+function sgInvalidateState() {
+  sgServiceGroups = []; sgMultiData = null; sgServicesLoaded = false; allServices = [];
+  var grp = document.getElementById('sg-service-groups'); if (grp) grp.innerHTML = '';
+  var sel = document.getElementById('sg-sel-svc'); if (sel) sel.innerHTML = '<option value="">-- Seleccioná un servicio --</option>';
+  var out = document.getElementById('sg-sql-out'); if (out) out.value = '';
+}
+
 function pick(key, val, el) {
+  sgInvalidateState();
   S[key] = val;
   el.closest('.cards').querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
   el.classList.add('sel');
