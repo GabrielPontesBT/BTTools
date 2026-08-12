@@ -101,7 +101,7 @@ function btcbs_fmtDate(val) {
 function btcbs_sq(val, nullable) {
   const s = sg_cellText(val);
   if (nullable && s.trim() === '') return 'NULL';
-  return s.trim() === '' ? "' '" : "'" + s + "'";
+  return s.trim() === '' ? "' '" : "'" + s.replace(/'/g, "''") + "'";
 }
 
 function sg_fmtDate(val, ver) {
@@ -128,8 +128,9 @@ function sg_extractSdtNames(params) {
 function sg_sq(val, ver, nullable) {
   const s = sg_cellText(val);
   if (nullable && s.trim() === '') return 'NULL';
-  if (ver === 'V3') return "N'" + s + "'";
-  return s.trim() === '' ? "' '" : "'" + s + "'";
+  const esc = s.replace(/'/g, "''");
+  if (ver === 'V3') return "N'" + esc + "'";
+  return s.trim() === '' ? "' '" : "'" + esc + "'";
 }
 function sg_nq(val) { const n = parseInt(String(val == null ? '0' : val).trim(), 10); return isNaN(n) ? '0' : String(n); }
 
@@ -168,15 +169,15 @@ function sg_generateScript(data, mode) {
   const h = sg_normalizeHeader(data.header), m = sg_normalizeMethod(data.method), ps = data.params || [], lines = [];
   const BTINom = h.BTINom, BTISrvNom = h.BTISrvNom, BTISrvVer = h.BTISrvVer, BTIMtdNom = h.BTIMtdNom;
   const q = (v) => sg_sq(v, ver);
-  function delBti019() { if(ver==='V3')return["DELETE FROM BTI019 WHERE BTINom=N'"+BTINom+"' AND BTISrvNom=N'"+BTISrvNom+"' AND BTIMtdNom=N'"+BTIMtdNom+"';"]; return["DELETE FROM BTI019 WHERE BTINOM='"+BTINom+"' AND BTISRVNOM='"+BTISrvNom+"' AND BTIMTDNOM='"+BTIMtdNom+"';"]; }
-  function delBti014() { if(ver==='V3')return["DELETE FROM BTI014 WHERE BTINom=N'"+BTINom+"' AND BTISrvNom=N'"+BTISrvNom+"' AND BTIMtdNom=N'"+BTIMtdNom+"';"]; return["DELETE FROM BTI014 WHERE BTINOM='"+BTINom+"' AND BTISRVNOM='"+BTISrvNom+"' AND BTIMTDNOM='"+BTIMtdNom+"';"]; }
-  function delBti004() { return["DELETE FROM BTI004 WHERE BTINom=N'"+BTINom+"' AND BTISrvNom=N'"+BTISrvNom+"';"]; }
-  function insBti004() { const cols=V3_BTI004_COLS.join(', '),dsc=h.BTISrvDsc||'',pgm=(h.BTISrvPgmName||'').trim()||' '; return['INSERT INTO BTI004 ('+cols+") VALUES(N'"+BTINom+"', N'"+BTISrvNom+"', N'"+BTISrvVer+"', N'"+dsc+"', N' ', 0, 0, 0, N'"+pgm+"', N'                    ', N' ');"]; }
+  function delBti019() { return["DELETE FROM BTI019 WHERE "+(ver==='V3'?'BTINom':'BTINOM')+"="+q(BTINom)+" AND "+(ver==='V3'?'BTISrvNom':'BTISRVNOM')+"="+q(BTISrvNom)+" AND "+(ver==='V3'?'BTIMtdNom':'BTIMTDNOM')+"="+q(BTIMtdNom)+";"]; }
+  function delBti014() { return["DELETE FROM BTI014 WHERE "+(ver==='V3'?'BTINom':'BTINOM')+"="+q(BTINom)+" AND "+(ver==='V3'?'BTISrvNom':'BTISRVNOM')+"="+q(BTISrvNom)+" AND "+(ver==='V3'?'BTIMtdNom':'BTIMTDNOM')+"="+q(BTIMtdNom)+";"]; }
+  function delBti004() { return["DELETE FROM BTI004 WHERE BTINom="+q(BTINom)+" AND BTISrvNom="+q(BTISrvNom)+";"]; }
+  function insBti004() { const cols=V3_BTI004_COLS.join(', '),dsc=h.BTISrvDsc||'',pgm=(h.BTISrvPgmName||'').trim()||' '; return['INSERT INTO BTI004 ('+cols+') VALUES('+q(BTINom)+', '+q(BTISrvNom)+', '+q(BTISrvVer)+', '+q(dsc)+", N' ', 0, 0, 0, "+q(pgm)+", N'                    ', N' ');"]; }
   function insBti014() {
     const status=(m.status||'Validado').padEnd(20).slice(0,20), enbtra=m.enbtra||'N', enbtraV=enbtra==='NULL'?'NULL':(ver==='V3'?"N'"+enbtra+"'":"'"+enbtra+"'");
-    if(ver==='V3'){const cols=V3_BTI014_COLS.join(', ');return['INSERT INTO BTI014 ('+cols+") VALUES(N'"+BTINom+"', N'"+BTISrvNom+"', N'"+BTISrvVer+"', N'"+BTIMtdNom+"', N'"+(m.dsc||'')+"', N'"+(m.nsbt||' ')+"', N'"+(m.pgmnom||'')+"', N'"+(m.pgmmtd||'execute')+"', N'"+status+"', N'"+(m.fpath||'')+"', "+enbtraV+", N'"+(m.espggx||'S')+"');"];}
-    const cols=V4_BTI014_COLS.join(', '),dscV=(m.dsc||'').trim()?"'"+(m.dsc)+"'":"' '";
-    return['INSERT INTO BTI014 ('+cols+") VALUES('"+BTINom+"', '"+BTISrvNom+"', '"+BTISrvVer+"', '"+BTIMtdNom+"', "+dscV+", '"+(m.nsbt||' ')+"', '"+(m.pgmnom||'')+"', '"+(m.pgmmtd||'execute')+"', '"+status+"', ' ', "+enbtraV+", '"+(m.espggx||'S')+"');"];
+    if(ver==='V3'){const cols=V3_BTI014_COLS.join(', ');return['INSERT INTO BTI014 ('+cols+') VALUES('+q(BTINom)+', '+q(BTISrvNom)+', '+q(BTISrvVer)+', '+q(BTIMtdNom)+', '+q(m.dsc||'')+', '+q(m.nsbt||' ')+', '+q(m.pgmnom||'')+', '+q(m.pgmmtd||'execute')+', '+q(status)+', '+q(m.fpath||'')+', '+enbtraV+', '+q(m.espggx||'S')+');'];}
+    const cols=V4_BTI014_COLS.join(', ');
+    return['INSERT INTO BTI014 ('+cols+') VALUES('+q(BTINom)+', '+q(BTISrvNom)+', '+q(BTISrvVer)+', '+q(BTIMtdNom)+', '+q(m.dsc||'')+', '+q(m.nsbt||' ')+', '+q(m.pgmnom||'')+', '+q(m.pgmmtd||'execute')+', '+q(status)+", ' ', "+enbtraV+', '+q(m.espggx||'S')+');'];
   }
   function insBti019() {
     const cols=(ver==='V3'?V3_BTI019_COLS:V4_BTI019_COLS).join(', ');
