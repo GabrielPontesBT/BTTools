@@ -335,6 +335,12 @@ function sdtgenReset() {
 
 // ── Historial de conexiones ───────────────────────────────────
 var _dbHistory = [];
+// Entrada del historial que corresponde a la conexion activa (elegida del
+// dropdown o guardada por una prueba exitosa). Cada entrada guarda su propia
+// config de API por apiMode (publica/interna, ver fillApiFields/testAuth):
+// misma BD, pero pagina Swagger y credenciales distintas segun que API se
+// use, asi que no alcanza con atarlo solo a la BD.
+var _activeDbHistEntry = null;
 
 // ── Validaciones ──────────────────────────────────────────────
 var _VALIDATE_ENGLISH_RE = /\b(the|this|that|these|those|is|are|was|were|has|have|had|get|gets|set|sets|update|updates|create|creates|delete|deletes|return|returns|method|service|parameter|value|field|list|object|type|name|code|date|amount|flag|allow|allows|perform|performs|retrieve|retrieves)\b/i;
@@ -807,6 +813,7 @@ async function tryLoadEnv(version) {
 }
 
 function clearDbFields() {
+  _activeDbHistEntry = null;
   setVal('db-conn-name', '');
   setVal('db-server', ''); setVal('db-port', '1433'); setVal('db-name', '');
   setVal('db-user-s', ''); setVal('db-pass-s', '');
@@ -865,23 +872,40 @@ function _setApiHints(apiUrl, baseUrl) {
   }
 }
 
+// La config de API se busca primero en la conexion activa del historial
+// (atada a la BD + al apiMode: publica e interna apuntan a Swagger/paginas
+// distintas), y si esa conexion todavia no tiene nada guardado para este
+// apiMode, cae al .env legado por version (loadedEnv, comportamiento previo).
+function _apiFieldsSource() {
+  var mode = S.apiMode || 'publica';
+  if (_activeDbHistEntry && _activeDbHistEntry.api && _activeDbHistEntry.api[mode]) return _activeDbHistEntry.api[mode];
+  return loadedEnv || {};
+}
+
 function fillApiFields() {
-  setVal('a-base', loadedEnv ? loadedEnv.BASE_URL : '');
-  setVal('a-api',  loadedEnv ? loadedEnv.API_BASE_URL : '');
-  setVal('a-auth', loadedEnv ? loadedEnv.API_AUTH_URL : '');
-  setVal('a-user', loadedEnv ? loadedEnv.API_USER : '');
-  setVal('a-pass', loadedEnv ? loadedEnv.API_PASSWORD : '');
-  setVal('a-canal',        loadedEnv ? loadedEnv.API_CANAL        : '');
-  setVal('a-device',       loadedEnv ? loadedEnv.API_DEVICE       : '');
-  setVal('a-requerimiento',loadedEnv ? loadedEnv.API_REQUERIMIENTO : '');
-  _lastAutoBase = (loadedEnv && loadedEnv.BASE_URL) ? loadedEnv.BASE_URL : '';
-  _lastAutoAuth = (loadedEnv && loadedEnv.API_AUTH_URL) ? loadedEnv.API_AUTH_URL : '';
-  if (loadedEnv && loadedEnv.DOC_ERRORES_MODELOS) {
-    var cb = document.getElementById('cb-doc-errores');
+  var src = _apiFieldsSource();
+  // setVal no toca el campo si el valor es null/undefined (ver su
+  // definicion), asi que hay que pasar '' explicito para limpiarlo cuando
+  // la fuente no tiene el dato — si no, queda el valor viejo pegado.
+  setVal('a-base', src.BASE_URL || '');
+  setVal('a-api',  src.API_BASE_URL || '');
+  setVal('a-auth', src.API_AUTH_URL || '');
+  setVal('a-user', src.API_USER || '');
+  setVal('a-pass', src.API_PASSWORD || '');
+  setVal('a-canal',        src.API_CANAL || '');
+  setVal('a-device',       src.API_DEVICE || '');
+  setVal('a-requerimiento',src.API_REQUERIMIENTO || '');
+  _lastAutoBase = src.BASE_URL || '';
+  _lastAutoAuth = src.API_AUTH_URL || '';
+  var cb = document.getElementById('cb-doc-errores');
+  if (src.DOC_ERRORES_MODELOS) {
     if (cb) { cb.checked = true; toggleDocErrores(); }
-    setVal('doc-errores-modelos', loadedEnv.DOC_ERRORES_MODELOS);
+    setVal('doc-errores-modelos', src.DOC_ERRORES_MODELOS);
+  } else {
+    if (cb) { cb.checked = false; toggleDocErrores(); }
+    setVal('doc-errores-modelos', '');
   }
-  _setApiHints(loadedEnv ? loadedEnv.API_BASE_URL : '', loadedEnv ? loadedEnv.BASE_URL : '');
+  _setApiHints(src.API_BASE_URL || '', src.BASE_URL || '');
 }
 
 function allConnFilled() {
@@ -942,8 +966,9 @@ function renderDbHistory() {
 function loadDbHistEntry() {
   var sel = document.getElementById('db-hist-sel'); if (!sel) return;
   var del = document.getElementById('db-hist-del'); if (del) del.disabled = !sel.value;
-  if (!sel.value) { setVal('db-conn-name', ''); return; }
+  if (!sel.value) { _activeDbHistEntry = null; setVal('db-conn-name', ''); return; }
   var entry = _dbHistory.find(function(e) { return e.id === sel.value; }); if (!entry) return;
+  _activeDbHistEntry = entry;
   setVal('db-conn-name', entry.label || '');
   if (entry.platform === 'sqlserver') {
     setVal('db-server', entry.db.server || ''); setVal('db-port', entry.db.port || '1433');
@@ -981,6 +1006,7 @@ async function saveDbHistEntry() {
     if (d.ok) {
       await loadDbHistory();
       var sel = document.getElementById('db-hist-sel'); if (sel && d.id) { sel.value = d.id; var del = document.getElementById('db-hist-del'); if (del) del.disabled = false; }
+      if (d.id) _activeDbHistEntry = _dbHistory.find(function(e) { return e.id === d.id; }) || null;
     }
   } catch(e) {}
 }
@@ -1059,12 +1085,28 @@ async function testAuth() {
     var d = await r.json();
     res.className = 'cres show ' + (d.ok ? 'ok' : 'err');
     res.textContent = d.ok ? 'Autenticacion exitosa — token obtenido correctamente' : ('Error: ' + d.message);
+    if (d.ok) await saveApiToActiveEntry();
   } catch(e) {
     res.className = 'cres show err';
     res.textContent = 'Error al conectar con el servidor de setup';
   }
   btn.innerHTML = 'Probar autenticacion';
   btn.disabled = false;
+}
+
+// Ata la config de API recien probada a la conexion activa (misma logica
+// que el auto-guardado de datos de conexion en runAutoConnTest), separada
+// por apiMode. Si por algun motivo no hay conexion activa (no deberia
+// pasar: se llega a este paso siempre despues de conectar), no hay contra
+// que atarla y no se guarda nada.
+async function saveApiToActiveEntry() {
+  if (!_activeDbHistEntry) return;
+  var mode = S.apiMode || 'publica';
+  var api = getApi();
+  try {
+    await fetch('/sg/api/db-history', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action: 'save-api', id: _activeDbHistEntry.id, apiMode: mode, api: api }) });
+    _activeDbHistEntry.api = Object.assign({}, _activeDbHistEntry.api || {}, { [mode]: api });
+  } catch(e) {}
 }
 
 

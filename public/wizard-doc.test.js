@@ -223,3 +223,106 @@ test('validateItems con apiMode interna no valida SDT', () => {
   const it = item({ sdts: [sdtItem({ elemdsc: '' })], channels: [{ chnname: 'REST', srvenab: 'S' }] });
   assert.equal(validateItems([it], 'interna').length, 0);
 });
+
+// ── Config de API atada a la conexion (ver _apiFieldsSource/fillApiFields) ──
+// Cada conexion guardada en el historial tiene su propia config de API por
+// apiMode (publica/interna apuntan a Swagger/paginas distintas), asi que
+// elegir una conexion tiene que autocompletar la que le corresponde a ESE
+// ambiente puntual, no la config generica por version (loadedEnv, legado).
+
+test('_apiFieldsSource prioriza la config de API de la conexion activa sobre el .env legado', () => {
+  const w = loadWizard();
+  w.S.apiMode = 'publica';
+  w.loadedEnv = { BASE_URL: 'http://legado', API_USER: 'legado' };
+  w._activeDbHistEntry = { api: { publica: { BASE_URL: 'http://nuevo', API_USER: 'nuevo' } } };
+  const src = w._apiFieldsSource();
+  assert.equal(src.BASE_URL, 'http://nuevo');
+  assert.equal(src.API_USER, 'nuevo');
+});
+
+test('_apiFieldsSource cae al .env legado si la conexion activa no tiene nada guardado para ese apiMode', () => {
+  const w = loadWizard();
+  w.S.apiMode = 'interna';
+  w.loadedEnv = { BASE_URL: 'http://legado' };
+  w._activeDbHistEntry = { api: { publica: { BASE_URL: 'http://solo-publica' } } }; // sin 'interna'
+  assert.equal(w._apiFieldsSource().BASE_URL, 'http://legado');
+});
+
+test('_apiFieldsSource distingue publica de interna dentro de la misma conexion', () => {
+  const w = loadWizard();
+  w._activeDbHistEntry = { api: { publica: { BASE_URL: 'http://pub' }, interna: { BASE_URL: 'http://int' } } };
+  w.S.apiMode = 'publica';
+  assert.equal(w._apiFieldsSource().BASE_URL, 'http://pub');
+  w.S.apiMode = 'interna';
+  assert.equal(w._apiFieldsSource().BASE_URL, 'http://int');
+});
+
+test('_apiFieldsSource devuelve objeto vacio si no hay conexion activa ni .env', () => {
+  const w = loadWizard();
+  w.S.apiMode = 'publica';
+  w.loadedEnv = null;
+  w._activeDbHistEntry = null;
+  // El objeto viene del realm del vm (otro prototipo Object), asi que se
+  // compara por claves y no con deepEqual estricto (ver nota al inicio del
+  // archivo sobre arrays del vm).
+  assert.equal(Object.keys(w._apiFieldsSource()).length, 0);
+});
+
+test('clearDbFields resetea la conexion activa', () => {
+  const w = loadWizard();
+  w._activeDbHistEntry = { id: 'x', api: {} };
+  w.clearDbFields();
+  assert.equal(w._activeDbHistEntry, null);
+});
+
+test('loadDbHistEntry marca la entrada elegida como conexion activa', () => {
+  const w = loadWizard();
+  w._dbHistory = [{ id: '1', label: 'Prod V4', platform: 'oracle', db: { connectString: 'h:1521/s', user: 'u', password: 'p' }, api: { publica: { BASE_URL: 'http://x' } } }];
+  const fakeSel = { value: '1' };
+  const fakeDel = { disabled: true };
+  w.document.getElementById = function(id) {
+    if (id === 'db-hist-sel') return fakeSel;
+    if (id === 'db-hist-del') return fakeDel;
+    return null;
+  };
+  w.loadDbHistEntry();
+  assert.equal(w._activeDbHistEntry.id, '1');
+  assert.equal(fakeDel.disabled, false);
+});
+
+test('loadDbHistEntry sin seleccion limpia la conexion activa', () => {
+  const w = loadWizard();
+  w._activeDbHistEntry = { id: 'previo' };
+  const fakeSel = { value: '' };
+  const fakeDel = { disabled: false };
+  w.document.getElementById = function(id) {
+    if (id === 'db-hist-sel') return fakeSel;
+    if (id === 'db-hist-del') return fakeDel;
+    return null;
+  };
+  w.loadDbHistEntry();
+  assert.equal(w._activeDbHistEntry, null);
+});
+
+test('saveApiToActiveEntry no hace nada si no hay conexion activa', async () => {
+  const w = loadWizard();
+  w._activeDbHistEntry = null;
+  let called = false;
+  w.fetch = function() { called = true; return Promise.resolve({ json: function() { return Promise.resolve({ ok: true }); } }); };
+  await w.saveApiToActiveEntry();
+  assert.equal(called, false);
+});
+
+test('saveApiToActiveEntry manda la config actual atada al id de la conexion activa, separada por apiMode', async () => {
+  const w = loadWizard();
+  w._activeDbHistEntry = { id: '42', api: { interna: { BASE_URL: 'http://viejo-interna' } } };
+  w.S.apiMode = 'publica';
+  let sentBody = null;
+  w.fetch = function(url, opts) { sentBody = JSON.parse(opts.body); return Promise.resolve({ json: function() { return Promise.resolve({ ok: true }); } }); };
+  await w.saveApiToActiveEntry();
+  assert.equal(sentBody.action, 'save-api');
+  assert.equal(sentBody.id, '42');
+  assert.equal(sentBody.apiMode, 'publica');
+  assert.deepEqual(w._activeDbHistEntry.api.interna, { BASE_URL: 'http://viejo-interna' }); // no se pisa
+  assert.ok(w._activeDbHistEntry.api.publica); // se agrego la config nueva
+});

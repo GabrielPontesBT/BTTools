@@ -1636,6 +1636,9 @@ http.createServer(async (req, res) => {
               key, version: payload.version, platform: payload.platform,
               label: payload.label || key,
               db: payload.db,
+              // La config de API (ver accion 'save-api') se guarda aparte y
+              // esta reescritura NO la toca: si ya existia, se preserva.
+              api: idx >= 0 ? (list[idx].api || {}) : {},
               savedAt: new Date().toISOString()
             };
             if (idx >= 0) list.splice(idx, 1);
@@ -1643,6 +1646,18 @@ http.createServer(async (req, res) => {
             if (list.length > 50) list.length = 50;
             writeDbHistory(list);
             j(200, { ok: true, id: entry.id, updated: idx >= 0 });
+          } else if (payload.action === 'save-api') {
+            // Guarda la config de API (paso "ambiente Bantotal") contra una
+            // conexion ya guardada, separada por apiMode: misma BD puede
+            // necesitar Swagger/credenciales distintas segun se use la API
+            // Publica o la Interna.
+            const list = readDbHistory();
+            const idx = list.findIndex(function(e) { return e.id === payload.id; });
+            if (idx < 0) { j(200, { ok: false, message: 'Conexión no encontrada' }); return; }
+            const apiMode = payload.apiMode || 'publica';
+            list[idx].api = Object.assign({}, list[idx].api || {}, { [apiMode]: payload.api || {} });
+            writeDbHistory(list);
+            j(200, { ok: true });
           } else if (payload.action === 'delete') {
             writeDbHistory(readDbHistory().filter(function(e) { return e.id !== payload.id; }));
             j(200, { ok: true });
