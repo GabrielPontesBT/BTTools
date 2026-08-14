@@ -26,3 +26,6 @@ error-docs/output/cache/
 
 scripts/generar-collections/output/
 db_history.json
+
+# Build de Electron
+dist/

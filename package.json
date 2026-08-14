@@ -1,0 +1,41 @@
+{
+  "name": "herramienta-bantotal",
+  "version": "1.0.0",
+  "private": true,
+  "author": "Bantotal",
+  "description": "Herramienta Bantotal - generador de documentacion y collections API V3/V4",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "predist": "node electron/fix-wincodesign-cache.js",
+    "dist": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.bantotal.herramienta",
+    "productName": "Herramienta Bantotal",
+    "asar": false,
+    "files": [
+      "electron/**/*",
+      "setup.js",
+      "public/**/*",
+      "scripts/**/*",
+      "V3/**/*",
+      "V4/**/*",
+      "icon.ico",
+      "!**/*.test.js",
+      "!V3/.env",
+      "!V4/.env"
+    ],
+    "win": {
+      "target": "portable",
+      "icon": "icon.ico"
+    },
+    "portable": {
+      "artifactName": "HerramientaBantotal-portable.exe"
+    }
+  }
+}

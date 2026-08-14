@@ -1907,6 +1907,9 @@ http.createServer(async (req, res) => {
   console.log('\n  Generador MD - Configuracion inicial');
   console.log('  -> Abriendo ' + url + '\n');
   console.log('  Presiona Ctrl+C para cerrar\n');
+  // Bajo Electron la ventana nativa abre la URL (ver electron/main.js);
+  // abrir tambien el navegador del sistema duplicaria la UI.
+  if (process.env.BTAPI_ELECTRON) return;
   const cmd = process.platform === 'win32' ? 'start ' + url
             : process.platform === 'darwin' ? 'open ' + url
             : 'xdg-open ' + url;
