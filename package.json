@@ -8,7 +8,7 @@
   "scripts": {
     "start": "electron .",
     "predist": "node electron/fix-wincodesign-cache.js",
-    "dist": "electron-builder --win portable"
+    "dist": "electron-builder --win dir"
   },
   "devDependencies": {
     "electron": "^33.4.11",
@@ -18,6 +18,7 @@
     "appId": "com.bantotal.herramienta",
     "productName": "Herramienta Bantotal",
     "asar": false,
+    "afterPack": "electron/afterPack.js",
     "files": [
       "electron/**/*",
       "setup.js",
@@ -31,11 +32,8 @@
       "!V4/.env"
     ],
     "win": {
-      "target": "portable",
+      "target": "dir",
       "icon": "icon.ico"
-    },
-    "portable": {
-      "artifactName": "HerramientaBantotal-portable.exe"
     }
   }
 }

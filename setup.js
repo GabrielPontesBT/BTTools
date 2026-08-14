@@ -9,7 +9,14 @@ const { createCollectionFeature } = require('./scripts/generar-collections');
 const { createSdtGenFeature } = require('./scripts/generar-sdt');
 
 const PORT = 3777;
-const ROOT = __dirname;
+// La app de Electron empaquetada (ver electron/first-run.js) copia la app
+// una sola vez, en el primer arranque, a una carpeta persistente elegida
+// por el usuario, y pasa esa ruta aca via BTAPI_ROOT, para que
+// db_history.json, los .env y la documentacion generada sobrevivan entre
+// ejecuciones aunque el .exe corra desde una carpeta descartable (temp,
+// pendrive, etc.). Fuera de Electron (node setup.js / npm run start
+// clasico) BTAPI_ROOT no esta seteada y todo sigue funcionando como antes.
+const ROOT = process.env.BTAPI_ROOT || __dirname;
 
 // ── Cache de datos de validación ─────────────────────────────
 // Evita que generar_md.js tenga que reconectarse a Oracle cuando

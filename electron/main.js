@@ -2,9 +2,10 @@
 
 process.env.BTAPI_ELECTRON = '1';
 
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, dialog } = require('electron');
 const path = require('path');
 const http = require('http');
+const { ensureInstall } = require('./first-run');
 
 const PORT = 3777;
 const SERVER_URL = 'http://127.0.0.1:' + PORT;
@@ -40,9 +41,16 @@ function createWindow() {
   win.loadURL(SERVER_URL);
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
-  require('../setup.js'); // arranca el server http en el mismo proceso (puerto 3777)
+  try {
+    process.env.BTAPI_ROOT = await ensureInstall();
+  } catch (e) {
+    dialog.showErrorBox('Herramienta Bantotal', 'No se pudo preparar la carpeta de instalacion:\n' + e.message);
+    app.quit();
+    return;
+  }
+  require('../setup.js'); // arranca el server http en el mismo proceso (puerto 3777), usando BTAPI_ROOT como raiz
   waitForServer(createWindow);
 });
 
