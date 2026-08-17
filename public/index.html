@@ -163,7 +163,7 @@
     <div class="panel active" id="p3">
       <div class="ptitle">¿Qué querés hacer?</div>
       <div class="psub">Elegí la herramienta que querés usar.</div>
-      <div class="cards" style="grid-template-columns:repeat(5,1fr)">
+      <div class="cards" style="grid-template-columns:repeat(3,1fr)">
         <div class="ccard act-ccard" onclick="pick('action','doc',this)">
           <span class="act-icon">&#128196;</span>
           <span class="ccard-title" style="font-size:var(--fs-2xl);display:block;margin-bottom:var(--sp-2)">Documentar</span>
@@ -189,6 +189,11 @@
           <span class="ccard-title" style="font-size:var(--fs-2xl);display:block;margin-bottom:var(--sp-2)">Generar SDT</span>
           <span class="ccard-desc" style="color:var(--blue)">Disponible para V4.</span>
           <span class="ccard-desc">Genera una copia no nativa de un SDT existente, con campos eliminados y reordenados.</span>
+        </div>
+        <div class="ccard act-ccard" onclick="pick('action','paramgen',this)">
+          <span class="act-icon">&#9881;</span>
+          <span class="ccard-title" style="font-size:var(--fs-2xl);display:block;margin-bottom:var(--sp-2)">Editar Parametría</span>
+          <span class="ccard-desc">Elegí un servicio y un método para editar los parámetros de la tabla BTI019 (o BTCBS019).</span>
         </div>
       </div>
     </div>
@@ -391,6 +396,46 @@
       </div>
       <textarea class="sql-out" id="sdtgen-sql-out" readonly placeholder="Acá va a aparecer el script generado..."></textarea>
       <div class="cres" id="sdtgen-exec-res" style="margin-top:var(--sp-2)"></div>
+    </div>
+
+    <!-- Paso 4 Editar Parametria: Elegir servicio y metodo -->
+    <div class="panel" id="p-paramsvc">
+      <div class="ptitle">¿Qué servicio y método querés editar?</div>
+      <div class="psub">Elegí el servicio y el método cuya parametría (tabla BTI019) querés modificar.</div>
+      <div id="pg-svc-loading" style="display:none;font-size:var(--fs-sm);color:var(--muted);margin-bottom:var(--sp-4);align-items:center;gap:var(--sp-2)"><span class="spin dk"></span>&nbsp;Cargando servicios...</div>
+      <div class="cres" id="pg-svc-err"></div>
+      <div class="svc-grid">
+        <div class="field" style="margin:0">
+          <label>Servicio</label>
+          <select id="pg-sel-svc" onchange="pgLoadMethods(this.value)"><option value="">-- Seleccionar --</option></select>
+        </div>
+        <div class="field" style="margin:0">
+          <label>Método</label>
+          <select id="pg-sel-mtd" onchange="pgOnMethodChange()"><option value="">-- Seleccionar --</option></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Paso 5 Editar Parametria: Editar parametros -->
+    <div class="panel" id="p-paramedit">
+      <div class="ptitle">Parámetros de <span id="pg-mtd-name"></span></div>
+      <div class="psub">Editá, agregá, quitá o reordená los parámetros. El orden define la posición (BTISRVPARPOSI).</div>
+      <datalist id="pg-tipo-list"></datalist>
+      <div id="pg-fields" class="sdtgen-fields" style="margin-bottom:var(--sp-3)"></div>
+      <button class="btn btn-outline btn-sm" onclick="pgAddParam()">+ Agregar parámetro</button>
+      <div class="cres" id="pg-edit-err" style="margin-top:var(--sp-3)"></div>
+    </div>
+
+    <!-- Paso 6 Editar Parametria: Resultado -->
+    <div class="panel" id="p-paramresult">
+      <div class="ptitle">Script generado</div>
+      <div class="psub">Copiá el script o ejecutalo directo contra la conexión activa (DELETE + INSERT sobre BTI019).</div>
+      <div class="gen-btns">
+        <button class="btn btn-success btn-sm" onclick="pgCopyScript()">Copiar</button>
+        <button class="btn btn-outline btn-sm" onclick="pgExecute()">Ejecutar contra la conexión activa</button>
+      </div>
+      <textarea class="sql-out" id="pg-sql-out" readonly placeholder="Acá va a aparecer el script generado..."></textarea>
+      <div class="cres" id="pg-exec-res" style="margin-top:var(--sp-2)"></div>
     </div>
 
     <!-- Paso 3 Validar: Selección de carpeta y resultados -->

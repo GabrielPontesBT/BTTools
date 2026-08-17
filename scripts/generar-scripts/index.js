@@ -188,6 +188,9 @@ function btcbs_generateScript(data, mode) {
   }
   if(mode==='delete'){lines.push(...delBtcbs012(),'', ...delBtcbs014(),'', ...delBtcbs019());}
   else if(mode==='insert'){lines.push(...insBtcbs012(),'', ...insBtcbs014(),'', ...insBtcbs019());}
+  // 'params': solo toca BTCBS019 (parametros). Usado por editar-parametria
+  // para no arrastrar BTCBS012/014 en un simple cambio de parametria.
+  else if(mode==='params'){lines.push(...delBtcbs019(),'', ...insBtcbs019());}
   else{lines.push(...delBtcbs012(),...insBtcbs012(),'', ...delBtcbs014(),...insBtcbs014(),'', ...delBtcbs019(),...insBtcbs019());}
   return lines.join('\n');
 }
@@ -231,6 +234,9 @@ function sg_generateScript(data, mode) {
   }
   if(mode==='delete'){if(ver==='V3')lines.push(...delBti004(),''); lines.push(...delBti012(),'', ...delBti014(),'', ...delBti019());}
   else if(mode==='insert'){if(ver==='V3')lines.push(...insBti004(),''); lines.push(...insBti012(),'', ...insBti014(),'', ...insBti019());}
+  // 'params': solo toca BTI019 (parametros). Usado por editar-parametria para
+  // no arrastrar BTI012/014/004 en un simple cambio de parametria.
+  else if(mode==='params'){lines.push(...delBti019(),'', ...insBti019());}
   else{if(ver==='V3')lines.push(...delBti004(),...insBti004(),''); lines.push(...delBti012(),...insBti012(),'', ...delBti014(),...insBti014(),'', ...delBti019(),...insBti019());}
   return lines.join('\n');
 }

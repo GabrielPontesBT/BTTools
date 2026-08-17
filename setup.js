@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const { exec, spawn } = require('child_process');
 const { createCollectionFeature } = require('./scripts/generar-collections');
 const { createSdtGenFeature } = require('./scripts/generar-sdt');
+const { createParamEditFeature } = require('./scripts/editar-parametria');
 
 const PORT = 3777;
 // La app de Electron empaquetada (ver electron/first-run.js) copia la app
@@ -1266,6 +1267,13 @@ const sdtGenFeature = createSdtGenFeature({
   queryBti026: sg_queryBti026,
 });
 
+const paramEditFeature = createParamEditFeature({
+  getPool: sg_getPool,
+  getOra: sg_getOra,
+  queryMethodParams: sg_queryMethodParams,
+  queryServiceVersions: sg_queryServiceVersions,
+});
+
 // -- server ------------------------------------------------
 
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -1311,6 +1319,10 @@ http.createServer(async (req, res) => {
   }
 
   if (await sdtGenFeature.handleApi(req, res, { readBody, json })) {
+    return;
+  }
+
+  if (await paramEditFeature.handleApi(req, res, { readBody, json })) {
     return;
   }
 
