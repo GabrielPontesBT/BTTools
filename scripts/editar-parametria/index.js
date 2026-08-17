@@ -7,7 +7,11 @@ const PARAM_NAME_ERR = 'Nombre de parametro invalido: debe empezar con una letra
 const DIGITS_RE = /^\d{1,9}$/;
 const FORBIDDEN_TEXT_RE = /['";\\\r\n]/;
 const FORBIDDEN_TEXT_ERR = 'no puede contener comillas, punto y coma, barra invertida ni saltos de linea.';
-const VALID_DIR = new Set(['I', 'O', 'R']);
+// Valores reales de BTISRVPARDIR/BSPARDIR (Bantotal): H=Hidden,
+// S=ErroresNegocio, R=BusinessErrors, I=In, B=InOut, O=Out.
+const VALID_DIR = new Set(['H', 'S', 'R', 'I', 'B', 'O']);
+// Valores reales de BTISRVCAT/BSPARCAT: B=Basico, C=Coleccion, S=SDT.
+const VALID_CAT = new Set(['B', 'C', 'S']);
 
 function isValidParamName(nombre) {
   return typeof nombre === 'string' && PARAM_NAME_RE.test(nombre);
@@ -23,6 +27,10 @@ function isValidParamText(texto) {
 
 function isValidDir(dir) {
   return VALID_DIR.has(dir);
+}
+
+function isValidCat(cat) {
+  return VALID_CAT.has(cat);
 }
 
 // editedParams: array ordenado de parametros completos, mismo shape que
@@ -41,7 +49,9 @@ function buildParams(editedParams) {
     const nom = (src.nom || '').trim();
     if (!isValidParamName(nom)) throw new Error(PARAM_NAME_ERR + (nom ? ' (' + nom + ')' : ''));
     const dir = (src.dir || 'I').trim().toUpperCase();
-    if (!isValidDir(dir)) throw new Error('Direccion invalida para el parametro ' + nom + ': debe ser I, O o R.');
+    if (!isValidDir(dir)) throw new Error('Direccion invalida para el parametro ' + nom + ': debe ser H, S, R, I, B u O.');
+    const cat = (src.cat || 'B').trim().toUpperCase();
+    if (!isValidCat(cat)) throw new Error('Categoria invalida para el parametro ' + nom + ': debe ser B, C o S.');
     const tipo = (src.tipo || '').trim();
     if (!tipo || !isValidParamText(tipo)) throw new Error('Tipo invalido para el parametro ' + nom + ': ' + FORBIDDEN_TEXT_ERR);
     const largo = String(src.largo != null && src.largo !== '' ? src.largo : '0');
@@ -61,7 +71,7 @@ function buildParams(editedParams) {
     return {
       nom, nomjava, dir, tipo, ittipo, valor,
       sdtver: src.sdtver || '',
-      cat: src.cat || 'B',
+      cat,
       catit: src.catit || 'B',
       largo, lval: src.lval || '', itnom, deci, dsc,
     };
@@ -183,4 +193,5 @@ module.exports = {
   isValidDigits,
   isValidParamText,
   isValidDir,
+  isValidCat,
 };

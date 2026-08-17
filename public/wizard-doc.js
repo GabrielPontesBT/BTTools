@@ -39,8 +39,7 @@ var pgAllServices = [];
 var pgSelectedService = null;
 var pgSelectedMethod = null;
 var pgSrvVer = '1';
-var pgFields = []; // copia de trabajo de los parametros de BTI019/BTCBS019
-var pgDragIdx = null;
+var pgFields = []; // copia de trabajo de los parametros de BTI019/BTCBS019, en el orden en que se cargaron (no reordenable)
 var pgTipoOptions = [];
 
 async function sdtgenLoadList() {
@@ -344,7 +343,20 @@ function sdtgenReset() {
 }
 
 // ── Editar Parametria (BTI019/BTCBS019) ───────────────────────
-var PG_DIR_OPTIONS = [{ v: 'I', l: 'Entrada' }, { v: 'O', l: 'Salida' }, { v: 'R', l: 'Retorno' }];
+// Valores reales de BTISRVPARDIR (Bantotal), no I/O/R genericos.
+var PG_DIR_OPTIONS = [
+  { v: 'H', l: 'Hidden' },
+  { v: 'S', l: 'ErroresNegocio' },
+  { v: 'R', l: 'BusinessErrors' },
+  { v: 'I', l: 'In' },
+  { v: 'B', l: 'InOut' },
+  { v: 'O', l: 'Out' },
+];
+var PG_CAT_OPTIONS = [
+  { v: 'B', l: 'Básico' },
+  { v: 'C', l: 'Colección' },
+  { v: 'S', l: 'SDT' },
+];
 var PG_NAME_RE = /^[A-Za-z][A-Za-z0-9_]{0,99}$/;
 var PG_DIGITS_RE = /^\d{1,9}$/;
 var PG_FORBIDDEN_TEXT_RE = /['";\\\r\n]/;
@@ -465,8 +477,10 @@ function pgFieldsAllValid() {
   return pgFields.length > 0 && pgFields.every(function(f) { return !pgValidateField(f); });
 }
 
+// Sin columna de drag&drop: el orden de carga de la base se mantiene tal
+// cual (ver pgRenderEditor, sin draggable ni listeners de drag).
 function pgFieldGridCols(showV4Extras) {
-  return '24px 150px 90px 130px 60px' + (showV4Extras ? ' 60px' : '') + ' minmax(120px,1fr)' + (showV4Extras ? ' minmax(140px,1fr)' : '') + ' 28px';
+  return '160px 130px 110px 130px 60px' + (showV4Extras ? ' 60px' : '') + ' minmax(120px,1fr)' + (showV4Extras ? ' minmax(140px,1fr)' : '') + ' 28px';
 }
 
 function pgRenderEditor() {
@@ -478,7 +492,7 @@ function pgRenderEditor() {
   var header = document.createElement('div');
   header.className = 'sdtgen-fields-header';
   header.style.gridTemplateColumns = gridCols;
-  header.innerHTML = '<span></span><span>Nombre</span><span>Dirección</span><span>Tipo</span><span>Largo</span>' +
+  header.innerHTML = '<span>Nombre</span><span>Dirección</span><span>Categoría</span><span>Tipo</span><span>Largo</span>' +
     (showV4Extras ? '<span>Decimales</span>' : '') +
     '<span>Valor por defecto</span>' +
     (showV4Extras ? '<span>Descripción</span>' : '') +
@@ -489,15 +503,18 @@ function pgRenderEditor() {
     var item = document.createElement('div');
     item.className = 'sdtgen-field-item';
     item.style.gridTemplateColumns = gridCols;
-    item.draggable = true;
+    item.style.cursor = 'default';
 
     var dirOpts = PG_DIR_OPTIONS.map(function(o) {
-      return '<option value="' + o.v + '"' + (field.dir === o.v ? ' selected' : '') + '>' + o.l + '</option>';
+      return '<option value="' + o.v + '"' + (field.dir === o.v ? ' selected' : '') + '>' + o.l + ' (' + o.v + ')</option>';
+    }).join('');
+    var catOpts = PG_CAT_OPTIONS.map(function(o) {
+      return '<option value="' + o.v + '"' + (field.cat === o.v ? ' selected' : '') + '>' + o.l + ' (' + o.v + ')</option>';
     }).join('');
 
-    item.innerHTML = '<span class="sdtgen-drag-handle">&#9776;</span>' +
-      '<input type="text" class="sdtgen-field-input pg-input-nom" value="' + pgEscapeAttr(field.nom) + '">' +
+    item.innerHTML = '<input type="text" class="sdtgen-field-input pg-input-nom" value="' + pgEscapeAttr(field.nom) + '">' +
       '<select class="sdtgen-field-input pg-input-dir">' + dirOpts + '</select>' +
+      '<select class="sdtgen-field-input pg-input-cat">' + catOpts + '</select>' +
       '<input type="text" class="sdtgen-field-input pg-input-tipo" list="pg-tipo-list" value="' + pgEscapeAttr(field.tipo) + '">' +
       '<input type="text" class="sdtgen-field-input pg-input-largo" value="' + pgEscapeAttr(field.largo) + '">' +
       (showV4Extras ? '<input type="text" class="sdtgen-field-input pg-input-deci" value="' + pgEscapeAttr(field.deci) + '">' : '') +
@@ -515,6 +532,7 @@ function pgRenderEditor() {
 
     item.querySelector('.pg-input-nom').addEventListener('input', function() { field.nom = this.value; updateErr(); });
     item.querySelector('.pg-input-dir').addEventListener('change', function() { field.dir = this.value; updateErr(); });
+    item.querySelector('.pg-input-cat').addEventListener('change', function() { field.cat = this.value; updateErr(); });
     item.querySelector('.pg-input-tipo').addEventListener('input', function() { field.tipo = this.value; updateErr(); });
     item.querySelector('.pg-input-largo').addEventListener('input', function() { field.largo = this.value; updateErr(); });
     item.querySelector('.pg-input-valor').addEventListener('input', function() { field.valor = this.value; updateErr(); });
@@ -528,20 +546,6 @@ function pgRenderEditor() {
       pgFields.splice(idx, 1);
       pgRenderEditor();
     };
-    item.addEventListener('dragstart', function(e) {
-      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) { e.preventDefault(); return; }
-      pgDragIdx = idx; item.classList.add('dragging');
-    });
-    item.addEventListener('dragend', function() { item.classList.remove('dragging'); });
-    item.addEventListener('dragover', function(e) { e.preventDefault(); });
-    item.addEventListener('drop', function(e) {
-      e.preventDefault();
-      if (pgDragIdx === null || pgDragIdx === idx) return;
-      var moved = pgFields.splice(pgDragIdx, 1)[0];
-      pgFields.splice(idx, 0, moved);
-      pgDragIdx = null;
-      pgRenderEditor();
-    });
     container.appendChild(item);
   });
 }
@@ -599,7 +603,7 @@ async function pgExecute() {
 }
 
 function pgReset() {
-  pgSelectedService = null; pgSelectedMethod = null; pgFields = []; pgDragIdx = null; pgServicesLoaded = false;
+  pgSelectedService = null; pgSelectedMethod = null; pgFields = []; pgServicesLoaded = false;
   var svcSel = document.getElementById('pg-sel-svc'); if (svcSel) svcSel.innerHTML = '<option value="">-- Seleccionar --</option>';
   var mtdSel = document.getElementById('pg-sel-mtd'); if (mtdSel) mtdSel.innerHTML = '<option value="">-- Seleccionar --</option>';
   document.getElementById('pg-sql-out').value = '';

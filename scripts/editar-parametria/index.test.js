@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 
 const {
   createParamEditFeature, buildParams, generateParamsScript,
-  isValidParamName, isValidDigits, isValidParamText, isValidDir,
+  isValidParamName, isValidDigits, isValidParamText, isValidDir, isValidCat,
 } = require('./index.js');
 
 function sourceParams() {
@@ -14,7 +14,7 @@ function sourceParams() {
   ];
 }
 
-test('isValidParamName / isValidDigits / isValidParamText / isValidDir validan lo esperado', () => {
+test('isValidParamName / isValidDigits / isValidParamText validan lo esperado', () => {
   assert.equal(isValidParamName('ParamA'), true);
   assert.equal(isValidParamName('1Param'), false);
   assert.equal(isValidDigits('0'), true);
@@ -22,10 +22,18 @@ test('isValidParamName / isValidDigits / isValidParamText / isValidDir validan l
   assert.equal(isValidDigits('1.5'), false);
   assert.equal(isValidParamText('texto normal.'), true);
   assert.equal(isValidParamText("con '"), false);
-  assert.equal(isValidDir('I'), true);
-  assert.equal(isValidDir('O'), true);
-  assert.equal(isValidDir('R'), true);
+});
+
+test('isValidDir acepta los 6 valores reales de BTISRVPARDIR (H/S/R/I/B/O) y rechaza el resto', () => {
+  for (const dir of ['H', 'S', 'R', 'I', 'B', 'O']) assert.equal(isValidDir(dir), true, dir + ' deberia ser valido');
   assert.equal(isValidDir('X'), false);
+  assert.equal(isValidDir('io'), false, 'no debe aceptar minusculas sin normalizar');
+});
+
+test('isValidCat acepta B/C/S (Basico/Coleccion/SDT) y rechaza el resto', () => {
+  for (const cat of ['B', 'C', 'S']) assert.equal(isValidCat(cat), true, cat + ' deberia ser valido');
+  assert.equal(isValidCat('X'), false);
+  assert.equal(isValidCat('b'), false, 'no debe aceptar minusculas sin normalizar');
 });
 
 test('buildParams conserva el orden recibido (define BTISRVPARPOSI) y normaliza dir a mayusculas', () => {
@@ -60,10 +68,23 @@ test('buildParams lanza si el nombre no es un identificador valido', () => {
   }
 });
 
-test('buildParams lanza si la direccion no es I/O/R', () => {
+test('buildParams lanza si la direccion no es H/S/R/I/B/O', () => {
   const src = sourceParams();
   src[0].dir = 'X';
   assert.throws(() => buildParams(src), /Direccion invalida/);
+});
+
+test('buildParams normaliza y valida la categoria (B/C/S)', () => {
+  const src = sourceParams();
+  src[0].cat = 'c';
+  const built = buildParams(src);
+  assert.equal(built[0].cat, 'C');
+});
+
+test('buildParams lanza si la categoria no es B/C/S', () => {
+  const src = sourceParams();
+  src[0].cat = 'X';
+  assert.throws(() => buildParams(src), /Categoria invalida/);
 });
 
 test('buildParams lanza si el tipo esta vacio o contiene texto prohibido', () => {
