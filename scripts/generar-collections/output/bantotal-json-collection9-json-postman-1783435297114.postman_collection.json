@@ -1,0 +1,659 @@
+{
+  "info": {
+    "name": "Bantotal JSON Collection9",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Coleccion generada desde Swagger para flujo JSON/Postman."
+  },
+  "variable": [
+    {
+      "key": "api_base_url",
+      "value": "http://10.0.0.5:5101/api",
+      "type": "string"
+    },
+    {
+      "key": "public_api_url",
+      "value": "http://10.0.0.5:5101/api",
+      "type": "string"
+    },
+    {
+      "key": "base_url",
+      "value": "http://10.0.0.5:5101/api",
+      "type": "string"
+    },
+    {
+      "key": "auth_url",
+      "value": "http://10.0.0.5:5101/api/Authenticate/v1/Execute",
+      "type": "string"
+    },
+    {
+      "key": "channel",
+      "value": "BTDIGITAL",
+      "type": "string"
+    },
+    {
+      "key": "username",
+      "value": "INSTALADOR",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "Bantotal2015",
+      "type": "string"
+    },
+    {
+      "key": "device",
+      "value": "INSTALADOR",
+      "type": "string"
+    },
+    {
+      "key": "requirement",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "lastSoapResponse",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "lastJsonResponse",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "groupId",
+      "value": "18",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroup_group_branchId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroup_group_savingAccountGUID",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroup_group_executiveId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroup_group_meetingDomicileCorrelative",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroup_group_groupId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroup_group_cycleId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroup_group_executiveDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroup_group_meetingDayOfWeek",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroup_group_counterpartyOfDomicile",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroup_group_latePenaltyAmount",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroup_group_meetingTime",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroup_group_groupName",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroup_group_meetingDomicile",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroup_group_branchDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroup_group_isAMemberDomicile",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroup_group_savingAccountExternalId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroup_group_lastCycleStatusId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroup_group_absencePenaltyAmount",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroup_group_isAccountOpenInInstitution",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "offset",
+      "value": "0",
+      "type": "string"
+    },
+    {
+      "key": "limit",
+      "value": "200",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroups_groups_group_item_groupName",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroups_groups_group_item_statusDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroups_groups_group_item_groupId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroups_groups_group_item_cycleId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroups_groups_group_item_lastCycleStatusId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroups_groups_group_item_status",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getGroups_hasNext",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Caso de uso 1",
+      "description": "Caso de uso generado desde Swagger.",
+      "item": [
+        {
+          "name": "0. Authenticate",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "pm.collectionVariables.set('lastSoapResponse', JSON.stringify(data));",
+                  "var sessionToken = data.SessionToken || data.Token || data.sessionToken || data.token;",
+                  "pm.test('Token disponible', function () { pm.expect(sessionToken, JSON.stringify(data)).to.exist; });",
+                  "if (sessionToken !== null && sessionToken !== undefined) {",
+                  "  pm.collectionVariables.set('token', String(sessionToken));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Canal",
+                "value": "{{channel}}",
+                "type": "text"
+              },
+              {
+                "key": "Device",
+                "value": "{{device}}",
+                "type": "text"
+              },
+              {
+                "key": "Usuario",
+                "value": "{{username}}",
+                "type": "text"
+              },
+              {
+                "key": "Requerimiento",
+                "value": "{{requirement}}",
+                "type": "text"
+              },
+              {
+                "key": "Token",
+                "value": "",
+                "type": "text"
+              },
+              {
+                "key": "idempotency-key",
+                "value": "1",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"UserId\": \"{{username}}\",\n  \"UserPassword\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{auth_url}}",
+              "protocol": "http",
+              "host": [
+                "10",
+                "0",
+                "0",
+                "5"
+              ],
+              "port": "5101",
+              "path": [
+                "api",
+                "Authenticate",
+                "v1",
+                "Execute"
+              ],
+              "query": []
+            },
+            "description": "Obtiene el token de sesion para los requests del flujo."
+          },
+          "response": []
+        },
+        {
+          "name": "1. getGroup",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 2xx', function () { pm.expect(pm.response.code).to.be.within(200, 299); });",
+                  "var text = pm.response.text();",
+                  "pm.collectionVariables.set('lastJsonResponse', text);",
+                  "var data = {};",
+                  "try { data = text ? JSON.parse(text) : {}; } catch (e) {}",
+                  "function pick(node, parts) {",
+                  "  if (node === null || node === undefined) return undefined;",
+                  "  if (!parts.length) return node;",
+                  "  var current = parts[0];",
+                  "  var rest = parts.slice(1);",
+                  "  if (Array.isArray(node)) {",
+                  "    if (current === 'item') {",
+                  "      for (var i = 0; i < node.length; i++) {",
+                  "        var foundItem = pick(node[i], rest);",
+                  "        if (foundItem !== undefined && foundItem !== null && foundItem !== '') return foundItem;",
+                  "      }",
+                  "      return undefined;",
+                  "    }",
+                  "    for (var j = 0; j < node.length; j++) {",
+                  "      var foundArray = pick(node[j], parts);",
+                  "      if (foundArray !== undefined && foundArray !== null && foundArray !== '') return foundArray;",
+                  "    }",
+                  "    return undefined;",
+                  "  }",
+                  "  if (typeof node !== 'object') return undefined;",
+                  "  return pick(node[current], rest);",
+                  "}",
+                  "function pickCollectionValue(node, pathParts, filterParts, expected) {",
+                  "  var itemIndex = pathParts.indexOf('item');",
+                  "  if (itemIndex <= 0 || itemIndex >= pathParts.length - 1) return pick(node, pathParts);",
+                  "  var collection = pick(node, pathParts.slice(0, itemIndex));",
+                  "  if (!Array.isArray(collection)) return undefined;",
+                  "  var valueParts = pathParts.slice(itemIndex + 1);",
+                  "  var normalizedExpected = String(expected == null ? '' : expected).trim().toLowerCase();",
+                  "  for (var idx = 0; idx < collection.length; idx++) {",
+                  "    var entry = collection[idx];",
+                  "    if (filterParts && filterParts.length) {",
+                  "      var candidate = pick(entry, filterParts);",
+                  "      if (candidate === undefined || candidate === null) continue;",
+                  "      if (String(candidate).trim().toLowerCase() !== normalizedExpected) continue;",
+                  "    }",
+                  "    var selected = pick(entry, valueParts);",
+                  "    if (selected !== undefined && selected !== null && selected !== '') return selected;",
+                  "  }",
+                  "  return undefined;",
+                  "}",
+                  "var out_Loans_getGroup_group_branchId = pick(data, [\"group\",\"branchId\"]);",
+                  "if (out_Loans_getGroup_group_branchId !== undefined && out_Loans_getGroup_group_branchId !== null && typeof out_Loans_getGroup_group_branchId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroup_group_branchId\", String(out_Loans_getGroup_group_branchId));",
+                  "}",
+                  "var out_Loans_getGroup_group_savingAccountGUID = pick(data, [\"group\",\"savingAccountGUID\"]);",
+                  "if (out_Loans_getGroup_group_savingAccountGUID !== undefined && out_Loans_getGroup_group_savingAccountGUID !== null && typeof out_Loans_getGroup_group_savingAccountGUID !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroup_group_savingAccountGUID\", String(out_Loans_getGroup_group_savingAccountGUID));",
+                  "}",
+                  "var out_Loans_getGroup_group_executiveId = pick(data, [\"group\",\"executiveId\"]);",
+                  "if (out_Loans_getGroup_group_executiveId !== undefined && out_Loans_getGroup_group_executiveId !== null && typeof out_Loans_getGroup_group_executiveId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroup_group_executiveId\", String(out_Loans_getGroup_group_executiveId));",
+                  "}",
+                  "var out_Loans_getGroup_group_meetingDomicileCorrelative = pick(data, [\"group\",\"meetingDomicileCorrelative\"]);",
+                  "if (out_Loans_getGroup_group_meetingDomicileCorrelative !== undefined && out_Loans_getGroup_group_meetingDomicileCorrelative !== null && typeof out_Loans_getGroup_group_meetingDomicileCorrelative !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroup_group_meetingDomicileCorrelative\", String(out_Loans_getGroup_group_meetingDomicileCorrelative));",
+                  "}",
+                  "var out_Loans_getGroup_group_groupId = pick(data, [\"group\",\"groupId\"]);",
+                  "if (out_Loans_getGroup_group_groupId !== undefined && out_Loans_getGroup_group_groupId !== null && typeof out_Loans_getGroup_group_groupId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroup_group_groupId\", String(out_Loans_getGroup_group_groupId));",
+                  "}",
+                  "var out_Loans_getGroup_group_cycleId = pick(data, [\"group\",\"cycleId\"]);",
+                  "if (out_Loans_getGroup_group_cycleId !== undefined && out_Loans_getGroup_group_cycleId !== null && typeof out_Loans_getGroup_group_cycleId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroup_group_cycleId\", String(out_Loans_getGroup_group_cycleId));",
+                  "}",
+                  "var out_Loans_getGroup_group_executiveDescription = pick(data, [\"group\",\"executiveDescription\"]);",
+                  "if (out_Loans_getGroup_group_executiveDescription !== undefined && out_Loans_getGroup_group_executiveDescription !== null && typeof out_Loans_getGroup_group_executiveDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroup_group_executiveDescription\", String(out_Loans_getGroup_group_executiveDescription));",
+                  "}",
+                  "var out_Loans_getGroup_group_meetingDayOfWeek = pick(data, [\"group\",\"meetingDayOfWeek\"]);",
+                  "if (out_Loans_getGroup_group_meetingDayOfWeek !== undefined && out_Loans_getGroup_group_meetingDayOfWeek !== null && typeof out_Loans_getGroup_group_meetingDayOfWeek !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroup_group_meetingDayOfWeek\", String(out_Loans_getGroup_group_meetingDayOfWeek));",
+                  "}",
+                  "var out_Loans_getGroup_group_counterpartyOfDomicile = pick(data, [\"group\",\"counterpartyOfDomicile\"]);",
+                  "if (out_Loans_getGroup_group_counterpartyOfDomicile !== undefined && out_Loans_getGroup_group_counterpartyOfDomicile !== null && typeof out_Loans_getGroup_group_counterpartyOfDomicile !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroup_group_counterpartyOfDomicile\", String(out_Loans_getGroup_group_counterpartyOfDomicile));",
+                  "}",
+                  "var out_Loans_getGroup_group_latePenaltyAmount = pick(data, [\"group\",\"latePenaltyAmount\"]);",
+                  "if (out_Loans_getGroup_group_latePenaltyAmount !== undefined && out_Loans_getGroup_group_latePenaltyAmount !== null && typeof out_Loans_getGroup_group_latePenaltyAmount !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroup_group_latePenaltyAmount\", String(out_Loans_getGroup_group_latePenaltyAmount));",
+                  "}",
+                  "var out_Loans_getGroup_group_meetingTime = pick(data, [\"group\",\"meetingTime\"]);",
+                  "if (out_Loans_getGroup_group_meetingTime !== undefined && out_Loans_getGroup_group_meetingTime !== null && typeof out_Loans_getGroup_group_meetingTime !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroup_group_meetingTime\", String(out_Loans_getGroup_group_meetingTime));",
+                  "}",
+                  "var out_Loans_getGroup_group_groupName = pick(data, [\"group\",\"groupName\"]);",
+                  "if (out_Loans_getGroup_group_groupName !== undefined && out_Loans_getGroup_group_groupName !== null && typeof out_Loans_getGroup_group_groupName !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroup_group_groupName\", String(out_Loans_getGroup_group_groupName));",
+                  "}",
+                  "var out_Loans_getGroup_group_meetingDomicile = pick(data, [\"group\",\"meetingDomicile\"]);",
+                  "if (out_Loans_getGroup_group_meetingDomicile !== undefined && out_Loans_getGroup_group_meetingDomicile !== null && typeof out_Loans_getGroup_group_meetingDomicile !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroup_group_meetingDomicile\", String(out_Loans_getGroup_group_meetingDomicile));",
+                  "}",
+                  "var out_Loans_getGroup_group_branchDescription = pick(data, [\"group\",\"branchDescription\"]);",
+                  "if (out_Loans_getGroup_group_branchDescription !== undefined && out_Loans_getGroup_group_branchDescription !== null && typeof out_Loans_getGroup_group_branchDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroup_group_branchDescription\", String(out_Loans_getGroup_group_branchDescription));",
+                  "}",
+                  "var out_Loans_getGroup_group_isAMemberDomicile = pick(data, [\"group\",\"isAMemberDomicile\"]);",
+                  "if (out_Loans_getGroup_group_isAMemberDomicile !== undefined && out_Loans_getGroup_group_isAMemberDomicile !== null && typeof out_Loans_getGroup_group_isAMemberDomicile !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroup_group_isAMemberDomicile\", String(out_Loans_getGroup_group_isAMemberDomicile));",
+                  "}",
+                  "var out_Loans_getGroup_group_savingAccountExternalId = pick(data, [\"group\",\"savingAccountExternalId\"]);",
+                  "if (out_Loans_getGroup_group_savingAccountExternalId !== undefined && out_Loans_getGroup_group_savingAccountExternalId !== null && typeof out_Loans_getGroup_group_savingAccountExternalId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroup_group_savingAccountExternalId\", String(out_Loans_getGroup_group_savingAccountExternalId));",
+                  "}",
+                  "var out_Loans_getGroup_group_lastCycleStatusId = pick(data, [\"group\",\"lastCycleStatusId\"]);",
+                  "if (out_Loans_getGroup_group_lastCycleStatusId !== undefined && out_Loans_getGroup_group_lastCycleStatusId !== null && typeof out_Loans_getGroup_group_lastCycleStatusId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroup_group_lastCycleStatusId\", String(out_Loans_getGroup_group_lastCycleStatusId));",
+                  "}",
+                  "var out_Loans_getGroup_group_absencePenaltyAmount = pick(data, [\"group\",\"absencePenaltyAmount\"]);",
+                  "if (out_Loans_getGroup_group_absencePenaltyAmount !== undefined && out_Loans_getGroup_group_absencePenaltyAmount !== null && typeof out_Loans_getGroup_group_absencePenaltyAmount !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroup_group_absencePenaltyAmount\", String(out_Loans_getGroup_group_absencePenaltyAmount));",
+                  "}",
+                  "var out_Loans_getGroup_group_isAccountOpenInInstitution = pick(data, [\"group\",\"isAccountOpenInInstitution\"]);",
+                  "if (out_Loans_getGroup_group_isAccountOpenInInstitution !== undefined && out_Loans_getGroup_group_isAccountOpenInInstitution !== null && typeof out_Loans_getGroup_group_isAccountOpenInInstitution !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroup_group_isAccountOpenInInstitution\", String(out_Loans_getGroup_group_isAccountOpenInInstitution));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Canal",
+                "value": "{{channel}}",
+                "type": "text"
+              },
+              {
+                "key": "Device",
+                "value": "{{device}}",
+                "type": "text"
+              },
+              {
+                "key": "Usuario",
+                "value": "{{username}}",
+                "type": "text"
+              },
+              {
+                "key": "Requerimiento",
+                "value": "{{requirement}}",
+                "type": "text"
+              },
+              {
+                "key": "Token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/public/Loans/v1/getGroup?groupId={{groupId}}",
+              "protocol": "http",
+              "host": [
+                "10",
+                "0",
+                "0",
+                "5"
+              ],
+              "port": "5101",
+              "path": [
+                "api",
+                "public",
+                "Loans",
+                "v1",
+                "getGroup"
+              ],
+              "query": [
+                {
+                  "key": "groupId",
+                  "value": "18"
+                }
+              ]
+            },
+            "description": "Enter a description"
+          },
+          "response": []
+        },
+        {
+          "name": "2. getGroups",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 2xx', function () { pm.expect(pm.response.code).to.be.within(200, 299); });",
+                  "var text = pm.response.text();",
+                  "pm.collectionVariables.set('lastJsonResponse', text);",
+                  "var data = {};",
+                  "try { data = text ? JSON.parse(text) : {}; } catch (e) {}",
+                  "function pick(node, parts) {",
+                  "  if (node === null || node === undefined) return undefined;",
+                  "  if (!parts.length) return node;",
+                  "  var current = parts[0];",
+                  "  var rest = parts.slice(1);",
+                  "  if (Array.isArray(node)) {",
+                  "    if (current === 'item') {",
+                  "      for (var i = 0; i < node.length; i++) {",
+                  "        var foundItem = pick(node[i], rest);",
+                  "        if (foundItem !== undefined && foundItem !== null && foundItem !== '') return foundItem;",
+                  "      }",
+                  "      return undefined;",
+                  "    }",
+                  "    for (var j = 0; j < node.length; j++) {",
+                  "      var foundArray = pick(node[j], parts);",
+                  "      if (foundArray !== undefined && foundArray !== null && foundArray !== '') return foundArray;",
+                  "    }",
+                  "    return undefined;",
+                  "  }",
+                  "  if (typeof node !== 'object') return undefined;",
+                  "  return pick(node[current], rest);",
+                  "}",
+                  "function pickCollectionValue(node, pathParts, filterParts, expected) {",
+                  "  var itemIndex = pathParts.indexOf('item');",
+                  "  if (itemIndex <= 0 || itemIndex >= pathParts.length - 1) return pick(node, pathParts);",
+                  "  var collection = pick(node, pathParts.slice(0, itemIndex));",
+                  "  if (!Array.isArray(collection)) return undefined;",
+                  "  var valueParts = pathParts.slice(itemIndex + 1);",
+                  "  var normalizedExpected = String(expected == null ? '' : expected).trim().toLowerCase();",
+                  "  for (var idx = 0; idx < collection.length; idx++) {",
+                  "    var entry = collection[idx];",
+                  "    if (filterParts && filterParts.length) {",
+                  "      var candidate = pick(entry, filterParts);",
+                  "      if (candidate === undefined || candidate === null) continue;",
+                  "      if (String(candidate).trim().toLowerCase() !== normalizedExpected) continue;",
+                  "    }",
+                  "    var selected = pick(entry, valueParts);",
+                  "    if (selected !== undefined && selected !== null && selected !== '') return selected;",
+                  "  }",
+                  "  return undefined;",
+                  "}",
+                  "var out_Loans_getGroups_groups_group_item_groupName = pick(data, [\"groups\",\"group\",\"item\",\"groupName\"]);",
+                  "if (out_Loans_getGroups_groups_group_item_groupName !== undefined && out_Loans_getGroups_groups_group_item_groupName !== null && typeof out_Loans_getGroups_groups_group_item_groupName !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroups_groups_group_item_groupName\", String(out_Loans_getGroups_groups_group_item_groupName));",
+                  "}",
+                  "var out_Loans_getGroups_groups_group_item_statusDescription = pick(data, [\"groups\",\"group\",\"item\",\"statusDescription\"]);",
+                  "if (out_Loans_getGroups_groups_group_item_statusDescription !== undefined && out_Loans_getGroups_groups_group_item_statusDescription !== null && typeof out_Loans_getGroups_groups_group_item_statusDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroups_groups_group_item_statusDescription\", String(out_Loans_getGroups_groups_group_item_statusDescription));",
+                  "}",
+                  "var out_Loans_getGroups_groups_group_item_groupId = pick(data, [\"groups\",\"group\",\"item\",\"groupId\"]);",
+                  "if (out_Loans_getGroups_groups_group_item_groupId !== undefined && out_Loans_getGroups_groups_group_item_groupId !== null && typeof out_Loans_getGroups_groups_group_item_groupId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroups_groups_group_item_groupId\", String(out_Loans_getGroups_groups_group_item_groupId));",
+                  "}",
+                  "var out_Loans_getGroups_groups_group_item_cycleId = pick(data, [\"groups\",\"group\",\"item\",\"cycleId\"]);",
+                  "if (out_Loans_getGroups_groups_group_item_cycleId !== undefined && out_Loans_getGroups_groups_group_item_cycleId !== null && typeof out_Loans_getGroups_groups_group_item_cycleId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroups_groups_group_item_cycleId\", String(out_Loans_getGroups_groups_group_item_cycleId));",
+                  "}",
+                  "var out_Loans_getGroups_groups_group_item_lastCycleStatusId = pick(data, [\"groups\",\"group\",\"item\",\"lastCycleStatusId\"]);",
+                  "if (out_Loans_getGroups_groups_group_item_lastCycleStatusId !== undefined && out_Loans_getGroups_groups_group_item_lastCycleStatusId !== null && typeof out_Loans_getGroups_groups_group_item_lastCycleStatusId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroups_groups_group_item_lastCycleStatusId\", String(out_Loans_getGroups_groups_group_item_lastCycleStatusId));",
+                  "}",
+                  "var out_Loans_getGroups_groups_group_item_status = pick(data, [\"groups\",\"group\",\"item\",\"status\"]);",
+                  "if (out_Loans_getGroups_groups_group_item_status !== undefined && out_Loans_getGroups_groups_group_item_status !== null && typeof out_Loans_getGroups_groups_group_item_status !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroups_groups_group_item_status\", String(out_Loans_getGroups_groups_group_item_status));",
+                  "}",
+                  "var out_Loans_getGroups_hasNext = pick(data, [\"hasNext\"]);",
+                  "if (out_Loans_getGroups_hasNext !== undefined && out_Loans_getGroups_hasNext !== null && typeof out_Loans_getGroups_hasNext !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getGroups_hasNext\", String(out_Loans_getGroups_hasNext));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Canal",
+                "value": "{{channel}}",
+                "type": "text"
+              },
+              {
+                "key": "Device",
+                "value": "{{device}}",
+                "type": "text"
+              },
+              {
+                "key": "Usuario",
+                "value": "{{username}}",
+                "type": "text"
+              },
+              {
+                "key": "Requerimiento",
+                "value": "{{requirement}}",
+                "type": "text"
+              },
+              {
+                "key": "Token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/public/Loans/v1/getGroups?offset={{offset}}&limit={{limit}}&groupId={{Loans_getGroup_group_groupId}}&name={{Loans_getGroup_group_groupName}}",
+              "protocol": "http",
+              "host": [
+                "10",
+                "0",
+                "0",
+                "5"
+              ],
+              "port": "5101",
+              "path": [
+                "api",
+                "public",
+                "Loans",
+                "v1",
+                "getGroups"
+              ],
+              "query": [
+                {
+                  "key": "offset",
+                  "value": "0"
+                },
+                {
+                  "key": "limit",
+                  "value": "200"
+                },
+                {
+                  "key": "groupId",
+                  "value": "18"
+                },
+                {
+                  "key": "name",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Enter a description"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

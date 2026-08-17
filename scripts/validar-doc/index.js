@@ -13,6 +13,34 @@ function escapeRegex(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// Un nombre de campo documentado es válido para auto-insertar en un ejemplo
+// (JSON key / XML tag) solo si es un identificador Bantotal real: letras,
+// números y guión bajo, sin empezar por número. Nombres como "clienteUId*"
+// (typo de "requerido" pegado al nombre en la tabla SDT) NO son insertables:
+// escribirlos tal cual produciría un tag XML inválido o una key JSON basura
+// que nadie va a usar realmente. En ese caso el fixer se abstiene y deja el
+// problema "documentado pero ausente" para corrección manual de la doc.
+function esNombreCampoValido(nombre) {
+  return typeof nombre === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(nombre);
+}
+
+// Bantotal serializa el nombre de un tipo SDT de dos formas distintas según la
+// versión/generador: "sBTHobby" a secas, o con el prefijo "Sdt" pegado
+// ("SdtsBTHobby"). Ambas representan el mismo tipo — hay que reconocer las dos
+// al buscar si un ejemplo usó el nombre del TIPO en vez del nombre del parámetro,
+// si no, una variante queda invisible para el fixer y se termina insertando un
+// campo nuevo con valores por defecto en vez de corregir/fusionar el real.
+function esNombreAltSdt(nombreEnEjemplo, nombreSdt) {
+  const a = nombreEnEjemplo.toLowerCase();
+  const b = nombreSdt.toLowerCase();
+  // Variante 3: "sdt" + nombre del tipo con el prefijo "sBT"/"bt" pelado (ej:
+  // "sdtSimulacionPrestamo" para el tipo "sBTSimulacionPrestamo") — otra forma
+  // de "adivinar" un nombre de parámetro a partir del tipo, en vez de usar el
+  // que realmente está documentado.
+  const sinPrefijoTipo = b.replace(/^s?bt/, '');
+  return a === b || a === 'sdt' + b || a === 'sdt' + sinPrefijoTipo;
+}
+
 // Detección automática de versión por archivo
 function detectarVersion(contenido) {
   if (/@tab XML/i.test(contenido)) return 'v3';
@@ -71,7 +99,76 @@ function parsearSeccionTab(contenido, nombreTab) {
   return match ? match[1] : null;
 }
 
-function parsearJsonEjemplo(contenido, tituloSeccion) {
+// Cuenta los cierres de { y [ que quedan abiertos al final del texto
+// (ignorando lo que esté dentro de strings), en el orden en que hay que
+// agregarlos para cerrar correctamente el JSON.
+function calcularCierresFaltantes(texto) {
+  const pila = [];
+  let enString = false, escape = false;
+  for (const ch of texto) {
+    if (enString) {
+      if (escape) escape = false;
+      else if (ch === '\\') escape = true;
+      else if (ch === '"') enString = false;
+      continue;
+    }
+    if (ch === '"') { enString = true; continue; }
+    if (ch === '{' || ch === '[') pila.push(ch === '{' ? '}' : ']');
+    else if (ch === '}' || ch === ']') pila.pop();
+  }
+  return pila.reverse();
+}
+
+// Repara errores de sintaxis comunes en un texto JSON que ya falló al parsear,
+// usando la posición exacta que el propio JSON.parse reporta — no adivina
+// datos, solo puntuación estructural obvia:
+//   - Coma faltante entre dos propiedades hermanas ("a": 1 "b": 2)
+//   - Llave/corchete de cierre faltante al final (ejemplo truncado)
+//   - Valor faltante antes de una coma o cierre ("Erroresnegocio":,)
+// Devuelve el texto reparado, o null si no reconoce el patrón de error.
+function repararJsonTexto(texto) {
+  let actual = texto;
+  for (let intento = 0; intento < 10; intento++) {
+    let err;
+    try { JSON.parse(actual); return actual; }
+    catch (e) { err = e; }
+
+    // Valor faltante antes de una coma o cierre: "key":,  "key":}  "key":]
+    const sinValor = actual.replace(/:(\s*)([,}\]])/, (m, ws, cierre) => `:${ws}{}${cierre}`);
+    if (sinValor !== actual) { actual = sinValor; continue; }
+
+    // Placeholder "..." como último item de una lista (indica "hay más, no
+    // mostrados") — no es JSON válido. Se quita junto con la coma que lo
+    // precede; no se inventa un item real, el ejemplo queda con menos items
+    // pero sigue siendo válido y utilizable.
+    const sinPlaceholder = actual.replace(/,\s*\.\.\.\s*(?=[\]}])/, '');
+    if (sinPlaceholder !== actual) { actual = sinPlaceholder; continue; }
+
+    const m = /position (\d+)/.exec(err.message);
+    if (!m) return null;
+    const pos = parseInt(m[1], 10);
+
+    if (pos >= actual.length) {
+      // Fin de input inesperado: probablemente faltan cierres al final.
+      const faltantes = calcularCierresFaltantes(actual);
+      if (faltantes.length === 0) return null;
+      actual = actual + faltantes.join('');
+      continue;
+    }
+
+    // Coma faltante: el error señala el inicio de la siguiente key sin coma antes.
+    if (actual[pos] === '"') {
+      actual = actual.slice(0, pos) + ',' + actual.slice(pos);
+      continue;
+    }
+
+    return null; // patrón no reconocido, no forzar nada
+  }
+  return null;
+}
+
+function parsearJsonEjemplo(contenido, tituloSeccion, opts = {}) {
+  const intentarReparar = !!opts.reparar;
   // Intento 1: bloque completo ```json...```
   const regexCompleto = new RegExp(
     `:::.*?details.*?${tituloSeccion}[\\s\\S]*?@tab JSON\\s*\\n\`\`\`json\\s*\\n([\\s\\S]*?)\`\`\``,
@@ -85,10 +182,18 @@ function parsearJsonEjemplo(contenido, tituloSeccion) {
     if (inicio === -1 || fin === -1 || fin <= inicio) {
       return { data: null, error: 'No se encontró objeto { } en el bloque JSON' };
     }
+    const texto = raw.slice(inicio, fin + 1).replace(/,(\s*[}\]])/g, '$1');
     try {
-      const texto = raw.slice(inicio, fin + 1).replace(/,(\s*[}\]])/g, '$1');
-      return { data: JSON.parse(texto), error: null };
+      return { data: JSON.parse(texto), error: null, reparado: false };
     } catch (e) {
+      if (intentarReparar) {
+        const reparado = repararJsonTexto(texto);
+        if (reparado !== null) {
+          try {
+            return { data: JSON.parse(reparado), error: null, reparado: true };
+          } catch (e2) { /* la reparación no dio JSON válido, caer al error original */ }
+        }
+      }
       return { data: null, error: `JSON inválido: ${e.message}` };
     }
   }
@@ -178,14 +283,16 @@ function parsearXmlEjemplo(contenido, tituloSeccion) {
 }
 
 function eliminarBloqueTag(xml, tagName) {
+  const t = escapeRegex(tagName);
   return xml.replace(
-    new RegExp(`<(?:\\w+:)?${tagName}(?:[\\s>][\\s\\S]*?<\\/(?:\\w+:)?${tagName}>|\\s*\\/>)`, 'gi'),
+    new RegExp(`<(?:\\w+:)?${t}(?:[\\s>][\\s\\S]*?<\\/(?:\\w+:)?${t}>|\\s*\\/>)`, 'gi'),
     ''
   );
 }
 
 function extraerContenidoTag(xml, tagName) {
-  const m = xml.match(new RegExp(`<(?:\\w+:)?${tagName}(?:[\\s][^>]*)?>([\\s\\S]*?)<\\/(?:\\w+:)?${tagName}>`, 'i'));
+  const t = escapeRegex(tagName);
+  const m = xml.match(new RegExp(`<(?:\\w+:)?${t}(?:[\\s][^>]*)?>([\\s\\S]*?)<\\/(?:\\w+:)?${t}>`, 'i'));
   return m ? m[1] : null;
 }
 
@@ -194,7 +301,8 @@ function extraerContenidoTag(xml, tagName) {
 // <sBTProducto>...</sBTProducto>...</sdtProductos>), donde un mismo tipo SDT se
 // repite como varios hermanos dentro de un contenedor.
 function extraerBloquesTagRepetidos(xml, tagName) {
-  const regex = new RegExp(`<(?:\\w+:)?${tagName}(?:[\\s][^>]*)?>([\\s\\S]*?)<\\/(?:\\w+:)?${tagName}>`, 'gi');
+  const t = escapeRegex(tagName);
+  const regex = new RegExp(`<(?:\\w+:)?${t}(?:[\\s][^>]*)?>([\\s\\S]*?)<\\/(?:\\w+:)?${t}>`, 'gi');
   const bloques = [];
   let m;
   while ((m = regex.exec(xml)) !== null) bloques.push(m[1]);
@@ -202,7 +310,7 @@ function extraerBloquesTagRepetidos(xml, tagName) {
 }
 
 function tagExisteEnXml(xml, tagName) {
-  return new RegExp(`<(?:\\w+:)?${tagName}(?:[\\s\\/>])`, 'i').test(xml);
+  return new RegExp(`<(?:\\w+:)?${escapeRegex(tagName)}(?:[\\s\\/>])`, 'i').test(xml);
 }
 
 // Extrae el contenido directo del envelope de respuesta/invocación SOAP y devuelve el Set
@@ -229,7 +337,7 @@ function getDirectChildTagNames(xml) {
       if (sub[1] === '/') depth--;
       i += closeIdx + 1;
     } else {
-      const nm = sub.match(/^<([\w:.]+)/);
+      const nm = sub.match(/^<([\w:.-]+)/);
       const selfClose = sub[closeIdx - 1] === '/';
       if (nm && depth === 0) {
         const local = nm[1].includes(':') ? nm[1].split(':')[1] : nm[1];
@@ -239,6 +347,12 @@ function getDirectChildTagNames(xml) {
       i += closeIdx + 1;
     }
   }
+  // Defensa: si el wrapper del método no se detectó (regex de arriba no matcheó,
+  // típicamente porque el XML está mal formado — apertura/cierre no coinciden o
+  // el nombre difiere), "raiz" cae al XML completo y el envelope SOAP en sí
+  // termina contado como "hijo directo". Nunca son candidatos válidos a
+  // parámetro, se filtran siempre, haya o no wrapper detectado.
+  for (const estructural of ['envelope', 'header', 'body', 'fault']) names.delete(estructural);
   return names;
 }
 
@@ -293,7 +407,7 @@ function validarParametrosContraXml(campos, xmlStr, camposIgnorados, sdts, etiqu
         let casingDistinto = null;
         for (const item of items) {
           if (!tagExisteEnXml(item, campoClave)) { faltantes++; continue; }
-          const matchTag = item.match(new RegExp(`<(?:\\w+:)?(${campoClave})(?:[\\s/>])`, 'i'));
+          const matchTag = item.match(new RegExp(`<(?:\\w+:)?(${escapeRegex(campoClave)})(?:[\\s/>])`, 'i'));
           if (matchTag && matchTag[1] !== campoClave && casingDistinto === null) casingDistinto = matchTag[1];
         }
 
@@ -326,10 +440,14 @@ function validarParametrosContraXml(campos, xmlStr, camposIgnorados, sdts, etiqu
 
 // ── JSON ──────────────────────────────────────────────────────
 
-function validarParametrosContraEjemplo(campos, jsonEjemplo, camposIgnorados, sdts, etiqueta, errorParseo = null, camposOcultos = new Set()) {
+function validarParametrosContraEjemplo(campos, jsonEjemplo, camposIgnorados, sdts, etiqueta, errorParseo = null, camposOcultos = new Set(), docSinJsonAlguno = false) {
   const problemas = [];
   if (!campos) return problemas;
   if (!jsonEjemplo) {
+    // Si el documento entero no trae JSON en NINGÚN ejemplo, no es un campo
+    // faltante — hay líneas de producto (BPay) que son XML/SOAP-only por
+    // diseño y nunca documentan JSON. Ahí no hay nada que reportar acá.
+    if (errorParseo === 'No tiene sección @tab JSON' && docSinJsonAlguno) return problemas;
     const motivo = errorParseo || 'motivo desconocido';
     problemas.push(`⚠️  [${etiqueta}] No se pudo parsear el JSON — ${motivo}`);
     return problemas;
@@ -442,7 +560,144 @@ function detectarSdtsAnidados(contenido) {
     problemas.push(`❌ SDT(s) definido(s) fuera de un bloque ::: details: ${sdtFuera.join(', ')} — cada SDT debe tener su propio bloque ::: details`);
   }
 
+  // SDTs duplicados: el mismo tipo definido en dos o más bloques "::: details"
+  // hermanos independientes (a diferencia del caso de arriba, cada bloque acá
+  // está bien formado — un solo SDT por bloque). Residuo típico de la migración
+  // de SDTs anidados: un tipo hoja como sBTDatoExtendido, antes documentado una
+  // sola vez porque colgaba de un único punto de anidamiento, ahora se
+  // referencia desde varios SDT padre distintos y cada referencia terminó
+  // generando su propio bloque top-level en vez de reusar uno solo.
+  for (const dup of agruparSdtsDuplicados(contenido)) {
+    const n = dup.ocurrencias.length;
+    if (dup.identicos) {
+      problemas.push(`❌ SDT "${dup.nombre}" duplicado: definido en ${n} bloques "::: details" independientes con contenido idéntico — usar --fix-sdts para unificarlos en uno solo`);
+    } else {
+      problemas.push(`❌ SDT "${dup.nombre}" duplicado con contenido DIVERGENTE en ${n} bloques "::: details" independientes — requiere revisión manual antes de unificar`);
+    }
+  }
+
   return problemas;
+}
+
+// Devuelve, para cada bloque "::: details NAME" del documento que define
+// exactamente UN SDT bajo su propio nombre (bloque "limpio", sin anidamiento),
+// su posición, el fin de su contenido real (para eliminar/comparar) y el texto
+// del bloque. Bloques que no definen ningún SDT propio (ej. "::: details
+// Ejemplo de Invocación") o que están anidados (ya cubiertos por el chequeo de
+// arriba) quedan afuera — así "Ejemplo" nunca puede confundirse con un nombre
+// de SDT duplicado.
+//
+// `fin` recorta en la última línea ':::' de cierre PROPIA del bloque, sin
+// arrastrar la "cola" que compartiría un span crudo [pos, próximoBloque): una
+// línea en blanco, el comentario "<!-- CIERRA SDT -->", o directamente el
+// bloque hermano siguiente. Esa cola no es contenido del SDT — si se la
+// llevara la comparación, el ÚLTIMO bloque del archivo (el único cuyo span
+// crudo incluye "<!-- CIERRA SDT -->") aparentaría divergir de sus duplicados
+// aunque la tabla de campos sea idéntica; y si se la llevara la eliminación,
+// borrar un duplicado que resulta ser el último bloque se llevaría puesto el
+// comentario de cierre real de la sección.
+function obtenerBloquesSdtLimpios(contenido) {
+  const detailsRegex = /^::: details (\w+)/gim;
+  const bloques = [];
+  let m;
+  while ((m = detailsRegex.exec(contenido)) !== null) {
+    bloques.push({ pos: m.index, nombre: m[1] });
+  }
+
+  const limpios = [];
+  for (let i = 0; i < bloques.length; i++) {
+    const finBusqueda = i + 1 < bloques.length ? bloques[i + 1].pos : contenido.length;
+    const textoBusqueda = contenido.slice(bloques[i].pos, finBusqueda);
+    const defs = [...textoBusqueda.matchAll(/Los campos del tipo de dato estructurado (\w+) son los siguientes:/gi)].map((d) => d[1]);
+    if (defs.length !== 1 || defs[0].toLowerCase() !== bloques[i].nombre.toLowerCase()) continue;
+
+    const cierres = [...textoBusqueda.matchAll(/^[ \t]*:::[ \t]*$/gm)];
+    const ultimoCierre = cierres.length > 0 ? cierres[cierres.length - 1] : null;
+    const finPropio = ultimoCierre ? bloques[i].pos + ultimoCierre.index + ultimoCierre[0].length : finBusqueda;
+    const separador = contenido.slice(finPropio).match(/^\r?\n(?:[ \t]*\r?\n)*/);
+    const fin = separador ? finPropio + separador[0].length : finPropio;
+
+    limpios.push({ nombre: bloques[i].nombre, pos: bloques[i].pos, fin, texto: contenido.slice(bloques[i].pos, finPropio) });
+  }
+  return limpios;
+}
+
+// Una fila separadora de tabla Markdown (la línea "|---|---|---|" entre el
+// encabezado y los datos) es válida con o sin ":" de alineación y con
+// cualquier cantidad de guiones — renderiza idéntico en cualquier caso. Sin
+// normalizarla, dos SDTs cuyas tablas de campos son byte-por-byte iguales
+// pero cuya fila separadora se escribió distinto (caso real:
+// ":--------- | :--------- | :---------" vs "--------- | ----------- |
+// -----------") aparentarían divergir en contenido cuando en realidad
+// documentan exactamente lo mismo.
+function esFilaSeparadorTabla(linea) {
+  return /^[:\-\s|]+$/.test(linea) && linea.includes('-');
+}
+
+// Quita la propia línea "::: details NAME", colapsa espacios, normaliza filas
+// separadoras de tabla, y ORDENA las líneas resultantes antes de comparar dos
+// ocurrencias del mismo SDT. El orden de las filas de la tabla de campos no
+// tiene significado — dos SDTs con exactamente los mismos campos, tipos y
+// comentarios pero documentados en distinto orden (caso real: sBTConcepto,
+// sBTComisionPrestamo, sBTSeguroPrestamo en Préstamos/Simular/*.md, donde la
+// segunda copia quedó con el orden de campos previo a que se alfabetizara la
+// tabla) deben tratarse como el mismo contenido, no como una divergencia que
+// requiera revisión manual.
+function normalizarTextoSdt(texto) {
+  const sinDetails = texto.replace(/^::: details \w+\s*$/m, '');
+  const lineas = sinDetails
+    .split(/\r?\n/)
+    .map((l) => l.replace(/\s+/g, ' ').trim())
+    .filter((l) => l.length > 0)
+    .map((l) => (esFilaSeparadorTabla(l) ? l.split('|').map(() => '---').join('|') : l));
+  return [...lineas].sort().join('\n');
+}
+
+// Agrupa los bloques SDT "limpios" por nombre (case-insensitive) y devuelve
+// solo los nombres que aparecen en más de un bloque, junto con si su
+// contenido normalizado es idéntico en todas las ocurrencias o diverge.
+function agruparSdtsDuplicados(contenido) {
+  const limpios = obtenerBloquesSdtLimpios(contenido);
+  const porNombre = new Map();
+  for (const b of limpios) {
+    const key = b.nombre.toLowerCase();
+    if (!porNombre.has(key)) porNombre.set(key, []);
+    porNombre.get(key).push(b);
+  }
+
+  const duplicados = [];
+  for (const ocurrencias of porNombre.values()) {
+    if (ocurrencias.length <= 1) continue;
+    const normalizados = ocurrencias.map((o) => normalizarTextoSdt(o.texto));
+    const identicos = normalizados.every((n) => n === normalizados[0]);
+    duplicados.push({ nombre: ocurrencias[0].nombre, ocurrencias, identicos });
+  }
+  return duplicados;
+}
+
+// Elimina los bloques SDT hermanos duplicados cuyo contenido es IDÉNTICO en
+// todas sus ocurrencias, conservando solo la primera. Cuando el contenido
+// diverge entre ocurrencias (ver agruparSdtsDuplicados) no se toca nada acá —
+// elegir cuál de las dos versiones es la correcta es una decisión editorial,
+// no algo que este fixer deba adivinar; queda reportado por
+// detectarSdtsAnidados para corrección manual.
+function quitarSdtsDuplicadosExactos(contenido) {
+  const duplicadosIdenticos = agruparSdtsDuplicados(contenido).filter((d) => d.identicos);
+  if (duplicadosIdenticos.length === 0) return { resultado: contenido, cambios: 0 };
+
+  const aEliminar = [];
+  for (const dup of duplicadosIdenticos) {
+    for (let i = 1; i < dup.ocurrencias.length; i++) aEliminar.push(dup.ocurrencias[i]);
+  }
+  // De atrás hacia adelante para que eliminar un bloque no invalide la
+  // posición de los que todavía faltan procesar.
+  aEliminar.sort((a, b) => b.pos - a.pos);
+
+  let resultado = contenido;
+  for (const b of aEliminar) {
+    resultado = resultado.slice(0, b.pos) + resultado.slice(b.fin);
+  }
+  return { resultado, cambios: aEliminar.length };
 }
 
 function fixarSdtsAnidados(contenido) {
@@ -475,14 +730,17 @@ function fixarSdtsAnidados(contenido) {
 
     if (sdtDefs.length <= 1) continue;
 
-    // Para cada definición SDT, determinar dónde empieza su sección
-    const secciones = [];
-    const nombresVistos = new Set();
-
+    // Para CADA definición SDT (incluyendo duplicados exactos del mismo
+    // nombre) determinar dónde empieza su sección. Se calculan los límites de
+    // TODAS antes de decidir cuáles emitir — si un nombre repetido se
+    // descartara de entrada (sin registrar su posición), su rango de texto
+    // quedaría sin dueño y terminaría "colgando" dentro de la sección
+    // siguiente (que entonces seguiría conteniendo un SDT anidado y el split
+    // no serviría de nada). Al calcular todas las posiciones primero, el
+    // duplicado se recorta limpio de su propio rango en vez de filtrarse a
+    // la sección vecina.
+    const todasLasSecciones = [];
     for (const def of sdtDefs) {
-      if (nombresVistos.has(def.nombre.toLowerCase())) continue;
-      nombresVistos.add(def.nombre.toLowerCase());
-
       const textAntes = bloque.slice(0, def.pos);
 
       // Buscar el último "### NAME" antes de esta definición usando matchAll
@@ -504,19 +762,29 @@ function fixarSdtsAnidados(contenido) {
         tieneHeading = false;
       }
 
-      secciones.push({ nombre: def.nombre, secStart, tieneHeading });
+      todasLasSecciones.push({ nombre: def.nombre, secStart, tieneHeading });
     }
 
-    if (secciones.length <= 1) continue;
+    if (todasLasSecciones.length <= 1) continue;
 
-    secciones.sort((a, b) => a.secStart - b.secStart);
+    todasLasSecciones.sort((a, b) => a.secStart - b.secStart);
 
-    const preHeader = bloque.slice(0, secciones[0].secStart);
+    const preHeader = bloque.slice(0, todasLasSecciones[0].secStart);
 
     let reemplazo = '';
-    for (let j = 0; j < secciones.length; j++) {
-      const sec = secciones[j];
-      const secFin = j + 1 < secciones.length ? secciones[j + 1].secStart : bloque.length;
+    let primeraEmitida = false;
+    const nombresEmitidos = new Set();
+    for (let j = 0; j < todasLasSecciones.length; j++) {
+      const sec = todasLasSecciones[j];
+      const secFin = j + 1 < todasLasSecciones.length ? todasLasSecciones[j + 1].secStart : bloque.length;
+
+      // Duplicado exacto de un SDT ya emitido (mismo contenido, dos veces en
+      // el doc de origen) — se descarta su rango de texto por completo, no
+      // se agrega a ningún otro bloque.
+      const key = sec.nombre.toLowerCase();
+      if (nombresEmitidos.has(key)) continue;
+      nombresEmitidos.add(key);
+
       let contenidoSec = bloque.slice(sec.secStart, secFin);
 
       // Separar cualquier contenido posterior al último ':::' de cierre (p.ej. "<!-- CIERRA SDT -->"
@@ -534,8 +802,9 @@ function fixarSdtsAnidados(contenido) {
         contenidoSec = `### ${sec.nombre}${nl}${nl}${contenidoSec}`;
       }
 
-      if (j === 0) {
+      if (!primeraEmitida) {
         reemplazo += preHeader + contenidoSec + nl + ':::' + nl + nl;
+        primeraEmitida = true;
       } else {
         reemplazo += `::: details ${sec.nombre}` + nl + nl + contenidoSec + nl + ':::' + nl + nl;
       }
@@ -546,7 +815,13 @@ function fixarSdtsAnidados(contenido) {
     cambios++;
   }
 
-  return { resultado, cambios };
+  // Segunda pasada: colapsar bloques SDT hermanos duplicados con contenido
+  // idéntico (ver quitarSdtsDuplicadosExactos). Corre siempre, incluso si la
+  // pasada de arriba no encontró nada que separar — un documento puede tener
+  // duplicados hermanos sin tener ningún anidamiento dentro de un mismo bloque.
+  const { resultado: sinDuplicados, cambios: cambiosDup } = quitarSdtsDuplicadosExactos(resultado);
+
+  return { resultado: sinDuplicados, cambios: cambios + cambiosDup };
 }
 
 function fixarSdtsCarpeta(carpeta) {
@@ -585,11 +860,17 @@ function validarArchivo(filePath) {
   if (contenido.includes('Completar manualmente | Completar manualmente')) {
     problemas.push('⚠️  Códigos de error sin completar');
   }
-  const lineasSdt = contenido.match(/\w+ \| \w[\w\s$<>():]+\|$/gm);
+  // Ancladas a inicio de línea (^): sin esto, el regex podía matchear la COLA
+  // de una línea más larga que por casualidad tiene la misma forma "palabra |
+  // palabra |" — ej. el encabezado de una tabla de 4 columnas
+  // "Nombre | Tipo | Obligatorio | Comentarios |" (matchea desde "Obligatorio")
+  // o una fila de tabla de errores "60001 | Descripción |" (2 columnas, no 3).
+  // Ninguna de esas es realmente un campo de SDT sin descripción.
+  const lineasSdt = contenido.match(/^\w+ \| \w[\w\s$<>():]+\|$/gm);
   if (lineasSdt && lineasSdt.length > 0) {
     problemas.push(`⚠️  ${lineasSdt.length} campo(s) del SDT sin descripción`);
   }
-  const lineasTabla = contenido.match(/\w+ \| \w[\w\s$<>():.]+ \| $/gm);
+  const lineasTabla = contenido.match(/^\w+ \| \w[\w\s$<>():.]+ \| $/gm);
   if (lineasTabla && lineasTabla.length > 0) {
     problemas.push(`⚠️  ${lineasTabla.length} parámetro(s) sin comentario`);
   }
@@ -602,6 +883,12 @@ function validarArchivo(filePath) {
   const revisar = (contenido.match(/\bREVISAR\b/g) || []).length;
   if (revisar > 0) {
     problemas.push(`⚠️  ${revisar} campo(s) con valor "REVISAR" pendiente(s) de completar`);
+  }
+  // Keys JSON con prefijo de namespace XML sin limpiar (ej: "bts:Canal" en vez
+  // de "Canal") — típico de copiar el ejemplo XML al tab JSON sin adaptar.
+  const btsKeys = new Set((contenido.match(/"bts:[A-Za-z]+"\s*:/gi) || []).map(m => m.match(/"(bts:[A-Za-z]+)"/i)[1]));
+  if (btsKeys.size > 0) {
+    problemas.push(`❌ Ejemplo JSON con prefijo de namespace XML sin limpiar: ${[...btsKeys].join(', ')} — el ejemplo se copió del XML sin adaptar las keys`);
   }
   // --- Validaciones estructurales ---
 
@@ -645,8 +932,12 @@ function validarArchivo(filePath) {
     problemas.push(`⚠️  Placeholder "..." en ejemplo(s) de ${ejemplosConPuntos.join(', ')} (ejemplo incompleto)`);
   }
 
-  // JSON de respuesta sin bloque de código ```json
-  if (!/:::.*?details.*?Respuesta[\s\S]*?```json/i.test(contenido)) {
+  // JSON de respuesta sin bloque de código ```json — pero solo si el documento
+  // SÍ documenta JSON en algún otro lado (ej: Invocación). Hay líneas de producto
+  // enteras (BPay) que son XML/SOAP-only por diseño y nunca traen @tab JSON en
+  // ningún ejemplo — ahí no es un campo faltante, es la convención del producto.
+  const docTieneAlgunJson = /@tab JSON/i.test(contenido);
+  if (docTieneAlgunJson && !/:::.*?details.*?Respuesta[\s\S]*?```json/i.test(contenido)) {
     problemas.push('❌ Ejemplo de Respuesta sin bloque de código ```json');
   }
 
@@ -681,10 +972,11 @@ function validarArchivo(filePath) {
   const ocultoSalida  = parsearCamposOcultos(bloqueSalida);
 
   // JSON (V3 y V4)
+  const docSinJsonAlguno = !/@tab JSON/i.test(contenido);
   const resJsonInv = parsearJsonEjemplo(contenido, 'Invocación');
-  problemas.push(...validarParametrosContraEjemplo(camposEntrada, resJsonInv.data, ignoradosEntrada, sdts, 'Entrada', resJsonInv.error, ocultoEntrada));
+  problemas.push(...validarParametrosContraEjemplo(camposEntrada, resJsonInv.data, ignoradosEntrada, sdts, 'Entrada', resJsonInv.error, ocultoEntrada, docSinJsonAlguno));
   const resJsonResp = parsearJsonEjemplo(contenido, 'Respuesta');
-  problemas.push(...validarParametrosContraEjemplo(camposSalida, resJsonResp.data, ignoradosSalida, sdts, 'Salida', resJsonResp.error, ocultoSalida));
+  problemas.push(...validarParametrosContraEjemplo(camposSalida, resJsonResp.data, ignoradosSalida, sdts, 'Salida', resJsonResp.error, ocultoSalida, docSinJsonAlguno));
 
   // XML (solo V3)
   if (version === 'v3') {
@@ -849,8 +1141,17 @@ function normalizarNombresConJson(contenido, camposEntrada, camposSalida, jsonIn
   return { resultado, cambios };
 }
 
-function obtenerDefaultPorTipo(_tipo) {
-  return 'REVISAR';
+const TIPOS_NUMERICOS = new Set(['double', 'int', 'long', 'short', 'byte', 'decimal', 'float', 'numeric', 'numerico']);
+const TIPOS_BOOLEANOS = new Set(['boolean', 'bool']);
+
+// Valor vacío por tipo documentado, para completar campos faltantes en los
+// ejemplos sin inventar datos: 0 para numéricos, false para booleanos, "" para
+// el resto (String, Date, y cualquier tipo no reconocido/con typo).
+function obtenerDefaultPorTipo(tipo) {
+  const t = (tipo || '').trim().toLowerCase();
+  if (TIPOS_NUMERICOS.has(t)) return 0;
+  if (TIPOS_BOOLEANOS.has(t)) return false;
+  return '';
 }
 
 function agregarCampoAnidado(obj, campoClave, valor) {
@@ -887,6 +1188,7 @@ function normalizarCampoCI(obj, nombreDocumentado, valorDefault) {
   const coincidencias = Object.keys(obj).filter(k => k.toLowerCase() === lower);
 
   if (coincidencias.length === 0) {
+    if (!esNombreCampoValido(nombreDocumentado)) return 0;
     obj[nombreDocumentado] = valorDefault;
     return 1;
   }
@@ -945,6 +1247,25 @@ function nombreSdtDeTipo(tipo) {
   return (tipo && tipo.match(/\[([^\]]+)\]/)?.[1]) || null;
 }
 
+// Si el contenedor de una lista Bantotal está vacío (array [] o wrapper
+// { "sBTX": [] }), le agrega un item vacío {} — mutando el array real por
+// referencia, así el cambio persiste al serializar. Sin esto, un ejemplo con
+// lista vacía nunca puede autocorregirse: itemsDeContenedorJson devuelve []
+// y el loop de inserción de campos no tiene ningún item al cual escribirle.
+// Solo se usa desde el fixer — el validador debe seguir siendo de solo lectura.
+function asegurarItemEnContenedorJson(obj) {
+  if (!obj || typeof obj !== 'object') return;
+  if (Array.isArray(obj)) {
+    if (obj.length === 0) obj.push({});
+    return;
+  }
+  const keys = Object.keys(obj);
+  if (keys.length === 1 && /^(?:sBT|SdtsBT)/i.test(keys[0])) {
+    const inner = obj[keys[0]];
+    if (Array.isArray(inner) && inner.length === 0) inner.push({});
+  }
+}
+
 // Normaliza/agrega un campo de un SDT en cada item del contenedor (objeto único o
 // lista — navega el patrón wrapper/lista igual que antes). Si el campo es en sí
 // mismo OTRO SDT (ej. sBTProducto.otrosConceptos: [sBTConcepto]), en vez de
@@ -952,6 +1273,7 @@ function nombreSdtDeTipo(tipo) {
 // propios sub-campos de ese SDT anidado. `visitados` corta ciclos en SDTs que se
 // referencian a sí mismos (directa o indirectamente) para no colgarse.
 function normalizarCampoSdtRecursivo(contenedor, ck, ct, sdtsConTipos, visitados) {
+  asegurarItemEnContenedorJson(contenedor);
   const items = itemsDeContenedorJson(contenedor);
   let cambios = 0;
 
@@ -970,6 +1292,7 @@ function normalizarCampoSdtRecursivo(contenedor, ck, ct, sdtsConTipos, visitados
 
   for (const item of items) {
     const claveExistente = Object.keys(item).find(k => k.toLowerCase() === ck.toLowerCase());
+    if (!claveExistente && !esNombreCampoValido(ck)) continue; // no inventar una key inválida
     if (!claveExistente || item[claveExistente] === null || typeof item[claveExistente] !== 'object' || Array.isArray(item[claveExistente])) {
       if (claveExistente) delete item[claveExistente];
       item[ck] = {};
@@ -980,6 +1303,33 @@ function normalizarCampoSdtRecursivo(contenedor, ck, ct, sdtsConTipos, visitados
       for (const sub of subCampos) {
         cambios += normalizarCampoSdtRecursivo(item[nombreReal], sub.nombre, sub.tipo, sdtsConTipos, nuevosVisitados);
       }
+    }
+  }
+  return cambios;
+}
+
+// Algunos ejemplos copiaron las keys directo del XML (con el prefijo de
+// namespace "bts:") al JSON sin quitarlo — "bts:Canal" en vez de "Canal". No
+// hay ambigüedad posible acá: un namespace XML nunca es una key JSON válida,
+// así que se limpia recursivamente en cualquier profundidad, incluso dentro de
+// "Btinreq" (que el resto del fixer ignora por ser el envelope estándar).
+function limpiarPrefijoNamespaceJson(obj) {
+  if (!obj || typeof obj !== 'object') return 0;
+  let cambios = 0;
+  if (Array.isArray(obj)) {
+    for (const item of obj) cambios += limpiarPrefijoNamespaceJson(item);
+    return cambios;
+  }
+  for (const key of Object.keys(obj)) {
+    const m = /^bts:(.+)$/i.exec(key);
+    if (m) {
+      const nuevaKey = m[1];
+      if (!(nuevaKey in obj)) obj[nuevaKey] = obj[key];
+      delete obj[key];
+      cambios++;
+      cambios += limpiarPrefijoNamespaceJson(obj[nuevaKey]);
+    } else {
+      cambios += limpiarPrefijoNamespaceJson(obj[key]);
     }
   }
   return cambios;
@@ -1016,15 +1366,29 @@ function fixarJsonSeccion(json, campos, camposIgnorados, sdtsConTipos, camposOcu
 
     // Si el parámetro no existe pero el tipo SDT sí está como clave, usarlo sin duplicar
     const altSdtKey = campo.esSdt && campo.nombreSdt
-      ? Object.keys(json).find(k => k.toLowerCase() === campo.nombreSdt.toLowerCase())
+      ? Object.keys(json).find(k => esNombreAltSdt(k, campo.nombreSdt))
       : null;
     const nombreExiste = Object.keys(json).some(k => k.toLowerCase() === campo.nombre.toLowerCase());
 
     if (altSdtKey && !nombreExiste) {
-      // El SDT existe bajo su tipo — corregir campos internos sin agregar duplicado
+      // El ejemplo usa el nombre del TIPO SDT como key en vez del nombre del
+      // parámetro documentado (ej: "sBTHobby" en vez de "sdtHobby"). Renombrar
+      // a la key correcta es seguro acá porque ya confirmamos que esa key no
+      // existe (no hay colisión). Si el valor es un array, es el patrón lista
+      // mal aplanado (faltaba el wrapper) — se envuelve en la estructura de dos
+      // niveles correcta { nombre: { nombreSdt: [...] } } en vez de solo
+      // renombrar, para no perder el nivel de anidamiento que requiere la lista.
+      if (esNombreCampoValido(campo.nombre)) {
+        const valorAlt = json[altSdtKey];
+        delete json[altSdtKey];
+        json[campo.nombre] = Array.isArray(valorAlt) ? { [campo.nombreSdt]: valorAlt } : valorAlt;
+        cambios++;
+      }
+
       const camposSdt = sdtsConTipos[campo.nombreSdt.toLowerCase()];
       if (camposSdt) {
-        const valorEnJson = json[altSdtKey];
+        const keyActual = Object.keys(json).find(k => k.toLowerCase() === campo.nombre.toLowerCase()) || altSdtKey;
+        const valorEnJson = json[keyActual];
         const visitados = new Set([campo.nombreSdt.toLowerCase()]);
         for (const { nombre: ck, tipo: ct } of camposSdt) {
           cambios += normalizarCampoSdtRecursivo(valorEnJson, ck, ct, sdtsConTipos, visitados);
@@ -1121,9 +1485,19 @@ function reemplazarXmlEnMd(contenido, tituloSeccion, nuevoXml) {
 
 // Renombra todas las ocurrencias de un tag XML (CI) al nombre correcto
 function renombrarTagXml(xml, nombreCorrecto) {
+  const t = escapeRegex(nombreCorrecto);
   return xml
-    .replace(new RegExp(`<(\\w+:)?(${nombreCorrecto})([ />])`, 'gi'), `<$1${nombreCorrecto}$3`)
-    .replace(new RegExp(`</(\\w+:)?(${nombreCorrecto})>`, 'gi'), `</$1${nombreCorrecto}>`);
+    .replace(new RegExp(`<(\\w+:)?(${t})([ />])`, 'gi'), `<$1${nombreCorrecto}$3`)
+    .replace(new RegExp(`</(\\w+:)?(${t})>`, 'gi'), `</$1${nombreCorrecto}>`);
+}
+
+// Renombra TODAS las ocurrencias de un tag de un nombre a otro distinto (a
+// diferencia de renombrarTagXml, que solo corrige el casing de un mismo nombre).
+function renombrarTagXmlDesde(xml, nombreViejo, nombreNuevo) {
+  const t = escapeRegex(nombreViejo);
+  return xml
+    .replace(new RegExp(`<(\\w+:)?${t}([ />])`, 'gi'), `<$1${nombreNuevo}$2`)
+    .replace(new RegExp(`</(\\w+:)?${t}>`, 'gi'), `</$1${nombreNuevo}>`);
 }
 
 // Construye el XML de un campo SDT, recursivamente: si `tipo` es en sí mismo otro
@@ -1149,6 +1523,7 @@ function construirXmlCampoSdt(nombre, tipo, sdtsConTipos, visitados, valorJson, 
   const subIndent = indent + '   ';
   let interior = '';
   for (const sub of subCampos) {
+    if (!esNombreCampoValido(sub.nombre)) continue;
     const subValor = obtenerValorAnidadoJson(valorJson, sub.nombre);
     interior += `\n${subIndent}${construirXmlCampoSdt(sub.nombre, sub.tipo, sdtsConTipos, nuevosVisitados, subValor, subIndent)}`;
   }
@@ -1189,20 +1564,43 @@ function fixarXmlSeccion(xml, campos, camposIgnorados, sdtsConTipos, jsonObj, es
 
     // Si el parámetro no existe como tag pero el tipo SDT sí (solo como hijo directo), tratarlo como el mismo campo
     const tagAusenteNombre = !tagExisteEnXml(xml, campo.nombre);
-    const altSdtTagExiste = campo.esSdt && campo.nombreSdt && tagHijosDirectosFixer.has(campo.nombreSdt.toLowerCase());
+    const tagAltEncontrado = campo.esSdt && campo.nombreSdt
+      ? (tagHijosDirectosFixer.has(campo.nombreSdt.toLowerCase())
+          ? campo.nombreSdt
+          : (tagHijosDirectosFixer.has(('sdt' + campo.nombreSdt).toLowerCase()) ? 'sdt' + campo.nombreSdt : null))
+      : null;
+    const altSdtTagExiste = !!tagAltEncontrado;
     if (tagAusenteNombre && altSdtTagExiste) {
-      // El SDT existe bajo su nombre de tipo — corregir campos internos, no insertar duplicado
+      // El ejemplo usa el tag del TIPO SDT (a veces con el prefijo "Sdt" pegado:
+      // "SdtsBTHobby") en vez del nombre del parámetro documentado (ej: <sBTHobby>
+      // en vez de <sdtHobby>). Renombrar es seguro solo cuando aparece UNA sola
+      // vez como hijo directo — un SDT de objeto único mal etiquetado. Si aparece
+      // más de una vez es el patrón lista válido de Bantotal
+      // (<nombre><nombreSdt/><nombreSdt/>...</nombre>) y reestructurar eso en
+      // texto XML es demasiado riesgoso; se deja como estaba y solo se corrigen
+      // los campos internos, igual que antes.
+      let tagContenedor = tagAltEncontrado;
+      if (esNombreCampoValido(campo.nombre)) {
+        const ocurrencias = (xml.match(new RegExp(`<(?:\\w+:)?${escapeRegex(tagAltEncontrado)}(?:[\\s/>])`, 'gi')) || []).length;
+        if (ocurrencias === 1) {
+          xml = renombrarTagXmlDesde(xml, tagAltEncontrado, campo.nombre);
+          cambios++;
+          tagContenedor = campo.nombre;
+        }
+      }
+
       if (campo.esSdt && campo.nombreSdt) {
         const camposSdt = sdtsConTipos[campo.nombreSdt.toLowerCase()];
         if (camposSdt) {
-          const contenedorAlt = extraerContenidoTag(xml, campo.nombreSdt);
+          const contenedorAlt = extraerContenidoTag(xml, tagContenedor);
           if (contenedorAlt !== null) {
             for (const { nombre: ck, tipo: ct } of camposSdt) {
+              if (!esNombreCampoValido(ck)) continue;
               if (!tagExisteEnXml(contenedorAlt, ck)) {
-                const valAnidado = jsonObj ? obtenerValorAnidadoJson(jsonObj[campo.nombreSdt] || jsonObj[campo.nombre], ck) : undefined;
+                const valAnidado = jsonObj ? obtenerValorAnidadoJson(jsonObj[campo.nombre] || jsonObj[campo.nombreSdt], ck) : undefined;
                 const nuevoTag = construirXmlCampoSdt(ck, ct, sdtsConTipos, new Set([campo.nombreSdt.toLowerCase()]), valAnidado, '            ');
                 xml = xml.replace(
-                  new RegExp(`(<\\/(?:\\w+:)?${campo.nombreSdt}>)`, 'i'),
+                  new RegExp(`(<\\/(?:\\w+:)?${escapeRegex(tagContenedor)}>)`, 'i'),
                   `\n            ${nuevoTag}$1`
                 );
                 cambios++;
@@ -1215,6 +1613,10 @@ function fixarXmlSeccion(xml, campos, camposIgnorados, sdtsConTipos, jsonObj, es
     }
 
     if (tagAusenteNombre) {
+      // Nombre documentado inválido (ej: typo "clienteUId*") — no inventar un tag
+      // XML roto. Queda como problema para corrección manual de la doc.
+      if (!esNombreCampoValido(campo.nombre)) continue;
+
       // Solo insertar si el JSON ya tiene este campo (el fixer JSON lo validó previamente).
       // Si no está en el JSON tampoco, podría ser un tag con nombre incorrecto en el XML — dejar para corrección manual.
       const jsonTieneElCampo = jsonObj && Object.keys(jsonObj).some(k => k.toLowerCase() === campo.nombre.toLowerCase());
@@ -1231,6 +1633,7 @@ function fixarXmlSeccion(xml, campos, camposIgnorados, sdtsConTipos, jsonObj, es
         if (camposSdt) {
           const jsonValCampo = jsonObj[Object.keys(jsonObj).find(k => k.toLowerCase() === campo.nombre.toLowerCase())];
           for (const { nombre: ck, tipo: ct } of camposSdt) {
+            if (!esNombreCampoValido(ck)) continue;
             const valAnidado = obtenerValorAnidadoJson(jsonValCampo, ck);
             contenidoInterno += `\n${indent}   ${construirXmlCampoSdt(ck, ct, sdtsConTipos, new Set([campo.nombreSdt.toLowerCase()]), valAnidado, indent + '   ')}`;
           }
@@ -1248,7 +1651,7 @@ function fixarXmlSeccion(xml, campos, camposIgnorados, sdtsConTipos, jsonObj, es
       continue;
     } else {
       // Tag existe (CI) → verificar si el casing es exacto; si no, renombrar
-      const matchActual = xml.match(new RegExp(`<(?:\\w+:)?(${campo.nombre})(?:[\\s/>])`, 'i'));
+      const matchActual = xml.match(new RegExp(`<(?:\\w+:)?(${escapeRegex(campo.nombre)})(?:[\\s/>])`, 'i'));
       if (matchActual && matchActual[1] !== campo.nombre) {
         xml = renombrarTagXml(xml, campo.nombre);
         cambios++;
@@ -1292,6 +1695,7 @@ function fixarXmlSeccion(xml, campos, camposIgnorados, sdtsConTipos, jsonObj, es
           let bloqueCambiado = false;
 
           for (const { nombre: ck, tipo: ct } of camposSdt) {
+            if (!esNombreCampoValido(ck)) continue;
             if (!tagExisteEnXml(bloqueItem, ck)) {
               const indentMatches = [...bloqueItem.matchAll(/^([ \t]+)</gm)];
               const indent = indentMatches.length > 0 ? indentMatches[indentMatches.length - 1][1] : '   ';
@@ -1304,7 +1708,7 @@ function fixarXmlSeccion(xml, campos, camposIgnorados, sdtsConTipos, jsonObj, es
                 : bloqueItem + `\n${nuevoTag}`;
               bloqueCambiado = true;
             } else {
-              const matchActual = bloqueItem.match(new RegExp(`<(?:\\w+:)?(${ck})(?:[\\s/>])`, 'i'));
+              const matchActual = bloqueItem.match(new RegExp(`<(?:\\w+:)?(${escapeRegex(ck)})(?:[\\s/>])`, 'i'));
               if (matchActual && matchActual[1] !== ck) {
                 bloqueItem = renombrarTagXml(bloqueItem, ck);
                 bloqueCambiado = true;
@@ -1324,6 +1728,7 @@ function fixarXmlSeccion(xml, campos, camposIgnorados, sdtsConTipos, jsonObj, es
       }
 
       for (const { nombre: ck, tipo: ct } of camposSdt) {
+        if (!esNombreCampoValido(ck)) continue;
         if (!tagExisteEnXml(contenedor, ck)) {
           // Tag ausente → insertar
           const valAnidado = jsonObj ? obtenerValorAnidadoJson(jsonObj[campo.nombre], ck) : undefined;
@@ -1340,11 +1745,17 @@ function fixarXmlSeccion(xml, campos, camposIgnorados, sdtsConTipos, jsonObj, es
           if (nuevoXml !== xml) { xml = nuevoXml; cambios++; }
         } else {
           // Tag existe (CI) → verificar casing exacto dentro del contenedor
-          const matchActual = contenedor.match(new RegExp(`<(?:\\w+:)?(${ck})(?:[\\s/>])`, 'i'));
+          const matchActual = contenedor.match(new RegExp(`<(?:\\w+:)?(${escapeRegex(ck)})(?:[\\s/>])`, 'i'));
           if (matchActual && matchActual[1] !== ck) {
-            // Renombrar solo dentro del bloque del campo contenedor
+            // Renombrar solo dentro del bloque del campo contenedor. Reasignar
+            // `contenedor` (no solo `xml`) para que la siguiente iteración del
+            // loop compare contra el texto ya corregido — si no, el próximo
+            // xml.replace(contenedor, ...) busca el `contenedor` viejo, que ya
+            // no está en `xml`, y esa iteración no hace nada (bug: solo se
+            // corregía un campo con casing distinto por pasada de --fix).
             const contenedorFixed = renombrarTagXml(contenedor, ck);
             xml = xml.replace(contenedor, contenedorFixed);
+            contenedor = contenedorFixed;
             cambios++;
           }
         }
@@ -1501,6 +1912,52 @@ function aplicarEleccionesCasing(filePath, decisions) {
   return cambios;
 }
 
+// Si una fila de tabla documenta un tipo SDT sin el link [Nombre](#anchor)
+// (solo el nombre pelado, ej: "sBTConcepto" en vez de
+// "[sBTConcepto](#sbtconcepto)"), y existe un bloque "::: details <mismo
+// nombre>" definido en el documento, se envuelve en el link — sin ambigüedad,
+// porque el nombre ya coincide EXACTO con un bloque real. Si no hay un bloque
+// con ese nombre exacto no se toca (podría ser un typo de nombre — adivinar
+// mal ahí apuntaría al SDT equivocado, así que se deja para corrección manual).
+// Debe correr temprano: parsearTablaParametros solo reconoce un campo como SDT
+// si el tipo ya tiene el formato de link — sin esto, esos campos se tratan como
+// tipos simples y nunca reciben el tratamiento de SDT anidado (inserción de
+// sub-campos, etc.).
+function fixarEnlacesSdtFaltantes(contenido) {
+  const nombresDefinidos = new Set(
+    [...contenido.matchAll(/^::: details (\w+)/gim)].map(m => m[1].toLowerCase())
+  );
+  let cambios = 0;
+  const resultado = contenido.replace(
+    /^([a-zA-Z_]\w*[ \t]*\|[ \t]*)(sBT\w+|Sdts\w+)([ \t]*\|)/gm,
+    (linea, pre, nombre, post) => {
+      if (!nombresDefinidos.has(nombre.toLowerCase())) return linea;
+      cambios++;
+      return `${pre}[${nombre}](#${nombre.toLowerCase()})${post}`;
+    }
+  );
+  return { resultado, cambios };
+}
+
+// Placeholder "..." usado como línea propia dentro de un ejemplo XML o JSON
+// para indicar "hay más ítems, no mostrados". A diferencia de una coma/llave
+// faltante, esto no es un error de sintaxis que haya que reparar con cuidado:
+// ni XML ni JSON necesitan esa línea para ser válidos, así que se elimina la
+// línea completa (no solo el "...", para no dejar una línea en blanco de más).
+// Cubre tanto la forma sin comillas (una línea que es solo "...") como la
+// forma de elemento de array JSON entre comillas ("...").
+function fixarPlaceholderPuntosSuspensivos(contenido) {
+  const nl = contenido.includes('\r\n') ? '\r\n' : '\n';
+  const lineas = contenido.split(/\r?\n/);
+  let cambios = 0;
+  const filtradas = lineas.filter(linea => {
+    const t = linea.trim();
+    if (/^(?:\.\.\.|"\.\.\.")\s*,?$/.test(t)) { cambios++; return false; }
+    return true;
+  });
+  return { resultado: filtradas.join(nl), cambios };
+}
+
 function fixarCierreJsonFaltante(contenido) {
   // Detecta bloques ```json sin cierre ``` (se cierran directamente con :::)
   // Soporta tanto LF como CRLF
@@ -1525,8 +1982,28 @@ function fixarArchivo(filePath) {
   // --- Paso -1: separar SDTs anidados en bloques ::: details independientes ---
   // Debe correr antes que cualquier otro paso: los pasos siguientes parsean los
   // bloques ::: details por nombre y se confunden si hay más de un SDT por bloque.
+  //
+  // Guard: si el bloque está mal titulado de origen (ej: "::: details sBTConcepto"
+  // que en realidad documenta otro SDT, con el título real repetido más abajo como
+  // ::: details vacío), el splitter puede quedar en un estado que NO resuelve el
+  // anidamiento (detectarSdtsAnidados lo sigue reportando después de "arreglarlo").
+  // En ese caso no es un split limpio — es contenido de origen genuinamente roto —
+  // y aplicar el resultado igual duplica contenido en cada corrida sin converger
+  // nunca. Se descarta el cambio y se deja el problema para corrección manual.
   const { resultado: normSdt, cambios: cSdt } = fixarSdtsAnidados(contenido);
-  if (cSdt > 0) { contenido = normSdt; totalCambios += cSdt; }
+  if (cSdt > 0) {
+    const siguenAnidados = detectarSdtsAnidados(normSdt).some(p => p.includes('contiene SDT(s) anidado(s)'));
+    if (!siguenAnidados) { contenido = normSdt; totalCambios += cSdt; }
+  }
+
+  // --- Paso -0.5: envolver en [Nombre](#anchor) los tipos SDT sin link cuyo
+  // nombre ya coincide EXACTO con un bloque ::: details definido ---
+  const { resultado: normLink, cambios: cLink } = fixarEnlacesSdtFaltantes(contenido);
+  if (cLink > 0) { contenido = normLink; totalCambios += cLink; }
+
+  // --- Paso -0.3: quitar líneas placeholder "..." de ejemplos XML/JSON ---
+  const { resultado: normPh, cambios: cPh } = fixarPlaceholderPuntosSuspensivos(contenido);
+  if (cPh > 0) { contenido = normPh; totalCambios += cPh; }
 
   // --- Paso 0: corregir bloques ```json sin cierre ``` ---
   const { resultado: norm00, cambios: c00 } = fixarCierreJsonFaltante(contenido);
@@ -1568,8 +2045,8 @@ function fixarArchivo(filePath) {
     // Paso 0b: cross-reference tabla ↔ JSON (prefiere el nombre con más uppercase)
     const _camposEnt = parsearTablaParametros(parsearSeccionTab(contenido, 'Datos de Entrada'));
     const _camposSal = parsearTablaParametros(parsearSeccionTab(contenido, 'Datos de Salida'));
-    const _jsonInvR  = parsearJsonEjemplo(contenido, 'Invocación').data;
-    const _jsonRespR = parsearJsonEjemplo(contenido, 'Respuesta').data;
+    const _jsonInvR  = parsearJsonEjemplo(contenido, 'Invocación', { reparar: true }).data;
+    const _jsonRespR = parsearJsonEjemplo(contenido, 'Respuesta', { reparar: true }).data;
     const { resultado: norm1, cambios: c0b } = normalizarNombresConJson(
       contenido, _camposEnt, _camposSal, _jsonInvR, _jsonRespR
     );
@@ -1584,13 +2061,20 @@ function fixarArchivo(filePath) {
     const ocultoEnt = parsearCamposOcultos(bloqueEnt);
     const ocultoSal = parsearCamposOcultos(bloqueSal);
 
-    // JSON
-    const jsonInv = parsearJsonEjemplo(contenido, 'Invocación').data;
-    const c1 = fixarJsonSeccion(jsonInv, camposEntrada, CAMPOS_IGNORADOS_ENTRADA, sdtsConTipos, ocultoEnt);
+    // JSON — se pide reparación de sintaxis (coma/llave faltante) para poder
+    // seguir corrigiendo campos; si el texto necesitó reparación, se fuerza la
+    // reescritura aunque fixarJsonSeccion no encuentre más cambios de campos,
+    // para que la reparación quede persistida en el archivo.
+    const resJsonInvFix = parsearJsonEjemplo(contenido, 'Invocación', { reparar: true });
+    const jsonInv = resJsonInvFix.data;
+    let c1 = limpiarPrefijoNamespaceJson(jsonInv) + fixarJsonSeccion(jsonInv, camposEntrada, CAMPOS_IGNORADOS_ENTRADA, sdtsConTipos, ocultoEnt);
+    if (resJsonInvFix.reparado && c1 === 0) c1 = 1;
     if (c1 > 0) { contenido = reemplazarJsonEnMd(contenido, 'Invocación', jsonInv); totalCambios += c1; }
 
-    const jsonResp = parsearJsonEjemplo(contenido, 'Respuesta').data;
-    const c2 = fixarJsonSeccion(jsonResp, camposSalida, CAMPOS_IGNORADOS_SALIDA, sdtsConTipos, ocultoSal);
+    const resJsonRespFix = parsearJsonEjemplo(contenido, 'Respuesta', { reparar: true });
+    const jsonResp = resJsonRespFix.data;
+    let c2 = limpiarPrefijoNamespaceJson(jsonResp) + fixarJsonSeccion(jsonResp, camposSalida, CAMPOS_IGNORADOS_SALIDA, sdtsConTipos, ocultoSal);
+    if (resJsonRespFix.reparado && c2 === 0) c2 = 1;
     if (c2 > 0) { contenido = reemplazarJsonEnMd(contenido, 'Respuesta', jsonResp); totalCambios += c2; }
 
     // XML (usa los valores del JSON ya corregidos)
@@ -1644,7 +2128,11 @@ module.exports = {
   detectarConflictosCasingArchivo,
   aplicarEleccionesCasing,
   parsearJsonEjemplo,
-  parsearXmlEjemplo
+  parsearXmlEjemplo,
+  obtenerDefaultPorTipo,
+  esNombreCampoValido,
+  fixarEnlacesSdtFaltantes,
+  fixarPlaceholderPuntosSuspensivos
 };
 
 // ── CLI ────────────────────────────────────────────────────────

@@ -1,0 +1,424 @@
+{
+  "info": {
+    "name": "Bantotal JSON Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Coleccion generada desde Swagger para flujo JSON/Postman."
+  },
+  "variable": [
+    {
+      "key": "api_base_url",
+      "value": "http://10.0.0.5:8445/btv4core",
+      "type": "string"
+    },
+    {
+      "key": "public_api_url",
+      "value": "http://10.0.0.7:5101/api/publicapi",
+      "type": "string"
+    },
+    {
+      "key": "base_url",
+      "value": "http://10.0.0.7:5101/api/publicapi",
+      "type": "string"
+    },
+    {
+      "key": "auth_url",
+      "value": "http://10.0.0.7:5101/api/publicapi/Authenticate/v1/Execute",
+      "type": "string"
+    },
+    {
+      "key": "channel",
+      "value": "BTDIGITAL",
+      "type": "string"
+    },
+    {
+      "key": "username",
+      "value": "INSTALADOR",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "Bantotal2015",
+      "type": "string"
+    },
+    {
+      "key": "device",
+      "value": "INSTALADOR",
+      "type": "string"
+    },
+    {
+      "key": "requirement",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "lastSoapResponse",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "lastJsonResponse",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "counterpartyGUID",
+      "value": "74a94556-e0a9-4899-9007-b85e923aec45",
+      "type": "string"
+    },
+    {
+      "key": "Customers_getTexts_texts_SdtsBTPAWText_item_Description",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Customers_getTexts_texts_SdtsBTPAWText_item_Text",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Customers_getTexts_texts_SdtsBTPAWText_item_Id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "updateTexts_body_personGUID",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "updateTexts_body_texts_text_item_Description",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "updateTexts_body_texts_text_item_Text",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "updateTexts_body_texts_text_item_Id",
+      "value": "0",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Caso de uso 1",
+      "description": "Caso de uso generado desde Swagger.",
+      "item": [
+        {
+          "name": "0. Authenticate",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "pm.collectionVariables.set('lastSoapResponse', JSON.stringify(data));",
+                  "var sessionToken = data.SessionToken || data.Token || data.sessionToken || data.token;",
+                  "pm.test('Token disponible', function () { pm.expect(sessionToken, JSON.stringify(data)).to.exist; });",
+                  "if (sessionToken !== null && sessionToken !== undefined) {",
+                  "  pm.collectionVariables.set('token', String(sessionToken));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Canal",
+                "value": "{{channel}}",
+                "type": "text"
+              },
+              {
+                "key": "Device",
+                "value": "{{device}}",
+                "type": "text"
+              },
+              {
+                "key": "Usuario",
+                "value": "{{username}}",
+                "type": "text"
+              },
+              {
+                "key": "Requerimiento",
+                "value": "{{requirement}}",
+                "type": "text"
+              },
+              {
+                "key": "Token",
+                "value": "",
+                "type": "text"
+              },
+              {
+                "key": "idempotency-key",
+                "value": "1",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"UserId\": \"{{username}}\",\n  \"UserPassword\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{auth_url}}",
+              "protocol": "http",
+              "host": [
+                "10",
+                "0",
+                "0",
+                "7"
+              ],
+              "port": "5101",
+              "path": [
+                "api",
+                "publicapi",
+                "Authenticate",
+                "v1",
+                "Execute"
+              ],
+              "query": []
+            },
+            "description": "Obtiene el token de sesion para los requests del flujo."
+          },
+          "response": []
+        },
+        {
+          "name": "1. getTexts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 2xx', function () { pm.expect(pm.response.code).to.be.within(200, 299); });",
+                  "var text = pm.response.text();",
+                  "pm.collectionVariables.set('lastJsonResponse', text);",
+                  "var data = {};",
+                  "try { data = text ? JSON.parse(text) : {}; } catch (e) {}",
+                  "function pick(node, parts) {",
+                  "  if (node === null || node === undefined) return undefined;",
+                  "  if (!parts.length) return node;",
+                  "  var current = parts[0];",
+                  "  var rest = parts.slice(1);",
+                  "  if (Array.isArray(node)) {",
+                  "    if (current === 'item') {",
+                  "      for (var i = 0; i < node.length; i++) {",
+                  "        var foundItem = pick(node[i], rest);",
+                  "        if (foundItem !== undefined && foundItem !== null && foundItem !== '') return foundItem;",
+                  "      }",
+                  "      return undefined;",
+                  "    }",
+                  "    for (var j = 0; j < node.length; j++) {",
+                  "      var foundArray = pick(node[j], parts);",
+                  "      if (foundArray !== undefined && foundArray !== null && foundArray !== '') return foundArray;",
+                  "    }",
+                  "    return undefined;",
+                  "  }",
+                  "  if (typeof node !== 'object') return undefined;",
+                  "  return pick(node[current], rest);",
+                  "}",
+                  "var out_Customers_getTexts_texts_SdtsBTPAWText_item_Description = pick(data, [\"texts\",\"SdtsBTPAWText\",\"item\",\"Description\"]);",
+                  "if (out_Customers_getTexts_texts_SdtsBTPAWText_item_Description !== undefined && out_Customers_getTexts_texts_SdtsBTPAWText_item_Description !== null && typeof out_Customers_getTexts_texts_SdtsBTPAWText_item_Description !== 'object') {",
+                  "  pm.collectionVariables.set(\"Customers_getTexts_texts_SdtsBTPAWText_item_Description\", String(out_Customers_getTexts_texts_SdtsBTPAWText_item_Description));",
+                  "}",
+                  "var out_Customers_getTexts_texts_SdtsBTPAWText_item_Text = pick(data, [\"texts\",\"SdtsBTPAWText\",\"item\",\"Text\"]);",
+                  "if (out_Customers_getTexts_texts_SdtsBTPAWText_item_Text !== undefined && out_Customers_getTexts_texts_SdtsBTPAWText_item_Text !== null && typeof out_Customers_getTexts_texts_SdtsBTPAWText_item_Text !== 'object') {",
+                  "  pm.collectionVariables.set(\"Customers_getTexts_texts_SdtsBTPAWText_item_Text\", String(out_Customers_getTexts_texts_SdtsBTPAWText_item_Text));",
+                  "}",
+                  "var out_Customers_getTexts_texts_SdtsBTPAWText_item_Id = pick(data, [\"texts\",\"SdtsBTPAWText\",\"item\",\"Id\"]);",
+                  "if (out_Customers_getTexts_texts_SdtsBTPAWText_item_Id !== undefined && out_Customers_getTexts_texts_SdtsBTPAWText_item_Id !== null && typeof out_Customers_getTexts_texts_SdtsBTPAWText_item_Id !== 'object') {",
+                  "  pm.collectionVariables.set(\"Customers_getTexts_texts_SdtsBTPAWText_item_Id\", String(out_Customers_getTexts_texts_SdtsBTPAWText_item_Id));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Canal",
+                "value": "{{channel}}",
+                "type": "text"
+              },
+              {
+                "key": "Device",
+                "value": "{{device}}",
+                "type": "text"
+              },
+              {
+                "key": "Usuario",
+                "value": "{{username}}",
+                "type": "text"
+              },
+              {
+                "key": "Requerimiento",
+                "value": "{{requirement}}",
+                "type": "text"
+              },
+              {
+                "key": "Token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/public/Customers/v1/getTexts?counterpartyGUID={{counterpartyGUID}}",
+              "protocol": "http",
+              "host": [
+                "10",
+                "0",
+                "0",
+                "7"
+              ],
+              "port": "5101",
+              "path": [
+                "api",
+                "publicapi",
+                "public",
+                "Customers",
+                "v1",
+                "getTexts"
+              ],
+              "query": [
+                {
+                  "key": "counterpartyGUID",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Enter a description"
+          },
+          "response": []
+        },
+        {
+          "name": "2. updateTexts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 2xx', function () { pm.expect(pm.response.code).to.be.within(200, 299); });",
+                  "var text = pm.response.text();",
+                  "pm.collectionVariables.set('lastJsonResponse', text);",
+                  "var data = {};",
+                  "try { data = text ? JSON.parse(text) : {}; } catch (e) {}",
+                  "function pick(node, parts) {",
+                  "  if (node === null || node === undefined) return undefined;",
+                  "  if (!parts.length) return node;",
+                  "  var current = parts[0];",
+                  "  var rest = parts.slice(1);",
+                  "  if (Array.isArray(node)) {",
+                  "    if (current === 'item') {",
+                  "      for (var i = 0; i < node.length; i++) {",
+                  "        var foundItem = pick(node[i], rest);",
+                  "        if (foundItem !== undefined && foundItem !== null && foundItem !== '') return foundItem;",
+                  "      }",
+                  "      return undefined;",
+                  "    }",
+                  "    for (var j = 0; j < node.length; j++) {",
+                  "      var foundArray = pick(node[j], parts);",
+                  "      if (foundArray !== undefined && foundArray !== null && foundArray !== '') return foundArray;",
+                  "    }",
+                  "    return undefined;",
+                  "  }",
+                  "  if (typeof node !== 'object') return undefined;",
+                  "  return pick(node[current], rest);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Canal",
+                "value": "{{channel}}",
+                "type": "text"
+              },
+              {
+                "key": "Device",
+                "value": "{{device}}",
+                "type": "text"
+              },
+              {
+                "key": "Usuario",
+                "value": "{{username}}",
+                "type": "text"
+              },
+              {
+                "key": "Requerimiento",
+                "value": "{{requirement}}",
+                "type": "text"
+              },
+              {
+                "key": "Token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/public/Customers/v1/updateTexts",
+              "protocol": "http",
+              "host": [
+                "10",
+                "0",
+                "0",
+                "7"
+              ],
+              "port": "5101",
+              "path": [
+                "api",
+                "publicapi",
+                "public",
+                "Customers",
+                "v1",
+                "updateTexts"
+              ],
+              "query": []
+            },
+            "description": "Enter a description",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"personGUID\": \"{{updateTexts_body_personGUID}}\",\n  \"texts\": {\n    \"text\": [\n      {\n        \"Description\": \"{{updateTexts_body_texts_text_item_Description}}\",\n        \"Text\": \"{{updateTexts_body_texts_text_item_Text}}\",\n        \"Id\": {{updateTexts_body_texts_text_item_Id}}\n      }\n    ]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

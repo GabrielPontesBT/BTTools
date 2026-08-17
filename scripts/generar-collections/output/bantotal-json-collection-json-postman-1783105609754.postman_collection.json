@@ -1,0 +1,423 @@
+{
+  "info": {
+    "name": "Bantotal JSON Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Coleccion generada desde Swagger para flujo JSON/Postman."
+  },
+  "variable": [
+    {
+      "key": "api_base_url",
+      "value": "http://10.0.0.5:5101/api",
+      "type": "string"
+    },
+    {
+      "key": "public_api_url",
+      "value": "http://10.0.0.5:5101/api",
+      "type": "string"
+    },
+    {
+      "key": "base_url",
+      "value": "http://10.0.0.5:5101/api",
+      "type": "string"
+    },
+    {
+      "key": "auth_url",
+      "value": "http://10.0.0.5:5101/api/Authenticate/v1/Execute",
+      "type": "string"
+    },
+    {
+      "key": "channel",
+      "value": "BTDIGITAL",
+      "type": "string"
+    },
+    {
+      "key": "username",
+      "value": "INSTALADOR",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "Bantotal2015",
+      "type": "string"
+    },
+    {
+      "key": "device",
+      "value": "FC",
+      "type": "string"
+    },
+    {
+      "key": "requirement",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "lastSoapResponse",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "lastJsonResponse",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "offset",
+      "value": "0",
+      "type": "string"
+    },
+    {
+      "key": "limit",
+      "value": "10",
+      "type": "string"
+    },
+    {
+      "key": "groupId",
+      "value": "18",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getMembersOfGroup_membersData_member_item_personName",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getMembersOfGroup_membersData_member_item_cycleIdOfMember",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getMembersOfGroup_membersData_member_item_documentTypeDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getMembersOfGroup_membersData_member_item_personGUID",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getMembersOfGroup_membersData_member_item_countryDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getMembersOfGroup_membersData_member_item_documentNumber",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getMembersOfGroup_membersData_member_item_memberTypeId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getMembersOfGroup_membersData_member_item_documentTypeId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getMembersOfGroup_membersData_member_item_counterpartyName",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getMembersOfGroup_membersData_member_item_counterpartyGUID",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getMembersOfGroup_membersData_member_item_memberTypeDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getMembersOfGroup_membersData_member_item_countryId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getMembersOfGroup_hasNext",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Caso de uso 1",
+      "description": "Caso de uso generado desde Swagger.",
+      "item": [
+        {
+          "name": "0. Authenticate",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "pm.collectionVariables.set('lastSoapResponse', JSON.stringify(data));",
+                  "var sessionToken = data.SessionToken || data.Token || data.sessionToken || data.token;",
+                  "pm.test('Token disponible', function () { pm.expect(sessionToken, JSON.stringify(data)).to.exist; });",
+                  "if (sessionToken !== null && sessionToken !== undefined) {",
+                  "  pm.collectionVariables.set('token', String(sessionToken));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Canal",
+                "value": "{{channel}}",
+                "type": "text"
+              },
+              {
+                "key": "Device",
+                "value": "{{device}}",
+                "type": "text"
+              },
+              {
+                "key": "Usuario",
+                "value": "{{username}}",
+                "type": "text"
+              },
+              {
+                "key": "Requerimiento",
+                "value": "{{requirement}}",
+                "type": "text"
+              },
+              {
+                "key": "Token",
+                "value": "",
+                "type": "text"
+              },
+              {
+                "key": "idempotency-key",
+                "value": "1",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"UserId\": \"{{username}}\",\n  \"UserPassword\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{auth_url}}",
+              "protocol": "http",
+              "host": [
+                "10",
+                "0",
+                "0",
+                "5"
+              ],
+              "port": "5101",
+              "path": [
+                "api",
+                "Authenticate",
+                "v1",
+                "Execute"
+              ],
+              "query": []
+            },
+            "description": "Obtiene el token de sesion para los requests del flujo."
+          },
+          "response": []
+        },
+        {
+          "name": "1. getMembersOfGroup",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 2xx', function () { pm.expect(pm.response.code).to.be.within(200, 299); });",
+                  "var text = pm.response.text();",
+                  "pm.collectionVariables.set('lastJsonResponse', text);",
+                  "var data = {};",
+                  "try { data = text ? JSON.parse(text) : {}; } catch (e) {}",
+                  "function pick(node, parts) {",
+                  "  if (node === null || node === undefined) return undefined;",
+                  "  if (!parts.length) return node;",
+                  "  var current = parts[0];",
+                  "  var rest = parts.slice(1);",
+                  "  if (Array.isArray(node)) {",
+                  "    if (current === 'item') {",
+                  "      for (var i = 0; i < node.length; i++) {",
+                  "        var foundItem = pick(node[i], rest);",
+                  "        if (foundItem !== undefined && foundItem !== null && foundItem !== '') return foundItem;",
+                  "      }",
+                  "      return undefined;",
+                  "    }",
+                  "    for (var j = 0; j < node.length; j++) {",
+                  "      var foundArray = pick(node[j], parts);",
+                  "      if (foundArray !== undefined && foundArray !== null && foundArray !== '') return foundArray;",
+                  "    }",
+                  "    return undefined;",
+                  "  }",
+                  "  if (typeof node !== 'object') return undefined;",
+                  "  return pick(node[current], rest);",
+                  "}",
+                  "function pickCollectionValue(node, pathParts, filterParts, expected) {",
+                  "  var itemIndex = pathParts.indexOf('item');",
+                  "  if (itemIndex <= 0 || itemIndex >= pathParts.length - 1) return pick(node, pathParts);",
+                  "  var collection = pick(node, pathParts.slice(0, itemIndex));",
+                  "  if (!Array.isArray(collection)) return undefined;",
+                  "  var valueParts = pathParts.slice(itemIndex + 1);",
+                  "  var normalizedExpected = String(expected == null ? '' : expected).trim().toLowerCase();",
+                  "  for (var idx = 0; idx < collection.length; idx++) {",
+                  "    var entry = collection[idx];",
+                  "    if (filterParts && filterParts.length) {",
+                  "      var candidate = pick(entry, filterParts);",
+                  "      if (candidate === undefined || candidate === null) continue;",
+                  "      if (String(candidate).trim().toLowerCase() !== normalizedExpected) continue;",
+                  "    }",
+                  "    var selected = pick(entry, valueParts);",
+                  "    if (selected !== undefined && selected !== null && selected !== '') return selected;",
+                  "  }",
+                  "  return undefined;",
+                  "}",
+                  "var out_Loans_getMembersOfGroup_membersData_member_item_personName = pick(data, [\"membersData\",\"member\",\"item\",\"personName\"]);",
+                  "if (out_Loans_getMembersOfGroup_membersData_member_item_personName !== undefined && out_Loans_getMembersOfGroup_membersData_member_item_personName !== null && typeof out_Loans_getMembersOfGroup_membersData_member_item_personName !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getMembersOfGroup_membersData_member_item_personName\", String(out_Loans_getMembersOfGroup_membersData_member_item_personName));",
+                  "}",
+                  "var out_Loans_getMembersOfGroup_membersData_member_item_cycleIdOfMember = pick(data, [\"membersData\",\"member\",\"item\",\"cycleIdOfMember\"]);",
+                  "if (out_Loans_getMembersOfGroup_membersData_member_item_cycleIdOfMember !== undefined && out_Loans_getMembersOfGroup_membersData_member_item_cycleIdOfMember !== null && typeof out_Loans_getMembersOfGroup_membersData_member_item_cycleIdOfMember !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getMembersOfGroup_membersData_member_item_cycleIdOfMember\", String(out_Loans_getMembersOfGroup_membersData_member_item_cycleIdOfMember));",
+                  "}",
+                  "var out_Loans_getMembersOfGroup_membersData_member_item_documentTypeDescription = pick(data, [\"membersData\",\"member\",\"item\",\"documentTypeDescription\"]);",
+                  "if (out_Loans_getMembersOfGroup_membersData_member_item_documentTypeDescription !== undefined && out_Loans_getMembersOfGroup_membersData_member_item_documentTypeDescription !== null && typeof out_Loans_getMembersOfGroup_membersData_member_item_documentTypeDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getMembersOfGroup_membersData_member_item_documentTypeDescription\", String(out_Loans_getMembersOfGroup_membersData_member_item_documentTypeDescription));",
+                  "}",
+                  "var out_Loans_getMembersOfGroup_membersData_member_item_personGUID = pick(data, [\"membersData\",\"member\",\"item\",\"personGUID\"]);",
+                  "if (out_Loans_getMembersOfGroup_membersData_member_item_personGUID !== undefined && out_Loans_getMembersOfGroup_membersData_member_item_personGUID !== null && typeof out_Loans_getMembersOfGroup_membersData_member_item_personGUID !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getMembersOfGroup_membersData_member_item_personGUID\", String(out_Loans_getMembersOfGroup_membersData_member_item_personGUID));",
+                  "}",
+                  "var out_Loans_getMembersOfGroup_membersData_member_item_countryDescription = pick(data, [\"membersData\",\"member\",\"item\",\"countryDescription\"]);",
+                  "if (out_Loans_getMembersOfGroup_membersData_member_item_countryDescription !== undefined && out_Loans_getMembersOfGroup_membersData_member_item_countryDescription !== null && typeof out_Loans_getMembersOfGroup_membersData_member_item_countryDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getMembersOfGroup_membersData_member_item_countryDescription\", String(out_Loans_getMembersOfGroup_membersData_member_item_countryDescription));",
+                  "}",
+                  "var out_Loans_getMembersOfGroup_membersData_member_item_documentNumber = pick(data, [\"membersData\",\"member\",\"item\",\"documentNumber\"]);",
+                  "if (out_Loans_getMembersOfGroup_membersData_member_item_documentNumber !== undefined && out_Loans_getMembersOfGroup_membersData_member_item_documentNumber !== null && typeof out_Loans_getMembersOfGroup_membersData_member_item_documentNumber !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getMembersOfGroup_membersData_member_item_documentNumber\", String(out_Loans_getMembersOfGroup_membersData_member_item_documentNumber));",
+                  "}",
+                  "var out_Loans_getMembersOfGroup_membersData_member_item_memberTypeId = pick(data, [\"membersData\",\"member\",\"item\",\"memberTypeId\"]);",
+                  "if (out_Loans_getMembersOfGroup_membersData_member_item_memberTypeId !== undefined && out_Loans_getMembersOfGroup_membersData_member_item_memberTypeId !== null && typeof out_Loans_getMembersOfGroup_membersData_member_item_memberTypeId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getMembersOfGroup_membersData_member_item_memberTypeId\", String(out_Loans_getMembersOfGroup_membersData_member_item_memberTypeId));",
+                  "}",
+                  "var out_Loans_getMembersOfGroup_membersData_member_item_documentTypeId = pick(data, [\"membersData\",\"member\",\"item\",\"documentTypeId\"]);",
+                  "if (out_Loans_getMembersOfGroup_membersData_member_item_documentTypeId !== undefined && out_Loans_getMembersOfGroup_membersData_member_item_documentTypeId !== null && typeof out_Loans_getMembersOfGroup_membersData_member_item_documentTypeId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getMembersOfGroup_membersData_member_item_documentTypeId\", String(out_Loans_getMembersOfGroup_membersData_member_item_documentTypeId));",
+                  "}",
+                  "var out_Loans_getMembersOfGroup_membersData_member_item_counterpartyName = pick(data, [\"membersData\",\"member\",\"item\",\"counterpartyName\"]);",
+                  "if (out_Loans_getMembersOfGroup_membersData_member_item_counterpartyName !== undefined && out_Loans_getMembersOfGroup_membersData_member_item_counterpartyName !== null && typeof out_Loans_getMembersOfGroup_membersData_member_item_counterpartyName !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getMembersOfGroup_membersData_member_item_counterpartyName\", String(out_Loans_getMembersOfGroup_membersData_member_item_counterpartyName));",
+                  "}",
+                  "var out_Loans_getMembersOfGroup_membersData_member_item_counterpartyGUID = pick(data, [\"membersData\",\"member\",\"item\",\"counterpartyGUID\"]);",
+                  "if (out_Loans_getMembersOfGroup_membersData_member_item_counterpartyGUID !== undefined && out_Loans_getMembersOfGroup_membersData_member_item_counterpartyGUID !== null && typeof out_Loans_getMembersOfGroup_membersData_member_item_counterpartyGUID !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getMembersOfGroup_membersData_member_item_counterpartyGUID\", String(out_Loans_getMembersOfGroup_membersData_member_item_counterpartyGUID));",
+                  "}",
+                  "var out_Loans_getMembersOfGroup_membersData_member_item_memberTypeDescription = pick(data, [\"membersData\",\"member\",\"item\",\"memberTypeDescription\"]);",
+                  "if (out_Loans_getMembersOfGroup_membersData_member_item_memberTypeDescription !== undefined && out_Loans_getMembersOfGroup_membersData_member_item_memberTypeDescription !== null && typeof out_Loans_getMembersOfGroup_membersData_member_item_memberTypeDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getMembersOfGroup_membersData_member_item_memberTypeDescription\", String(out_Loans_getMembersOfGroup_membersData_member_item_memberTypeDescription));",
+                  "}",
+                  "var out_Loans_getMembersOfGroup_membersData_member_item_countryId = pick(data, [\"membersData\",\"member\",\"item\",\"countryId\"]);",
+                  "if (out_Loans_getMembersOfGroup_membersData_member_item_countryId !== undefined && out_Loans_getMembersOfGroup_membersData_member_item_countryId !== null && typeof out_Loans_getMembersOfGroup_membersData_member_item_countryId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getMembersOfGroup_membersData_member_item_countryId\", String(out_Loans_getMembersOfGroup_membersData_member_item_countryId));",
+                  "}",
+                  "var out_Loans_getMembersOfGroup_hasNext = pick(data, [\"hasNext\"]);",
+                  "if (out_Loans_getMembersOfGroup_hasNext !== undefined && out_Loans_getMembersOfGroup_hasNext !== null && typeof out_Loans_getMembersOfGroup_hasNext !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getMembersOfGroup_hasNext\", String(out_Loans_getMembersOfGroup_hasNext));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Canal",
+                "value": "{{channel}}",
+                "type": "text"
+              },
+              {
+                "key": "Device",
+                "value": "{{device}}",
+                "type": "text"
+              },
+              {
+                "key": "Usuario",
+                "value": "{{username}}",
+                "type": "text"
+              },
+              {
+                "key": "Requerimiento",
+                "value": "{{requirement}}",
+                "type": "text"
+              },
+              {
+                "key": "Token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/public/Loans/v1/getMembersOfGroup?offset={{offset}}&limit={{limit}}&groupId={{groupId}}",
+              "protocol": "http",
+              "host": [
+                "10",
+                "0",
+                "0",
+                "5"
+              ],
+              "port": "5101",
+              "path": [
+                "api",
+                "public",
+                "Loans",
+                "v1",
+                "getMembersOfGroup"
+              ],
+              "query": [
+                {
+                  "key": "offset",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "1"
+                },
+                {
+                  "key": "groupId",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Enter a description"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

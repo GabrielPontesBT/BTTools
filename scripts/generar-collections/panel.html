@@ -1,0 +1,207 @@
+    <!-- Paso 8: Collection -->
+    <div class="panel" id="p8">
+      <div class="collection-shell">
+        <div class="ptitle">Generar casos de prueba</div>
+        <div class="collection-lead">Genera casos de uso JSON a partir de los servicios del ambiente y arma cadenas listas para ejecutar, revisar y exportar.</div>
+
+        <div id="collection-path-note" class="collection-path" style="display:none"></div>
+
+        <!-- Vive fuera de collection-config/collection-services a proposito: ambos
+             bloques se ocultan segun el stage (setup/builder), pero el feedback
+             debe verse en cualquiera de los dos (ver collection-feedback-manager.js).
+             position:fixed => flota en la esquina superior derecha de toda la
+             pantalla, nunca tapa ni desplaza la barra de acciones. -->
+        <div id="collection-toast-stack" class="collection-toast-stack" aria-live="polite" aria-atomic="false"></div>
+
+        <div id="collection-config" class="collection-block" style="display:none">
+          <div class="collection-setup-head">
+            <h3>Cargar servicios</h3>
+            <button type="button" class="btn btn-ghost" onclick="goBack()">&#8592; Volver</button>
+          </div>
+          <div class="collection-catalog-grid">
+          <div class="field" style="margin-bottom:14px">
+            <label>Fuente</label>
+            <select id="collection-source-select" onchange="collectionUpdateServiceSource(this.value)">
+              <option value="swagger" selected>Swagger</option>
+              <option value="database">Base de datos</option>
+            </select>
+          </div>
+          <!-- Solo visible para V3 (V4 siempre usa JSON): ver
+               CollectionEnvironmentManager.syncSourceUi(), que la muestra/oculta
+               y fija el valor inicial segun la version activa del wizard. -->
+          <div class="field" id="collection-format-field" style="margin-bottom:12px; display:none">
+            <label>Formato</label>
+            <select id="collection-format-select" onchange="collectionUpdateFormat(this.value)">
+              <option value="xml">XML (SOAP)</option>
+              <option value="json">JSON (experimental)</option>
+            </select>
+          </div>
+          <div class="field" id="collection-swagger-field" style="margin-bottom:12px">
+            <label>Ruta Swagger</label>
+            <input type="text" id="collection-swagger-url" placeholder="ej: http://10.0.0.5:5101/api/swagger-ui/index.html#/" oninput="collectionUpdateSwaggerUrl(this.value)">
+          </div>
+          <div class="collection-catalog-actions">
+            <button class="btn btn-primary" type="button" id="btn-collection-load-services">Cargar servicios</button>
+          </div>
+          </div>
+          <details class="collection-tech-details">
+            <summary>Ver detalles tecnicos</summary>
+            <div id="collection-env-summary" class="collection-tech-content">Todavia no hay configuracion cargada desde el wizard.</div>
+          </details>
+        </div>
+
+        <div id="collection-services" class="collection-block" style="display:none">
+          <div class="collection-builder-v2">
+            <div class="collection-builder-top">
+              <div class="collection-builder-header">
+                <div class="collection-builder-context-fields">
+                  <div class="collection-builder-field-inline">
+                    <label for="collection-name">Nombre</label>
+                    <input type="text" id="collection-name" value="Bantotal JSON Collection" placeholder="Ej. CASH Management" oninput="collectionUpdateName(this.value)">
+                  </div>
+                  <div class="collection-builder-field-inline">
+                    <label for="collection-scenario-name">Cadena</label>
+                    <input type="text" id="collection-scenario-name" value="Caso de uso 1" placeholder="Ej. Alta de operacion" oninput="collectionRenameActiveScenario(this.value)">
+                    <!-- Cada caso de uso se exporta como su propia carpeta en
+                         la collection generada (ver buildJsonPostmanCollection);
+                         este menu deja agregar/cambiar entre varios sin ocupar
+                         su propia fila. Reutiliza el popover de "Mas" para
+                         consistencia visual. -->
+                    <details class="collection-builder-menu collection-scenario-menu">
+                      <summary class="collection-scenario-menu-trigger" onclick="event.stopPropagation()" title="Ver todos los casos de uso">
+                        <span aria-hidden="true">&#9776;</span>
+                        <span id="collection-scenario-count-badge" class="collection-scenario-count-badge">1</span>
+                      </summary>
+                      <div class="collection-builder-menu-popover collection-scenario-menu-popover" onclick="event.stopPropagation()">
+                        <div class="collection-scenario-menu-title">Casos de uso</div>
+                        <div id="collection-scenarios" class="collection-scenario-list"></div>
+                        <button type="button" class="collection-scenario-add-btn" onclick="collectionAddScenario()">
+                          <span aria-hidden="true">+</span><span>Nuevo caso de uso</span>
+                        </button>
+                      </div>
+                    </details>
+                  </div>
+                </div>
+                <div class="collection-builder-actions">
+                  <!-- Solo visible en modo ejecucion (ver .collection-execution-active
+                       en collections.css): reemplaza la fila de resumen que antes
+                       vivia arriba del canvas (Volver + Ejecucion #N + menu), que
+                       repetia info ya visible en el step card. -->
+                  <button type="button" class="collection-exec-back-icon-btn" id="btn-collection-setup-back" onclick="collectionBackToSetup()" title="Volver a la configuracion de servicios" aria-label="Volver a la configuracion de servicios"><span aria-hidden="true">&#8592;</span></button>
+                  <button type="button" class="collection-exec-back-icon-btn" id="btn-collection-exec-back" onclick="collectionCloseExecutionMode()" title="Volver al builder" aria-label="Volver al builder"><span aria-hidden="true">&#8592;</span></button>
+                  <button class="btn btn-outline" id="btn-collection-add-service-top" onclick="collectionOpenServiceDrawer()"><span class="collection-btn-icon">＋</span><span>Agregar servicio</span></button>
+                  <button class="btn btn-outline" id="btn-collection-execute" onclick="collectionExecuteFlow()" disabled title="Agrega y configura al menos un servicio para probar."><span class="collection-btn-icon">▶</span><span>Probar</span></button>
+                  <!-- btn-ai-accent: unica accion asistida por IA de esta barra;
+                       usa un acento violeta (no el rojo de marca) para separarla
+                       visualmente de las acciones deterministicas de al lado. -->
+                  <button class="btn btn-outline btn-ai-accent" id="btn-collection-suggest-chain" onclick="collectionOpenChainSuggestionDrawer()" title="Descubre metodos que se conectan por sus datos."><span class="collection-btn-icon">&#10024;</span><span>Sugerir cadena</span></button>
+                  <details class="collection-builder-menu">
+                    <summary class="collection-builder-menu-trigger" onclick="event.stopPropagation()"><span>Más</span><span aria-hidden="true">&#9662;</span></summary>
+                    <div class="collection-builder-menu-popover" onclick="event.stopPropagation()">
+                      <button type="button" class="collection-builder-menu-item" id="btn-collection-fill-data" onclick="collectionFillData()" disabled title="Agrega servicios para completar datos de entrada."><span class="collection-btn-icon">◫</span><span>Rellenar datos</span></button>
+                      <button type="button" class="collection-builder-menu-item" id="btn-collection-open-console" onclick="if(typeof collectionOpenExecutionConsole==='function'){collectionOpenExecutionConsole();}" disabled title="Ejecuta la cadena para ver los resultados."><span class="collection-btn-icon">◉</span><span>Ver ejecucion</span></button>
+                      <button type="button" class="collection-builder-menu-item" id="btn-collection-import" onclick="collectionTriggerImportCollection()" title="Reconstruye casos de uso a partir de una collection generada antes por esta app. Requiere tener los servicios del ambiente ya cargados."><span class="collection-btn-icon">&#8593;</span><span>Importar collection</span></button>
+                    </div>
+                  </details>
+                  <!-- Oculto: dispara collectionImportCollectionFile al elegir un
+                       archivo. Vive fuera del <details> para no perder el valor
+                       del input si el popover se cierra al hacer foco en el dialogo
+                       nativo del sistema operativo. -->
+                  <input type="file" id="collection-import-file" accept=".json,application/json" style="display:none" onchange="collectionImportCollectionFile(this.files[0])">
+                  <!-- El texto es generico a proposito: el formato real (JSON o
+                       XML/SOAP) depende de collectionState.format (ver el selector
+                       "Formato" en el paso Cargar servicios para V3). -->
+                  <button class="btn btn-primary" id="btn-collection-generate" onclick="collectionGenerate()" disabled title="Agrega y configura al menos un servicio."><span class="collection-btn-icon">{ }</span><span>Generar collection</span></button>
+                  <!-- Lo llena collectionGetExecutionCenter().render() con las
+                       acciones de la corrida activa (reejecutar/exportar/volver). -->
+                  <div id="collection-exec-header-menu-slot" class="collection-exec-header-menu-slot"></div>
+                </div>
+              </div>
+            </div>
+
+            <div id="collection-builder-mode" class="collection-builder-mode-v2">
+              <div class="collection-builder-feedback">
+                <div id="collection-execution-inline" class="collection-inline-console" style="display:none"></div>
+                <div id="collection-result" class="collection-result"></div>
+              </div>
+
+              <div id="collection-builder-workspace" class="collection-builder-workspace">
+                <button id="collection-builder-backdrop" class="collection-builder-backdrop" type="button" onclick="collectionHandleBuilderBackdropClick()"></button>
+
+                <aside id="collection-builder-service-drawer" class="collection-builder-service-drawer collection-service-selector">
+                  <div class="collection-service-selector-head">
+                    <div>
+                      <div class="collection-service-selector-title">Agregar servicios</div>
+                    </div>
+                    <button type="button" class="collection-service-selector-close" onclick="collectionCloseServiceDrawer()" aria-label="Cerrar">&times;</button>
+                  </div>
+                  <div class="collection-service-search-wrap">
+                    <span class="collection-service-search-icon">&#128269;</span>
+                    <input type="text" id="collection-service-search" class="collection-service-search-input" placeholder="Buscar servicio o metodo..." oninput="collectionFilterServices()">
+                  </div>
+                  <div id="collection-service-list" class="collection-service-list"></div>
+                </aside>
+
+                <div class="collection-builder-stage">
+                  <div class="collection-builder-canvas-shell">
+                    <!-- Mismas clases que el stepper de zoom del panel de
+                         Ejecucion (collection-zoom-stepper), reutilizadas
+                         para consistencia visual. -->
+                    <div class="collection-canvas-toolbar">
+                      <div class="collection-zoom-stepper" role="group" aria-label="Zoom">
+                        <button type="button" class="collection-zoom-step-btn" onclick="collectionZoomOutCanvas()" aria-label="Alejar">&minus;</button>
+                        <span class="collection-zoom-percent" id="collection-canvas-zoom-label">100%</span>
+                        <button type="button" class="collection-zoom-step-btn" onclick="collectionZoomInCanvas()" aria-label="Acercar">+</button>
+                      </div>
+                      <button type="button" class="collection-exec-tool-btn" id="collection-canvas-collapse-btn" onclick="collectionToggleCanvasCompact()">Colapsar todo</button>
+                    </div>
+                    <div id="collection-chain" class="collection-chain"></div>
+                  </div>
+                </div>
+
+                <aside id="collection-builder-inspector-drawer" class="collection-builder-inspector-drawer">
+                  <div class="collection-builder-drawer-head collection-builder-drawer-head-right">
+                    <div>
+                      <div class="collection-builder-drawer-kicker">Configurar paso</div>
+                      <div id="collection-builder-inspector-title" class="collection-builder-drawer-title">Configurar paso</div>
+                      <div id="collection-builder-inspector-meta" class="collection-builder-drawer-meta">Selecciona un paso del flujo para ver su configuracion.</div>
+                    </div>
+                    <button type="button" class="collection-builder-drawer-close" onclick="collectionCloseInspectorDrawer()" aria-label="Cerrar">&times;</button>
+                  </div>
+                  <!-- Arriba, junto al titulo: mas visible que al pie del panel,
+                       que es lo primero que se pierde con scroll largo. -->
+                  <div id="collection-inspector-footer" class="collection-inspector-footer"></div>
+                  <div id="collection-inspector-tabs" class="collection-inspector-tabs"></div>
+                  <div id="collection-step-config" class="collection-step-config"></div>
+                </aside>
+
+                <aside id="collection-chain-suggestion-drawer" class="collection-chain-suggestion-drawer">
+                  <div class="collection-chain-suggestion-head">
+                    <div>
+                      <div class="collection-chain-suggestion-title">&#10024; Sugerir cadena</div>
+                      <div class="collection-chain-suggestion-subtitle">Encuentra metodos que se conectan por sus datos.</div>
+                    </div>
+                    <button type="button" class="collection-chain-suggestion-close" onclick="collectionCloseChainSuggestionDrawer()" aria-label="Cerrar">&times;</button>
+                  </div>
+                  <div id="collection-chain-suggestion-body" class="collection-chain-suggestion-body"></div>
+                </aside>
+              </div>
+
+              <div id="collection-flow-wrap" class="collection-flow-wrap" style="display:none">
+                <div id="collection-flow" class="collection-flow"></div>
+              </div>
+
+              <div id="collection-vars-wrap" style="display:none;margin-top:14px">
+                <div id="collection-vars" class="collection-vars"></div>
+              </div>
+            </div>
+
+            <div id="collection-execution-mode" class="collection-execution-mode" style="display:none"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+
+

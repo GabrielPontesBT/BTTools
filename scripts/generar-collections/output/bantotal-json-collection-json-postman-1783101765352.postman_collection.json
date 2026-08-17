@@ -1,0 +1,528 @@
+{
+  "info": {
+    "name": "Bantotal JSON Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Coleccion generada desde Swagger para flujo JSON/Postman."
+  },
+  "variable": [
+    {
+      "key": "api_base_url",
+      "value": "http://10.0.0.5:5101/api",
+      "type": "string"
+    },
+    {
+      "key": "public_api_url",
+      "value": "http://10.0.0.5:5101/api",
+      "type": "string"
+    },
+    {
+      "key": "base_url",
+      "value": "http://10.0.0.5:5101/api",
+      "type": "string"
+    },
+    {
+      "key": "auth_url",
+      "value": "http://10.0.0.5:5101/api/Authenticate/v1/Execute",
+      "type": "string"
+    },
+    {
+      "key": "channel",
+      "value": "BTDIGITAL",
+      "type": "string"
+    },
+    {
+      "key": "username",
+      "value": "INSTALADOR",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "Bantotal2015",
+      "type": "string"
+    },
+    {
+      "key": "device",
+      "value": "FC",
+      "type": "string"
+    },
+    {
+      "key": "requirement",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "lastSoapResponse",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "lastJsonResponse",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getProducts_products_product_item_ProductGUID",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getProducts_products_product_item_CurrencyDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getProducts_products_product_item_CurrencySign",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getProducts_products_product_item_KindDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getProducts_products_product_item_KindId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getProducts_products_product_item_ProductDescription",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getProducts_products_product_item_CurrencyId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getProducts_products_product_item_ProductGUID_filter_ProductDescription_REFACCI_N_DE_VIVIENDA",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "Loans_getProducts_products_product_item_ProductGUID_filter_ProductDescription_REFACCI_N_DE_VIVENDA",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksSavingAccount",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksCounterparty",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_description",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksCurrency",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_optionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksBranch",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Caso de uso 1",
+      "description": "Caso de uso generado desde Swagger.",
+      "item": [
+        {
+          "name": "0. Authenticate",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+                  "var data = {};",
+                  "try { data = pm.response.json(); } catch (e) {}",
+                  "pm.collectionVariables.set('lastSoapResponse', JSON.stringify(data));",
+                  "var sessionToken = data.SessionToken || data.Token || data.sessionToken || data.token;",
+                  "pm.test('Token disponible', function () { pm.expect(sessionToken, JSON.stringify(data)).to.exist; });",
+                  "if (sessionToken !== null && sessionToken !== undefined) {",
+                  "  pm.collectionVariables.set('token', String(sessionToken));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Canal",
+                "value": "{{channel}}",
+                "type": "text"
+              },
+              {
+                "key": "Device",
+                "value": "{{device}}",
+                "type": "text"
+              },
+              {
+                "key": "Usuario",
+                "value": "{{username}}",
+                "type": "text"
+              },
+              {
+                "key": "Requerimiento",
+                "value": "{{requirement}}",
+                "type": "text"
+              },
+              {
+                "key": "Token",
+                "value": "",
+                "type": "text"
+              },
+              {
+                "key": "idempotency-key",
+                "value": "1",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"UserId\": \"{{username}}\",\n  \"UserPassword\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{auth_url}}",
+              "protocol": "http",
+              "host": [
+                "10",
+                "0",
+                "0",
+                "5"
+              ],
+              "port": "5101",
+              "path": [
+                "api",
+                "Authenticate",
+                "v1",
+                "Execute"
+              ],
+              "query": []
+            },
+            "description": "Obtiene el token de sesion para los requests del flujo."
+          },
+          "response": []
+        },
+        {
+          "name": "1. getProducts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 2xx', function () { pm.expect(pm.response.code).to.be.within(200, 299); });",
+                  "var text = pm.response.text();",
+                  "pm.collectionVariables.set('lastJsonResponse', text);",
+                  "var data = {};",
+                  "try { data = text ? JSON.parse(text) : {}; } catch (e) {}",
+                  "function pick(node, parts) {",
+                  "  if (node === null || node === undefined) return undefined;",
+                  "  if (!parts.length) return node;",
+                  "  var current = parts[0];",
+                  "  var rest = parts.slice(1);",
+                  "  if (Array.isArray(node)) {",
+                  "    if (current === 'item') {",
+                  "      for (var i = 0; i < node.length; i++) {",
+                  "        var foundItem = pick(node[i], rest);",
+                  "        if (foundItem !== undefined && foundItem !== null && foundItem !== '') return foundItem;",
+                  "      }",
+                  "      return undefined;",
+                  "    }",
+                  "    for (var j = 0; j < node.length; j++) {",
+                  "      var foundArray = pick(node[j], parts);",
+                  "      if (foundArray !== undefined && foundArray !== null && foundArray !== '') return foundArray;",
+                  "    }",
+                  "    return undefined;",
+                  "  }",
+                  "  if (typeof node !== 'object') return undefined;",
+                  "  return pick(node[current], rest);",
+                  "}",
+                  "function pickCollectionValue(node, pathParts, filterParts, expected) {",
+                  "  var itemIndex = pathParts.indexOf('item');",
+                  "  if (itemIndex <= 0 || itemIndex >= pathParts.length - 1) return pick(node, pathParts);",
+                  "  var collection = pick(node, pathParts.slice(0, itemIndex));",
+                  "  if (!Array.isArray(collection)) return undefined;",
+                  "  var valueParts = pathParts.slice(itemIndex + 1);",
+                  "  var normalizedExpected = String(expected == null ? '' : expected).trim().toLowerCase();",
+                  "  for (var idx = 0; idx < collection.length; idx++) {",
+                  "    var entry = collection[idx];",
+                  "    if (filterParts && filterParts.length) {",
+                  "      var candidate = pick(entry, filterParts);",
+                  "      if (candidate === undefined || candidate === null) continue;",
+                  "      if (String(candidate).trim().toLowerCase() !== normalizedExpected) continue;",
+                  "    }",
+                  "    var selected = pick(entry, valueParts);",
+                  "    if (selected !== undefined && selected !== null && selected !== '') return selected;",
+                  "  }",
+                  "  return undefined;",
+                  "}",
+                  "var out_Loans_getProducts_products_product_item_ProductGUID = pick(data, [\"products\",\"product\",\"item\",\"ProductGUID\"]);",
+                  "if (out_Loans_getProducts_products_product_item_ProductGUID !== undefined && out_Loans_getProducts_products_product_item_ProductGUID !== null && typeof out_Loans_getProducts_products_product_item_ProductGUID !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getProducts_products_product_item_ProductGUID\", String(out_Loans_getProducts_products_product_item_ProductGUID));",
+                  "}",
+                  "var out_Loans_getProducts_products_product_item_CurrencyDescription = pick(data, [\"products\",\"product\",\"item\",\"CurrencyDescription\"]);",
+                  "if (out_Loans_getProducts_products_product_item_CurrencyDescription !== undefined && out_Loans_getProducts_products_product_item_CurrencyDescription !== null && typeof out_Loans_getProducts_products_product_item_CurrencyDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getProducts_products_product_item_CurrencyDescription\", String(out_Loans_getProducts_products_product_item_CurrencyDescription));",
+                  "}",
+                  "var out_Loans_getProducts_products_product_item_CurrencySign = pick(data, [\"products\",\"product\",\"item\",\"CurrencySign\"]);",
+                  "if (out_Loans_getProducts_products_product_item_CurrencySign !== undefined && out_Loans_getProducts_products_product_item_CurrencySign !== null && typeof out_Loans_getProducts_products_product_item_CurrencySign !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getProducts_products_product_item_CurrencySign\", String(out_Loans_getProducts_products_product_item_CurrencySign));",
+                  "}",
+                  "var out_Loans_getProducts_products_product_item_KindDescription = pick(data, [\"products\",\"product\",\"item\",\"KindDescription\"]);",
+                  "if (out_Loans_getProducts_products_product_item_KindDescription !== undefined && out_Loans_getProducts_products_product_item_KindDescription !== null && typeof out_Loans_getProducts_products_product_item_KindDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getProducts_products_product_item_KindDescription\", String(out_Loans_getProducts_products_product_item_KindDescription));",
+                  "}",
+                  "var out_Loans_getProducts_products_product_item_KindId = pick(data, [\"products\",\"product\",\"item\",\"KindId\"]);",
+                  "if (out_Loans_getProducts_products_product_item_KindId !== undefined && out_Loans_getProducts_products_product_item_KindId !== null && typeof out_Loans_getProducts_products_product_item_KindId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getProducts_products_product_item_KindId\", String(out_Loans_getProducts_products_product_item_KindId));",
+                  "}",
+                  "var out_Loans_getProducts_products_product_item_ProductDescription = pick(data, [\"products\",\"product\",\"item\",\"ProductDescription\"]);",
+                  "if (out_Loans_getProducts_products_product_item_ProductDescription !== undefined && out_Loans_getProducts_products_product_item_ProductDescription !== null && typeof out_Loans_getProducts_products_product_item_ProductDescription !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getProducts_products_product_item_ProductDescription\", String(out_Loans_getProducts_products_product_item_ProductDescription));",
+                  "}",
+                  "var out_Loans_getProducts_products_product_item_CurrencyId = pick(data, [\"products\",\"product\",\"item\",\"CurrencyId\"]);",
+                  "if (out_Loans_getProducts_products_product_item_CurrencyId !== undefined && out_Loans_getProducts_products_product_item_CurrencyId !== null && typeof out_Loans_getProducts_products_product_item_CurrencyId !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getProducts_products_product_item_CurrencyId\", String(out_Loans_getProducts_products_product_item_CurrencyId));",
+                  "}",
+                  "var filtered_Loans_getProducts_products_product_item_ProductGUID_filter_ProductDescription_REFACCI_N_DE_VIVIENDA = pickCollectionValue(data, [\"products\",\"product\",\"item\",\"ProductGUID\"], [\"ProductDescription\"], \"REFACCIÓN DE VIVIENDA\");",
+                  "if (filtered_Loans_getProducts_products_product_item_ProductGUID_filter_ProductDescription_REFACCI_N_DE_VIVIENDA !== undefined && filtered_Loans_getProducts_products_product_item_ProductGUID_filter_ProductDescription_REFACCI_N_DE_VIVIENDA !== null && typeof filtered_Loans_getProducts_products_product_item_ProductGUID_filter_ProductDescription_REFACCI_N_DE_VIVIENDA !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getProducts_products_product_item_ProductGUID_filter_ProductDescription_REFACCI_N_DE_VIVIENDA\", String(filtered_Loans_getProducts_products_product_item_ProductGUID_filter_ProductDescription_REFACCI_N_DE_VIVIENDA));",
+                  "}",
+                  "var filtered_Loans_getProducts_products_product_item_ProductGUID_filter_ProductDescription_REFACCI_N_DE_VIVENDA = pickCollectionValue(data, [\"products\",\"product\",\"item\",\"ProductGUID\"], [\"ProductDescription\"], \"REFACCIÓN DE VIVENDA\");",
+                  "if (filtered_Loans_getProducts_products_product_item_ProductGUID_filter_ProductDescription_REFACCI_N_DE_VIVENDA !== undefined && filtered_Loans_getProducts_products_product_item_ProductGUID_filter_ProductDescription_REFACCI_N_DE_VIVENDA !== null && typeof filtered_Loans_getProducts_products_product_item_ProductGUID_filter_ProductDescription_REFACCI_N_DE_VIVENDA !== 'object') {",
+                  "  pm.collectionVariables.set(\"Loans_getProducts_products_product_item_ProductGUID_filter_ProductDescription_REFACCI_N_DE_VIVENDA\", String(filtered_Loans_getProducts_products_product_item_ProductGUID_filter_ProductDescription_REFACCI_N_DE_VIVENDA));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Canal",
+                "value": "{{channel}}",
+                "type": "text"
+              },
+              {
+                "key": "Device",
+                "value": "{{device}}",
+                "type": "text"
+              },
+              {
+                "key": "Usuario",
+                "value": "{{username}}",
+                "type": "text"
+              },
+              {
+                "key": "Requerimiento",
+                "value": "{{requirement}}",
+                "type": "text"
+              },
+              {
+                "key": "Token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/public/Loans/v1/getProducts",
+              "protocol": "http",
+              "host": [
+                "10",
+                "0",
+                "0",
+                "5"
+              ],
+              "port": "5101",
+              "path": [
+                "api",
+                "public",
+                "Loans",
+                "v1",
+                "getProducts"
+              ],
+              "query": []
+            },
+            "description": "Enter a description"
+          },
+          "response": []
+        },
+        {
+          "name": "2. getLoanDisbursementOptions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 2xx', function () { pm.expect(pm.response.code).to.be.within(200, 299); });",
+                  "var text = pm.response.text();",
+                  "pm.collectionVariables.set('lastJsonResponse', text);",
+                  "var data = {};",
+                  "try { data = text ? JSON.parse(text) : {}; } catch (e) {}",
+                  "function pick(node, parts) {",
+                  "  if (node === null || node === undefined) return undefined;",
+                  "  if (!parts.length) return node;",
+                  "  var current = parts[0];",
+                  "  var rest = parts.slice(1);",
+                  "  if (Array.isArray(node)) {",
+                  "    if (current === 'item') {",
+                  "      for (var i = 0; i < node.length; i++) {",
+                  "        var foundItem = pick(node[i], rest);",
+                  "        if (foundItem !== undefined && foundItem !== null && foundItem !== '') return foundItem;",
+                  "      }",
+                  "      return undefined;",
+                  "    }",
+                  "    for (var j = 0; j < node.length; j++) {",
+                  "      var foundArray = pick(node[j], parts);",
+                  "      if (foundArray !== undefined && foundArray !== null && foundArray !== '') return foundArray;",
+                  "    }",
+                  "    return undefined;",
+                  "  }",
+                  "  if (typeof node !== 'object') return undefined;",
+                  "  return pick(node[current], rest);",
+                  "}",
+                  "function pickCollectionValue(node, pathParts, filterParts, expected) {",
+                  "  var itemIndex = pathParts.indexOf('item');",
+                  "  if (itemIndex <= 0 || itemIndex >= pathParts.length - 1) return pick(node, pathParts);",
+                  "  var collection = pick(node, pathParts.slice(0, itemIndex));",
+                  "  if (!Array.isArray(collection)) return undefined;",
+                  "  var valueParts = pathParts.slice(itemIndex + 1);",
+                  "  var normalizedExpected = String(expected == null ? '' : expected).trim().toLowerCase();",
+                  "  for (var idx = 0; idx < collection.length; idx++) {",
+                  "    var entry = collection[idx];",
+                  "    if (filterParts && filterParts.length) {",
+                  "      var candidate = pick(entry, filterParts);",
+                  "      if (candidate === undefined || candidate === null) continue;",
+                  "      if (String(candidate).trim().toLowerCase() !== normalizedExpected) continue;",
+                  "    }",
+                  "    var selected = pick(entry, valueParts);",
+                  "    if (selected !== undefined && selected !== null && selected !== '') return selected;",
+                  "  }",
+                  "  return undefined;",
+                  "}",
+                  "var out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksSavingAccount = pick(data, [\"disbursementOptions\",\"disbursementOption\",\"item\",\"asksSavingAccount\"]);",
+                  "if (out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksSavingAccount !== undefined && out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksSavingAccount !== null && typeof out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksSavingAccount !== 'object') {",
+                  "  pm.collectionVariables.set(\"LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksSavingAccount\", String(out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksSavingAccount));",
+                  "}",
+                  "var out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksCounterparty = pick(data, [\"disbursementOptions\",\"disbursementOption\",\"item\",\"asksCounterparty\"]);",
+                  "if (out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksCounterparty !== undefined && out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksCounterparty !== null && typeof out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksCounterparty !== 'object') {",
+                  "  pm.collectionVariables.set(\"LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksCounterparty\", String(out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksCounterparty));",
+                  "}",
+                  "var out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_description = pick(data, [\"disbursementOptions\",\"disbursementOption\",\"item\",\"description\"]);",
+                  "if (out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_description !== undefined && out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_description !== null && typeof out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_description !== 'object') {",
+                  "  pm.collectionVariables.set(\"LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_description\", String(out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_description));",
+                  "}",
+                  "var out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksCurrency = pick(data, [\"disbursementOptions\",\"disbursementOption\",\"item\",\"asksCurrency\"]);",
+                  "if (out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksCurrency !== undefined && out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksCurrency !== null && typeof out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksCurrency !== 'object') {",
+                  "  pm.collectionVariables.set(\"LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksCurrency\", String(out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksCurrency));",
+                  "}",
+                  "var out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_optionId = pick(data, [\"disbursementOptions\",\"disbursementOption\",\"item\",\"optionId\"]);",
+                  "if (out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_optionId !== undefined && out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_optionId !== null && typeof out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_optionId !== 'object') {",
+                  "  pm.collectionVariables.set(\"LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_optionId\", String(out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_optionId));",
+                  "}",
+                  "var out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksBranch = pick(data, [\"disbursementOptions\",\"disbursementOption\",\"item\",\"asksBranch\"]);",
+                  "if (out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksBranch !== undefined && out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksBranch !== null && typeof out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksBranch !== 'object') {",
+                  "  pm.collectionVariables.set(\"LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksBranch\", String(out_LoanParameters_getLoanDisbursementOptions_disbursementOptions_disbursementOption_item_asksBranch));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Canal",
+                "value": "{{channel}}",
+                "type": "text"
+              },
+              {
+                "key": "Device",
+                "value": "{{device}}",
+                "type": "text"
+              },
+              {
+                "key": "Usuario",
+                "value": "{{username}}",
+                "type": "text"
+              },
+              {
+                "key": "Requerimiento",
+                "value": "{{requirement}}",
+                "type": "text"
+              },
+              {
+                "key": "Token",
+                "value": "{{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/public/LoanParameters/v1/getLoanDisbursementOptions?productGUID={{Loans_getProducts_products_product_item_ProductGUID_filter_ProductDescription_REFACCI_N_DE_VIVENDA}}",
+              "protocol": "http",
+              "host": [
+                "10",
+                "0",
+                "0",
+                "5"
+              ],
+              "port": "5101",
+              "path": [
+                "api",
+                "public",
+                "LoanParameters",
+                "v1",
+                "getLoanDisbursementOptions"
+              ],
+              "query": [
+                {
+                  "key": "productGUID",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Enter a description"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

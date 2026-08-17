@@ -1,5 +1,8 @@
 ﻿// ── Estado compartido ────────────────────────────────────────
-var S = { step: 1, version: null, platform: null, action: null };
+var S = { step: 1, version: null, platform: null, action: null, engine: null, apiMode: 'publica' };
+// Acciones que soportan trabajar contra la API Interna (tablas BTCBS);
+// Documentar y Validar siguen siempre contra la API Publica (BTI).
+var APIMODE_ACTIONS = new Set(['scripts', 'collections', 'sdtgen', 'paramgen']);
 var _connOk = false, _connTimer = null;
 var loadedEnv = null;
 (function keepAlive() {
@@ -22,15 +25,654 @@ var sgServiceGroups = [];
 var sgMultiData = null;
 var sgServicesLoaded = false;
 
+// ── Estado flujo Generar SDT ─────────────────────────────────
+var sdtgenNames = [];
+var sdtgenSelectedName = null;
+var sdtgenBaseData = null; // { bti025, bti026 }
+var sdtgenFields = []; // copia de trabajo de bti026, reordenada/filtrada
+var sdtgenDragIdx = null;
+var sdtgenExistingCopies = []; // copias no nativas ya creadas a partir del mismo SDT nativo
+
+// ── Estado flujo Editar Parametria ────────────────────────────
+var pgServicesLoaded = false;
+var pgAllServices = [];
+var pgSelectedService = null;
+var pgSelectedMethod = null;
+var pgSrvVer = '1';
+var pgFields = []; // copia de trabajo de los parametros de BTI019/BTCBS019
+var pgDragIdx = null;
+var pgTipoOptions = [];
+
+async function sdtgenLoadList() {
+  var loading = document.getElementById('sdtgen-list-loading'), err = document.getElementById('sdtgen-list-err');
+  if (err) err.className = 'cres';
+  if (loading) loading.style.display = 'flex';
+  // Cada (re)ingreso al paso 4 es un pedido fresco: una seleccion vieja no
+  // tiene por que seguir siendo valida si se volvio atras y se cambio de
+  // conexion/ambiente antes de volver a este paso.
+  sdtgenSelectedName = null;
+  var btnNext = document.getElementById('btn-next');
+  if (btnNext) btnNext.disabled = true;
+  try {
+    var r = await fetch('/api/sdtgen/list', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), apiMode: S.apiMode }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    sdtgenNames = d.names || [];
+    sdtgenRenderList(sdtgenNames);
+  } catch(e) {
+    if (err) { err.className = 'cres show err'; err.textContent = e.message; }
+  }
+  if (loading) loading.style.display = 'none';
+}
+
+function sdtgenRenderList(names) {
+  var container = document.getElementById('sdtgen-list');
+  container.innerHTML = '';
+  names.forEach(function(nom) {
+    var row = document.createElement('div');
+    row.className = 'sdtgen-row' + (nom === sdtgenSelectedName ? ' sel' : '');
+    row.textContent = nom;
+    row.onclick = function() {
+      sdtgenSelectedName = nom;
+      container.querySelectorAll('.sdtgen-row').forEach(function(r) { r.classList.remove('sel'); });
+      row.classList.add('sel');
+      var btn = document.getElementById('btn-next');
+      if (btn) btn.disabled = false;
+    };
+    container.appendChild(row);
+  });
+}
+
+function sdtgenFilterList() {
+  var q = v('sdtgen-search').toLowerCase();
+  var filtered = q ? sdtgenNames.filter(function(n) { return n.toLowerCase().indexOf(q) !== -1; }) : sdtgenNames;
+  sdtgenRenderList(filtered);
+}
+
+var SDTGEN_FIELD_NAME_RE = /^[A-Za-z][A-Za-z0-9_]{0,99}$/;
+var SDTGEN_DIGITS_RE = /^\d{1,9}$/;
+var SDTGEN_FORBIDDEN_TEXT_RE = /['";\\\r\n]/;
+
+function sdtgenEscapeAttr(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Misma regla que valida el server (buildSdtCopy) - da feedback inmediato
+// en el editor, pero la autoridad final sigue siendo el server.
+function sdtgenValidateField(f) {
+  if (!SDTGEN_FIELD_NAME_RE.test(f.elemnom || '')) return 'Nombre invalido: debe empezar con una letra y usar solo letras, numeros o guion bajo.';
+  if (!SDTGEN_DIGITS_RE.test(f.elemlargo != null ? String(f.elemlargo) : '')) return 'Largo invalido: debe ser un numero entero (0 o mayor).';
+  if (!SDTGEN_DIGITS_RE.test(f.elemdeci != null ? String(f.elemdeci) : '0')) return 'Decimales invalidos: debe ser un numero entero (0 o mayor).';
+  if (SDTGEN_FORBIDDEN_TEXT_RE.test(f.elemdsc || '')) return 'Descripcion invalida: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
+  if (f.nomit && SDTGEN_FORBIDDEN_TEXT_RE.test(f.nomit)) return 'Nombre de iterador invalido: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
+  return null;
+}
+
+function sdtgenFieldsAllValid() {
+  return sdtgenFields.every(function(f) { return !sdtgenValidateField(f); });
+}
+
+async function sdtgenGoToEdit() {
+  if (!sdtgenSelectedName) return;
+  var btn = document.getElementById('btn-next');
+  if (btn) { btn.innerHTML = '<span class="spin"></span>&nbsp;Cargando...'; btn.disabled = true; }
+  try {
+    var r = await fetch('/api/sdtgen/sdt', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, nom: sdtgenSelectedName, apiMode: S.apiMode }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    sdtgenBaseData = { bti025: d.bti025, bti026: d.bti026 };
+    // Copia editable independiente del origen; origElemnom queda fijo para
+    // que el server pueda ubicar el campo real aunque se le cambie el nombre.
+    sdtgenFields = (d.bti026 || []).map(function(f) {
+      return Object.assign({}, f, { origElemnom: f.elemnom, elemdeci: f.elemdeci || '0', nomit: f.nomit || '' });
+    });
+    setVal('sdtgen-new-name', '');
+    document.getElementById('sdtgen-base-name').textContent = sdtgenSelectedName;
+    show(5);
+    sdtgenLoadExistingCopies(d.bti025 && d.bti025.nomint);
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
+  if (btn) { btn.innerHTML = 'Siguiente &#8594;'; btn.disabled = false; }
+}
+
+async function sdtgenLoadExistingCopies(nomint) {
+  var wrap = document.getElementById('sdtgen-existing-wrap');
+  sdtgenExistingCopies = [];
+  if (wrap) wrap.style.display = 'none';
+  if (!nomint) return;
+  try {
+    var r = await fetch('/api/sdtgen/existing-copies', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, nomint: nomint, apiMode: S.apiMode }) });
+    var d = await r.json();
+    if (!d.ok || !d.copies || !d.copies.length) return;
+    sdtgenExistingCopies = d.copies;
+    sdtgenRenderExistingCopies();
+    if (wrap) wrap.style.display = '';
+  } catch(e) { /* no bloquea el flujo si falla esta busqueda informativa */ }
+}
+
+function sdtgenRenderExistingCopies() {
+  var container = document.getElementById('sdtgen-existing-list');
+  container.innerHTML = '';
+  sdtgenExistingCopies.forEach(function(copy) {
+    var row = document.createElement('div');
+    row.className = 'sdtgen-existing-item';
+
+    var head = document.createElement('div');
+    head.className = 'sdtgen-existing-head';
+    head.innerHTML = '<span class="sdtgen-existing-caret">&#9656;</span>' +
+      '<span class="sdtgen-existing-name">' + sdtgenEscapeAttr(copy.nom) + '</span>' +
+      '<span class="sdtgen-existing-estado">' + sdtgenEscapeAttr(copy.estado) + '</span>';
+    row.appendChild(head);
+
+    var body = document.createElement('div');
+    body.className = 'sdtgen-existing-body';
+    body.style.display = 'none';
+    row.appendChild(body);
+
+    var loaded = false;
+    head.onclick = function() {
+      var isOpen = body.style.display !== 'none';
+      if (isOpen) { body.style.display = 'none'; head.querySelector('.sdtgen-existing-caret').innerHTML = '&#9656;'; return; }
+      body.style.display = '';
+      head.querySelector('.sdtgen-existing-caret').innerHTML = '&#9662;';
+      if (loaded) return;
+      loaded = true;
+      body.innerHTML = '<span class="sdtgen-existing-loading">Cargando campos...</span>';
+      fetch('/api/sdtgen/sdt', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, nom: copy.nom, apiMode: S.apiMode }) })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!d.ok) { body.innerHTML = '<span class="sdtgen-existing-loading">' + sdtgenEscapeAttr(d.message) + '</span>'; return; }
+          var fields = d.bti026 || [];
+          if (!fields.length) { body.innerHTML = '<span class="sdtgen-existing-loading">Sin campos.</span>'; return; }
+          body.innerHTML = fields.map(function(f) {
+            return '<div class="sdtgen-existing-field"><span>' + sdtgenEscapeAttr(f.elemnom) + '</span><span>' + sdtgenEscapeAttr(f.elemtipo) + '</span><span>' + sdtgenEscapeAttr(f.elemdsc) + '</span></div>';
+          }).join('');
+        })
+        .catch(function(e) { body.innerHTML = '<span class="sdtgen-existing-loading">Error: ' + sdtgenEscapeAttr(e.message) + '</span>'; });
+    };
+
+    container.appendChild(row);
+  });
+}
+
+function sdtgenFieldGridCols(showV4Extras) {
+  return '24px 160px 70px 60px' + (showV4Extras ? ' 60px' : '') + ' minmax(160px,1fr)' + (showV4Extras ? ' 110px' : '') + ' 28px';
+}
+
+function sdtgenRenderEditor() {
+  var container = document.getElementById('sdtgen-fields');
+  container.innerHTML = '';
+  var showV4Extras = S.version === 'V4';
+  var gridCols = sdtgenFieldGridCols(showV4Extras);
+
+  var header = document.createElement('div');
+  header.className = 'sdtgen-fields-header';
+  header.style.gridTemplateColumns = gridCols;
+  header.innerHTML = '<span></span><span>Nombre</span><span>Tipo</span><span>Largo</span>' +
+    (showV4Extras ? '<span>Decimales</span>' : '') +
+    '<span>Descripción</span>' +
+    (showV4Extras ? '<span>Iterador</span>' : '') +
+    '<span></span>';
+  container.appendChild(header);
+
+  sdtgenFields.forEach(function(field, idx) {
+    var item = document.createElement('div');
+    item.className = 'sdtgen-field-item';
+    item.style.gridTemplateColumns = gridCols;
+    item.draggable = true;
+    item.innerHTML = '<span class="sdtgen-drag-handle">&#9776;</span>' +
+      '<input type="text" class="sdtgen-field-input sdtgen-field-input-nom" value="' + sdtgenEscapeAttr(field.elemnom) + '">' +
+      '<span class="sdtgen-field-type">' + sdtgenEscapeAttr(field.elemtipo) + '</span>' +
+      '<input type="text" class="sdtgen-field-input sdtgen-field-input-largo" value="' + sdtgenEscapeAttr(field.elemlargo) + '">' +
+      (showV4Extras ? '<input type="text" class="sdtgen-field-input sdtgen-field-input-deci" value="' + sdtgenEscapeAttr(field.elemdeci) + '">' : '') +
+      '<input type="text" class="sdtgen-field-input sdtgen-field-input-dsc" value="' + sdtgenEscapeAttr(field.elemdsc) + '">' +
+      (showV4Extras ? '<input type="text" class="sdtgen-field-input sdtgen-field-input-nomit" value="' + sdtgenEscapeAttr(field.nomit) + '">' : '') +
+      '<button type="button" class="sdtgen-field-rm" title="Quitar">&times;</button>' +
+      '<div class="sdtgen-field-err"></div>';
+
+    var err = item.querySelector('.sdtgen-field-err');
+    function updateErr() {
+      var msg = sdtgenValidateField(field);
+      err.textContent = msg || '';
+      item.classList.toggle('invalid', !!msg);
+    }
+
+    item.querySelector('.sdtgen-field-input-nom').addEventListener('input', function() { field.elemnom = this.value; updateErr(); });
+    item.querySelector('.sdtgen-field-input-largo').addEventListener('input', function() { field.elemlargo = this.value; updateErr(); });
+    item.querySelector('.sdtgen-field-input-dsc').addEventListener('input', function() { field.elemdsc = this.value; updateErr(); });
+    if (showV4Extras) {
+      item.querySelector('.sdtgen-field-input-deci').addEventListener('input', function() { field.elemdeci = this.value; updateErr(); });
+      item.querySelector('.sdtgen-field-input-nomit').addEventListener('input', function() { field.nomit = this.value; updateErr(); });
+    }
+    updateErr();
+
+    item.querySelector('.sdtgen-field-rm').onclick = function() {
+      sdtgenFields.splice(idx, 1);
+      sdtgenRenderEditor();
+    };
+    item.addEventListener('dragstart', function(e) {
+      if (e.target && e.target.tagName === 'INPUT') { e.preventDefault(); return; }
+      sdtgenDragIdx = idx; item.classList.add('dragging');
+    });
+    item.addEventListener('dragend', function() { item.classList.remove('dragging'); });
+    item.addEventListener('dragover', function(e) { e.preventDefault(); });
+    item.addEventListener('drop', function(e) {
+      e.preventDefault();
+      if (sdtgenDragIdx === null || sdtgenDragIdx === idx) return;
+      var moved = sdtgenFields.splice(sdtgenDragIdx, 1)[0];
+      sdtgenFields.splice(idx, 0, moved);
+      sdtgenDragIdx = null;
+      sdtgenRenderEditor();
+    });
+    container.appendChild(item);
+  });
+}
+
+function sdtgenGoToResult() {
+  var nombre = v('sdtgen-new-name');
+  var err = document.getElementById('sdtgen-name-err');
+  if (!nombre) { err.className = 'cres show err'; err.textContent = 'Ingresá un nombre para la copia.'; return; }
+  if (nombre === sdtgenSelectedName) { err.className = 'cres show err'; err.textContent = 'El nombre debe ser distinto al del SDT base.'; return; }
+  if (sdtgenNames.indexOf(nombre) !== -1) { err.className = 'cres show err'; err.textContent = 'Ya existe un SDT con ese nombre. Elegí otro.'; return; }
+  if (sdtgenFields.length === 0) { err.className = 'cres show err'; err.textContent = 'La copia necesita al menos un campo.'; return; }
+  if (!sdtgenFieldsAllValid()) { err.className = 'cres show err'; err.textContent = 'Hay campos con datos invalidos, revisalos antes de continuar.'; return; }
+  err.className = 'cres';
+  show(6);
+}
+
+function sdtgenBuildEditedFields() {
+  return sdtgenFields.map(function(f) {
+    return { origElemnom: f.origElemnom, elemnom: f.elemnom, elemlargo: f.elemlargo, elemdsc: f.elemdsc, elemdeci: f.elemdeci, nomit: f.nomit };
+  });
+}
+
+async function sdtgenDoGenerate() {
+  var ta = document.getElementById('sdtgen-sql-out');
+  ta.value = 'Generando...';
+  try {
+    var r = await fetch('/api/sdtgen/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+      version: S.version,
+      apiMode: S.apiMode,
+      nuevoNombre: v('sdtgen-new-name'),
+      sourceBti025: sdtgenBaseData.bti025,
+      sourceBti026: sdtgenBaseData.bti026,
+      editedFields: sdtgenBuildEditedFields()
+    }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    ta.value = d.script || '';
+  } catch(e) { ta.value = 'Error: ' + e.message; }
+}
+
+function sdtgenCopyScript() {
+  var ta = document.getElementById('sdtgen-sql-out'); if (!ta.value.trim()) return;
+  navigator.clipboard.writeText(ta.value).then(function() {
+    var res = document.getElementById('sdtgen-exec-res');
+    res.className = 'cres show ok'; res.textContent = 'Copiado al portapapeles ✓';
+    setTimeout(function() { res.className = 'cres'; }, 2000);
+  }).catch(function() { ta.select(); document.execCommand('copy'); });
+}
+
+async function sdtgenExecute() {
+  if (!confirm('Esto va a ejecutar DELETE + INSERT contra la base conectada. ¿Confirmás?')) return;
+  var res = document.getElementById('sdtgen-exec-res');
+  res.className = 'cres show'; res.textContent = 'Ejecutando...';
+  try {
+    var r = await fetch('/api/sdtgen/execute', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+      platform: S.platform, db: getDbSG(), version: S.version, apiMode: S.apiMode,
+      nom: sdtgenSelectedName,
+      nuevoNombre: v('sdtgen-new-name'),
+      editedFields: sdtgenBuildEditedFields()
+    }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    res.className = 'cres show ok'; res.textContent = 'Ejecutado correctamente (' + d.statementsRun + ' sentencias) ✓';
+  } catch(e) {
+    res.className = 'cres show err'; res.textContent = 'Error: ' + e.message;
+  }
+}
+
+function sdtgenReset() {
+  sdtgenSelectedName = null; sdtgenBaseData = null; sdtgenFields = [];
+  sdtgenDragIdx = null; sdtgenExistingCopies = [];
+  var existingWrap = document.getElementById('sdtgen-existing-wrap'); if (existingWrap) existingWrap.style.display = 'none';
+  setVal('sdtgen-search', ''); setVal('sdtgen-new-name', '');
+  document.getElementById('sdtgen-sql-out').value = '';
+  var res = document.getElementById('sdtgen-exec-res'); if (res) res.className = 'cres';
+  show(4); // show() ya recarga la lista siempre al entrar al paso 4
+}
+
+// ── Editar Parametria (BTI019/BTCBS019) ───────────────────────
+var PG_DIR_OPTIONS = [{ v: 'I', l: 'Entrada' }, { v: 'O', l: 'Salida' }, { v: 'R', l: 'Retorno' }];
+var PG_NAME_RE = /^[A-Za-z][A-Za-z0-9_]{0,99}$/;
+var PG_DIGITS_RE = /^\d{1,9}$/;
+var PG_FORBIDDEN_TEXT_RE = /['";\\\r\n]/;
+
+function pgEscapeAttr(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Cualquier cambio de accion/version/motor/API invalida la seleccion de
+// servicio/metodo y los parametros cargados en memoria (misma logica que
+// sgInvalidateState para Generar Scripts): sin esto, volver atras y cambiar
+// de conexion dejaba el paso 4 mostrando el servicio/metodo de otra corrida.
+function pgInvalidateState() {
+  pgServicesLoaded = false; pgAllServices = []; pgSelectedService = null; pgSelectedMethod = null; pgFields = [];
+  var svcSel = document.getElementById('pg-sel-svc'); if (svcSel) svcSel.innerHTML = '<option value="">-- Seleccionar --</option>';
+  var mtdSel = document.getElementById('pg-sel-mtd'); if (mtdSel) mtdSel.innerHTML = '<option value="">-- Seleccionar --</option>';
+  var out = document.getElementById('pg-sql-out'); if (out) out.value = '';
+}
+
+async function pgLoadServices() {
+  var loading = document.getElementById('pg-svc-loading'), err = document.getElementById('pg-svc-err');
+  if (err) err.className = 'cres';
+  if (loading) loading.style.display = 'flex';
+  pgSelectedService = null; pgSelectedMethod = null;
+  refreshPgNextBtn();
+  try {
+    var r = await fetch('/sg/api/services', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, apiMode: S.apiMode }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    pgAllServices = d.services || [];
+    pgServicesLoaded = true;
+    var sel = document.getElementById('pg-sel-svc');
+    sel.innerHTML = '<option value="">-- Seleccionar --</option>';
+    pgAllServices.forEach(function(s) {
+      var opt = document.createElement('option'); opt.value = s; opt.textContent = s; sel.appendChild(opt);
+    });
+    document.getElementById('pg-sel-mtd').innerHTML = '<option value="">-- Seleccionar --</option>';
+  } catch(e) {
+    if (err) { err.className = 'cres show err'; err.textContent = e.message; }
+  }
+  if (loading) loading.style.display = 'none';
+}
+
+async function pgLoadMethods(service) {
+  pgSelectedService = service || null;
+  pgSelectedMethod = null;
+  refreshPgNextBtn();
+  var sel = document.getElementById('pg-sel-mtd');
+  sel.innerHTML = '<option value="">Cargando...</option>';
+  if (!service) { sel.innerHTML = '<option value="">-- Seleccionar --</option>'; return; }
+  try {
+    var r = await fetch('/sg/api/methods', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, service: service, apiMode: S.apiMode }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    sel.innerHTML = '<option value="">-- Seleccionar --</option>';
+    (d.methods || []).forEach(function(m) {
+      var opt = document.createElement('option'); opt.value = m; opt.textContent = m; sel.appendChild(opt);
+    });
+  } catch(e) {
+    sel.innerHTML = '<option value="">Error al cargar</option>';
+  }
+}
+
+function pgOnMethodChange() {
+  pgSelectedMethod = v('pg-sel-mtd') || null;
+  refreshPgNextBtn();
+}
+
+function refreshPgNextBtn() {
+  var btn = document.getElementById('btn-next');
+  if (btn && S.step === 4 && S.action === 'paramgen') btn.disabled = !pgSelectedMethod;
+}
+
+async function pgGoToEdit() {
+  if (!pgSelectedService || !pgSelectedMethod) return;
+  var btn = document.getElementById('btn-next');
+  if (btn) { btn.innerHTML = '<span class="spin"></span>&nbsp;Cargando...'; btn.disabled = true; }
+  try {
+    var r = await fetch('/api/paramgen/params', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, apiMode: S.apiMode, service: pgSelectedService, method: pgSelectedMethod }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    pgSrvVer = d.srvver || '1';
+    pgFields = (d.params || []).map(function(p) { return Object.assign({}, p); });
+    document.getElementById('pg-mtd-name').textContent = pgSelectedService + ' / ' + pgSelectedMethod;
+    pgLoadTipoOptions();
+    show(5);
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
+  if (btn) { btn.innerHTML = 'Siguiente &#8594;'; btn.disabled = false; }
+}
+
+async function pgLoadTipoOptions() {
+  try {
+    var r = await fetch('/sg/api/param-options', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, apiMode: S.apiMode }) });
+    var d = await r.json();
+    if (!d.ok) return;
+    pgTipoOptions = (d.opts && d.opts.tipos) || [];
+    var dl = document.getElementById('pg-tipo-list');
+    if (dl) dl.innerHTML = pgTipoOptions.map(function(t) { return '<option value="' + pgEscapeAttr(t) + '">'; }).join('');
+  } catch(e) { /* el datalist es solo una ayuda, no bloquea el flujo si falla */ }
+}
+
+// Misma idea que sdtgenValidateField: da feedback inmediato en el editor,
+// pero la autoridad final es buildParams en el server (scripts/editar-parametria).
+function pgValidateField(f) {
+  if (!PG_NAME_RE.test(f.nom || '')) return 'Nombre invalido: debe empezar con una letra y usar solo letras, numeros o guion bajo.';
+  if (!PG_DIGITS_RE.test(f.largo != null ? String(f.largo) : '')) return 'Largo invalido: debe ser un numero entero (0 o mayor).';
+  if (!PG_DIGITS_RE.test(f.deci != null ? String(f.deci) : '0')) return 'Decimales invalidos: debe ser un numero entero (0 o mayor).';
+  if (!(f.tipo || '').trim()) return 'El tipo no puede quedar vacio.';
+  if (PG_FORBIDDEN_TEXT_RE.test(f.tipo || '')) return 'Tipo invalido: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
+  if (PG_FORBIDDEN_TEXT_RE.test(f.valor || '')) return 'Valor por defecto invalido: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
+  if (PG_FORBIDDEN_TEXT_RE.test(f.dsc || '')) return 'Descripcion invalida: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
+  return null;
+}
+
+function pgFieldsAllValid() {
+  return pgFields.length > 0 && pgFields.every(function(f) { return !pgValidateField(f); });
+}
+
+function pgFieldGridCols(showV4Extras) {
+  return '24px 150px 90px 130px 60px' + (showV4Extras ? ' 60px' : '') + ' minmax(120px,1fr)' + (showV4Extras ? ' minmax(140px,1fr)' : '') + ' 28px';
+}
+
+function pgRenderEditor() {
+  var container = document.getElementById('pg-fields');
+  container.innerHTML = '';
+  var showV4Extras = S.version === 'V4';
+  var gridCols = pgFieldGridCols(showV4Extras);
+
+  var header = document.createElement('div');
+  header.className = 'sdtgen-fields-header';
+  header.style.gridTemplateColumns = gridCols;
+  header.innerHTML = '<span></span><span>Nombre</span><span>Dirección</span><span>Tipo</span><span>Largo</span>' +
+    (showV4Extras ? '<span>Decimales</span>' : '') +
+    '<span>Valor por defecto</span>' +
+    (showV4Extras ? '<span>Descripción</span>' : '') +
+    '<span></span>';
+  container.appendChild(header);
+
+  pgFields.forEach(function(field, idx) {
+    var item = document.createElement('div');
+    item.className = 'sdtgen-field-item';
+    item.style.gridTemplateColumns = gridCols;
+    item.draggable = true;
+
+    var dirOpts = PG_DIR_OPTIONS.map(function(o) {
+      return '<option value="' + o.v + '"' + (field.dir === o.v ? ' selected' : '') + '>' + o.l + '</option>';
+    }).join('');
+
+    item.innerHTML = '<span class="sdtgen-drag-handle">&#9776;</span>' +
+      '<input type="text" class="sdtgen-field-input pg-input-nom" value="' + pgEscapeAttr(field.nom) + '">' +
+      '<select class="sdtgen-field-input pg-input-dir">' + dirOpts + '</select>' +
+      '<input type="text" class="sdtgen-field-input pg-input-tipo" list="pg-tipo-list" value="' + pgEscapeAttr(field.tipo) + '">' +
+      '<input type="text" class="sdtgen-field-input pg-input-largo" value="' + pgEscapeAttr(field.largo) + '">' +
+      (showV4Extras ? '<input type="text" class="sdtgen-field-input pg-input-deci" value="' + pgEscapeAttr(field.deci) + '">' : '') +
+      '<input type="text" class="sdtgen-field-input pg-input-valor" value="' + pgEscapeAttr(field.valor) + '">' +
+      (showV4Extras ? '<input type="text" class="sdtgen-field-input pg-input-dsc" value="' + pgEscapeAttr(field.dsc) + '">' : '') +
+      '<button type="button" class="sdtgen-field-rm" title="Quitar">&times;</button>' +
+      '<div class="sdtgen-field-err"></div>';
+
+    var err = item.querySelector('.sdtgen-field-err');
+    function updateErr() {
+      var msg = pgValidateField(field);
+      err.textContent = msg || '';
+      item.classList.toggle('invalid', !!msg);
+    }
+
+    item.querySelector('.pg-input-nom').addEventListener('input', function() { field.nom = this.value; updateErr(); });
+    item.querySelector('.pg-input-dir').addEventListener('change', function() { field.dir = this.value; updateErr(); });
+    item.querySelector('.pg-input-tipo').addEventListener('input', function() { field.tipo = this.value; updateErr(); });
+    item.querySelector('.pg-input-largo').addEventListener('input', function() { field.largo = this.value; updateErr(); });
+    item.querySelector('.pg-input-valor').addEventListener('input', function() { field.valor = this.value; updateErr(); });
+    if (showV4Extras) {
+      item.querySelector('.pg-input-deci').addEventListener('input', function() { field.deci = this.value; updateErr(); });
+      item.querySelector('.pg-input-dsc').addEventListener('input', function() { field.dsc = this.value; updateErr(); });
+    }
+    updateErr();
+
+    item.querySelector('.sdtgen-field-rm').onclick = function() {
+      pgFields.splice(idx, 1);
+      pgRenderEditor();
+    };
+    item.addEventListener('dragstart', function(e) {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) { e.preventDefault(); return; }
+      pgDragIdx = idx; item.classList.add('dragging');
+    });
+    item.addEventListener('dragend', function() { item.classList.remove('dragging'); });
+    item.addEventListener('dragover', function(e) { e.preventDefault(); });
+    item.addEventListener('drop', function(e) {
+      e.preventDefault();
+      if (pgDragIdx === null || pgDragIdx === idx) return;
+      var moved = pgFields.splice(pgDragIdx, 1)[0];
+      pgFields.splice(idx, 0, moved);
+      pgDragIdx = null;
+      pgRenderEditor();
+    });
+    container.appendChild(item);
+  });
+}
+
+function pgAddParam() {
+  pgFields.push({ nom: 'NuevoParametro', nomjava: 'param0', dir: 'I', tipo: 'string', ittipo: '', valor: '', sdtver: '', cat: 'B', catit: 'B', largo: '0', lval: '', itnom: '', deci: '0', dsc: '' });
+  pgRenderEditor();
+}
+
+function pgGoToResult() {
+  var err = document.getElementById('pg-edit-err');
+  if (!pgFields.length) { err.className = 'cres show err'; err.textContent = 'Tiene que quedar al menos un parametro.'; return; }
+  if (!pgFieldsAllValid()) { err.className = 'cres show err'; err.textContent = 'Hay parametros con datos invalidos, revisalos antes de continuar.'; return; }
+  err.className = 'cres';
+  show(6);
+}
+
+async function pgDoGenerate() {
+  var ta = document.getElementById('pg-sql-out');
+  ta.value = 'Generando...';
+  try {
+    var r = await fetch('/api/paramgen/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+      version: S.version, apiMode: S.apiMode, service: pgSelectedService, srvver: pgSrvVer, method: pgSelectedMethod, params: pgFields
+    }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    ta.value = d.script || '';
+  } catch(e) { ta.value = 'Error: ' + e.message; }
+}
+
+function pgCopyScript() {
+  var ta = document.getElementById('pg-sql-out'); if (!ta.value.trim()) return;
+  navigator.clipboard.writeText(ta.value).then(function() {
+    var res = document.getElementById('pg-exec-res');
+    res.className = 'cres show ok'; res.textContent = 'Copiado al portapapeles ✓';
+    setTimeout(function() { res.className = 'cres'; }, 2000);
+  }).catch(function() { ta.select(); document.execCommand('copy'); });
+}
+
+async function pgExecute() {
+  if (!confirm('Esto va a ejecutar DELETE + INSERT sobre BTI019 (parametros de ' + pgSelectedService + ' / ' + pgSelectedMethod + ') contra la base conectada. ¿Confirmás?')) return;
+  var res = document.getElementById('pg-exec-res');
+  res.className = 'cres show'; res.textContent = 'Ejecutando...';
+  try {
+    var r = await fetch('/api/paramgen/execute', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+      platform: S.platform, db: getDbSG(), version: S.version, apiMode: S.apiMode,
+      service: pgSelectedService, srvver: pgSrvVer, method: pgSelectedMethod, params: pgFields
+    }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    res.className = 'cres show ok'; res.textContent = 'Ejecutado correctamente (' + d.statementsRun + ' sentencias) ✓';
+  } catch(e) {
+    res.className = 'cres show err'; res.textContent = 'Error: ' + e.message;
+  }
+}
+
+function pgReset() {
+  pgSelectedService = null; pgSelectedMethod = null; pgFields = []; pgDragIdx = null; pgServicesLoaded = false;
+  var svcSel = document.getElementById('pg-sel-svc'); if (svcSel) svcSel.innerHTML = '<option value="">-- Seleccionar --</option>';
+  var mtdSel = document.getElementById('pg-sel-mtd'); if (mtdSel) mtdSel.innerHTML = '<option value="">-- Seleccionar --</option>';
+  document.getElementById('pg-sql-out').value = '';
+  var res = document.getElementById('pg-exec-res'); if (res) res.className = 'cres';
+  show(4); // show() ya recarga la lista de servicios siempre al entrar al paso 4
+}
+
 // ── Historial de conexiones ───────────────────────────────────
 var _dbHistory = [];
+// Entrada del historial que corresponde a la conexion activa (elegida del
+// dropdown o guardada por una prueba exitosa). Cada entrada guarda su propia
+// config de API por apiMode (publica/interna, ver fillApiFields/testAuth):
+// misma BD, pero pagina Swagger y credenciales distintas segun que API se
+// use, asi que no alcanza con atarlo solo a la BD.
+var _activeDbHistEntry = null;
 
 // ── Validaciones ──────────────────────────────────────────────
 var _VALIDATE_ENGLISH_RE = /\b(the|this|that|these|those|is|are|was|were|has|have|had|get|gets|set|sets|update|updates|create|creates|delete|deletes|return|returns|method|service|parameter|value|field|list|object|type|name|code|date|amount|flag|allow|allows|perform|performs|retrieve|retrieves)\b/i;
 var _VALIDATE_LARGO_TYPES = new Set(['long','int','double','byte','short','string']);
+var _VALIDATE_SDT_LARGO_TYPES = new Set(['C', 'N', 'F']);
 
-function validateItems(items) {
+function validateSdtFields(allSdts) {
   var warns = [];
+  var seen = new Set();
+  (allSdts || []).forEach(function(sdt) {
+    if (!sdt || !sdt.nom || seen.has(sdt.nom)) return;
+    seen.add(sdt.nom);
+    (sdt.bti026 || []).forEach(function(f) {
+      var campo = sdt.nom + '.' + f.elemnom;
+      var dsc = (f.elemdsc || '').trim();
+      if (!dsc) {
+        warns.push({ method: sdt.nom, field: 'BTISDTELEMDSC', param: campo, msg: 'Descripción vacía.' });
+      } else {
+        if (!dsc.endsWith('.') && !dsc.endsWith('?')) warns.push({ method: sdt.nom, field: 'BTISDTELEMDSC', param: campo, msg: 'No termina con punto ni signo de pregunta.' });
+        if (_VALIDATE_ENGLISH_RE.test(dsc))           warns.push({ method: sdt.nom, field: 'BTISDTELEMDSC', param: campo, msg: 'Podría estar en inglés.' });
+      }
+      var tipoRaw = (f.elemtipo || '').toUpperCase();
+      if (_VALIDATE_SDT_LARGO_TYPES.has(tipoRaw) && parseInt(f.elemlargo || '0') === 0) {
+        warns.push({ method: sdt.nom, field: 'BTISDTELEMLARGO', param: campo, msg: 'Largo es 0 para tipo ' + f.elemtipo + '.' });
+      }
+    });
+  });
+  return warns;
+}
+
+// Sin ninguna fila en BTCBS012 (interna) / BTI012 (publica) el metodo no
+// queda expuesto por ningun canal, aunque BTCBS014/019 o BTI014/019 esten
+// completos: es un error funcional, no una cuestion de estilo de
+// documentacion, asi que se chequea siempre en los dos modos (a diferencia
+// del resto de validateItems, que es especifico de la API Publica).
+function validateChannels(items, apiMode) {
+  var interna = apiMode === 'interna';
+  var field = interna ? 'BSSRVENAB' : 'BTISRVHAB';
+  var tabla = interna ? 'BTCBS012' : 'BTI012';
+  var warns = [];
+  (items || []).forEach(function(item) {
+    var svc = (item.header && item.header.BTISrvNom) || item.service || '?';
+    var mtd = (item.header && item.header.BTIMtdNom) || item.method_name || '?';
+    if (!(item.channels || []).length) {
+      warns.push({ service: svc, method: mtd, field: field, msg: 'No se encontró ningún canal en ' + tabla + ': sin ese registro el método no funciona.' });
+    }
+  });
+  return warns;
+}
+
+// Los controles de descripcion/largo/decimales son el estandar de la API
+// Publica (de ahi sale la documentacion). La API Interna (tablas BTCBS) no
+// los tiene que cumplir, asi que no se valida nada de eso, pero si se
+// chequean los canales (BTCBS012, ver validateChannels).
+function validateItems(items, apiMode) {
+  if (apiMode === 'interna') return validateChannels(items, apiMode);
+  var warns = [];
+  var allSdts = [];
   (items || []).forEach(function(item) {
     var svc = (item.header && item.header.BTISrvNom) || item.service || '?';
     var mtd = (item.header && item.header.BTIMtdNom) || item.method_name || '?';
@@ -42,7 +684,7 @@ function validateItems(items) {
       warns.push({ service: svc, method: mtd, field: 'BTIMTDDSC', msg: 'Descripción vacía.' });
     } else {
       if (!/^m[eé]todo para /i.test(dsc)) warns.push({ service: svc, method: mtd, field: 'BTIMTDDSC', msg: 'No comienza con "Método para".' });
-      if (!dsc.endsWith('.'))                          warns.push({ service: svc, method: mtd, field: 'BTIMTDDSC', msg: 'No termina con punto.' });
+      if (!dsc.endsWith('.') && !dsc.endsWith('?'))    warns.push({ service: svc, method: mtd, field: 'BTIMTDDSC', msg: 'No termina con punto ni signo de pregunta.' });
       if (_VALIDATE_ENGLISH_RE.test(dsc))              warns.push({ service: svc, method: mtd, field: 'BTIMTDDSC', msg: 'Podría estar en inglés.' });
     }
     params.forEach(function(p) {
@@ -51,14 +693,17 @@ function validateItems(items) {
       if (pdsc !== undefined) {
         if (!pdsc) warns.push({ service: svc, method: mtd, field: 'BTISRVPARDSC', param: pnom, msg: 'Descripción vacía.' });
         else {
-          if (!pdsc.endsWith('.'))                          warns.push({ service: svc, method: mtd, field: 'BTISRVPARDSC', param: pnom, msg: 'No termina con punto.' });
+          if (!pdsc.endsWith('.') && !pdsc.endsWith('?'))   warns.push({ service: svc, method: mtd, field: 'BTISRVPARDSC', param: pnom, msg: 'No termina con punto ni signo de pregunta.' });
           if (_VALIDATE_ENGLISH_RE.test(pdsc))              warns.push({ service: svc, method: mtd, field: 'BTISRVPARDSC', param: pnom, msg: 'Podría estar en inglés.' });
         }
       }
       if (_VALIDATE_LARGO_TYPES.has(tipo) && parseInt(p.largo || '0') === 0) warns.push({ service: svc, method: mtd, field: 'BTISRVPARLARGO', param: pnom, msg: 'Largo es 0 para tipo ' + p.tipo + '.' });
       if (tipo === 'double' && parseInt(p.deci || '0') === 0)                warns.push({ service: svc, method: mtd, field: 'BTISRVPARDECI',  param: pnom, msg: 'Decimales son 0 para tipo double.' });
     });
+    (item.sdts || []).forEach(function(sdt) { allSdts.push(sdt); });
   });
+  warns = warns.concat(validateSdtFields(allSdts));
+  warns = warns.concat(validateChannels(items, apiMode));
   return warns;
 }
 
@@ -67,8 +712,10 @@ var _FIELD_TABLE = {
   BTISRVPARDSC:    'BTI019',
   BTISRVPARLARGO:  'BTI019',
   BTISRVPARDECI:   'BTI019',
+  BTISRVHAB:       'BTI012',
   BTISDTELEMLARGO: 'BTI026',
-  BTISDTELEMDSC:   'BTI026'
+  BTISDTELEMDSC:   'BTI026',
+  BSSRVENAB:       'BTCBS012'
 };
 
 function renderWarnings(containerId, warnings) {
@@ -122,27 +769,147 @@ function getApi() {
 
 // ── Navegación del wizard ─────────────────────────────────────
 
+// Cualquier eleccion en los pasos 1-2 (accion/version/motor/API) es un
+// cambio de "ambiente": la lista de servicios y el script ya generado por
+// Generar Scripts quedan invalidos aunque la conexion a la base sea la
+// misma (ese otro caso, cambiar los datos de conexion, ya lo cubre el
+// reset de runAutoConnTest). Sin esto, volver atras y tocar version/API
+// dejaba el paso 4 mostrando la lista/seleccion de la corrida anterior.
+function sgInvalidateState() {
+  sgServiceGroups = []; sgMultiData = null; sgServicesLoaded = false; allServices = [];
+  var grp = document.getElementById('sg-service-groups'); if (grp) grp.innerHTML = '';
+  var sel = document.getElementById('sg-sel-svc'); if (sel) sel.innerHTML = '<option value="">-- Seleccioná un servicio --</option>';
+  var out = document.getElementById('sg-sql-out'); if (out) out.value = '';
+}
+
 function pick(key, val, el) {
+  sgInvalidateState();
+  pgInvalidateState();
   S[key] = val;
   el.closest('.cards').querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
   el.classList.add('sel');
   if (key === 'version') {
     S.platform = val === 'V3' ? 'sqlserver' : 'oracle';
     tryLoadEnv(val);
+    toggleEngineSection(val === 'V4');
   }
-  if (key === 'action') updateStepLabels(val);
+  if (key === 'engine') {
+    // El bloque de API recien aparece cuando ya se eligio el motor.
+    toggleApiModeSection(APIMODE_ACTIONS.has(S.action));
+  }
+  if (key === 'action') {
+    updateStepLabels(val);
+    if (val === 'sdtgen') {
+      // Generar SDT solo trabaja contra V4 (Oracle) y se saltea el paso 2
+      // (version/motor), pero si elige API: ese toggle vive en el paso de
+      // conexion (conn-apimode-section), no se puede fijar de antemano.
+      S.version = 'V4';
+      S.platform = 'oracle';
+      S.engine = 'oracle';
+      S.apiMode = null;
+      tryLoadEnv('V4');
+      hideVersionExtras();
+    } else {
+      resetVersionSelection();
+    }
+  }
+  refreshNextBtn();
+}
+
+function hideVersionExtras() {
+  ['engine-section', 'apimode-section'].forEach(function(id) {
+    var sec = document.getElementById(id);
+    if (!sec) return;
+    sec.style.display = 'none';
+    sec.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
+  });
+}
+
+// El paso de version tiene que arrancar limpio: si el usuario paso antes por
+// "Generar SDT" (o por V4) quedaban seteados version/motor/API y las tarjetas
+// marcadas al volver a entrar.
+function resetVersionSelection() {
+  S.version = null;
+  S.platform = null;
+  S.engine = null;
+  S.apiMode = 'publica';
+  loadedEnv = null;
+  var p1 = document.getElementById('p1');
+  if (p1) p1.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
+  hideVersionExtras();
+}
+
+function toggleEngineSection(show) {
+  var sec = document.getElementById('engine-section');
+  if (!sec) return;
+  hideVersionExtras();
+  sec.style.display = show ? 'block' : 'none';
+  // Aparece sin nada marcado: el motor se elige a mano y eso destraba el
+  // bloque siguiente (API). V3 no pregunta motor, queda en null.
+  S.engine = null;
+  S.apiMode = 'publica';
+}
+
+function toggleApiModeSection(show) {
+  var sec = document.getElementById('apimode-section');
+  if (!sec) return;
+  sec.style.display = show ? 'block' : 'none';
+  sec.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
+  // Mientras la seccion esta visible no hay default: hay que elegir.
+  S.apiMode = show ? null : 'publica';
+}
+
+// Toggle de API en el paso de conexion (solo Generar SDT: ese flujo saltea
+// el paso de version, donde vive el toggle equivalente para Scripts/Collections).
+function pickConnApiMode(val, el) {
+  S.apiMode = val;
+  el.closest('.cards').querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
+  el.classList.add('sel');
+  updateConnBtn();
+}
+
+function sectionVisible(id) {
+  var sec = document.getElementById(id);
+  return !!sec && sec.style.display !== 'none';
+}
+
+// El paso 2 se completa de a un bloque: version -> motor -> API.
+function step2Ready() {
+  if (!S.version) return false;
+  if (sectionVisible('engine-section') && !S.engine) return false;
+  if (sectionVisible('apimode-section') && !S.apiMode) return false;
+  return true;
+}
+
+function refreshNextBtn() {
   var nb = document.getElementById('btn-next');
-  if (nb) nb.disabled = false;
+  if (!nb) return;
+  nb.disabled = S.step === 2 ? !step2Ready() : false;
 }
 
 function updateStepLabels(action) {
   var lb4 = document.getElementById('lb4'), lb5 = document.getElementById('lb5');
-  if (action === 'scripts') { if (lb4) lb4.textContent = 'Servicios'; if (lb5) lb5.textContent = 'Script'; }
-  else { if (lb4) lb4.textContent = 'Servicios'; if (lb5) lb5.textContent = 'API'; }
+  if (action === 'scripts') {
+    if (lb4) lb4.textContent = 'Servicios';
+    if (lb5) lb5.textContent = 'Script';
+  } else if (action === 'collections') {
+    if (lb4) lb4.textContent = 'API';
+    if (lb5) lb5.textContent = 'Collections';
+  } else if (action === 'sdtgen') {
+    if (lb4) lb4.textContent = 'SDT base';
+    if (lb5) lb5.textContent = 'Editar';
+  } else if (action === 'paramgen') {
+    if (lb4) lb4.textContent = 'Servicio';
+    if (lb5) lb5.textContent = 'Parámetros';
+  } else {
+    // doc: paso de servicios va antes que el de ambiente (ver panelId)
+    if (lb4) lb4.textContent = 'Servicios';
+    if (lb5) lb5.textContent = 'API';
+  }
 }
 
 function vizPos(step) {
-  if (S.action === 'validate' || S.action === 'collections') {
+  if (S.action === 'validate') {
     return step === 1 ? 1 : 2; // action→1, panel→2
   }
   return step; // doc/scripts: 1-5 direct (step 6 success has no active dot)
@@ -150,11 +917,11 @@ function vizPos(step) {
 
 function dots(step) {
   var pos = vizPos(step);
-  var isSingle = S.action === 'validate' || S.action === 'collections';
+  var isSingle = S.action === 'validate';
 
-  // Para validate/collections: d2 = label, ocultar d3..d5; para otros: d2 = "Versión"
+  // Para validate: d2 = label, ocultar d3..d5; para otros: d2 = "Version"
   var lb2 = document.getElementById('lb2');
-  if (lb2) lb2.textContent = S.action === 'validate' ? 'Validar' : S.action === 'collections' ? 'Collections' : 'Versión';
+  if (lb2) lb2.textContent = S.action === 'validate' ? 'Validar' : 'Version';
   ['d3','d4','d5','l2','l3','l4'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.style.display = isSingle ? 'none' : '';
@@ -179,8 +946,10 @@ function panelId(step) {
   if (step === 2) return 'p1'; // versión
   if (step === 3) return 'p2'; // conexión
   if (S.action === 'validate') return 'p4v';
-  if (S.action === 'collections') return 'p4c';
+  if (S.action === 'collections') return step === 4 ? 'p4' : 'p4c';
   if (S.action === 'scripts') return step === 4 ? 'p4s' : 'p5s';
+  if (S.action === 'sdtgen') return step === 4 ? 'p-sdtbase' : step === 5 ? 'p-sdtedit' : 'p-sdtresult';
+  if (S.action === 'paramgen') return step === 4 ? 'p-paramsvc' : step === 5 ? 'p-paramedit' : 'p-paramresult';
   if (S.action === 'doc') {
     if (step === 4) return 'p5'; // selección de servicios
     if (step === 5) return 'p4'; // ambiente + llamar a la API
@@ -200,23 +969,54 @@ function show(step) {
   if (step === 3) { // paso de conexión (ahora es el paso 3)
     document.getElementById('sql-fields').style.display = S.platform === 'sqlserver' ? 'block' : 'none';
     document.getElementById('ora-fields').style.display  = S.platform === 'oracle'    ? 'block' : 'none';
+    var connApiSec = document.getElementById('conn-apimode-section');
+    if (connApiSec) {
+      var showConnApiMode = S.action === 'sdtgen';
+      connApiSec.style.display = showConnApiMode ? 'block' : 'none';
+      connApiSec.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
+      if (showConnApiMode && S.apiMode) {
+        var card = document.getElementById('conn-apimode-' + S.apiMode);
+        if (card) card.classList.add('sel');
+      }
+    }
     clearDbFields();
     loadDbHistory();
     setTimeout(setupConnWatchers, 0);
   }
   if (step === 4 && S.action === 'validate') { loadValidateFolders(); }
   if (step === 4 && S.action === 'doc') { if (!allServices.length) loadServices(); else renderList(); }
-  if (step === 5 && S.action === 'doc') {
-    var isV4 = S.version === 'V4';
-    document.getElementById('a-auth-wrap').style.display = isV4 ? 'none' : 'block';
-    document.getElementById('a-api-wrap').style.display  = isV4 ? 'none' : 'block';
-    var lbl = document.getElementById('a-base-label');
-    if (lbl) lbl.innerHTML = isV4
-      ? 'URL de la API <span style="color:var(--muted);font-weight:400;font-size:var(--fs-sm)">(ej: http://10.0.0.7:5101/api/publicapi)</span>'
-      : 'URL publica <span style="color:var(--muted);font-weight:400;font-size:var(--fs-sm)">(para los ejemplos de la documentacion)</span>';
-    fillApiFields();
+  // Panel de ambiente + API ('p4'): en collections vive en el paso 4, en doc
+  // (tras el reorden servicios-antes-que-ambiente) vive en el paso 5.
+  if ((step === 4 && S.action === 'collections') || (step === 5 && S.action === 'doc')) {
+      var isV4 = S.version === 'V4';
+      var isCollections = S.action === 'collections';
+      document.getElementById('a-auth-wrap').style.display = isV4 ? 'none' : 'block';
+      document.getElementById('a-api-wrap').style.display  = (isV4 && !isCollections) ? 'none' : 'block';
+      var lbl = document.getElementById('a-base-label');
+      if (lbl) {
+        if (isCollections && isV4) {
+          lbl.innerHTML = 'URL publica <span style="color:var(--muted);font-weight:400;font-size:var(--fs-sm)">(ej: http://10.0.0.7:5101/api/publicapi)</span>';
+        } else if (isV4) {
+          lbl.innerHTML = 'URL de la API <span style="color:var(--muted);font-weight:400;font-size:var(--fs-sm)">(ej: http://10.0.0.7:5101/api/publicapi)</span>';
+        } else {
+          lbl.innerHTML = 'URL publica <span style="color:var(--muted);font-weight:400;font-size:var(--fs-sm)">(para los ejemplos de la documentacion)</span>';
+        }
+      }
+      fillApiFields();
+  }
+  if (step === 5 && S.action === 'collections') {
+    if (typeof collectionRefreshContext === 'function') collectionRefreshContext();
+    if (typeof collectionToggleConfig === 'function') collectionToggleConfig();
   }
   if (step === 4 && S.action === 'scripts' && !sgServicesLoaded) sgLoadServices();
+  // Siempre se recarga (no solo la primera vez): si el usuario vuelve atras
+  // y cambia de conexion/ambiente, la lista vieja en memoria quedaria stale.
+  if (step === 4 && S.action === 'sdtgen') sdtgenLoadList();
+  if (step === 5 && S.action === 'sdtgen') sdtgenRenderEditor();
+  if (step === 6 && S.action === 'sdtgen') sdtgenDoGenerate();
+  if (step === 4 && S.action === 'paramgen' && !pgServicesLoaded) pgLoadServices();
+  if (step === 5 && S.action === 'paramgen') pgRenderEditor();
+  if (step === 6 && S.action === 'paramgen') pgDoGenerate();
 }
 
 function foot(step) {
@@ -226,20 +1026,34 @@ function foot(step) {
   if (step === 1) { // acción
     ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (S.action ? '' : ' disabled') + '>Siguiente &#8594;</button>';
   } else if (step === 2) { // versión
-    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (S.version ? '' : ' disabled') + '>Siguiente &#8594;</button>';
+    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (step2Ready() ? '' : ' disabled') + '>Siguiente &#8594;</button>';
   } else if (step === 3) { // conexión
     ftr.innerHTML = '<button class="btn btn-outline" id="btn-test" onclick="testConn()">Probar conexión</button>&nbsp;&nbsp;' +
-      '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (_connOk ? '' : ' disabled') + '>Siguiente &#8594;</button>';
-  } else if (step === 4 && (S.action === 'validate' || S.action === 'collections')) {
+      '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (step3Ready() ? '' : ' disabled') + '>Siguiente &#8594;</button>';
+  } else if (step === 4 && S.action === 'validate') {
+    ftr.innerHTML = '';
+  } else if (step === 5 && S.action === 'collections') {
     ftr.innerHTML = '';
   } else if (step === 4 && S.action === 'scripts') {
     ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()" disabled>Generar script &#8594;</button>';
   } else if (step === 4 && S.action === 'doc') {
     ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (items.length ? '' : ' disabled') + '>Siguiente &#8594;</button>';
+  } else if (step === 4 && S.action === 'sdtgen') {
+    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (sdtgenSelectedName ? '' : ' disabled') + '>Siguiente &#8594;</button>';
   } else if (step === 5 && S.action === 'doc') {
     ftr.innerHTML = '<button class="btn btn-success" id="btn-save" onclick="saveEnv()">Guardar y finalizar &#10003;</button>';
   } else if (step === 5 && S.action === 'scripts') {
     ftr.innerHTML = '<button class="btn btn-ghost" onclick="sgReset()">&#8635; Nuevo script</button>';
+  } else if (step === 5 && S.action === 'sdtgen') {
+    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()">Siguiente &#8594;</button>';
+  } else if (step === 6 && S.action === 'sdtgen') {
+    ftr.innerHTML = '<button class="btn btn-ghost" onclick="sdtgenReset()">&#8635; Nueva copia</button>';
+  } else if (step === 4 && S.action === 'paramgen') {
+    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (pgSelectedMethod ? '' : ' disabled') + '>Siguiente &#8594;</button>';
+  } else if (step === 5 && S.action === 'paramgen') {
+    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()">Siguiente &#8594;</button>';
+  } else if (step === 6 && S.action === 'paramgen') {
+    ftr.innerHTML = '<button class="btn btn-ghost" onclick="pgReset()">&#8635; Editar otro método</button>';
   } else if (step === 6) {
     ftr.innerHTML = '';
   } else {
@@ -250,12 +1064,14 @@ function foot(step) {
 async function goNext() {
   var s = S.step;
   if (s === 1 && !S.action) return;
-  if (s === 1 && (S.action === 'validate' || S.action === 'collections')) { show(4); return; } // saltar versión y conexión
+  if (s === 1 && S.action === 'validate') { show(4); return; } // saltar versión y conexión
+  if (s === 1 && S.action === 'sdtgen') { show(3); return; } // Generar SDT es siempre V4, saltar versión
   if (s === 1) { show(2); return; }
-  if (s === 2 && !S.version) return;
+  if (s === 2 && !step2Ready()) return;
   if (s === 2) { show(3); return; }
-  if (s === 3 && !_connOk) return;
+  if (s === 3 && !step3Ready()) return;
   if (s === 3) { show(4); return; }
+  if (s === 4 && S.action === 'collections') { show(5); return; }
   if (s === 4 && S.action === 'scripts') {
     var grps = sgServiceGroups.filter(function(g) { return g.selected.size > 0; });
     if (!grps.length) { alert('Seleccioná al menos un método.'); return; }
@@ -263,12 +1079,18 @@ async function goNext() {
     return;
   }
   if (s === 4 && S.action === 'doc') { await validateDocItems(); return; }
+  if (s === 4 && S.action === 'sdtgen') { sdtgenGoToEdit(); return; }
+  if (s === 5 && S.action === 'sdtgen') { sdtgenGoToResult(); return; }
+  if (s === 4 && S.action === 'paramgen') { pgGoToEdit(); return; }
+  if (s === 5 && S.action === 'paramgen') { pgGoToResult(); return; }
   if (s < 6) show(s + 1);
 }
 
 function goBack() {
   var s = S.step;
-  if (s === 4 && (S.action === 'validate' || S.action === 'collections')) { show(1); return; } // saltar versión y conexión
+  if (s === 4 && S.action === 'validate') { show(1); return; } // saltar versión y conexión
+  if (s === 3 && S.action === 'sdtgen') { show(1); return; } // Generar SDT es siempre V4, saltar versión
+  if (s === 5 && S.action === 'collections') { show(4); return; }
   if (s === 4) { show(3); return; }
   if (s === 5 && S.action === 'scripts') { show(4); return; }
   if (s > 1) show(s - 1);
@@ -282,6 +1104,9 @@ async function tryLoadEnv(version) {
     var r = await fetch('/api/load-env', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ version: version }) });
     var d = await r.json();
     if (!d.ok) return;
+    // La respuesta puede llegar despues de que el usuario cambio (o limpio) la
+    // version elegida: en ese caso el resultado ya no aplica.
+    if (S.version !== version) return;
     loadedEnv = d.data;
     if (d.data.DB_CONNECT_STRING) S.platform = 'oracle';
     else if (d.data.DB_SERVER) S.platform = 'sqlserver';
@@ -289,6 +1114,7 @@ async function tryLoadEnv(version) {
 }
 
 function clearDbFields() {
+  _activeDbHistEntry = null;
   setVal('db-conn-name', '');
   setVal('db-server', ''); setVal('db-port', '1433'); setVal('db-name', '');
   setVal('db-user-s', ''); setVal('db-pass-s', '');
@@ -347,23 +1173,40 @@ function _setApiHints(apiUrl, baseUrl) {
   }
 }
 
+// La config de API se busca primero en la conexion activa del historial
+// (atada a la BD + al apiMode: publica e interna apuntan a Swagger/paginas
+// distintas), y si esa conexion todavia no tiene nada guardado para este
+// apiMode, cae al .env legado por version (loadedEnv, comportamiento previo).
+function _apiFieldsSource() {
+  var mode = S.apiMode || 'publica';
+  if (_activeDbHistEntry && _activeDbHistEntry.api && _activeDbHistEntry.api[mode]) return _activeDbHistEntry.api[mode];
+  return loadedEnv || {};
+}
+
 function fillApiFields() {
-  setVal('a-base', loadedEnv ? loadedEnv.BASE_URL : '');
-  setVal('a-api',  loadedEnv ? loadedEnv.API_BASE_URL : '');
-  setVal('a-auth', loadedEnv ? loadedEnv.API_AUTH_URL : '');
-  setVal('a-user', loadedEnv ? loadedEnv.API_USER : '');
-  setVal('a-pass', loadedEnv ? loadedEnv.API_PASSWORD : '');
-  setVal('a-canal',        loadedEnv ? loadedEnv.API_CANAL        : '');
-  setVal('a-device',       loadedEnv ? loadedEnv.API_DEVICE       : '');
-  setVal('a-requerimiento',loadedEnv ? loadedEnv.API_REQUERIMIENTO : '');
-  _lastAutoBase = (loadedEnv && loadedEnv.BASE_URL) ? loadedEnv.BASE_URL : '';
-  _lastAutoAuth = (loadedEnv && loadedEnv.API_AUTH_URL) ? loadedEnv.API_AUTH_URL : '';
-  if (loadedEnv && loadedEnv.DOC_ERRORES_MODELOS) {
-    var cb = document.getElementById('cb-doc-errores');
+  var src = _apiFieldsSource();
+  // setVal no toca el campo si el valor es null/undefined (ver su
+  // definicion), asi que hay que pasar '' explicito para limpiarlo cuando
+  // la fuente no tiene el dato — si no, queda el valor viejo pegado.
+  setVal('a-base', src.BASE_URL || '');
+  setVal('a-api',  src.API_BASE_URL || '');
+  setVal('a-auth', src.API_AUTH_URL || '');
+  setVal('a-user', src.API_USER || '');
+  setVal('a-pass', src.API_PASSWORD || '');
+  setVal('a-canal',        src.API_CANAL || '');
+  setVal('a-device',       src.API_DEVICE || '');
+  setVal('a-requerimiento',src.API_REQUERIMIENTO || '');
+  _lastAutoBase = src.BASE_URL || '';
+  _lastAutoAuth = src.API_AUTH_URL || '';
+  var cb = document.getElementById('cb-doc-errores');
+  if (src.DOC_ERRORES_MODELOS) {
     if (cb) { cb.checked = true; toggleDocErrores(); }
-    setVal('doc-errores-modelos', loadedEnv.DOC_ERRORES_MODELOS);
+    setVal('doc-errores-modelos', src.DOC_ERRORES_MODELOS);
+  } else {
+    if (cb) { cb.checked = false; toggleDocErrores(); }
+    setVal('doc-errores-modelos', '');
   }
-  _setApiHints(loadedEnv ? loadedEnv.API_BASE_URL : '', loadedEnv ? loadedEnv.BASE_URL : '');
+  _setApiHints(src.API_BASE_URL || '', src.BASE_URL || '');
 }
 
 function allConnFilled() {
@@ -391,11 +1234,21 @@ function scheduleConnTest() {
 // ── Historial de conexiones ───────────────────────────────────
 
 async function loadDbHistory() {
+  var err = document.getElementById('db-hist-err');
+  if (err) { err.className = 'cres'; err.textContent = ''; }
   try {
     var r = await fetch('/sg/api/db-history', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action: 'list' }) });
     var d = await r.json();
-    if (d.ok) { _dbHistory = d.history || []; renderDbHistory(); }
-  } catch(e) {}
+    if (d.ok) {
+      _dbHistory = d.history || [];
+      renderDbHistory();
+    } else if (err) {
+      err.className = 'cres show err';
+      err.textContent = 'No se pudieron cargar las conexiones guardadas: ' + (d.message || 'error desconocido');
+    }
+  } catch(e) {
+    if (err) { err.className = 'cres show err'; err.textContent = 'No se pudo conectar con el servidor para cargar las conexiones guardadas.'; }
+  }
 }
 
 function renderDbHistory() {
@@ -414,8 +1267,9 @@ function renderDbHistory() {
 function loadDbHistEntry() {
   var sel = document.getElementById('db-hist-sel'); if (!sel) return;
   var del = document.getElementById('db-hist-del'); if (del) del.disabled = !sel.value;
-  if (!sel.value) { setVal('db-conn-name', ''); return; }
+  if (!sel.value) { _activeDbHistEntry = null; setVal('db-conn-name', ''); return; }
   var entry = _dbHistory.find(function(e) { return e.id === sel.value; }); if (!entry) return;
+  _activeDbHistEntry = entry;
   setVal('db-conn-name', entry.label || '');
   if (entry.platform === 'sqlserver') {
     setVal('db-server', entry.db.server || ''); setVal('db-port', entry.db.port || '1433');
@@ -453,6 +1307,7 @@ async function saveDbHistEntry() {
     if (d.ok) {
       await loadDbHistory();
       var sel = document.getElementById('db-hist-sel'); if (sel && d.id) { sel.value = d.id; var del = document.getElementById('db-hist-del'); if (del) del.disabled = false; }
+      if (d.id) _activeDbHistEntry = _dbHistory.find(function(e) { return e.id === d.id; }) || null;
     }
   } catch(e) {}
 }
@@ -496,8 +1351,16 @@ async function testConn() {
   if (btn) { btn.innerHTML = 'Probar conexión'; btn.disabled = false; }
 }
 
+// El paso de conexion se completa con la prueba OK y, solo para Generar SDT
+// (unico flujo que muestra el toggle de API en este paso), con la API elegida.
+function step3Ready() {
+  if (!_connOk) return false;
+  if (S.action === 'sdtgen' && !S.apiMode) return false;
+  return true;
+}
+
 function updateConnBtn() {
-  if (S.step === 3) { var btn = document.getElementById('btn-next'); if (btn) btn.disabled = !_connOk; }
+  if (S.step === 3) { var btn = document.getElementById('btn-next'); if (btn) btn.disabled = !step3Ready(); }
 }
 
 // ── Paso 4 Doc: API ────────────────────────────────────────────
@@ -523,12 +1386,28 @@ async function testAuth() {
     var d = await r.json();
     res.className = 'cres show ' + (d.ok ? 'ok' : 'err');
     res.textContent = d.ok ? 'Autenticacion exitosa — token obtenido correctamente' : ('Error: ' + d.message);
+    if (d.ok) await saveApiToActiveEntry();
   } catch(e) {
     res.className = 'cres show err';
     res.textContent = 'Error al conectar con el servidor de setup';
   }
   btn.innerHTML = 'Probar autenticacion';
   btn.disabled = false;
+}
+
+// Ata la config de API recien probada a la conexion activa (misma logica
+// que el auto-guardado de datos de conexion en runAutoConnTest), separada
+// por apiMode. Si por algun motivo no hay conexion activa (no deberia
+// pasar: se llega a este paso siempre despues de conectar), no hay contra
+// que atarla y no se guarda nada.
+async function saveApiToActiveEntry() {
+  if (!_activeDbHistEntry) return;
+  var mode = S.apiMode || 'publica';
+  var api = getApi();
+  try {
+    await fetch('/sg/api/db-history', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action: 'save-api', id: _activeDbHistEntry.id, apiMode: mode, api: api }) });
+    _activeDbHistEntry.api = Object.assign({}, _activeDbHistEntry.api || {}, { [mode]: api });
+  } catch(e) {}
 }
 
 
@@ -1188,7 +2067,7 @@ async function sgLoadServices() {
   if (err) err.className = 'cres';
   if (loading) loading.style.display = 'flex';
   try {
-    var r = await fetch('/sg/api/services', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version }) });
+    var r = await fetch('/sg/api/services', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, apiMode: S.apiMode }) });
     var d = await r.json();
     if (!d.ok) throw new Error(d.message);
     var sel = document.getElementById('sg-sel-svc');
@@ -1215,8 +2094,8 @@ async function sgAddServiceToList() {
   container.appendChild(div);
   try {
     var results = await Promise.all([
-      fetch('/sg/api/methods', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, service: svc }) }),
-      fetch('/sg/api/service-versions', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, service: svc }) }),
+      fetch('/sg/api/methods', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, service: svc, apiMode: S.apiMode }) }),
+      fetch('/sg/api/service-versions', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, service: svc, apiMode: S.apiMode }) }),
     ]);
     var dm = await results[0].json(), dv = await results[1].json();
     if (!dm.ok) throw new Error(dm.message);
@@ -1301,11 +2180,11 @@ async function sgFetchAndShowOutput(groups) {
     var allItems = [];
     await Promise.all(groups.map(async function(group) {
       var methods = Array.from(group.selected);
-      var r = await fetch('/sg/api/methods-full', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, service: group.name, srvver: group.version, methods: methods }) });
+      var r = await fetch('/sg/api/methods-full', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, service: group.name, srvver: group.version, methods: methods, apiMode: S.apiMode }) });
       var d = await r.json(); if (!d.ok) throw new Error(d.message);
       d.items.forEach(function(item) { allItems.push(item); });
     }));
-    var warnings = validateItems(allItems);
+    var warnings = validateItems(allItems, S.apiMode);
     console.log('[SG] validateItems result:', warnings.length, 'warnings', warnings);
     var valEl = document.getElementById('sg-val-block');
     if (warnings.length) {
@@ -1344,6 +2223,42 @@ function sgCopyScript() {
     res.className = 'cres show ok'; res.textContent = 'Copiado al portapapeles ✓';
     setTimeout(function() { res.className = 'cres'; }, 2000);
   }).catch(function() { ta.select(); document.execCommand('copy'); });
+}
+
+function sgScriptFileName() {
+  var svcs = (sgMultiData || []).reduce(function(a, it) { if (a.indexOf(it.header.BTISrvNom) < 0) a.push(it.header.BTISrvNom); return a; }, []);
+  var name = svcs.join('_').replace(/[^a-zA-Z0-9_-]/g, '_');
+  return name ? 'script_' + name + '.sql' : 'script.sql';
+}
+
+function sgDownloadScriptFallback(text, fileName) {
+  var blob = new Blob([text], { type: 'text/plain' });
+  var url = URL.createObjectURL(blob);
+  var link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+async function sgDownloadScript() {
+  var ta = document.getElementById('sg-sql-out'); if (!ta.value.trim()) return;
+  var text = ta.value, fileName = sgScriptFileName();
+  if (typeof window.showSaveFilePicker !== 'function') { sgDownloadScriptFallback(text, fileName); return; }
+  try {
+    var handle = await window.showSaveFilePicker({
+      suggestedName: fileName,
+      types: [{ description: 'Script SQL', accept: { 'text/plain': ['.sql'] } }],
+    });
+    var writable = await handle.createWritable();
+    await writable.write(text);
+    await writable.close();
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;
+    sgDownloadScriptFallback(text, fileName);
+  }
 }
 
 function sgReset() {
@@ -1399,7 +2314,7 @@ function _valRenderResults(results, basePath) {
       html += '<div class="vf-item ok">✅ ' + _escHtml(r.relPath) + tag + '</div>';
     } else {
       var errHtml = r.problemas.map(function(p) { return '<div>' + _escHtml(p) + '</div>'; }).join('');
-      html += '<div class="vf-item err" data-abs="' + _escHtml(r.absPath) + '">'
+      html += '<div class="vf-item err expanded" data-abs="' + _escHtml(r.absPath) + '">'
         + '<input type="checkbox" class="val-file-cb" value="' + _escHtml(r.absPath) + '" onchange="updateFixBar()">'
         + '<div style="flex:1;min-width:0">'
         + '<div class="vf-name" onclick="this.closest(\'.vf-item\').classList.toggle(\'expanded\')">'
