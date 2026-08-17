@@ -7,9 +7,17 @@ const crypto = require('crypto');
 const { exec, spawn } = require('child_process');
 const { createCollectionFeature } = require('./scripts/generar-collections');
 const { createSdtGenFeature } = require('./scripts/generar-sdt');
+const { createParamEditFeature } = require('./scripts/editar-parametria');
 
 const PORT = 3777;
-const ROOT = __dirname;
+// La app de Electron empaquetada (ver electron/first-run.js) copia la app
+// una sola vez, en el primer arranque, a una carpeta persistente elegida
+// por el usuario, y pasa esa ruta aca via BTAPI_ROOT, para que
+// db_history.json, los .env y la documentacion generada sobrevivan entre
+// ejecuciones aunque el .exe corra desde una carpeta descartable (temp,
+// pendrive, etc.). Fuera de Electron (node setup.js / npm run start
+// clasico) BTAPI_ROOT no esta seteada y todo sigue funcionando como antes.
+const ROOT = process.env.BTAPI_ROOT || __dirname;
 
 // ── Cache de datos de validación ─────────────────────────────
 // Evita que generar_md.js tenga que reconectarse a Oracle cuando
@@ -1259,6 +1267,13 @@ const sdtGenFeature = createSdtGenFeature({
   queryBti026: sg_queryBti026,
 });
 
+const paramEditFeature = createParamEditFeature({
+  getPool: sg_getPool,
+  getOra: sg_getOra,
+  queryMethodParams: sg_queryMethodParams,
+  queryServiceVersions: sg_queryServiceVersions,
+});
+
 // -- server ------------------------------------------------
 
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -1304,6 +1319,10 @@ http.createServer(async (req, res) => {
   }
 
   if (await sdtGenFeature.handleApi(req, res, { readBody, json })) {
+    return;
+  }
+
+  if (await paramEditFeature.handleApi(req, res, { readBody, json })) {
     return;
   }
 
@@ -1907,6 +1926,9 @@ http.createServer(async (req, res) => {
   console.log('\n  Generador MD - Configuracion inicial');
   console.log('  -> Abriendo ' + url + '\n');
   console.log('  Presiona Ctrl+C para cerrar\n');
+  // Bajo Electron la ventana nativa abre la URL (ver electron/main.js);
+  // abrir tambien el navegador del sistema duplicaria la UI.
+  if (process.env.BTAPI_ELECTRON) return;
   const cmd = process.platform === 'win32' ? 'start ' + url
             : process.platform === 'darwin' ? 'open ' + url
             : 'xdg-open ' + url;

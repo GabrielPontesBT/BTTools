@@ -2,7 +2,7 @@
 var S = { step: 1, version: null, platform: null, action: null, engine: null, apiMode: 'publica' };
 // Acciones que soportan trabajar contra la API Interna (tablas BTCBS);
 // Documentar y Validar siguen siempre contra la API Publica (BTI).
-var APIMODE_ACTIONS = new Set(['scripts', 'collections', 'sdtgen']);
+var APIMODE_ACTIONS = new Set(['scripts', 'collections', 'sdtgen', 'paramgen']);
 var _connOk = false, _connTimer = null;
 var loadedEnv = null;
 (function keepAlive() {
@@ -32,6 +32,16 @@ var sdtgenBaseData = null; // { bti025, bti026 }
 var sdtgenFields = []; // copia de trabajo de bti026, reordenada/filtrada
 var sdtgenDragIdx = null;
 var sdtgenExistingCopies = []; // copias no nativas ya creadas a partir del mismo SDT nativo
+
+// ── Estado flujo Editar Parametria ────────────────────────────
+var pgServicesLoaded = false;
+var pgAllServices = [];
+var pgSelectedService = null;
+var pgSelectedMethod = null;
+var pgSrvVer = '1';
+var pgFields = []; // copia de trabajo de los parametros de BTI019/BTCBS019
+var pgDragIdx = null;
+var pgTipoOptions = [];
 
 async function sdtgenLoadList() {
   var loading = document.getElementById('sdtgen-list-loading'), err = document.getElementById('sdtgen-list-err');
@@ -333,6 +343,270 @@ function sdtgenReset() {
   show(4); // show() ya recarga la lista siempre al entrar al paso 4
 }
 
+// ── Editar Parametria (BTI019/BTCBS019) ───────────────────────
+var PG_DIR_OPTIONS = [{ v: 'I', l: 'Entrada' }, { v: 'O', l: 'Salida' }, { v: 'R', l: 'Retorno' }];
+var PG_NAME_RE = /^[A-Za-z][A-Za-z0-9_]{0,99}$/;
+var PG_DIGITS_RE = /^\d{1,9}$/;
+var PG_FORBIDDEN_TEXT_RE = /['";\\\r\n]/;
+
+function pgEscapeAttr(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Cualquier cambio de accion/version/motor/API invalida la seleccion de
+// servicio/metodo y los parametros cargados en memoria (misma logica que
+// sgInvalidateState para Generar Scripts): sin esto, volver atras y cambiar
+// de conexion dejaba el paso 4 mostrando el servicio/metodo de otra corrida.
+function pgInvalidateState() {
+  pgServicesLoaded = false; pgAllServices = []; pgSelectedService = null; pgSelectedMethod = null; pgFields = [];
+  var svcSel = document.getElementById('pg-sel-svc'); if (svcSel) svcSel.innerHTML = '<option value="">-- Seleccionar --</option>';
+  var mtdSel = document.getElementById('pg-sel-mtd'); if (mtdSel) mtdSel.innerHTML = '<option value="">-- Seleccionar --</option>';
+  var out = document.getElementById('pg-sql-out'); if (out) out.value = '';
+}
+
+async function pgLoadServices() {
+  var loading = document.getElementById('pg-svc-loading'), err = document.getElementById('pg-svc-err');
+  if (err) err.className = 'cres';
+  if (loading) loading.style.display = 'flex';
+  pgSelectedService = null; pgSelectedMethod = null;
+  refreshPgNextBtn();
+  try {
+    var r = await fetch('/sg/api/services', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, apiMode: S.apiMode }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    pgAllServices = d.services || [];
+    pgServicesLoaded = true;
+    var sel = document.getElementById('pg-sel-svc');
+    sel.innerHTML = '<option value="">-- Seleccionar --</option>';
+    pgAllServices.forEach(function(s) {
+      var opt = document.createElement('option'); opt.value = s; opt.textContent = s; sel.appendChild(opt);
+    });
+    document.getElementById('pg-sel-mtd').innerHTML = '<option value="">-- Seleccionar --</option>';
+  } catch(e) {
+    if (err) { err.className = 'cres show err'; err.textContent = e.message; }
+  }
+  if (loading) loading.style.display = 'none';
+}
+
+async function pgLoadMethods(service) {
+  pgSelectedService = service || null;
+  pgSelectedMethod = null;
+  refreshPgNextBtn();
+  var sel = document.getElementById('pg-sel-mtd');
+  sel.innerHTML = '<option value="">Cargando...</option>';
+  if (!service) { sel.innerHTML = '<option value="">-- Seleccionar --</option>'; return; }
+  try {
+    var r = await fetch('/sg/api/methods', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, service: service, apiMode: S.apiMode }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    sel.innerHTML = '<option value="">-- Seleccionar --</option>';
+    (d.methods || []).forEach(function(m) {
+      var opt = document.createElement('option'); opt.value = m; opt.textContent = m; sel.appendChild(opt);
+    });
+  } catch(e) {
+    sel.innerHTML = '<option value="">Error al cargar</option>';
+  }
+}
+
+function pgOnMethodChange() {
+  pgSelectedMethod = v('pg-sel-mtd') || null;
+  refreshPgNextBtn();
+}
+
+function refreshPgNextBtn() {
+  var btn = document.getElementById('btn-next');
+  if (btn && S.step === 4 && S.action === 'paramgen') btn.disabled = !pgSelectedMethod;
+}
+
+async function pgGoToEdit() {
+  if (!pgSelectedService || !pgSelectedMethod) return;
+  var btn = document.getElementById('btn-next');
+  if (btn) { btn.innerHTML = '<span class="spin"></span>&nbsp;Cargando...'; btn.disabled = true; }
+  try {
+    var r = await fetch('/api/paramgen/params', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, apiMode: S.apiMode, service: pgSelectedService, method: pgSelectedMethod }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    pgSrvVer = d.srvver || '1';
+    pgFields = (d.params || []).map(function(p) { return Object.assign({}, p); });
+    document.getElementById('pg-mtd-name').textContent = pgSelectedService + ' / ' + pgSelectedMethod;
+    pgLoadTipoOptions();
+    show(5);
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
+  if (btn) { btn.innerHTML = 'Siguiente &#8594;'; btn.disabled = false; }
+}
+
+async function pgLoadTipoOptions() {
+  try {
+    var r = await fetch('/sg/api/param-options', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, apiMode: S.apiMode }) });
+    var d = await r.json();
+    if (!d.ok) return;
+    pgTipoOptions = (d.opts && d.opts.tipos) || [];
+    var dl = document.getElementById('pg-tipo-list');
+    if (dl) dl.innerHTML = pgTipoOptions.map(function(t) { return '<option value="' + pgEscapeAttr(t) + '">'; }).join('');
+  } catch(e) { /* el datalist es solo una ayuda, no bloquea el flujo si falla */ }
+}
+
+// Misma idea que sdtgenValidateField: da feedback inmediato en el editor,
+// pero la autoridad final es buildParams en el server (scripts/editar-parametria).
+function pgValidateField(f) {
+  if (!PG_NAME_RE.test(f.nom || '')) return 'Nombre invalido: debe empezar con una letra y usar solo letras, numeros o guion bajo.';
+  if (!PG_DIGITS_RE.test(f.largo != null ? String(f.largo) : '')) return 'Largo invalido: debe ser un numero entero (0 o mayor).';
+  if (!PG_DIGITS_RE.test(f.deci != null ? String(f.deci) : '0')) return 'Decimales invalidos: debe ser un numero entero (0 o mayor).';
+  if (!(f.tipo || '').trim()) return 'El tipo no puede quedar vacio.';
+  if (PG_FORBIDDEN_TEXT_RE.test(f.tipo || '')) return 'Tipo invalido: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
+  if (PG_FORBIDDEN_TEXT_RE.test(f.valor || '')) return 'Valor por defecto invalido: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
+  if (PG_FORBIDDEN_TEXT_RE.test(f.dsc || '')) return 'Descripcion invalida: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
+  return null;
+}
+
+function pgFieldsAllValid() {
+  return pgFields.length > 0 && pgFields.every(function(f) { return !pgValidateField(f); });
+}
+
+function pgFieldGridCols(showV4Extras) {
+  return '24px 150px 90px 130px 60px' + (showV4Extras ? ' 60px' : '') + ' minmax(120px,1fr)' + (showV4Extras ? ' minmax(140px,1fr)' : '') + ' 28px';
+}
+
+function pgRenderEditor() {
+  var container = document.getElementById('pg-fields');
+  container.innerHTML = '';
+  var showV4Extras = S.version === 'V4';
+  var gridCols = pgFieldGridCols(showV4Extras);
+
+  var header = document.createElement('div');
+  header.className = 'sdtgen-fields-header';
+  header.style.gridTemplateColumns = gridCols;
+  header.innerHTML = '<span></span><span>Nombre</span><span>Dirección</span><span>Tipo</span><span>Largo</span>' +
+    (showV4Extras ? '<span>Decimales</span>' : '') +
+    '<span>Valor por defecto</span>' +
+    (showV4Extras ? '<span>Descripción</span>' : '') +
+    '<span></span>';
+  container.appendChild(header);
+
+  pgFields.forEach(function(field, idx) {
+    var item = document.createElement('div');
+    item.className = 'sdtgen-field-item';
+    item.style.gridTemplateColumns = gridCols;
+    item.draggable = true;
+
+    var dirOpts = PG_DIR_OPTIONS.map(function(o) {
+      return '<option value="' + o.v + '"' + (field.dir === o.v ? ' selected' : '') + '>' + o.l + '</option>';
+    }).join('');
+
+    item.innerHTML = '<span class="sdtgen-drag-handle">&#9776;</span>' +
+      '<input type="text" class="sdtgen-field-input pg-input-nom" value="' + pgEscapeAttr(field.nom) + '">' +
+      '<select class="sdtgen-field-input pg-input-dir">' + dirOpts + '</select>' +
+      '<input type="text" class="sdtgen-field-input pg-input-tipo" list="pg-tipo-list" value="' + pgEscapeAttr(field.tipo) + '">' +
+      '<input type="text" class="sdtgen-field-input pg-input-largo" value="' + pgEscapeAttr(field.largo) + '">' +
+      (showV4Extras ? '<input type="text" class="sdtgen-field-input pg-input-deci" value="' + pgEscapeAttr(field.deci) + '">' : '') +
+      '<input type="text" class="sdtgen-field-input pg-input-valor" value="' + pgEscapeAttr(field.valor) + '">' +
+      (showV4Extras ? '<input type="text" class="sdtgen-field-input pg-input-dsc" value="' + pgEscapeAttr(field.dsc) + '">' : '') +
+      '<button type="button" class="sdtgen-field-rm" title="Quitar">&times;</button>' +
+      '<div class="sdtgen-field-err"></div>';
+
+    var err = item.querySelector('.sdtgen-field-err');
+    function updateErr() {
+      var msg = pgValidateField(field);
+      err.textContent = msg || '';
+      item.classList.toggle('invalid', !!msg);
+    }
+
+    item.querySelector('.pg-input-nom').addEventListener('input', function() { field.nom = this.value; updateErr(); });
+    item.querySelector('.pg-input-dir').addEventListener('change', function() { field.dir = this.value; updateErr(); });
+    item.querySelector('.pg-input-tipo').addEventListener('input', function() { field.tipo = this.value; updateErr(); });
+    item.querySelector('.pg-input-largo').addEventListener('input', function() { field.largo = this.value; updateErr(); });
+    item.querySelector('.pg-input-valor').addEventListener('input', function() { field.valor = this.value; updateErr(); });
+    if (showV4Extras) {
+      item.querySelector('.pg-input-deci').addEventListener('input', function() { field.deci = this.value; updateErr(); });
+      item.querySelector('.pg-input-dsc').addEventListener('input', function() { field.dsc = this.value; updateErr(); });
+    }
+    updateErr();
+
+    item.querySelector('.sdtgen-field-rm').onclick = function() {
+      pgFields.splice(idx, 1);
+      pgRenderEditor();
+    };
+    item.addEventListener('dragstart', function(e) {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) { e.preventDefault(); return; }
+      pgDragIdx = idx; item.classList.add('dragging');
+    });
+    item.addEventListener('dragend', function() { item.classList.remove('dragging'); });
+    item.addEventListener('dragover', function(e) { e.preventDefault(); });
+    item.addEventListener('drop', function(e) {
+      e.preventDefault();
+      if (pgDragIdx === null || pgDragIdx === idx) return;
+      var moved = pgFields.splice(pgDragIdx, 1)[0];
+      pgFields.splice(idx, 0, moved);
+      pgDragIdx = null;
+      pgRenderEditor();
+    });
+    container.appendChild(item);
+  });
+}
+
+function pgAddParam() {
+  pgFields.push({ nom: 'NuevoParametro', nomjava: 'param0', dir: 'I', tipo: 'string', ittipo: '', valor: '', sdtver: '', cat: 'B', catit: 'B', largo: '0', lval: '', itnom: '', deci: '0', dsc: '' });
+  pgRenderEditor();
+}
+
+function pgGoToResult() {
+  var err = document.getElementById('pg-edit-err');
+  if (!pgFields.length) { err.className = 'cres show err'; err.textContent = 'Tiene que quedar al menos un parametro.'; return; }
+  if (!pgFieldsAllValid()) { err.className = 'cres show err'; err.textContent = 'Hay parametros con datos invalidos, revisalos antes de continuar.'; return; }
+  err.className = 'cres';
+  show(6);
+}
+
+async function pgDoGenerate() {
+  var ta = document.getElementById('pg-sql-out');
+  ta.value = 'Generando...';
+  try {
+    var r = await fetch('/api/paramgen/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+      version: S.version, apiMode: S.apiMode, service: pgSelectedService, srvver: pgSrvVer, method: pgSelectedMethod, params: pgFields
+    }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    ta.value = d.script || '';
+  } catch(e) { ta.value = 'Error: ' + e.message; }
+}
+
+function pgCopyScript() {
+  var ta = document.getElementById('pg-sql-out'); if (!ta.value.trim()) return;
+  navigator.clipboard.writeText(ta.value).then(function() {
+    var res = document.getElementById('pg-exec-res');
+    res.className = 'cres show ok'; res.textContent = 'Copiado al portapapeles ✓';
+    setTimeout(function() { res.className = 'cres'; }, 2000);
+  }).catch(function() { ta.select(); document.execCommand('copy'); });
+}
+
+async function pgExecute() {
+  if (!confirm('Esto va a ejecutar DELETE + INSERT sobre BTI019 (parametros de ' + pgSelectedService + ' / ' + pgSelectedMethod + ') contra la base conectada. ¿Confirmás?')) return;
+  var res = document.getElementById('pg-exec-res');
+  res.className = 'cres show'; res.textContent = 'Ejecutando...';
+  try {
+    var r = await fetch('/api/paramgen/execute', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+      platform: S.platform, db: getDbSG(), version: S.version, apiMode: S.apiMode,
+      service: pgSelectedService, srvver: pgSrvVer, method: pgSelectedMethod, params: pgFields
+    }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    res.className = 'cres show ok'; res.textContent = 'Ejecutado correctamente (' + d.statementsRun + ' sentencias) ✓';
+  } catch(e) {
+    res.className = 'cres show err'; res.textContent = 'Error: ' + e.message;
+  }
+}
+
+function pgReset() {
+  pgSelectedService = null; pgSelectedMethod = null; pgFields = []; pgDragIdx = null; pgServicesLoaded = false;
+  var svcSel = document.getElementById('pg-sel-svc'); if (svcSel) svcSel.innerHTML = '<option value="">-- Seleccionar --</option>';
+  var mtdSel = document.getElementById('pg-sel-mtd'); if (mtdSel) mtdSel.innerHTML = '<option value="">-- Seleccionar --</option>';
+  document.getElementById('pg-sql-out').value = '';
+  var res = document.getElementById('pg-exec-res'); if (res) res.className = 'cres';
+  show(4); // show() ya recarga la lista de servicios siempre al entrar al paso 4
+}
+
 // ── Historial de conexiones ───────────────────────────────────
 var _dbHistory = [];
 // Entrada del historial que corresponde a la conexion activa (elegida del
@@ -510,6 +784,7 @@ function sgInvalidateState() {
 
 function pick(key, val, el) {
   sgInvalidateState();
+  pgInvalidateState();
   S[key] = val;
   el.closest('.cards').querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
   el.classList.add('sel');
@@ -623,6 +898,9 @@ function updateStepLabels(action) {
   } else if (action === 'sdtgen') {
     if (lb4) lb4.textContent = 'SDT base';
     if (lb5) lb5.textContent = 'Editar';
+  } else if (action === 'paramgen') {
+    if (lb4) lb4.textContent = 'Servicio';
+    if (lb5) lb5.textContent = 'Parámetros';
   } else {
     if (lb4) lb4.textContent = 'API';
     if (lb5) lb5.textContent = 'Servicios';
@@ -670,6 +948,7 @@ function panelId(step) {
   if (S.action === 'collections') return step === 4 ? 'p4' : 'p4c';
   if (S.action === 'scripts') return step === 4 ? 'p4s' : 'p5s';
   if (S.action === 'sdtgen') return step === 4 ? 'p-sdtbase' : step === 5 ? 'p-sdtedit' : 'p-sdtresult';
+  if (S.action === 'paramgen') return step === 4 ? 'p-paramsvc' : step === 5 ? 'p-paramedit' : 'p-paramresult';
   return 'p' + step; // doc: p4, p5, p6
 }
 
@@ -727,6 +1006,9 @@ function show(step) {
   if (step === 4 && S.action === 'sdtgen') sdtgenLoadList();
   if (step === 5 && S.action === 'sdtgen') sdtgenRenderEditor();
   if (step === 6 && S.action === 'sdtgen') sdtgenDoGenerate();
+  if (step === 4 && S.action === 'paramgen' && !pgServicesLoaded) pgLoadServices();
+  if (step === 5 && S.action === 'paramgen') pgRenderEditor();
+  if (step === 6 && S.action === 'paramgen') pgDoGenerate();
 }
 
 function foot(step) {
@@ -756,6 +1038,12 @@ function foot(step) {
     ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()">Siguiente &#8594;</button>';
   } else if (step === 6 && S.action === 'sdtgen') {
     ftr.innerHTML = '<button class="btn btn-ghost" onclick="sdtgenReset()">&#8635; Nueva copia</button>';
+  } else if (step === 4 && S.action === 'paramgen') {
+    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (pgSelectedMethod ? '' : ' disabled') + '>Siguiente &#8594;</button>';
+  } else if (step === 5 && S.action === 'paramgen') {
+    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()">Siguiente &#8594;</button>';
+  } else if (step === 6 && S.action === 'paramgen') {
+    ftr.innerHTML = '<button class="btn btn-ghost" onclick="pgReset()">&#8635; Editar otro método</button>';
   } else if (step === 6) {
     ftr.innerHTML = '';
   } else {
@@ -782,6 +1070,8 @@ function goNext() {
   }
   if (s === 4 && S.action === 'sdtgen') { sdtgenGoToEdit(); return; }
   if (s === 5 && S.action === 'sdtgen') { sdtgenGoToResult(); return; }
+  if (s === 4 && S.action === 'paramgen') { pgGoToEdit(); return; }
+  if (s === 5 && S.action === 'paramgen') { pgGoToResult(); return; }
   if (s < 6) show(s + 1);
 }
 
