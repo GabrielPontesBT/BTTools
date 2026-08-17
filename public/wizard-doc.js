@@ -41,6 +41,7 @@ var pgSelectedMethod = null;
 var pgSrvVer = '1';
 var pgFields = []; // copia de trabajo de los parametros de BTI019/BTCBS019, en el orden en que se cargaron (no reordenable)
 var pgTipoOptions = [];
+var pgSdtOptions = []; // catalogo { nom, version }[] para los combos "SDT" / "SDT del Ítem"
 
 async function sdtgenLoadList() {
   var loading = document.getElementById('sdtgen-list-loading'), err = document.getElementById('sdtgen-list-err');
@@ -357,6 +358,12 @@ var PG_CAT_OPTIONS = [
   { v: 'C', l: 'Colección' },
   { v: 'S', l: 'SDT' },
 ];
+// Categoria del item DENTRO de una Coleccion: solo Basico o SDT (no hay
+// coleccion de colecciones).
+var PG_CATIT_OPTIONS = [
+  { v: 'B', l: 'Básico' },
+  { v: 'S', l: 'SDT' },
+];
 var PG_NAME_RE = /^[A-Za-z][A-Za-z0-9_]{0,99}$/;
 var PG_DIGITS_RE = /^\d{1,9}$/;
 var PG_FORBIDDEN_TEXT_RE = /['";\\\r\n]/;
@@ -441,7 +448,11 @@ async function pgGoToEdit() {
     pgSrvVer = d.srvver || '1';
     pgFields = (d.params || []).map(function(p) { return Object.assign({}, p); });
     document.getElementById('pg-mtd-name').textContent = pgSelectedService + ' / ' + pgSelectedMethod;
-    pgLoadTipoOptions();
+    // Se esperan los catalogos (tipos y SDTs) antes de mostrar el editor: si
+    // show(5) dispara pgRenderEditor() antes de que estas dos resuelvan, los
+    // combos "SDT"/"SDT del Ítem" se arman vacios y quedan sin sus opciones
+    // (pgRenderEditor no se vuelve a llamar solo porque el catalogo llegue despues).
+    await Promise.all([pgLoadTipoOptions(), pgLoadSdtOptions()]);
     show(5);
   } catch(e) {
     alert('Error: ' + e.message);
@@ -460,16 +471,49 @@ async function pgLoadTipoOptions() {
   } catch(e) { /* el datalist es solo una ayuda, no bloquea el flujo si falla */ }
 }
 
+// Catalogo de SDTs (nombre + version) para los combos "SDT" / "SDT del
+// Ítem" (Categoría=SDT, o Categoría=Colección con Categoría del Ítem=SDT).
+async function pgLoadSdtOptions() {
+  try {
+    var r = await fetch('/api/paramgen/sdt-options', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, apiMode: S.apiMode }) });
+    var d = await r.json();
+    if (!d.ok) return;
+    pgSdtOptions = d.sdts || [];
+  } catch(e) { /* si falla, el combo SDT queda vacio pero el resto del editor sigue andando */ }
+}
+
 // Misma idea que sdtgenValidateField: da feedback inmediato en el editor,
 // pero la autoridad final es buildParams en el server (scripts/editar-parametria).
+// Que campos son obligatorios depende de la categoria, mismo arbol que
+// buildParams: B=tipo+largo/decimales propios, S=SDT+version, C=categoria
+// del item + nombre del item + (tipo/largo/decimales del item, o SDT+version
+// del item si el item es SDT).
 function pgValidateField(f) {
   if (!PG_NAME_RE.test(f.nom || '')) return 'Nombre invalido: debe empezar con una letra y usar solo letras, numeros o guion bajo.';
-  if (!PG_DIGITS_RE.test(f.largo != null ? String(f.largo) : '')) return 'Largo invalido: debe ser un numero entero (0 o mayor).';
-  if (!PG_DIGITS_RE.test(f.deci != null ? String(f.deci) : '0')) return 'Decimales invalidos: debe ser un numero entero (0 o mayor).';
-  if (!(f.tipo || '').trim()) return 'El tipo no puede quedar vacio.';
-  if (PG_FORBIDDEN_TEXT_RE.test(f.tipo || '')) return 'Tipo invalido: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
   if (PG_FORBIDDEN_TEXT_RE.test(f.valor || '')) return 'Valor por defecto invalido: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
   if (PG_FORBIDDEN_TEXT_RE.test(f.dsc || '')) return 'Descripcion invalida: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
+
+  if (f.cat === 'S') {
+    if (!(f.tipo || '').trim() || !(f.sdtver || '').trim()) return 'Elegí un SDT para este parámetro.';
+    return null;
+  }
+  if (f.cat === 'C') {
+    if (!PG_NAME_RE.test(f.itnom || '')) return 'Nombre de ítem invalido: debe empezar con una letra y usar solo letras, numeros o guion bajo.';
+    if (f.catit === 'S') {
+      if (!(f.ittipo || '').trim() || !(f.sdtver || '').trim()) return 'Elegí el SDT del ítem para este parámetro.';
+    } else {
+      if (!(f.ittipo || '').trim()) return 'El tipo del ítem no puede quedar vacío.';
+      if (PG_FORBIDDEN_TEXT_RE.test(f.ittipo || '')) return 'Tipo de ítem invalido: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
+      if (!PG_DIGITS_RE.test(f.largo != null ? String(f.largo) : '')) return 'Largo del ítem invalido: debe ser un numero entero (0 o mayor).';
+      if (!PG_DIGITS_RE.test(f.deci != null ? String(f.deci) : '0')) return 'Decimales del ítem invalidos: debe ser un numero entero (0 o mayor).';
+    }
+    return null;
+  }
+  // Basico (default).
+  if (!(f.tipo || '').trim()) return 'El tipo no puede quedar vacío.';
+  if (PG_FORBIDDEN_TEXT_RE.test(f.tipo || '')) return 'Tipo invalido: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
+  if (!PG_DIGITS_RE.test(f.largo != null ? String(f.largo) : '')) return 'Largo invalido: debe ser un numero entero (0 o mayor).';
+  if (!PG_DIGITS_RE.test(f.deci != null ? String(f.deci) : '0')) return 'Decimales invalidos: debe ser un numero entero (0 o mayor).';
   return null;
 }
 
@@ -477,33 +521,126 @@ function pgFieldsAllValid() {
   return pgFields.length > 0 && pgFields.every(function(f) { return !pgValidateField(f); });
 }
 
-// Sin columna de drag&drop: el orden de carga de la base se mantiene tal
-// cual (ver pgRenderEditor, sin draggable ni listeners de drag).
-function pgFieldGridCols(showV4Extras) {
-  return '160px 130px 110px 130px 60px' + (showV4Extras ? ' 60px' : '') + ' minmax(120px,1fr)' + (showV4Extras ? ' minmax(140px,1fr)' : '') + ' 28px';
+// Cambiar de categoria cambia por completo que campos aplican (ver
+// pgDynamicFieldsHtml/buildParams), asi que se resetean los campos
+// dependientes en vez de arrastrar valores que ya no tienen sentido.
+function pgOnCatChange(field, newCat) {
+  field.cat = newCat;
+  field.tipo = '';
+  field.sdtver = '';
+  field.ittipo = '';
+  field.itnom = '';
+  field.catit = 'B';
+  field.largo = '0';
+  field.deci = '0';
 }
 
+// Igual que pgOnCatChange pero para el sub-selector "Categoría del Ítem"
+// (solo existe con Categoría=Colección): el nombre del item (itnom) es
+// independiente de si el item es Basico o SDT, asi que se preserva.
+function pgOnCatitChange(field, newCatit) {
+  field.catit = newCatit;
+  field.ittipo = '';
+  field.sdtver = '';
+  field.largo = '0';
+  field.deci = '0';
+}
+
+function pgSdtOptionsHtml(selectedNom, selectedVersion) {
+  var html = '<option value=""' + (selectedNom ? '' : ' selected') + ' disabled>-- Seleccionar SDT --</option>';
+  html += pgSdtOptions.map(function(s) {
+    var val = s.nom + '|' + s.version;
+    var isSel = s.nom === selectedNom && String(s.version) === String(selectedVersion);
+    return '<option value="' + pgEscapeAttr(val) + '"' + (isSel ? ' selected' : '') + '>' + pgEscapeAttr(s.nom) + ' - v' + pgEscapeAttr(s.version) + '</option>';
+  }).join('');
+  return html;
+}
+
+// Arma el tramo de campos que depende de la categoria elegida (ver los 3
+// combos posibles en el mock: Basico -> Tipo+Largo(+Decimales); SDT -> un
+// solo combo "SDT"; Coleccion -> Categoría del Ítem + Nombre del Ítem, y
+// despues el mismo patron Basico/SDT pero para el item).
+function pgDynamicFieldsHtml(field, showV4Extras) {
+  if (field.cat === 'S') {
+    return '<div class="pg-fgroup pg-fgroup-grow"><label class="pg-flabel">SDT</label>' +
+      '<select class="sdtgen-field-input pg-input-sdt">' + pgSdtOptionsHtml(field.tipo, field.sdtver) + '</select></div>';
+  }
+  if (field.cat === 'C') {
+    var catit = field.catit || 'B';
+    var catitOpts = PG_CATIT_OPTIONS.map(function(o) {
+      return '<option value="' + o.v + '"' + (catit === o.v ? ' selected' : '') + '>' + o.l + ' (' + o.v + ')</option>';
+    }).join('');
+    var html = '<div class="pg-fgroup"><label class="pg-flabel">Categoría del Ítem</label><select class="sdtgen-field-input pg-input-catit">' + catitOpts + '</select></div>' +
+      '<div class="pg-fgroup"><label class="pg-flabel">Nombre del Ítem</label><input type="text" class="sdtgen-field-input pg-input-itnom" value="' + pgEscapeAttr(field.itnom) + '"></div>';
+    if (catit === 'S') {
+      html += '<div class="pg-fgroup pg-fgroup-grow"><label class="pg-flabel">SDT del Ítem</label>' +
+        '<select class="sdtgen-field-input pg-input-sdtitem">' + pgSdtOptionsHtml(field.ittipo, field.sdtver) + '</select></div>';
+    } else {
+      html += '<div class="pg-fgroup"><label class="pg-flabel">Tipo del Ítem</label><input type="text" class="sdtgen-field-input pg-input-ittipo" list="pg-tipo-list" value="' + pgEscapeAttr(field.ittipo) + '"></div>' +
+        '<div class="pg-fgroup"><label class="pg-flabel">Largo del Ítem</label><input type="text" class="sdtgen-field-input pg-input-largo" value="' + pgEscapeAttr(field.largo) + '"></div>' +
+        (showV4Extras ? '<div class="pg-fgroup"><label class="pg-flabel">Decimales del Ítem</label><input type="text" class="sdtgen-field-input pg-input-deci" value="' + pgEscapeAttr(field.deci) + '"></div>' : '');
+    }
+    return html;
+  }
+  // Basico.
+  return '<div class="pg-fgroup"><label class="pg-flabel">Tipo</label><input type="text" class="sdtgen-field-input pg-input-tipo" list="pg-tipo-list" value="' + pgEscapeAttr(field.tipo) + '"></div>' +
+    '<div class="pg-fgroup"><label class="pg-flabel">Largo</label><input type="text" class="sdtgen-field-input pg-input-largo" value="' + pgEscapeAttr(field.largo) + '"></div>' +
+    (showV4Extras ? '<div class="pg-fgroup"><label class="pg-flabel">Decimales</label><input type="text" class="sdtgen-field-input pg-input-deci" value="' + pgEscapeAttr(field.deci) + '"></div>' : '');
+}
+
+// Conecta los listeners del tramo dinamico armado por pgDynamicFieldsHtml.
+// Los selects que cambian la CATEGORIA (cat/catit) disparan un re-render
+// completo de la fila (los campos que aplican cambian); el resto muta el
+// campo en memoria sin re-renderizar.
+function pgWireDynamicFields(card, field, showV4Extras, updateErr) {
+  if (field.cat === 'S') {
+    var sdtSel = card.querySelector('.pg-input-sdt');
+    sdtSel.addEventListener('change', function() {
+      var parts = this.value.split('|');
+      field.tipo = parts[0] || '';
+      field.sdtver = parts[1] || '';
+      updateErr();
+    });
+    return;
+  }
+  if (field.cat === 'C') {
+    card.querySelector('.pg-input-catit').addEventListener('change', function() {
+      pgOnCatitChange(field, this.value);
+      pgRenderEditor();
+    });
+    card.querySelector('.pg-input-itnom').addEventListener('input', function() { field.itnom = this.value; updateErr(); });
+    if (field.catit === 'S') {
+      card.querySelector('.pg-input-sdtitem').addEventListener('change', function() {
+        var parts = this.value.split('|');
+        field.ittipo = parts[0] || '';
+        field.sdtver = parts[1] || '';
+        updateErr();
+      });
+    } else {
+      card.querySelector('.pg-input-ittipo').addEventListener('input', function() { field.ittipo = this.value; updateErr(); });
+      card.querySelector('.pg-input-largo').addEventListener('input', function() { field.largo = this.value; updateErr(); });
+      if (showV4Extras) card.querySelector('.pg-input-deci').addEventListener('input', function() { field.deci = this.value; updateErr(); });
+    }
+    return;
+  }
+  // Basico.
+  card.querySelector('.pg-input-tipo').addEventListener('input', function() { field.tipo = this.value; updateErr(); });
+  card.querySelector('.pg-input-largo').addEventListener('input', function() { field.largo = this.value; updateErr(); });
+  if (showV4Extras) card.querySelector('.pg-input-deci').addEventListener('input', function() { field.deci = this.value; updateErr(); });
+}
+
+// Cada parametro es una tarjeta con sus propios campos etiquetados (no una
+// tabla de columnas fijas): la Categoría cambia que campos aplican, asi que
+// una grilla de columnas compartida entre filas no tiene sentido aca (a
+// diferencia del editor de campos de SDT).
 function pgRenderEditor() {
   var container = document.getElementById('pg-fields');
   container.innerHTML = '';
   var showV4Extras = S.version === 'V4';
-  var gridCols = pgFieldGridCols(showV4Extras);
-
-  var header = document.createElement('div');
-  header.className = 'sdtgen-fields-header';
-  header.style.gridTemplateColumns = gridCols;
-  header.innerHTML = '<span>Nombre</span><span>Dirección</span><span>Categoría</span><span>Tipo</span><span>Largo</span>' +
-    (showV4Extras ? '<span>Decimales</span>' : '') +
-    '<span>Valor por defecto</span>' +
-    (showV4Extras ? '<span>Descripción</span>' : '') +
-    '<span></span>';
-  container.appendChild(header);
 
   pgFields.forEach(function(field, idx) {
-    var item = document.createElement('div');
-    item.className = 'sdtgen-field-item';
-    item.style.gridTemplateColumns = gridCols;
-    item.style.cursor = 'default';
+    var card = document.createElement('div');
+    card.className = 'pg-param-card';
 
     var dirOpts = PG_DIR_OPTIONS.map(function(o) {
       return '<option value="' + o.v + '"' + (field.dir === o.v ? ' selected' : '') + '>' + o.l + ' (' + o.v + ')</option>';
@@ -512,46 +649,48 @@ function pgRenderEditor() {
       return '<option value="' + o.v + '"' + (field.cat === o.v ? ' selected' : '') + '>' + o.l + ' (' + o.v + ')</option>';
     }).join('');
 
-    item.innerHTML = '<input type="text" class="sdtgen-field-input pg-input-nom" value="' + pgEscapeAttr(field.nom) + '">' +
-      '<select class="sdtgen-field-input pg-input-dir">' + dirOpts + '</select>' +
-      '<select class="sdtgen-field-input pg-input-cat">' + catOpts + '</select>' +
-      '<input type="text" class="sdtgen-field-input pg-input-tipo" list="pg-tipo-list" value="' + pgEscapeAttr(field.tipo) + '">' +
-      '<input type="text" class="sdtgen-field-input pg-input-largo" value="' + pgEscapeAttr(field.largo) + '">' +
-      (showV4Extras ? '<input type="text" class="sdtgen-field-input pg-input-deci" value="' + pgEscapeAttr(field.deci) + '">' : '') +
-      '<input type="text" class="sdtgen-field-input pg-input-valor" value="' + pgEscapeAttr(field.valor) + '">' +
-      (showV4Extras ? '<input type="text" class="sdtgen-field-input pg-input-dsc" value="' + pgEscapeAttr(field.dsc) + '">' : '') +
-      '<button type="button" class="sdtgen-field-rm" title="Quitar">&times;</button>' +
+    card.innerHTML =
+      '<div class="pg-param-top">' +
+        '<div class="pg-fgroup pg-fgroup-grow"><label class="pg-flabel">Nombre</label><input type="text" class="sdtgen-field-input pg-input-nom" value="' + pgEscapeAttr(field.nom) + '"></div>' +
+        '<button type="button" class="sdtgen-field-rm" title="Quitar">&times;</button>' +
+      '</div>' +
+      '<div class="pg-param-fields">' +
+        '<div class="pg-fgroup"><label class="pg-flabel">Dirección</label><select class="sdtgen-field-input pg-input-dir">' + dirOpts + '</select></div>' +
+        '<div class="pg-fgroup"><label class="pg-flabel">Categoría</label><select class="sdtgen-field-input pg-input-cat">' + catOpts + '</select></div>' +
+        pgDynamicFieldsHtml(field, showV4Extras) +
+        '<div class="pg-fgroup pg-fgroup-grow"><label class="pg-flabel">Valor por defecto</label><input type="text" class="sdtgen-field-input pg-input-valor" value="' + pgEscapeAttr(field.valor) + '"></div>' +
+        (showV4Extras ? '<div class="pg-fgroup pg-fgroup-grow"><label class="pg-flabel">Descripción</label><input type="text" class="sdtgen-field-input pg-input-dsc" value="' + pgEscapeAttr(field.dsc) + '"></div>' : '') +
+      '</div>' +
       '<div class="sdtgen-field-err"></div>';
 
-    var err = item.querySelector('.sdtgen-field-err');
+    var err = card.querySelector('.sdtgen-field-err');
     function updateErr() {
       var msg = pgValidateField(field);
       err.textContent = msg || '';
-      item.classList.toggle('invalid', !!msg);
+      card.classList.toggle('invalid', !!msg);
     }
 
-    item.querySelector('.pg-input-nom').addEventListener('input', function() { field.nom = this.value; updateErr(); });
-    item.querySelector('.pg-input-dir').addEventListener('change', function() { field.dir = this.value; updateErr(); });
-    item.querySelector('.pg-input-cat').addEventListener('change', function() { field.cat = this.value; updateErr(); });
-    item.querySelector('.pg-input-tipo').addEventListener('input', function() { field.tipo = this.value; updateErr(); });
-    item.querySelector('.pg-input-largo').addEventListener('input', function() { field.largo = this.value; updateErr(); });
-    item.querySelector('.pg-input-valor').addEventListener('input', function() { field.valor = this.value; updateErr(); });
-    if (showV4Extras) {
-      item.querySelector('.pg-input-deci').addEventListener('input', function() { field.deci = this.value; updateErr(); });
-      item.querySelector('.pg-input-dsc').addEventListener('input', function() { field.dsc = this.value; updateErr(); });
-    }
+    card.querySelector('.pg-input-nom').addEventListener('input', function() { field.nom = this.value; updateErr(); });
+    card.querySelector('.pg-input-dir').addEventListener('change', function() { field.dir = this.value; updateErr(); });
+    card.querySelector('.pg-input-cat').addEventListener('change', function() {
+      pgOnCatChange(field, this.value);
+      pgRenderEditor();
+    });
+    card.querySelector('.pg-input-valor').addEventListener('input', function() { field.valor = this.value; updateErr(); });
+    if (showV4Extras) card.querySelector('.pg-input-dsc').addEventListener('input', function() { field.dsc = this.value; updateErr(); });
+    pgWireDynamicFields(card, field, showV4Extras, updateErr);
     updateErr();
 
-    item.querySelector('.sdtgen-field-rm').onclick = function() {
+    card.querySelector('.sdtgen-field-rm').onclick = function() {
       pgFields.splice(idx, 1);
       pgRenderEditor();
     };
-    container.appendChild(item);
+    container.appendChild(card);
   });
 }
 
 function pgAddParam() {
-  pgFields.push({ nom: 'NuevoParametro', nomjava: 'param0', dir: 'I', tipo: 'string', ittipo: '', valor: '', sdtver: '', cat: 'B', catit: 'B', largo: '0', lval: '', itnom: '', deci: '0', dsc: '' });
+  pgFields.push({ nom: 'NuevoParametro', nomjava: 'param0', dir: 'I', tipo: '', ittipo: '', valor: '', sdtver: '', cat: 'B', catit: 'B', largo: '0', lval: '', itnom: '', deci: '0', dsc: '' });
   pgRenderEditor();
 }
 

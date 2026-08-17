@@ -230,6 +230,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .sdtgen-field-input{border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:var(--fs-sm);color:var(--text);font-family:inherit;width:100%;box-sizing:border-box}
 .sdtgen-field-input-nom{font-weight:600}
 .sdtgen-field-err{grid-column:1/-1;color:var(--red);font-size:var(--fs-sm);padding-left:24px;min-height:1em}
+.pg-param-card{padding:14px 16px;border-bottom:1px solid var(--border);background:#fff}
+.pg-param-card:last-child{border-bottom:none}
+.pg-param-card.invalid{background:var(--red-l)}
+.pg-param-card .sdtgen-field-err{padding-left:0}
+.pg-param-top{display:flex;gap:var(--sp-3);align-items:flex-end;margin-bottom:var(--sp-3)}
+.pg-param-top .sdtgen-field-rm{border:none;background:none;color:var(--red);font-size:20px;cursor:pointer;padding:0 4px;flex-shrink:0}
+.pg-param-fields{display:flex;flex-wrap:wrap;gap:var(--sp-3)}
+.pg-fgroup{display:flex;flex-direction:column;gap:4px;min-width:120px}
+.pg-fgroup-grow{flex:1;min-width:160px}
+.pg-flabel{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 .sdtgen-existing-list{border:1.5px solid var(--warn);border-radius:10px;overflow:hidden;margin-top:var(--sp-2);max-height:260px;overflow-y:auto}
 .sdtgen-existing-item{border-bottom:1px solid var(--border)}
 .sdtgen-existing-item:last-child{border-bottom:none}

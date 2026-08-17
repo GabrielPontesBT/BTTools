@@ -835,6 +835,29 @@ async function sg_queryBti012Batch(platform, db, version, service, srvver, metho
   } finally { await conn.close(); }
 }
 
+// Catalogo completo de SDTs (nativos y no nativos) con su version, para el
+// combo "SDT" del editor de parametria (BTISRVVARTIPO/BTISRVSDTVER cuando
+// BTISRVCAT='S'). A diferencia de sdtgen.listSdtNames (que filtra solo
+// nativos porque una copia solo puede armarse a partir de uno), aca
+// cualquier SDT existente es un tipo de parametro valido.
+async function sg_queryAllSdts(platform, db, version, apiMode) {
+  if (platform === 'sqlserver') {
+    const { pool } = await sg_getPool(db);
+    const r = await pool.request().query('SELECT BTISDTNom, BTISDTVersion FROM BTI025 ORDER BY BTISDTNom');
+    return r.recordset.map(function(row) { return { nom: (row.BTISDTNom || '').trim(), version: (row.BTISDTVersion != null ? String(row.BTISDTVersion) : '1').trim() || '1' }; }).filter(function(s) { return s.nom; });
+  }
+  const { conn, oracledb } = await sg_getOra(db);
+  const interna = apiMode === 'interna';
+  try {
+    const r = await conn.execute(
+      interna ? 'SELECT BSSDTNAME, BSSDTVER FROM BTCBS025 ORDER BY BSSDTNAME' : 'SELECT BTISDTNOM, BTISDTVERSION FROM BTI025 ORDER BY BTISDTNOM',
+      [], { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    const [nomCol, verCol] = interna ? ['BSSDTNAME', 'BSSDTVER'] : ['BTISDTNOM', 'BTISDTVERSION'];
+    return r.rows.map(function(row) { return { nom: (row[nomCol] || '').trim(), version: (row[verCol] != null ? String(row[verCol]) : '1').trim() || '1' }; }).filter(function(s) { return s.nom; });
+  } finally { await conn.close(); }
+}
+
 async function sg_queryBti025(platform, db, version, sdtNom, apiMode) {
   if (platform === 'sqlserver') {
     const { pool, mssql } = await sg_getPool(db);
@@ -1272,6 +1295,7 @@ const paramEditFeature = createParamEditFeature({
   getOra: sg_getOra,
   queryMethodParams: sg_queryMethodParams,
   queryServiceVersions: sg_queryServiceVersions,
+  queryAllSdts: sg_queryAllSdts,
 });
 
 // -- server ------------------------------------------------

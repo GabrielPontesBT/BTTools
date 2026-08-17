@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 
 const {
   createParamEditFeature, buildParams, generateParamsScript,
-  isValidParamName, isValidDigits, isValidParamText, isValidDir, isValidCat,
+  isValidParamName, isValidDigits, isValidParamText, isValidDir, isValidCat, isValidCatit,
 } = require('./index.js');
 
 function sourceParams() {
@@ -34,6 +34,13 @@ test('isValidCat acepta B/C/S (Basico/Coleccion/SDT) y rechaza el resto', () => 
   for (const cat of ['B', 'C', 'S']) assert.equal(isValidCat(cat), true, cat + ' deberia ser valido');
   assert.equal(isValidCat('X'), false);
   assert.equal(isValidCat('b'), false, 'no debe aceptar minusculas sin normalizar');
+});
+
+test('isValidCatit acepta solo B/S (categoria del item de una Coleccion)', () => {
+  assert.equal(isValidCatit('B'), true);
+  assert.equal(isValidCatit('S'), true);
+  assert.equal(isValidCatit('C'), false, 'una coleccion de colecciones no esta soportada');
+  assert.equal(isValidCatit('X'), false);
 });
 
 test('buildParams conserva el orden recibido (define BTISRVPARPOSI) y normaliza dir a mayusculas', () => {
@@ -74,17 +81,48 @@ test('buildParams lanza si la direccion no es H/S/R/I/B/O', () => {
   assert.throws(() => buildParams(src), /Direccion invalida/);
 });
 
-test('buildParams normaliza y valida la categoria (B/C/S)', () => {
-  const src = sourceParams();
-  src[0].cat = 'c';
-  const built = buildParams(src);
-  assert.equal(built[0].cat, 'C');
-});
-
 test('buildParams lanza si la categoria no es B/C/S', () => {
   const src = sourceParams();
   src[0].cat = 'X';
   assert.throws(() => buildParams(src), /Categoria invalida/);
+});
+
+test('buildParams (cat=SDT) exige tipo (SDT elegido) y version, y limpia largo/decimales', () => {
+  const base = () => ({ nom: 'ParamSdt', dir: 'I', cat: 'S' });
+  assert.throws(() => buildParams([base()]), /Debe elegir un SDT/);
+  assert.throws(() => buildParams([{ ...base(), tipo: 'SdtCliente' }]), /Falta la version del SDT elegido/);
+  const built = buildParams([{ ...base(), tipo: 'SdtCliente', sdtver: '2', largo: '99', deci: '2' }]);
+  assert.equal(built[0].tipo, 'SdtCliente');
+  assert.equal(built[0].sdtver, '2');
+  assert.equal(built[0].largo, '0', 'un SDT no usa largo, se limpia aunque venga seteado');
+  assert.equal(built[0].deci, '0');
+  assert.equal(built[0].catit, 'B', 'catit por defecto cuando cat no es Coleccion');
+});
+
+test('buildParams (cat=Coleccion, item Basico) exige catit/itnom/tipo-de-item y usa largo/decimales del item', () => {
+  const base = () => ({ nom: 'ParamLista', dir: 'I', cat: 'C', catit: 'B', itnom: 'item', ittipo: 'int', largo: '9', deci: '0' });
+  const built = buildParams([base()]);
+  assert.equal(built[0].cat, 'C');
+  assert.equal(built[0].catit, 'B');
+  assert.equal(built[0].itnom, 'item');
+  assert.equal(built[0].ittipo, 'int');
+  assert.equal(built[0].largo, '9');
+  assert.equal(built[0].tipo, '', 'una Coleccion no usa "tipo" propio, usa ittipo del item');
+  assert.throws(() => buildParams([{ ...base(), itnom: '' }]), /Nombre de item invalido/);
+  assert.throws(() => buildParams([{ ...base(), itnom: '1item' }]), /Nombre de item invalido/);
+  assert.throws(() => buildParams([{ ...base(), ittipo: '' }]), /Tipo de item invalido/);
+  assert.throws(() => buildParams([{ ...base(), catit: 'X' }]), /Categoria del item invalida/);
+});
+
+test('buildParams (cat=Coleccion, item SDT) exige SDT y version de item, y limpia largo/decimales', () => {
+  const base = () => ({ nom: 'ParamListaSdt', dir: 'I', cat: 'C', catit: 'S', itnom: 'item' });
+  assert.throws(() => buildParams([base()]), /Debe elegir un SDT de item/);
+  assert.throws(() => buildParams([{ ...base(), ittipo: 'SdtDireccion' }]), /Falta la version del SDT de item elegido/);
+  const built = buildParams([{ ...base(), ittipo: 'SdtDireccion', sdtver: '3', largo: '50' }]);
+  assert.equal(built[0].ittipo, 'SdtDireccion');
+  assert.equal(built[0].sdtver, '3');
+  assert.equal(built[0].largo, '0');
+  assert.equal(built[0].deci, '0');
 });
 
 test('buildParams lanza si el tipo esta vacio o contiene texto prohibido', () => {
@@ -152,6 +190,7 @@ function fakeDeps(overrides) {
     getOra: async () => { throw new Error('getOra no configurado en el fake'); },
     queryMethodParams: async () => { throw new Error('queryMethodParams no configurado en el fake'); },
     queryServiceVersions: async () => { throw new Error('queryServiceVersions no configurado en el fake'); },
+    queryAllSdts: async () => { throw new Error('queryAllSdts no configurado en el fake'); },
   }, overrides || {});
 }
 
@@ -174,6 +213,26 @@ test('loadParams usa "1" como version por defecto si el servicio no tiene ningun
   }));
   const result = await feature.loadParams('sqlserver', {}, 'V3', 'MiServicio', 'MiMetodo');
   assert.equal(result.srvver, '1');
+});
+
+test('listSdtOptions devuelve el catalogo tal cual lo entrega la dependencia inyectada', async () => {
+  const feature = createParamEditFeature(fakeDeps({
+    queryAllSdts: async () => [{ nom: 'SdtCliente', version: '1' }, { nom: 'SdtDireccion', version: '2' }],
+  }));
+  const sdts = await feature.listSdtOptions('oracle', {}, 'V4', 'publica');
+  assert.deepEqual(sdts, [{ nom: 'SdtCliente', version: '1' }, { nom: 'SdtDireccion', version: '2' }]);
+});
+
+test('handleApi POST /api/paramgen/sdt-options responde con el catalogo de SDTs', async () => {
+  const feature = createParamEditFeature(fakeDeps({
+    queryAllSdts: async () => [{ nom: 'SdtCliente', version: '1' }],
+  }));
+  const res = fakeRes();
+  const handled = await feature.handleApi(fakeReq('POST', '/api/paramgen/sdt-options', {
+    platform: 'oracle', db: {}, version: 'V4', apiMode: 'publica',
+  }), res, fakeHelpers(res));
+  assert.equal(handled, true);
+  assert.deepEqual(res.body, { ok: true, sdts: [{ nom: 'SdtCliente', version: '1' }] });
 });
 
 function fakeMssqlTransaction(log) {
