@@ -902,8 +902,9 @@ function updateStepLabels(action) {
     if (lb4) lb4.textContent = 'Servicio';
     if (lb5) lb5.textContent = 'Parámetros';
   } else {
-    if (lb4) lb4.textContent = 'API';
-    if (lb5) lb5.textContent = 'Servicios';
+    // doc: paso de servicios va antes que el de ambiente (ver panelId)
+    if (lb4) lb4.textContent = 'Servicios';
+    if (lb5) lb5.textContent = 'API';
   }
 }
 
@@ -949,7 +950,12 @@ function panelId(step) {
   if (S.action === 'scripts') return step === 4 ? 'p4s' : 'p5s';
   if (S.action === 'sdtgen') return step === 4 ? 'p-sdtbase' : step === 5 ? 'p-sdtedit' : 'p-sdtresult';
   if (S.action === 'paramgen') return step === 4 ? 'p-paramsvc' : step === 5 ? 'p-paramedit' : 'p-paramresult';
-  return 'p' + step; // doc: p4, p5, p6
+  if (S.action === 'doc') {
+    if (step === 4) return 'p5'; // selección de servicios
+    if (step === 5) return 'p4'; // ambiente + llamar a la API
+    return 'p6'; // éxito
+  }
+  return 'p' + step;
 }
 
 function show(step) {
@@ -978,7 +984,10 @@ function show(step) {
     setTimeout(setupConnWatchers, 0);
   }
   if (step === 4 && S.action === 'validate') { loadValidateFolders(); }
-  if (step === 4 && (S.action === 'doc' || S.action === 'collections')) {
+  if (step === 4 && S.action === 'doc') { if (!allServices.length) loadServices(); else renderList(); }
+  // Panel de ambiente + API ('p4'): en collections vive en el paso 4, en doc
+  // (tras el reorden servicios-antes-que-ambiente) vive en el paso 5.
+  if ((step === 4 && S.action === 'collections') || (step === 5 && S.action === 'doc')) {
       var isV4 = S.version === 'V4';
       var isCollections = S.action === 'collections';
       document.getElementById('a-auth-wrap').style.display = isV4 ? 'none' : 'block';
@@ -995,7 +1004,6 @@ function show(step) {
       }
       fillApiFields();
   }
-  if (step === 5 && S.action === 'doc') { if (!allServices.length) loadServices(); else renderList(); }
   if (step === 5 && S.action === 'collections') {
     if (typeof collectionRefreshContext === 'function') collectionRefreshContext();
     if (typeof collectionToggleConfig === 'function') collectionToggleConfig();
@@ -1028,10 +1036,12 @@ function foot(step) {
     ftr.innerHTML = '';
   } else if (step === 4 && S.action === 'scripts') {
     ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()" disabled>Generar script &#8594;</button>';
+  } else if (step === 4 && S.action === 'doc') {
+    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (items.length ? '' : ' disabled') + '>Siguiente &#8594;</button>';
   } else if (step === 4 && S.action === 'sdtgen') {
     ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (sdtgenSelectedName ? '' : ' disabled') + '>Siguiente &#8594;</button>';
   } else if (step === 5 && S.action === 'doc') {
-    ftr.innerHTML = '<button class="btn btn-success" id="btn-save" onclick="saveEnv()" disabled>Guardar y finalizar &#10003;</button>';
+    ftr.innerHTML = '<button class="btn btn-success" id="btn-save" onclick="saveEnv()">Guardar y finalizar &#10003;</button>';
   } else if (step === 5 && S.action === 'scripts') {
     ftr.innerHTML = '<button class="btn btn-ghost" onclick="sgReset()">&#8635; Nuevo script</button>';
   } else if (step === 5 && S.action === 'sdtgen') {
@@ -1051,7 +1061,7 @@ function foot(step) {
   }
 }
 
-function goNext() {
+async function goNext() {
   var s = S.step;
   if (s === 1 && !S.action) return;
   if (s === 1 && S.action === 'validate') { show(4); return; } // saltar versión y conexión
@@ -1068,6 +1078,7 @@ function goNext() {
     sgFetchAndShowOutput(grps);
     return;
   }
+  if (s === 4 && S.action === 'doc') { await validateDocItems(); return; }
   if (s === 4 && S.action === 'sdtgen') { sdtgenGoToEdit(); return; }
   if (s === 5 && S.action === 'sdtgen') { sdtgenGoToResult(); return; }
   if (s === 4 && S.action === 'paramgen') { pgGoToEdit(); return; }
@@ -1482,7 +1493,7 @@ function addItem() {
   if (dup) return;
   items.push({ service: svc, method: mtd });
   renderList();
-  var btn = document.getElementById('btn-save');
+  var btn = document.getElementById('btn-next');
   if (btn) btn.disabled = false;
 }
 
@@ -1490,7 +1501,7 @@ function removeItem(idx) {
   items.splice(idx, 1);
   renderList();
   if (items.length === 0) {
-    var btn = document.getElementById('btn-save');
+    var btn = document.getElementById('btn-next');
     if (btn) btn.disabled = true;
   }
 }
@@ -1539,39 +1550,46 @@ async function renderList() {
   } catch(e) {}
 }
 
-async function saveEnv() {
-  var btn = document.getElementById('btn-save');
+async function validateDocItems() {
+  var btn = document.getElementById('btn-next');
   var valEl = document.getElementById('doc-val-block');
   if (valEl) { valEl.innerHTML = ''; valEl.style.display = 'none'; }
 
   var docItems = items.filter(function(it) { return it.method; }).map(function(it) { return { service: it.service, method: it.method }; });
-  if (docItems.length) {
-    btn.innerHTML = '<span class="spin"></span>&nbsp;Validando...';
-    btn.disabled = true;
-    try {
-      var rv = await fetch('/sg/api/validate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, items: docItems }) });
-      var dv = await rv.json();
-      docCacheKey = dv.cacheKey || null;
-      if (dv.ok && dv.warnings && dv.warnings.length) {
-        renderWarnings('doc-val-block', dv.warnings);
-        btn.innerHTML = 'Guardar y finalizar &#10003;';
-        btn.disabled = false;
-        return;
-      }
-      if (!dv.ok) {
-        if (valEl) { valEl.innerHTML = '<div style="background:var(--warn-l);border:1px solid var(--warn);border-radius:8px;padding:12px 16px;font-size:var(--fs-sm);color:var(--warn-d)">&#9888; No se pudo validar: ' + (dv.message || 'error desconocido') + '</div>'; valEl.style.display = ''; }
-        btn.innerHTML = 'Guardar y finalizar &#10003;';
-        btn.disabled = false;
-        return;
-      }
-    } catch(e) {
-      if (valEl) { valEl.innerHTML = '<div style="background:var(--warn-l);border:1px solid var(--warn);border-radius:8px;padding:12px 16px;font-size:var(--fs-sm);color:var(--warn-d)">&#9888; Error al validar: ' + e.message + '</div>'; valEl.style.display = ''; }
-      btn.innerHTML = 'Guardar y finalizar &#10003;';
+  if (!docItems.length) { show(5); return; }
+
+  btn.innerHTML = '<span class="spin"></span>&nbsp;Validando...';
+  btn.disabled = true;
+  try {
+    var rv = await fetch('/sg/api/validate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, items: docItems }) });
+    var dv = await rv.json();
+    docCacheKey = dv.cacheKey || null;
+    if (dv.ok && dv.warnings && dv.warnings.length) {
+      renderWarnings('doc-val-block', dv.warnings);
+      btn.innerHTML = 'Siguiente &#8594;';
       btn.disabled = false;
       return;
     }
+    if (!dv.ok) {
+      if (valEl) { valEl.innerHTML = '<div style="background:var(--warn-l);border:1px solid var(--warn);border-radius:8px;padding:12px 16px;font-size:var(--fs-sm);color:var(--warn-d)">&#9888; No se pudo validar: ' + (dv.message || 'error desconocido') + '</div>'; valEl.style.display = ''; }
+      btn.innerHTML = 'Siguiente &#8594;';
+      btn.disabled = false;
+      return;
+    }
+  } catch(e) {
+    if (valEl) { valEl.innerHTML = '<div style="background:var(--warn-l);border:1px solid var(--warn);border-radius:8px;padding:12px 16px;font-size:var(--fs-sm);color:var(--warn-d)">&#9888; Error al validar: ' + e.message + '</div>'; valEl.style.display = ''; }
+    btn.innerHTML = 'Siguiente &#8594;';
+    btn.disabled = false;
+    return;
   }
 
+  btn.innerHTML = 'Siguiente &#8594;';
+  btn.disabled = false;
+  show(5);
+}
+
+async function saveEnv() {
+  var btn = document.getElementById('btn-save');
   btn.innerHTML = '<span class="spin"></span>&nbsp;Guardando...';
   btn.disabled = true;
   try {
@@ -1583,15 +1601,6 @@ async function saveEnv() {
     var d = await r.json();
     if (d.ok) {
       show(6);
-      var et = document.getElementById('exec-toggle');
-      if (et) { et.style.display = 'block'; }
-      var cbEjSave = document.getElementById('cb-ejecutar');
-      if (cbEjSave) cbEjSave.checked = false;
-      var ps = document.getElementById('params-section');
-      if (ps) ps.style.display = 'none';
-      paramFields = {};
-      workflowData = {};
-      wfConfirmed = false;
     } else {
       alert('Error al guardar: ' + d.message);
       btn.innerHTML = 'Guardar y finalizar &#10003;';
@@ -1788,6 +1797,8 @@ async function computeWorkflowUncovered(service, steps) {
 
 async function toggleEjecutar() {
   var enabled = document.getElementById('cb-ejecutar').checked;
+  var credsWrap = document.getElementById('api-creds-wrap');
+  if (credsWrap) credsWrap.style.display = enabled ? 'block' : 'none';
   var section = document.getElementById('params-section');
   if (!enabled) { section.style.display = 'none'; paramFields = {}; workflowData = {}; wfConfirmed = false; return; }
   section.style.display = 'block';
@@ -1997,13 +2008,15 @@ function resetParaOtroServicio() {
   if (postActs) postActs.style.display = 'none';
   var cbEj = document.getElementById('cb-ejecutar');
   if (cbEj) cbEj.checked = false;
+  var credsWrap = document.getElementById('api-creds-wrap');
+  if (credsWrap) credsWrap.style.display = 'none';
   var ps = document.getElementById('params-section');
   if (ps) { ps.style.display = 'none'; ps.innerHTML = ''; }
   var hint = document.getElementById('gen-hint');
   if (hint) hint.style.display = 'none';
   var btn = document.getElementById('btn-generate');
   if (btn) { btn.style.display = 'block'; btn.disabled = false; btn.innerHTML = 'Generar documentacion ahora'; }
-  show(5);
+  show(4);
 }
 
 function handleGenEvent(ev) {
