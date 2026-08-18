@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { sg_generateScript, sg_generateSdtScript, sn_num, sg_serviceNamePrefix, sg_serviceListQuery, sg_cellText, sg_sq, btcbs_sq, sg_extractSdtNames, sg_isSdtType } = require('./index.js');
+const { sg_generateScript, sg_generateParamsUpdateScript, sg_generateSdtScript, sn_num, sg_serviceNamePrefix, sg_serviceListQuery, sg_cellText, sg_sq, btcbs_sq, sg_extractSdtNames, sg_isSdtType } = require('./index.js');
 
 const UUID_RE = /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/;
 
@@ -430,4 +430,69 @@ test('sg_generateScript V4 interna (BTCBS) delete escapa comillas via q() en del
   const script = sg_generateScript(data, 'delete');
   assert.match(script, /DELETE FROM BTCBS014 WHERE BSINTNAME='BTSERVICES' AND BSSRVNAME='Public''Customers' AND BSMTDNAME='get';/);
   assert.match(script, /DELETE FROM BTCBS019 WHERE BSINTNAME='BTSERVICES' AND BSSRVNAME='Public''Customers' AND BSMTDNAME='get';/);
+});
+
+// ── sg_generateParamsUpdateScript (editar-parametria: UPDATE en vez de DELETE+INSERT) ──
+
+function paramsData(overrides) {
+  return Object.assign({
+    version: 'V4',
+    apiMode: 'publica',
+    header: { BTINom: 'BTSERVICES', BTISrvNom: 'PublicCustomers', BTISrvVer: '1', BTIMtdNom: 'get' },
+    params: [
+      { nom: 'id', nomjava: 'id', dir: 'I', tipo: 'Numeric', ittipo: '', valor: '', sdtver: '', cat: 'B', catit: 'B', largo: '9', lval: '', itnom: '', deci: '0', dsc: 'Identificador.' },
+    ],
+  }, overrides || {});
+}
+
+test('sg_generateParamsUpdateScript UPDATEa por posicion cuando oldCount cubre todos los parametros', () => {
+  const script = sg_generateParamsUpdateScript(paramsData(), 1);
+  assert.doesNotMatch(script, /INSERT|DELETE/);
+  assert.match(script, /^UPDATE BTI019 SET .* WHERE BTINOM='BTSERVICES' AND BTISRVNOM='PublicCustomers' AND BTISRVVER='1' AND BTIMTDNOM='get' AND BTISRVPARPOSI=1;$/);
+});
+
+test('sg_generateParamsUpdateScript escapa comillas en el SET del UPDATE (BTI019, V4)', () => {
+  const script = sg_generateParamsUpdateScript(paramsData({
+    params: [{ nom: "id'malicioso", nomjava: 'id', dir: 'I', tipo: 'Numeric', ittipo: '', valor: '', sdtver: '', cat: 'B', catit: 'B', largo: '9', lval: '', itnom: '', deci: '0', dsc: "Con ' comilla." }],
+  }), 1);
+  assert.match(script, /BTISRVPARNOM='id''malicioso'/);
+  assert.match(script, /BTISRVPARDSC='Con '' comilla\.'/);
+});
+
+test('sg_generateParamsUpdateScript V3 usa el prefijo N y las columnas PascalCase en el SET', () => {
+  const script = sg_generateParamsUpdateScript(paramsData({ version: 'V3' }), 1);
+  assert.match(script, /^UPDATE BTI019 SET .* WHERE BTINom=N'BTSERVICES' AND BTISrvNom=N'PublicCustomers' AND BTISrvVer=N'1' AND BTIMtdNom=N'get' AND BTISrvParPosi=1;$/);
+  assert.match(script, /BTISrvParNom=N'id'/);
+  assert.doesNotMatch(script, /BTISRVPARDSC/, 'V3 no tiene columna de descripcion en BTI019');
+});
+
+test('sg_generateParamsUpdateScript INSERTa solo las filas nuevas (posicion > oldCount)', () => {
+  const script = sg_generateParamsUpdateScript(paramsData({
+    params: [
+      { nom: 'id', nomjava: 'id', dir: 'I', tipo: 'Numeric', ittipo: '', valor: '', sdtver: '', cat: 'B', catit: 'B', largo: '9', lval: '', itnom: '', deci: '0', dsc: 'Identificador.' },
+      { nom: 'nuevo', nomjava: 'nuevo', dir: 'I', tipo: 'string', ittipo: '', valor: '', sdtver: '', cat: 'B', catit: 'B', largo: '50', lval: '', itnom: '', deci: '0', dsc: 'Nuevo.' },
+    ],
+  }), 1);
+  const updateLines = script.split('\n').filter(l => l.startsWith('UPDATE'));
+  const insertLines = script.split('\n').filter(l => l.startsWith('INSERT'));
+  assert.equal(updateLines.length, 1);
+  assert.equal(insertLines.length, 1);
+  assert.match(insertLines[0], /VALUES\('BTSERVICES', 'PublicCustomers', '1', 'get', 2, 'nuevo'/);
+  assert.doesNotMatch(script, /DELETE/);
+});
+
+test('sg_generateParamsUpdateScript DELETEa por posicion las filas que sobran (posicion > newCount)', () => {
+  const script = sg_generateParamsUpdateScript(paramsData(), 3);
+  assert.match(script, /DELETE FROM BTI019 WHERE BTINOM='BTSERVICES' AND BTISRVNOM='PublicCustomers' AND BTISRVVER='1' AND BTIMTDNOM='get' AND BTISRVPARPOSI > 1;/);
+  assert.doesNotMatch(script, /INSERT/);
+});
+
+test('sg_generateParamsUpdateScript (apiMode interna) UPDATEa BTCBS019, no BTI019, y escapa comillas', () => {
+  const script = sg_generateParamsUpdateScript(paramsData({
+    apiMode: 'interna',
+    params: [{ nom: "id'x", nomjava: 'id', dir: 'I', tipo: 'Numeric', ittipo: '', valor: '', sdtver: '', cat: 'B', catit: 'B', largo: '9', lval: '', itnom: '', deci: '0', dsc: '' }],
+  }), 1);
+  assert.match(script, /^UPDATE BTCBS019 SET .* WHERE BSINTNAME='BTSERVICES' AND BSSRVNAME='PublicCustomers' AND BSSRVVER='1' AND BSMTDNAME='get' AND BSPARPOS=1;$/);
+  assert.match(script, /BSPARNAME='id''x'/);
+  assert.doesNotMatch(script, /BTI019/);
 });

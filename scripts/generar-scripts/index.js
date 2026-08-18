@@ -188,10 +188,91 @@ function btcbs_generateScript(data, mode) {
   }
   if(mode==='delete'){lines.push(...delBtcbs012(),'', ...delBtcbs014(),'', ...delBtcbs019());}
   else if(mode==='insert'){lines.push(...insBtcbs012(),'', ...insBtcbs014(),'', ...insBtcbs019());}
-  // 'params': solo toca BTCBS019 (parametros). Usado por editar-parametria
-  // para no arrastrar BTCBS012/014 en un simple cambio de parametria.
-  else if(mode==='params'){lines.push(...delBtcbs019(),'', ...insBtcbs019());}
   else{lines.push(...delBtcbs012(),...insBtcbs012(),'', ...delBtcbs014(),...insBtcbs014(),'', ...delBtcbs019(),...insBtcbs019());}
+  return lines.join('\n');
+}
+
+// Genera UPDATE (+ INSERT solo de filas nuevas, + DELETE solo de las que
+// sobran) para los parametros de un metodo, en vez del DELETE+INSERT total
+// que arma btcbs_generateScript. Usado por editar-parametria: como esa UI no
+// permite reordenar, cada posicion 1..oldCount ya identifica una fila real
+// existente en la base, y sobreescribirla con UPDATE es mas quirurgico que
+// borrar todo y reinsertar (menos ruido en triggers/auditoria de BTCBS019).
+//   i = 1..min(oldCount,newCount): UPDATE (la fila ya existia en esa posicion)
+//   i = oldCount+1..newCount:      INSERT (fila nueva, se agrego al final)
+//   i = newCount+1..oldCount:      DELETE (fila removida, sobra en la base)
+function btcbs_generateParamsUpdateScript(data, oldCount) {
+  const h = sg_normalizeHeader(data.header), ps = data.params || [], lines = [];
+  const BTINom = h.BTINom, BTISrvNom = h.BTISrvNom, BTISrvVer = h.BTISrvVer, BTIMtdNom = h.BTIMtdNom;
+  const q = (v, nullable) => btcbs_sq(v, nullable);
+  const newCount = ps.length;
+  const whereRow = (posi) => 'BSINTNAME='+q(BTINom)+' AND BSSRVNAME='+q(BTISrvNom)+' AND BSSRVVER='+q(BTISrvVer)+' AND BSMTDNAME='+q(BTIMtdNom)+' AND BSPARPOS='+posi;
+
+  for (let i = 0; i < Math.min(oldCount, newCount); i++) {
+    const p = ps[i];
+    const sets = [
+      'BSPARNAME='+q(p.nom), 'BSPARINTNM='+q(p.nomjava), 'BSPARDIR='+q(p.dir), 'BSPARTYPE='+q(p.tipo),
+      'BSPARITTYP='+q(p.ittipo), 'BSPARITCAT='+q(p.catit), 'BSPARITNAM='+q(p.itnom), 'BSPARCAT='+q(p.cat),
+      'BSPARSDTVE='+q(p.sdtver), 'BSPARLEN='+sg_nq(p.largo), 'BSPARDECI='+sg_nq(p.deci),
+    ].join(', ');
+    lines.push('UPDATE BTCBS019 SET '+sets+' WHERE '+whereRow(i+1)+';');
+  }
+  if (newCount > oldCount) {
+    const cols = INTERNA_BTCBS019_COLS.join(', ');
+    for (let i = oldCount; i < newCount; i++) {
+      const p = ps[i], posi = i+1;
+      const vals = [q(BTINom),q(BTISrvNom),q(BTISrvVer),q(BTIMtdNom),posi,q(p.nom),q(p.nomjava),q(p.dir),q(p.tipo),q(p.ittipo),q(p.catit),q(p.itnom),q(p.cat),q(p.sdtver),sg_nq(p.largo),sg_nq(p.deci)].join(', ');
+      lines.push('INSERT INTO BTCBS019 ('+cols+') VALUES('+vals+');');
+    }
+  } else if (oldCount > newCount) {
+    lines.push('DELETE FROM BTCBS019 WHERE BSINTNAME='+q(BTINom)+' AND BSSRVNAME='+q(BTISrvNom)+' AND BSSRVVER='+q(BTISrvVer)+' AND BSMTDNAME='+q(BTIMtdNom)+' AND BSPARPOS > '+newCount+';');
+  }
+  return lines.join('\n');
+}
+
+// Equivalente de btcbs_generateParamsUpdateScript para BTI019 (API Publica,
+// V3 SQL Server / V4 Oracle).
+function sg_generateParamsUpdateScript(data, oldCount) {
+  const ver = data.version, apiMode = data.apiMode || 'publica';
+  if (ver === 'V4' && apiMode === 'interna') return btcbs_generateParamsUpdateScript(data, oldCount);
+  const h = sg_normalizeHeader(data.header), ps = data.params || [], lines = [];
+  const BTINom = h.BTINom, BTISrvNom = h.BTISrvNom, BTISrvVer = h.BTISrvVer, BTIMtdNom = h.BTIMtdNom;
+  const q = (v) => sg_sq(v, ver);
+  const newCount = ps.length;
+  const nomCol = ver==='V3'?'BTINom':'BTINOM', svcCol = ver==='V3'?'BTISrvNom':'BTISRVNOM', verCol = ver==='V3'?'BTISrvVer':'BTISRVVER', mtdCol = ver==='V3'?'BTIMtdNom':'BTIMTDNOM', posiCol = ver==='V3'?'BTISrvParPosi':'BTISRVPARPOSI';
+  const whereRow = (posi) => nomCol+'='+q(BTINom)+' AND '+svcCol+'='+q(BTISrvNom)+' AND '+verCol+'='+q(BTISrvVer)+' AND '+mtdCol+'='+q(BTIMtdNom)+' AND '+posiCol+'='+posi;
+
+  function setClause(p) {
+    const largo = sg_nq(p.largo), deci = sg_nq(p.deci);
+    if (ver === 'V3') {
+      return [
+        'BTISrvParNom='+q(p.nom), 'BTISrvParNomJava='+q(p.nomjava), 'BTISrvParDir='+q(p.dir), 'BTISrvVarTipo='+q(p.tipo),
+        'BTISrvParItTipo='+q(p.ittipo), 'BTISrvParValor='+q(p.valor), 'BTISrvSDTVer='+q(p.sdtver), 'BTISrvCat='+q(p.cat),
+        'BTISrvCatIt='+q(p.catit), 'BTISrvParLargo='+largo, 'BTISrvParLVal='+q(p.lval), 'BTISrvParItNom='+q(p.itnom), 'BTISRVPARDECI='+deci,
+      ].join(', ');
+    }
+    return [
+      'BTISRVPARNOM='+q(p.nom), 'BTISRVPARNOMJAVA='+q(p.nomjava), 'BTISRVPARDIR='+q(p.dir), 'BTISRVVARTIPO='+q(p.tipo),
+      'BTISRVPARITTIPO='+q(p.ittipo), 'BTISRVPARVALOR='+q(p.valor), 'BTISRVCATIT='+q(p.catit), 'BTISRVCAT='+q(p.cat),
+      'BTISRVSDTVER='+q(p.sdtver), 'BTISRVPARLARGO='+largo, 'BTISRVPARLVAL='+q(p.lval), 'BTISRVPARITNOM='+q(p.itnom), 'BTISRVPARDECI='+deci, 'BTISRVPARDSC='+sg_sq(p.dsc, ver, true),
+    ].join(', ');
+  }
+
+  for (let i = 0; i < Math.min(oldCount, newCount); i++) {
+    lines.push('UPDATE BTI019 SET '+setClause(ps[i])+' WHERE '+whereRow(i+1)+';');
+  }
+  if (newCount > oldCount) {
+    const cols = (ver==='V3'?V3_BTI019_COLS:V4_BTI019_COLS).join(', ');
+    for (let i = oldCount; i < newCount; i++) {
+      const p = ps[i], posi = i+1, largo = sg_nq(p.largo), deci = sg_nq(p.deci);
+      var vals;
+      if (ver === 'V3') vals=[q(BTINom),q(BTISrvNom),q(BTISrvVer),q(BTIMtdNom),posi,q(p.nom),q(p.nomjava),q(p.dir),q(p.tipo),q(p.ittipo),q(p.valor),q(p.sdtver),q(p.cat),q(p.catit),largo,q(p.lval),q(p.itnom),deci].join(', ');
+      else vals=[q(BTINom),q(BTISrvNom),q(BTISrvVer),q(BTIMtdNom),posi,q(p.nom),q(p.nomjava),q(p.dir),q(p.tipo),q(p.ittipo),q(p.valor),q(p.catit),q(p.cat),q(p.sdtver),largo,q(p.lval),q(p.itnom),deci,sg_sq(p.dsc,ver,true)].join(', ');
+      lines.push('INSERT INTO BTI019 ('+cols+') VALUES('+vals+');');
+    }
+  } else if (oldCount > newCount) {
+    lines.push('DELETE FROM BTI019 WHERE '+nomCol+'='+q(BTINom)+' AND '+svcCol+'='+q(BTISrvNom)+' AND '+verCol+'='+q(BTISrvVer)+' AND '+mtdCol+'='+q(BTIMtdNom)+' AND '+posiCol+' > '+newCount+';');
+  }
   return lines.join('\n');
 }
 
@@ -234,9 +315,6 @@ function sg_generateScript(data, mode) {
   }
   if(mode==='delete'){if(ver==='V3')lines.push(...delBti004(),''); lines.push(...delBti012(),'', ...delBti014(),'', ...delBti019());}
   else if(mode==='insert'){if(ver==='V3')lines.push(...insBti004(),''); lines.push(...insBti012(),'', ...insBti014(),'', ...insBti019());}
-  // 'params': solo toca BTI019 (parametros). Usado por editar-parametria para
-  // no arrastrar BTI012/014/004 en un simple cambio de parametria.
-  else if(mode==='params'){lines.push(...delBti019(),'', ...insBti019());}
   else{if(ver==='V3')lines.push(...delBti004(),...insBti004(),''); lines.push(...delBti012(),...insBti012(),'', ...delBti014(),...insBti014(),'', ...delBti019(),...insBti019());}
   return lines.join('\n');
 }
@@ -322,6 +400,7 @@ function sg_generateSdtScript(sdt, mode, version, apiMode) {
 
 module.exports = {
   sg_generateScript,
+  sg_generateParamsUpdateScript,
   sg_generateSdtScript,
   sg_extractSdtNames,
   sg_isSdtType,

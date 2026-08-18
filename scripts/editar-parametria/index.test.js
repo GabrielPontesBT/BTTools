@@ -148,20 +148,23 @@ test('buildParams lanza si valor por defecto o descripcion contienen comillas, p
   }
 });
 
-test('generateParamsScript V3 solo toca BTI019 (no BTI012/014/004) y emite DELETE antes que INSERT', () => {
-  const script = generateParamsScript('MiServicio', '1', 'MiMetodo', sourceParams(), 'V3', 'params');
+test('generateParamsScript V3 con oldCount=newCount solo emite UPDATE (sin BTI012/014/004, sin DELETE ni INSERT)', () => {
+  const script = generateParamsScript('MiServicio', '1', 'MiMetodo', sourceParams(), 'V3', 'publica', 3);
   assert.ok(!script.includes('BTI012'), 'no debe tocar BTI012');
   assert.ok(!script.includes('BTI014'), 'no debe tocar BTI014');
   assert.ok(!script.includes('BTI004'), 'no debe tocar BTI004');
-  const deleteIdx = script.indexOf("DELETE FROM BTI019 WHERE BTINom=N'BTSERVICES' AND BTISrvNom=N'MiServicio' AND BTIMtdNom=N'MiMetodo'");
-  const insertIdx = script.indexOf('INSERT INTO BTI019');
-  assert.ok(deleteIdx >= 0, 'debe incluir el DELETE de BTI019 con servicio/metodo');
-  assert.ok(insertIdx > deleteIdx, 'el INSERT debe venir despues del DELETE');
+  assert.ok(!script.includes('DELETE'), 'sin remociones no debe haber DELETE');
+  assert.ok(!script.includes('INSERT'), 'sin agregados no debe haber INSERT');
+  const lines = script.split('\n').filter(Boolean);
+  assert.equal(lines.length, 3);
+  assert.match(lines[0], /^UPDATE BTI019 SET .* WHERE BTINom=N'BTSERVICES' AND BTISrvNom=N'MiServicio' AND BTISrvVer=N'1' AND BTIMtdNom=N'MiMetodo' AND BTISrvParPosi=1;$/);
+  assert.ok(lines[0].includes("BTISrvParNom=N'ParamA'"), 'el UPDATE debe setear el nombre del parametro');
 });
 
-test('generateParamsScript V4 usa columnas y comillas de Oracle, y asigna BTISRVPARPOSI por indice', () => {
-  const script = generateParamsScript('MiServicio', '1', 'MiMetodo', sourceParams(), 'V4', 'params');
+test('generateParamsScript V4 con oldCount=0 (metodo nuevo) genera solo INSERT y asigna BTISRVPARPOSI por indice', () => {
+  const script = generateParamsScript('MiServicio', '1', 'MiMetodo', sourceParams(), 'V4', 'publica', 0);
   assert.ok(!/[(,]\s*N'/.test(script), 'V4 no debe usar el prefijo N de SQL Server');
+  assert.ok(!script.includes('UPDATE'), 'sin filas previas no debe haber UPDATE');
   const lines = script.split('\n').filter(l => l.startsWith('INSERT INTO BTI019'));
   assert.equal(lines.length, 3);
   assert.match(lines[0], /VALUES\('BTSERVICES', 'MiServicio', '1', 'MiMetodo', 1, 'ParamA'/);
@@ -169,19 +172,35 @@ test('generateParamsScript V4 usa columnas y comillas de Oracle, y asigna BTISRV
   assert.match(lines[2], /VALUES\('BTSERVICES', 'MiServicio', '1', 'MiMetodo', 3, 'ParamC'/);
 });
 
-test('generateParamsScript refleja un parametro agregado a mano (sin equivalente en la base)', () => {
+test('generateParamsScript UPDATEa los parametros que ya existian e INSERTa solo el agregado al final', () => {
   const params = sourceParams();
   params.push({ nom: 'ParamNuevo', dir: 'I', tipo: 'int', largo: '9', deci: '0', valor: '', dsc: 'Nuevo parametro.' });
-  const script = generateParamsScript('MiServicio', '1', 'MiMetodo', params, 'V4', 'params');
-  assert.match(script, /INSERT INTO BTI019 \([^)]+\) VALUES\('BTSERVICES', 'MiServicio', '1', 'MiMetodo', 4, 'ParamNuevo'/);
+  const script = generateParamsScript('MiServicio', '1', 'MiMetodo', params, 'V4', 'publica', 3);
+  const updateLines = script.split('\n').filter(l => l.startsWith('UPDATE BTI019'));
+  const insertLines = script.split('\n').filter(l => l.startsWith('INSERT INTO BTI019'));
+  assert.equal(updateLines.length, 3, 'los 3 parametros originales se actualizan, no se reinsertan');
+  assert.equal(insertLines.length, 1);
+  assert.match(insertLines[0], /VALUES\('BTSERVICES', 'MiServicio', '1', 'MiMetodo', 4, 'ParamNuevo'/);
+  assert.ok(!script.includes('DELETE'), 'no se quito ningun parametro, no debe haber DELETE');
 });
 
-test('generateParamsScript (apiMode interna) genera contra BTCBS019, no BTI019', () => {
-  const script = generateParamsScript('MiServicio', '1', 'MiMetodo', sourceParams(), 'V4', 'params', 'interna');
+test('generateParamsScript DELETEa por posicion las filas que sobran cuando se quita un parametro', () => {
+  const params = sourceParams().slice(0, 2); // se quito ParamC (quedan 2 de los 3 originales)
+  const script = generateParamsScript('MiServicio', '1', 'MiMetodo', params, 'V4', 'publica', 3);
+  const updateLines = script.split('\n').filter(l => l.startsWith('UPDATE BTI019'));
+  assert.equal(updateLines.length, 2);
+  assert.match(script, /DELETE FROM BTI019 WHERE BTINOM='BTSERVICES' AND BTISRVNOM='MiServicio' AND BTISRVVER='1' AND BTIMTDNOM='MiMetodo' AND BTISRVPARPOSI > 2;/);
+  assert.ok(!script.includes('INSERT'), 'no se agrego ningun parametro, no debe haber INSERT');
+});
+
+test('generateParamsScript (apiMode interna) genera UPDATE/INSERT/DELETE contra BTCBS019, no BTI019', () => {
+  const script = generateParamsScript('MiServicio', '1', 'MiMetodo', sourceParams(), 'V4', 'interna', 2);
   assert.ok(script.includes('BTCBS019'));
   assert.ok(!script.includes('BTI019'));
   assert.ok(!script.includes('BTCBS012'));
   assert.ok(!script.includes('BTCBS014'));
+  assert.ok(script.split('\n').some(l => l.startsWith('UPDATE BTCBS019')));
+  assert.ok(script.split('\n').some(l => l.startsWith('INSERT INTO BTCBS019')));
 });
 
 test('suggestParamShape devuelve null si no hay candidatos', () => {
@@ -328,29 +347,60 @@ function fakeMssqlTransaction(log) {
   };
 }
 
-test('executeParams (SQL Server) corre DELETE+INSERT sobre BTI019 en una transaccion y hace commit', async () => {
+test('executeParams (SQL Server) re-consulta la cantidad actual en la base (no confia en la del cliente) y UPDATEa sin tocar DELETE/INSERT si no cambio', async () => {
   const log = [];
   const queriesRun = [];
   const FakeTransaction = fakeMssqlTransaction(log);
   const FakeRequest = class { async query(sql) { queriesRun.push(sql); } };
+  let queriedCount = null;
   const feature = createParamEditFeature(fakeDeps({
     getPool: async () => ({ pool: {}, mssql: { Transaction: FakeTransaction, Request: FakeRequest } }),
+    queryMethodParams: async () => { queriedCount = sourceParams().length; return sourceParams(); },
   }));
   const result = await feature.executeParams('sqlserver', {}, 'V3', 'MiServicio', '1', 'MiMetodo', sourceParams());
+  assert.equal(queriedCount, 3, 'debe re-consultar la cantidad actual de parametros antes de armar el script');
   assert.equal(result.ok, true);
   assert.ok(result.statementsRun > 0);
   assert.deepEqual(log, ['begin', 'commit']);
-  assert.ok(queriesRun.some(q => q.startsWith('DELETE FROM BTI019')));
-  assert.ok(queriesRun.some(q => q.startsWith('INSERT INTO BTI019')));
+  assert.ok(queriesRun.every(q => q.startsWith('UPDATE BTI019')), 'sin agregados ni removidos, todo debe ser UPDATE');
   assert.deepEqual(queriesRun.filter(q => /;\s*$/.test(q)), [], 'ninguna sentencia debe terminar en ;');
 });
 
-test('executeParams (SQL Server) hace rollback si un INSERT falla', async () => {
+test('executeParams (SQL Server) INSERTa solo el parametro agregado cuando la base tenia menos', async () => {
+  const queriesRun = [];
+  const FakeTransaction = fakeMssqlTransaction([]);
+  const FakeRequest = class { async query(sql) { queriesRun.push(sql); } };
+  const feature = createParamEditFeature(fakeDeps({
+    getPool: async () => ({ pool: {}, mssql: { Transaction: FakeTransaction, Request: FakeRequest } }),
+    queryMethodParams: async () => sourceParams().slice(0, 2),
+  }));
+  await feature.executeParams('sqlserver', {}, 'V4', 'MiServicio', '1', 'MiMetodo', sourceParams());
+  assert.equal(queriesRun.filter(q => q.startsWith('UPDATE BTI019')).length, 2);
+  assert.equal(queriesRun.filter(q => q.startsWith('INSERT INTO BTI019')).length, 1);
+  assert.ok(!queriesRun.some(q => q.startsWith('DELETE')));
+});
+
+test('executeParams (SQL Server) DELETEa por posicion cuando la base tenia mas parametros de los que quedaron', async () => {
+  const queriesRun = [];
+  const FakeTransaction = fakeMssqlTransaction([]);
+  const FakeRequest = class { async query(sql) { queriesRun.push(sql); } };
+  const feature = createParamEditFeature(fakeDeps({
+    getPool: async () => ({ pool: {}, mssql: { Transaction: FakeTransaction, Request: FakeRequest } }),
+    queryMethodParams: async () => sourceParams(),
+  }));
+  await feature.executeParams('sqlserver', {}, 'V4', 'MiServicio', '1', 'MiMetodo', sourceParams().slice(0, 2));
+  assert.equal(queriesRun.filter(q => q.startsWith('UPDATE BTI019')).length, 2);
+  assert.ok(queriesRun.some(q => q.startsWith('DELETE FROM BTI019') && q.includes('BTISRVPARPOSI > 2')));
+  assert.ok(!queriesRun.some(q => q.startsWith('INSERT')));
+});
+
+test('executeParams (SQL Server) hace rollback si el INSERT del parametro nuevo falla', async () => {
   const log = [];
   const FakeTransaction = fakeMssqlTransaction(log);
   const FakeRequest = class { async query(sql) { if (sql.startsWith('INSERT INTO BTI019')) throw new Error('fallo simulado'); } };
   const feature = createParamEditFeature(fakeDeps({
     getPool: async () => ({ pool: {}, mssql: { Transaction: FakeTransaction, Request: FakeRequest } }),
+    queryMethodParams: async () => sourceParams().slice(0, 2),
   }));
   await assert.rejects(
     () => feature.executeParams('sqlserver', {}, 'V3', 'MiServicio', '1', 'MiMetodo', sourceParams()),
@@ -367,7 +417,10 @@ test('executeParams (Oracle) corre con autoCommit false, confirma con commit y c
     rollback: async () => { calls.push({ action: 'rollback' }); },
     close: async () => { calls.push({ action: 'close' }); },
   };
-  const feature = createParamEditFeature(fakeDeps({ getOra: async () => ({ conn: fakeConn, oracledb: {} }) }));
+  const feature = createParamEditFeature(fakeDeps({
+    getOra: async () => ({ conn: fakeConn, oracledb: {} }),
+    queryMethodParams: async () => sourceParams(),
+  }));
   const result = await feature.executeParams('oracle', {}, 'V4', 'MiServicio', '1', 'MiMetodo', sourceParams());
   assert.equal(result.ok, true);
   assert.ok(calls.every(c => !c.sql || c.opts.autoCommit === false));
@@ -378,12 +431,15 @@ test('executeParams (Oracle) corre con autoCommit false, confirma con commit y c
 test('executeParams (Oracle) hace rollback y cierra la conexion si falla', async () => {
   const calls = [];
   const fakeConn = {
-    execute: async (sql) => { if (sql.startsWith('DELETE')) return; throw new Error('fallo oracle'); },
+    execute: async () => { throw new Error('fallo oracle'); },
     commit: async () => { calls.push('commit'); },
     rollback: async () => { calls.push('rollback'); },
     close: async () => { calls.push('close'); },
   };
-  const feature = createParamEditFeature(fakeDeps({ getOra: async () => ({ conn: fakeConn, oracledb: {} }) }));
+  const feature = createParamEditFeature(fakeDeps({
+    getOra: async () => ({ conn: fakeConn, oracledb: {} }),
+    queryMethodParams: async () => sourceParams(),
+  }));
   await assert.rejects(
     () => feature.executeParams('oracle', {}, 'V4', 'MiServicio', '1', 'MiMetodo', sourceParams()),
     /fallo oracle/
@@ -415,7 +471,7 @@ test('handleApi POST /api/paramgen/params responde con srvver y parametros', asy
   assert.deepEqual(res.body.params, sourceParams());
 });
 
-test('handleApi POST /api/paramgen/generate responde con el script', async () => {
+test('handleApi POST /api/paramgen/generate responde con el script (INSERT si no se manda oldCount)', async () => {
   const feature = createParamEditFeature(fakeDeps());
   const res = fakeRes();
   const handled = await feature.handleApi(fakeReq('POST', '/api/paramgen/generate', {
@@ -423,7 +479,20 @@ test('handleApi POST /api/paramgen/generate responde con el script', async () =>
   }), res, fakeHelpers(res));
   assert.equal(handled, true);
   assert.equal(res.body.ok, true);
-  assert.ok(res.body.script.includes("DELETE FROM BTI019 WHERE BTINom=N'BTSERVICES' AND BTISrvNom=N'MiServicio'"));
+  assert.ok(res.body.script.includes("INSERT INTO BTI019"));
+});
+
+test('handleApi POST /api/paramgen/generate con oldCount genera UPDATE en vez de DELETE+INSERT', async () => {
+  const feature = createParamEditFeature(fakeDeps());
+  const res = fakeRes();
+  const handled = await feature.handleApi(fakeReq('POST', '/api/paramgen/generate', {
+    version: 'V3', service: 'MiServicio', srvver: '1', method: 'MiMetodo', params: sourceParams(), oldCount: 3,
+  }), res, fakeHelpers(res));
+  assert.equal(handled, true);
+  assert.equal(res.body.ok, true);
+  assert.ok(res.body.script.includes('UPDATE BTI019'));
+  assert.ok(!res.body.script.includes('DELETE'));
+  assert.ok(!res.body.script.includes('INSERT'));
 });
 
 test('handleApi POST /api/paramgen/generate rechaza un parametro con nombre invalido', async () => {
@@ -445,6 +514,7 @@ test('handleApi POST /api/paramgen/execute ejecuta usando los parametros editado
   const FakeRequest = class { async query(sql) { queriesRun.push(sql); } };
   const feature = createParamEditFeature(fakeDeps({
     getPool: async () => ({ pool: {}, mssql: { Transaction: FakeTransaction, Request: FakeRequest } }),
+    queryMethodParams: async () => sourceParams(),
   }));
   const res = fakeRes();
   const params = sourceParams();

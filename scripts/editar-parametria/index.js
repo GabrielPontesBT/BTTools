@@ -1,6 +1,6 @@
 'use strict';
 
-const { sg_generateScript } = require('../generar-scripts/index.js');
+const { sg_generateParamsUpdateScript } = require('../generar-scripts/index.js');
 
 const PARAM_NAME_RE = /^[A-Za-z][A-Za-z0-9_]{0,99}$/;
 const PARAM_NAME_ERR = 'Nombre de parametro invalido: debe empezar con una letra y usar solo letras, numeros o guion bajo (maximo 100 caracteres).';
@@ -45,8 +45,8 @@ function isValidCatit(catit) {
 // cat, catit, largo, lval, itnom, deci, dsc. A diferencia de buildSdtCopy (que
 // parte de una copia y localiza cada campo por origElemnom) aca no hay
 // "original" que buscar: el array que llega YA es la lista completa deseada
-// (edicion in-place), y el orden define BTISRVPARPOSI (sg_generateScript lo
-// recalcula por indice en insBti019/insBtcbs019).
+// (edicion in-place), y el orden define BTISRVPARPOSI (sg_generateParamsUpdateScript
+// lo recalcula por indice: posicion = indice + 1).
 //
 // Que campos son obligatorios depende de "cat" (ver public/wizard-doc.js,
 // pgFieldGroupsFor, para el mismo arbol reflejado en la UI):
@@ -117,10 +117,16 @@ function buildParams(editedParams) {
   });
 }
 
-function generateParamsScript(service, srvver, method, editedParams, version, mode, apiMode) {
+// oldCount: cantidad de parametros que tenia el metodo ANTES de la edicion.
+// Como el editor no permite reordenar, la posicion 1..oldCount ya identifica
+// una fila real de la base: se UPDATEa en vez de borrar todo y reinsertar.
+// Solo se INSERTan las filas agregadas al final (posicion > oldCount) y solo
+// se DELETEan las que sobran si se quitaron parametros (ver
+// sg_generateParamsUpdateScript).
+function generateParamsScript(service, srvver, method, editedParams, version, apiMode, oldCount) {
   const params = buildParams(editedParams);
   const header = { BTINom: 'BTSERVICES', BTISrvNom: service, BTISrvVer: srvver || '1', BTIMtdNom: method };
-  return sg_generateScript({ version, apiMode, header, method: {}, params, channels: [] }, mode || 'params');
+  return sg_generateParamsUpdateScript({ version, apiMode, header, params }, oldCount || 0);
 }
 
 // Campos "intrinsecos" de un parametro: describen QUE es el parametro, no
@@ -190,15 +196,25 @@ function createParamEditFeature(deps) {
     return queryAllSdts(platform, db, version, apiMode);
   }
 
-  function scriptToStatements(service, srvver, method, editedParams, version, apiMode) {
-    const script = generateParamsScript(service, srvver, method, editedParams, version, 'params', apiMode);
+  function scriptToStatements(service, srvver, method, editedParams, version, apiMode, oldCount) {
+    const script = generateParamsScript(service, srvver, method, editedParams, version, apiMode, oldCount);
     // Mismo motivo que en generar-sdt: oracledb rechaza el ';' final
     // (ORA-00911) y mssql lo tolera, asi que se quita siempre.
     return script.split('\n').map(s => s.trim()).filter(Boolean).map(s => s.replace(/;\s*$/, ''));
   }
 
   async function executeParams(platform, db, version, service, srvver, method, editedParams, apiMode) {
-    const statements = scriptToStatements(service, srvver, method, editedParams, version, apiMode);
+    // Se valida ANTES de tocar la base (buildParams tira si algo es invalido):
+    // asi un parametro mal cargado no gasta ni siquiera la consulta de
+    // reconteo de abajo. No se confia en el oldCount que pueda mandar el
+    // browser (ademas ni lo manda: ver handleApi): se re-consulta cuantos
+    // parametros tiene HOY el metodo en la base, igual que sdtgen re-consulta
+    // el SDT origen antes de ejecutar. Sin esto, un UPDATE/INSERT/DELETE
+    // armado contra un oldCount viejo podria pisar o saltear filas si alguien
+    // mas edito el metodo mientras este browser tenia el editor abierto.
+    buildParams(editedParams);
+    const currentParams = await queryMethodParams(platform, db, version, service, srvver, method, apiMode);
+    const statements = scriptToStatements(service, srvver, method, editedParams, version, apiMode, currentParams.length);
     if (platform === 'sqlserver') {
       const { pool, mssql } = await getPool(db);
       const tx = new mssql.Transaction(pool);
@@ -271,7 +287,7 @@ function createParamEditFeature(deps) {
     if (req.method === 'POST' && req.url === '/api/paramgen/generate') {
       try {
         const body = await readBody(req);
-        const script = generateParamsScript(body.service, body.srvver, body.method, body.params, body.version, body.mode || 'params', body.apiMode);
+        const script = generateParamsScript(body.service, body.srvver, body.method, body.params, body.version, body.apiMode, body.oldCount);
         json(200, { ok: true, script });
       } catch (e) { json(200, { ok: false, message: e.message }); }
       return true;

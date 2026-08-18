@@ -40,6 +40,7 @@ var pgSelectedService = null;
 var pgSelectedMethod = null;
 var pgSrvVer = '1';
 var pgFields = []; // copia de trabajo de los parametros de BTI019/BTCBS019, en el orden en que se cargaron (no reordenable)
+var pgOriginalCount = 0; // cantidad de parametros que tenia el metodo al cargar, para el UPDATE/INSERT/DELETE (ver generateParamsScript)
 var pgTipoOptions = [];
 var pgSdtOptions = []; // catalogo { nom, version }[] para los combos "SDT" / "SDT del Ítem"
 
@@ -377,7 +378,7 @@ function pgEscapeAttr(s) {
 // sgInvalidateState para Generar Scripts): sin esto, volver atras y cambiar
 // de conexion dejaba el paso 4 mostrando el servicio/metodo de otra corrida.
 function pgInvalidateState() {
-  pgServicesLoaded = false; pgAllServices = []; pgSelectedService = null; pgSelectedMethod = null; pgFields = [];
+  pgServicesLoaded = false; pgAllServices = []; pgSelectedService = null; pgSelectedMethod = null; pgFields = []; pgOriginalCount = 0;
   var svcSel = document.getElementById('pg-sel-svc'); if (svcSel) svcSel.innerHTML = '<option value="">-- Seleccionar --</option>';
   var mtdSel = document.getElementById('pg-sel-mtd'); if (mtdSel) mtdSel.innerHTML = '<option value="">-- Seleccionar --</option>';
   var out = document.getElementById('pg-sql-out'); if (out) out.value = '';
@@ -447,6 +448,7 @@ async function pgGoToEdit() {
     if (!d.ok) throw new Error(d.message);
     pgSrvVer = d.srvver || '1';
     pgFields = (d.params || []).map(function(p) { return Object.assign({}, p); });
+    pgOriginalCount = pgFields.length;
     document.getElementById('pg-mtd-name').textContent = pgSelectedService + ' / ' + pgSelectedMethod;
     // Se esperan los catalogos (tipos y SDTs) antes de mostrar el editor: si
     // show(5) dispara pgRenderEditor() antes de que estas dos resuelvan, los
@@ -751,7 +753,7 @@ async function pgDoGenerate() {
   ta.value = 'Generando...';
   try {
     var r = await fetch('/api/paramgen/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
-      version: S.version, apiMode: S.apiMode, service: pgSelectedService, srvver: pgSrvVer, method: pgSelectedMethod, params: pgFields
+      version: S.version, apiMode: S.apiMode, service: pgSelectedService, srvver: pgSrvVer, method: pgSelectedMethod, params: pgFields, oldCount: pgOriginalCount
     }) });
     var d = await r.json();
     if (!d.ok) throw new Error(d.message);
@@ -769,7 +771,7 @@ function pgCopyScript() {
 }
 
 async function pgExecute() {
-  if (!confirm('Esto va a ejecutar DELETE + INSERT sobre BTI019 (parametros de ' + pgSelectedService + ' / ' + pgSelectedMethod + ') contra la base conectada. ¿Confirmás?')) return;
+  if (!confirm('Esto va a actualizar los parámetros de ' + pgSelectedService + ' / ' + pgSelectedMethod + ' (UPDATE de los existentes, INSERT de los nuevos, DELETE de los que se quitaron) contra la base conectada. ¿Confirmás?')) return;
   var res = document.getElementById('pg-exec-res');
   res.className = 'cres show'; res.textContent = 'Ejecutando...';
   try {
@@ -786,7 +788,7 @@ async function pgExecute() {
 }
 
 function pgReset() {
-  pgSelectedService = null; pgSelectedMethod = null; pgFields = []; pgServicesLoaded = false;
+  pgSelectedService = null; pgSelectedMethod = null; pgFields = []; pgOriginalCount = 0; pgServicesLoaded = false;
   var svcSel = document.getElementById('pg-sel-svc'); if (svcSel) svcSel.innerHTML = '<option value="">-- Seleccionar --</option>';
   var mtdSel = document.getElementById('pg-sel-mtd'); if (mtdSel) mtdSel.innerHTML = '<option value="">-- Seleccionar --</option>';
   document.getElementById('pg-sql-out').value = '';
