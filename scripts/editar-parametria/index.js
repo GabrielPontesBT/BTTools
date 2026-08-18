@@ -123,12 +123,44 @@ function generateParamsScript(service, srvver, method, editedParams, version, mo
   return sg_generateScript({ version, apiMode, header, method: {}, params, channels: [] }, mode || 'params');
 }
 
+// Campos "intrinsecos" de un parametro: describen QUE es el parametro, no
+// COMO se usa en un metodo puntual. Quedan afuera nom (es lo que el usuario
+// ya escribio), nomjava/lval (metadata interna sin valor para sugerir) y dir
+// (la direccion depende del metodo, no del parametro: el mismo "Cuit" puede
+// ser entrada en un metodo y salida en otro).
+const SUGGEST_FIELDS = ['tipo', 'ittipo', 'valor', 'sdtver', 'cat', 'catit', 'largo', 'itnom', 'deci', 'dsc'];
+
+// candidates: parametros ya mapeados (shape de sg_mapParamRow) que comparten
+// nombre en cualquier servicio/metodo. Devuelve la combinacion MAS FRECUENTE
+// de SUGGEST_FIELDS (la moda, no el primer resultado ni el mas reciente):
+// asi un typo aislado en un metodo viejo no termina sugiriendose como "la"
+// definicion del parametro cuando la gran mayoria usa otros valores.
+function suggestParamShape(candidates) {
+  if (!Array.isArray(candidates) || !candidates.length) return null;
+  const counts = new Map();
+  candidates.forEach((row) => {
+    const src = row || {};
+    const shape = {};
+    SUGGEST_FIELDS.forEach((f) => { shape[f] = src[f] != null ? src[f] : ''; });
+    const key = JSON.stringify(shape);
+    const entry = counts.get(key);
+    if (entry) entry.count++;
+    else counts.set(key, { shape, count: 1 });
+  });
+  let best = null;
+  for (const entry of counts.values()) {
+    if (!best || entry.count > best.count) best = entry;
+  }
+  return { shape: best.shape, count: best.count, total: candidates.length };
+}
+
 function createParamEditFeature(deps) {
   const getPool = deps.getPool;
   const getOra = deps.getOra;
   const queryMethodParams = deps.queryMethodParams;
   const queryServiceVersions = deps.queryServiceVersions;
   const queryAllSdts = deps.queryAllSdts;
+  const queryParamCandidates = deps.queryParamCandidates;
 
   async function resolveSrvVer(platform, db, version, service, apiMode) {
     const versions = await queryServiceVersions(platform, db, version, service, apiMode);
@@ -139,6 +171,16 @@ function createParamEditFeature(deps) {
     const srvver = await resolveSrvVer(platform, db, version, service, apiMode);
     const params = await queryMethodParams(platform, db, version, service, srvver, method, apiMode);
     return { srvver, params };
+  }
+
+  // Sugiere valores para un parametro nuevo (o recien renombrado) buscando
+  // ese mismo nombre en cualquier otro servicio/metodo. Se llama al escribir
+  // el nombre (ver public/wizard-doc.js, pgLookupSuggestion) para autocompletar
+  // tipo/largo/descripcion/etc. con lo que ya se uso antes, en vez de que cada
+  // metodo redefina "Cuit" o "FechaNacimiento" con datos ligeramente distintos.
+  async function suggestParam(platform, db, version, nombre, apiMode) {
+    const candidates = await queryParamCandidates(platform, db, version, nombre, apiMode);
+    return suggestParamShape(candidates);
   }
 
   // Catalogo de SDTs (nombre + version) para poblar el combo "SDT"/"SDT del
@@ -217,6 +259,15 @@ function createParamEditFeature(deps) {
       return true;
     }
 
+    if (req.method === 'POST' && req.url === '/api/paramgen/suggest') {
+      try {
+        const body = await readBody(req);
+        const suggestion = await suggestParam(body.platform, body.db, body.version, body.nombre, body.apiMode);
+        json(200, { ok: true, suggestion });
+      } catch (e) { json(200, { ok: false, message: e.message }); }
+      return true;
+    }
+
     if (req.method === 'POST' && req.url === '/api/paramgen/generate') {
       try {
         const body = await readBody(req);
@@ -238,12 +289,13 @@ function createParamEditFeature(deps) {
     return false;
   }
 
-  return { loadParams, listSdtOptions, generateParamsScript, executeParams, handleApi };
+  return { loadParams, listSdtOptions, suggestParam, generateParamsScript, executeParams, handleApi };
 }
 
 module.exports = {
   createParamEditFeature,
   buildParams,
+  suggestParamShape,
   generateParamsScript,
   isValidParamName,
   isValidDigits,

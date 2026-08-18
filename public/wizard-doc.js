@@ -652,6 +652,7 @@ function pgRenderEditor() {
     card.innerHTML =
       '<div class="pg-param-top">' +
         '<div class="pg-fgroup pg-fgroup-grow"><label class="pg-flabel">Nombre</label><input type="text" class="sdtgen-field-input pg-input-nom" value="' + pgEscapeAttr(field.nom) + '"></div>' +
+        '<span class="pg-suggest-badge" style="display:none">&#10003; autocompletado</span>' +
         '<button type="button" class="sdtgen-field-rm" title="Quitar">&times;</button>' +
       '</div>' +
       '<div class="pg-param-fields">' +
@@ -670,7 +671,7 @@ function pgRenderEditor() {
       card.classList.toggle('invalid', !!msg);
     }
 
-    card.querySelector('.pg-input-nom').addEventListener('input', function() { field.nom = this.value; updateErr(); });
+    card.querySelector('.pg-input-nom').addEventListener('input', function() { field.nom = this.value; updateErr(); pgScheduleSuggestion(field); });
     card.querySelector('.pg-input-dir').addEventListener('change', function() { field.dir = this.value; updateErr(); });
     card.querySelector('.pg-input-cat').addEventListener('change', function() {
       pgOnCatChange(field, this.value);
@@ -687,6 +688,49 @@ function pgRenderEditor() {
     };
     container.appendChild(card);
   });
+}
+
+// Autocompletar por nombre: al escribir un nombre de parametro que ya existe
+// en cualquier otro servicio/metodo, se copian sus propiedades (tipo, largo,
+// descripcion, etc. — ver SUGGEST_FIELDS en scripts/editar-parametria) para
+// no redefinir "Cuit" o "FechaNacimiento" con datos ligeramente distintos
+// cada vez. Debounced (500ms) para no pegarle al server en cada tecla, y con
+// guarda contra loops: no vuelve a buscar el mismo nombre dos veces seguidas.
+var pgSuggestTimers = new WeakMap(); // field -> timeout id del debounce
+var pgSuggestedNames = new WeakMap(); // field -> ultimo nombre ya consultado/aplicado
+
+function pgScheduleSuggestion(field) {
+  clearTimeout(pgSuggestTimers.get(field));
+  var t = setTimeout(function() { pgLookupSuggestion(field); }, 500);
+  pgSuggestTimers.set(field, t);
+}
+
+async function pgLookupSuggestion(field) {
+  var nombre = (field.nom || '').trim();
+  if (!PG_NAME_RE.test(nombre)) return;
+  if (pgSuggestedNames.get(field) === nombre) return;
+  try {
+    var r = await fetch('/api/paramgen/suggest', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, apiMode: S.apiMode, nombre: nombre }) });
+    var d = await r.json();
+    if (!d.ok || !d.suggestion) return;
+    // El usuario pudo seguir escribiendo mientras se esperaba la respuesta:
+    // si el nombre ya cambio, esta sugerencia quedo vieja y no se aplica.
+    if ((field.nom || '').trim() !== nombre) return;
+    pgSuggestedNames.set(field, nombre);
+    Object.assign(field, d.suggestion.shape);
+    pgRenderEditor();
+    pgFlashSuggestion(field);
+  } catch(e) { /* la sugerencia es solo una ayuda, no bloquea el flujo si falla */ }
+}
+
+function pgFlashSuggestion(field) {
+  var idx = pgFields.indexOf(field);
+  if (idx < 0) return;
+  var card = document.querySelectorAll('.pg-param-card')[idx];
+  var badge = card && card.querySelector('.pg-suggest-badge');
+  if (!badge) return;
+  badge.style.display = '';
+  setTimeout(function() { badge.style.display = 'none'; }, 2500);
 }
 
 function pgAddParam() {

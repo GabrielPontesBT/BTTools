@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
-  createParamEditFeature, buildParams, generateParamsScript,
+  createParamEditFeature, buildParams, generateParamsScript, suggestParamShape,
   isValidParamName, isValidDigits, isValidParamText, isValidDir, isValidCat, isValidCatit,
 } = require('./index.js');
 
@@ -184,6 +184,41 @@ test('generateParamsScript (apiMode interna) genera contra BTCBS019, no BTI019',
   assert.ok(!script.includes('BTCBS014'));
 });
 
+test('suggestParamShape devuelve null si no hay candidatos', () => {
+  assert.equal(suggestParamShape([]), null);
+  assert.equal(suggestParamShape(null), null);
+  assert.equal(suggestParamShape(undefined), null);
+});
+
+test('suggestParamShape elige la combinacion mas frecuente (moda), no la primera ni la ultima', () => {
+  const candidates = [
+    { tipo: 'string', largo: '20', deci: '0', dsc: 'Nombre del cliente.', cat: 'B', catit: 'B', ittipo: '', itnom: '', sdtver: '', valor: '' },
+    { tipo: 'string', largo: '50', deci: '0', dsc: 'typo aislado en un metodo viejo.', cat: 'B', catit: 'B', ittipo: '', itnom: '', sdtver: '', valor: '' },
+    { tipo: 'string', largo: '20', deci: '0', dsc: 'Nombre del cliente.', cat: 'B', catit: 'B', ittipo: '', itnom: '', sdtver: '', valor: '' },
+  ];
+  const suggestion = suggestParamShape(candidates);
+  assert.equal(suggestion.shape.largo, '20');
+  assert.equal(suggestion.shape.dsc, 'Nombre del cliente.');
+  assert.equal(suggestion.count, 2);
+  assert.equal(suggestion.total, 3);
+});
+
+test('suggestParamShape ignora dir/nomjava/nom (no son intrinsecos al parametro, varian segun donde se usa)', () => {
+  const candidates = [
+    { nom: 'Cuit', nomjava: 'param5', dir: 'I', tipo: 'string', largo: '11', deci: '0', dsc: 'CUIT del titular.', cat: 'B', catit: 'B', ittipo: '', itnom: '', sdtver: '', valor: '' },
+    { nom: 'Cuit', nomjava: 'param9', dir: 'O', tipo: 'string', largo: '11', deci: '0', dsc: 'CUIT del titular.', cat: 'B', catit: 'B', ittipo: '', itnom: '', sdtver: '', valor: '' },
+  ];
+  const suggestion = suggestParamShape(candidates);
+  assert.equal(suggestion.count, 2, 'las dos filas deberian contar como la misma combinacion pese a dir/nomjava distintos');
+  assert.equal(suggestion.shape.dir, undefined, 'la sugerencia no debe incluir "dir": la direccion depende del metodo, no del parametro');
+});
+
+test('suggestParamShape trata campos ausentes como string vacio (no rompe la agrupacion)', () => {
+  const suggestion = suggestParamShape([{ tipo: 'int' }, { tipo: 'int' }]);
+  assert.equal(suggestion.count, 2);
+  assert.equal(suggestion.shape.dsc, '');
+});
+
 function fakeDeps(overrides) {
   return Object.assign({
     getPool: async () => { throw new Error('getPool no configurado en el fake'); },
@@ -191,6 +226,7 @@ function fakeDeps(overrides) {
     queryMethodParams: async () => { throw new Error('queryMethodParams no configurado en el fake'); },
     queryServiceVersions: async () => { throw new Error('queryServiceVersions no configurado en el fake'); },
     queryAllSdts: async () => { throw new Error('queryAllSdts no configurado en el fake'); },
+    queryParamCandidates: async () => { throw new Error('queryParamCandidates no configurado en el fake'); },
   }, overrides || {});
 }
 
@@ -233,6 +269,54 @@ test('handleApi POST /api/paramgen/sdt-options responde con el catalogo de SDTs'
   }), res, fakeHelpers(res));
   assert.equal(handled, true);
   assert.deepEqual(res.body, { ok: true, sdts: [{ nom: 'SdtCliente', version: '1' }] });
+});
+
+test('suggestParam consulta candidatos por el nombre recibido y devuelve la combinacion mas frecuente', async () => {
+  const calls = [];
+  const feature = createParamEditFeature(fakeDeps({
+    queryParamCandidates: async (...a) => {
+      calls.push(a);
+      return [
+        { tipo: 'string', largo: '11', deci: '0', dsc: 'CUIT del titular.', cat: 'B', catit: 'B', ittipo: '', itnom: '', sdtver: '', valor: '' },
+        { tipo: 'string', largo: '11', deci: '0', dsc: 'CUIT del titular.', cat: 'B', catit: 'B', ittipo: '', itnom: '', sdtver: '', valor: '' },
+      ];
+    },
+  }));
+  const suggestion = await feature.suggestParam('oracle', {}, 'V4', 'Cuit', 'publica');
+  assert.deepEqual(calls, [['oracle', {}, 'V4', 'Cuit', 'publica']]);
+  assert.equal(suggestion.shape.tipo, 'string');
+  assert.equal(suggestion.shape.largo, '11');
+  assert.equal(suggestion.shape.dsc, 'CUIT del titular.');
+  assert.equal(suggestion.count, 2);
+});
+
+test('suggestParam devuelve null si no hay ningun parametro con ese nombre', async () => {
+  const feature = createParamEditFeature(fakeDeps({ queryParamCandidates: async () => [] }));
+  const suggestion = await feature.suggestParam('oracle', {}, 'V4', 'ParametroNuevoNuncaUsado', 'publica');
+  assert.equal(suggestion, null);
+});
+
+test('handleApi POST /api/paramgen/suggest responde con la sugerencia', async () => {
+  const feature = createParamEditFeature(fakeDeps({
+    queryParamCandidates: async () => [{ tipo: 'long', largo: '8', deci: '0', dsc: 'Fecha de nacimiento.', cat: 'B', catit: 'B', ittipo: '', itnom: '', sdtver: '', valor: '' }],
+  }));
+  const res = fakeRes();
+  const handled = await feature.handleApi(fakeReq('POST', '/api/paramgen/suggest', {
+    platform: 'oracle', db: {}, version: 'V4', apiMode: 'publica', nombre: 'FechaNacimiento',
+  }), res, fakeHelpers(res));
+  assert.equal(handled, true);
+  assert.equal(res.body.ok, true);
+  assert.equal(res.body.suggestion.shape.tipo, 'long');
+  assert.equal(res.body.suggestion.shape.largo, '8');
+});
+
+test('handleApi POST /api/paramgen/suggest responde con suggestion:null si no hay coincidencias', async () => {
+  const feature = createParamEditFeature(fakeDeps({ queryParamCandidates: async () => [] }));
+  const res = fakeRes();
+  await feature.handleApi(fakeReq('POST', '/api/paramgen/suggest', {
+    platform: 'oracle', db: {}, version: 'V4', nombre: 'Inexistente',
+  }), res, fakeHelpers(res));
+  assert.deepEqual(res.body, { ok: true, suggestion: null });
 });
 
 function fakeMssqlTransaction(log) {

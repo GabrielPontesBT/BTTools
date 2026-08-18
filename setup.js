@@ -858,6 +858,38 @@ async function sg_queryAllSdts(platform, db, version, apiMode) {
   } finally { await conn.close(); }
 }
 
+// Candidatos para sugerir propiedades de un parametro por nombre (ver
+// scripts/editar-parametria: suggestParamShape). A diferencia de
+// sg_queryMethodParams (un metodo puntual), busca CUALQUIER fila de
+// BTI019/BTCBS019 con ese nombre sin importar servicio/metodo, para poder
+// autocompletar tipo/largo/descripcion/etc. cuando el usuario escribe un
+// nombre de parametro ya usado en otro lado. Tope de 500 filas: es una
+// ayuda de UI (elige la combinacion mas frecuente), no un reporte exhaustivo.
+async function sg_queryParamCandidates(platform, db, version, nombre, apiMode) {
+  const nom = (nombre || '').trim();
+  if (!nom) return [];
+  if (platform === 'sqlserver') {
+    const { pool, mssql } = await sg_getPool(db);
+    const selectCols = 'BTISrvParPosi,BTISrvParNom,BTISrvParNomJava,BTISrvParDir,BTISrvVarTipo,BTISrvParItTipo,BTISrvParValor,BTISrvSDTVer,BTISrvCat,BTISrvCatIt,BTISrvParLargo,BTISrvParLVal,BTISrvParItNom,BTISRVPARDECI';
+    const r = await pool.request().input('nom', mssql.VarChar(100), nom).query('SELECT TOP 500 ' + selectCols + ' FROM BTI019 WHERE LTRIM(RTRIM(BTISrvParNom)) = @nom');
+    return r.recordset.map(function(row) { return sg_mapParamRow(row, version); });
+  }
+  const { conn, oracledb } = await sg_getOra(db);
+  const interna = apiMode === 'interna';
+  try {
+    if (interna) {
+      const r = await conn.execute(
+        'SELECT BSPARPOS,BSPARNAME,BSPARINTNM,BSPARDIR,BSPARTYPE,BSPARITTYP,BSPARITCAT,BSPARITNAM,BSPARCAT,BSPARSDTVE,BSPARLEN,BSPARDECI FROM BTCBS019 WHERE TRIM(BSPARNAME)=:1 AND ROWNUM<=500',
+        [nom], { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      );
+      return r.rows.map(function(row) { return sg_mapParamRow(row, version, 'interna'); });
+    }
+    const selectCols = 'BTISRVPARPOSI,BTISRVPARNOM,BTISRVPARNOMJAVA,BTISRVPARDIR,BTISRVVARTIPO,BTISRVPARITTIPO,BTISRVPARVALOR,BTISRVCATIT,BTISRVCAT,BTISRVSDTVER,BTISRVPARLARGO,BTISRVPARLVAL,BTISRVPARITNOM,BTISRVPARDECI,BTISRVPARDSC';
+    const r = await conn.execute('SELECT ' + selectCols + ' FROM BTI019 WHERE TRIM(BTISRVPARNOM)=:1 AND ROWNUM<=500', [nom], { outFormat: oracledb.OUT_FORMAT_OBJECT });
+    return r.rows.map(function(row) { return sg_mapParamRow(row, version); });
+  } finally { await conn.close(); }
+}
+
 async function sg_queryBti025(platform, db, version, sdtNom, apiMode) {
   if (platform === 'sqlserver') {
     const { pool, mssql } = await sg_getPool(db);
@@ -1296,6 +1328,7 @@ const paramEditFeature = createParamEditFeature({
   queryMethodParams: sg_queryMethodParams,
   queryServiceVersions: sg_queryServiceVersions,
   queryAllSdts: sg_queryAllSdts,
+  queryParamCandidates: sg_queryParamCandidates,
 });
 
 // -- server ------------------------------------------------
