@@ -9,6 +9,26 @@ const { createCollectionFeature } = require('./scripts/generar-collections');
 const { createSdtGenFeature } = require('./scripts/generar-sdt');
 const { createParamEditFeature } = require('./scripts/editar-parametria');
 
+// Red de seguridad global: sin esto, CUALQUIER excepcion no capturada o
+// promesa rechazada sin catch en cualquier parte del proceso (no solo en el
+// request en curso) tira abajo TODO el servidor HTTP -- y como corre dentro
+// del proceso principal de Electron (ver electron/main.js), se lleva puesta
+// la app entera. El caso real que motivo esto: un pool de mssql/oracledb
+// (ver sg_getPool/sg_getOra) emite su evento 'error' de forma asincronica
+// cuando se corta la conexion a la base MIENTRAS NO HAY ningun request en
+// curso (ej. el usuario esta editando parametria a mano); un 'error' sin
+// listener sobre un EventEmitter se relanza como excepcion no capturada y
+// mata el proceso, dejando "Failed to fetch" en el navegador para cualquier
+// pedido posterior, incluso uno que ni siquiera toca la base (como generar
+// el script). Loguear y seguir vivo es infinitamente mejor que morir en
+// silencio por un problema de red transitorio.
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException] El proceso no se cae, pero esto es un bug real:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection] El proceso no se cae, pero esto es un bug real:', reason);
+});
+
 const PORT = 3777;
 // La app de Electron empaquetada (ver electron/first-run.js) copia la app
 // una sola vez, en el primer arranque, a una carpeta persistente elegida
@@ -527,6 +547,17 @@ async function sg_getPool(db) {
     options: { trustServerCertificate: true }, connectionTimeout: 8000,
     pool: { max: 5, min: 1, idleTimeoutMillis: 30000 },
   });
+  // mssql (tedious) emite 'error' en el pool cuando la conexion a la base se
+  // corta de forma asincronica, fuera de cualquier request en curso (ej. un
+  // corte de red/VPN mientras el usuario esta editando parametria sin hacer
+  // pedidos). Un 'error' sin listener sobre un EventEmitter mata el proceso
+  // entero (ver el comentario junto a process.on('uncaughtException') mas
+  // arriba). Con el listener puesto, solo se invalida el pool cacheado para
+  // que el proximo request reconecte desde cero.
+  pool.on('error', function(err) {
+    console.error('[sg_getPool] Error asincronico en el pool de SQL Server, se invalida para reconectar en el proximo pedido:', err);
+    if (_sg_sqlPool === pool) { _sg_sqlPool = null; _sg_sqlPoolKey = ''; }
+  });
   await pool.connect();
   _sg_sqlPool = pool; _sg_sqlPoolKey = key;
   return { pool, mssql };
@@ -541,6 +572,13 @@ async function sg_getOra(db) {
   }
   if (_sg_oraPool) { try { await _sg_oraPool.close(0); } catch(e) {} _sg_oraPool = null; }
   const pool = await oracledb.createPool({ user: db.user, password: db.password, connectString: db.connectString, poolMin:1, poolMax:5, poolIncrement:1, poolTimeout:60 });
+  // Mismo motivo que en sg_getPool: sin este listener, un 'error' asincronico
+  // del pool de Oracle (conexion cortada sin ningun request en curso) mata
+  // el proceso entero en vez de solo invalidar el pool cacheado.
+  pool.on('error', function(err) {
+    console.error('[sg_getOra] Error asincronico en el pool de Oracle, se invalida para reconectar en el proximo pedido:', err);
+    if (_sg_oraPool === pool) { _sg_oraPool = null; _sg_oraPoolKey = ''; }
+  });
   _sg_oraPool = pool; _sg_oraPoolKey = key;
   const conn = await pool.getConnection();
   return { conn, oracledb };
@@ -1353,9 +1391,22 @@ function serveStatic(res, filePath) {
 }
 
 http.createServer(async (req, res) => {
+  // Defensivo: el patron try{ json(200,{ok:true,...}) } catch(e){
+  // json(200,{ok:false,...}) } se repite en decenas de rutas. Si el primer
+  // json() ya escribio los headers y despues falla (ej. JSON.stringify
+  // tira por un valor no serializable), el catch llamaria a res.writeHead()
+  // de nuevo -> ERR_HTTP_HEADERS_SENT, un throw sincronico DENTRO del catch
+  // que ningun try envuelve y que puede tirar abajo el proceso entero (ver
+  // process.on('uncaughtException') mas arriba). Chequear headersSent y
+  // envolver el stringify evita ese caso limite sin cambiar el comportamiento
+  // normal en absolutamente nada.
   const json = (code, data) => {
+    if (res.headersSent) return;
+    let body;
+    try { body = JSON.stringify(data); }
+    catch (e) { code = 500; body = JSON.stringify({ ok: false, message: 'No se pudo serializar la respuesta: ' + e.message }); }
     res.writeHead(code, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(data));
+    res.end(body);
   };
 
   if (req.method === 'GET' && req.url === '/') {
@@ -1686,7 +1737,17 @@ http.createServer(async (req, res) => {
     let body = '';
     req.on('data', d => body += d);
     req.on('end', async () => {
-      const j = (st, ob) => { res.writeHead(st, {'Content-Type':'application/json'}); res.end(JSON.stringify(ob)); };
+      // Misma proteccion que el helper json() de mas arriba (headersSent +
+      // JSON.stringify defensivo): evita un ERR_HTTP_HEADERS_SENT sincronico
+      // sin try si algun catch de esta ruta intenta responder dos veces.
+      const j = (st, ob) => {
+        if (res.headersSent) return;
+        let jsonBody;
+        try { jsonBody = JSON.stringify(ob); }
+        catch (e) { st = 500; jsonBody = JSON.stringify({ ok: false, message: 'No se pudo serializar la respuesta: ' + e.message }); }
+        res.writeHead(st, {'Content-Type':'application/json'});
+        res.end(jsonBody);
+      };
       let payload = {};
       try { payload = JSON.parse(body || '{}'); } catch(e) { j(400, {ok:false, message:'JSON inválido'}); return; }
 
