@@ -41,7 +41,6 @@ var pgSelectedMethod = null;
 var pgSrvVer = '1';
 var pgFields = []; // copia de trabajo de los parametros de BTI019/BTCBS019, en el orden en que se cargaron (no reordenable)
 var pgOriginalCount = 0; // cantidad de parametros que tenia el metodo al cargar, para el UPDATE/INSERT/DELETE (ver generateParamsScript)
-var pgTipoOptions = [];
 var pgSdtOptions = []; // catalogo { nom, version }[] para los combos "SDT" / "SDT del Ítem"
 
 async function sdtgenLoadList() {
@@ -369,6 +368,24 @@ var PG_NAME_RE = /^[A-Za-z][A-Za-z0-9_]{0,99}$/;
 var PG_DIGITS_RE = /^\d{1,9}$/;
 var PG_FORBIDDEN_TEXT_RE = /['";\\\r\n]/;
 
+// Tipos basicos soportados: combo fijo, no texto libre (a diferencia del SDT
+// de arriba, que sale de un catalogo abierto). boolean/double/datetime/date
+// no tienen largo; solo double tiene decimales; ver pgLargoVisible/
+// pgDecimalesVisible/pgValorVisible para donde se usa cada regla.
+var PG_TIPO_OPTIONS = ['boolean', 'double', 'datetime', 'date', 'byte', 'int', 'long', 'short', 'string'];
+var PG_TIPO_SIN_LARGO = new Set(['boolean', 'double', 'datetime', 'date']);
+
+function pgLargoVisible(tipo) { return !PG_TIPO_SIN_LARGO.has(tipo); }
+function pgDecimalesVisible(tipo) { return tipo === 'double'; }
+// El valor por defecto solo se usa en un parametro Hidden (siempre se manda
+// igual); para los tipos basicos sin largo (boolean/double/datetime/date)
+// tampoco aplica, igual que el resto de esos campos.
+function pgValorVisible(field) {
+  if (field.dir !== 'H') return false;
+  if (field.cat === 'B') return pgLargoVisible(field.tipo);
+  return true;
+}
+
 // Direccion "BusinessErrors (R)" siempre es el mismo parametro: una
 // coleccion fija de SdtsBTBusinessError que Bantotal usa para devolver
 // errores de negocio. En vez de que cada quien la tipee a mano cada vez,
@@ -469,27 +486,16 @@ async function pgGoToEdit() {
     pgFields = (d.params || []).map(function(p) { return Object.assign({}, p); });
     pgOriginalCount = pgFields.length;
     document.getElementById('pg-mtd-name').textContent = pgSelectedService + ' / ' + pgSelectedMethod;
-    // Se esperan los catalogos (tipos y SDTs) antes de mostrar el editor: si
-    // show(5) dispara pgRenderEditor() antes de que estas dos resuelvan, los
-    // combos "SDT"/"SDT del Ítem" se arman vacios y quedan sin sus opciones
-    // (pgRenderEditor no se vuelve a llamar solo porque el catalogo llegue despues).
-    await Promise.all([pgLoadTipoOptions(), pgLoadSdtOptions()]);
+    // Se espera el catalogo de SDTs antes de mostrar el editor: si show(5)
+    // dispara pgRenderEditor() antes de que resuelva, los campos "SDT"/"SDT
+    // del Ítem" arman su datalist vacio (pgRenderEditor no se vuelve a llamar
+    // solo porque el catalogo llegue despues).
+    await pgLoadSdtOptions();
     show(5);
   } catch(e) {
     alert('Error: ' + e.message);
   }
   if (btn) { btn.innerHTML = 'Siguiente &#8594;'; btn.disabled = false; }
-}
-
-async function pgLoadTipoOptions() {
-  try {
-    var r = await fetch('/sg/api/param-options', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, apiMode: S.apiMode }) });
-    var d = await r.json();
-    if (!d.ok) return;
-    pgTipoOptions = (d.opts && d.opts.tipos) || [];
-    var dl = document.getElementById('pg-tipo-list');
-    if (dl) dl.innerHTML = pgTipoOptions.map(function(t) { return '<option value="' + pgEscapeAttr(t) + '">'; }).join('');
-  } catch(e) { /* el datalist es solo una ayuda, no bloquea el flujo si falla */ }
 }
 
 // Catalogo de SDTs (nombre + version) para los campos "SDT" / "SDT del
@@ -526,8 +532,11 @@ function pgSdtVersionByName(nom) {
 // del item si el item es SDT).
 function pgValidateField(f) {
   if (!PG_NAME_RE.test(f.nom || '')) return 'Nombre invalido: debe empezar con una letra y usar solo letras, numeros o guion bajo.';
-  if (PG_FORBIDDEN_TEXT_RE.test(f.valor || '')) return 'Valor por defecto invalido: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
   if (PG_FORBIDDEN_TEXT_RE.test(f.dsc || '')) return 'Descripcion invalida: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
+  // El valor por defecto solo se pide/valida cuando esta visible (dir=Hidden
+  // y, si es Basico, un tipo con largo): un valor viejo en un campo oculto
+  // no debe bloquear "Siguiente" con un error que el usuario no puede ver.
+  if (pgValorVisible(f) && PG_FORBIDDEN_TEXT_RE.test(f.valor || '')) return 'Valor por defecto invalido: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
 
   if (f.cat === 'S') {
     if (!(f.tipo || '').trim() || !(f.sdtver || '').trim()) return 'Elegí un SDT para este parámetro.';
@@ -539,17 +548,15 @@ function pgValidateField(f) {
       if (!(f.ittipo || '').trim() || !(f.sdtver || '').trim()) return 'Elegí el SDT del ítem para este parámetro.';
     } else {
       if (!(f.ittipo || '').trim()) return 'El tipo del ítem no puede quedar vacío.';
-      if (PG_FORBIDDEN_TEXT_RE.test(f.ittipo || '')) return 'Tipo de ítem invalido: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
-      if (!PG_DIGITS_RE.test(f.largo != null ? String(f.largo) : '')) return 'Largo del ítem invalido: debe ser un numero entero (0 o mayor).';
-      if (!PG_DIGITS_RE.test(f.deci != null ? String(f.deci) : '0')) return 'Decimales del ítem invalidos: debe ser un numero entero (0 o mayor).';
+      if (pgLargoVisible(f.ittipo) && !PG_DIGITS_RE.test(f.largo != null ? String(f.largo) : '')) return 'Largo del ítem invalido: debe ser un numero entero (0 o mayor).';
+      if (pgDecimalesVisible(f.ittipo) && !PG_DIGITS_RE.test(f.deci != null ? String(f.deci) : '0')) return 'Decimales del ítem invalidos: debe ser un numero entero (0 o mayor).';
     }
     return null;
   }
   // Basico (default).
   if (!(f.tipo || '').trim()) return 'El tipo no puede quedar vacío.';
-  if (PG_FORBIDDEN_TEXT_RE.test(f.tipo || '')) return 'Tipo invalido: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
-  if (!PG_DIGITS_RE.test(f.largo != null ? String(f.largo) : '')) return 'Largo invalido: debe ser un numero entero (0 o mayor).';
-  if (!PG_DIGITS_RE.test(f.deci != null ? String(f.deci) : '0')) return 'Decimales invalidos: debe ser un numero entero (0 o mayor).';
+  if (pgLargoVisible(f.tipo) && !PG_DIGITS_RE.test(f.largo != null ? String(f.largo) : '')) return 'Largo invalido: debe ser un numero entero (0 o mayor).';
+  if (pgDecimalesVisible(f.tipo) && !PG_DIGITS_RE.test(f.deci != null ? String(f.deci) : '0')) return 'Decimales invalidos: debe ser un numero entero (0 o mayor).';
   return null;
 }
 
@@ -582,10 +589,42 @@ function pgOnCatitChange(field, newCatit) {
   field.deci = '0';
 }
 
+// El tipo elegido (Basico o Item) decide si largo/decimales siguen teniendo
+// sentido; si dejan de aplicar se resetean a '0' en vez de arrastrar un
+// valor viejo que ya no se muestra (y que igual viajaria al script si no se
+// limpiara). pgOnTipoChange ademas puede afectar la visibilidad de "Valor
+// por defecto" (depende de dir+tipo, ver pgValorVisible), asi que la limpia.
+function pgOnTipoChange(field, newTipo) {
+  field.tipo = newTipo;
+  if (!pgLargoVisible(newTipo)) field.largo = '0';
+  if (!pgDecimalesVisible(newTipo)) field.deci = '0';
+  if (!pgValorVisible(field)) field.valor = '';
+}
+
+function pgOnItTipoChange(field, newTipo) {
+  field.ittipo = newTipo;
+  if (!pgLargoVisible(newTipo)) field.largo = '0';
+  if (!pgDecimalesVisible(newTipo)) field.deci = '0';
+}
+
+function pgTipoOptionsHtml(selected) {
+  var opts = PG_TIPO_OPTIONS.slice();
+  // Un tipo legacy que no este en la lista fija no se pisa en silencio: se
+  // agrega como opcion extra para que la fila siga mostrando el valor real
+  // que tiene en la base hasta que alguien lo cambie a mano.
+  if (selected && opts.indexOf(selected) === -1) opts = [selected].concat(opts);
+  return opts.map(function(t) {
+    return '<option value="' + pgEscapeAttr(t) + '"' + (t === selected ? ' selected' : '') + '>' + pgEscapeAttr(t) + '</option>';
+  }).join('');
+}
+
 // Arma el tramo de campos que depende de la categoria elegida (ver los 3
 // combos posibles en el mock: Basico -> Tipo+Largo(+Decimales); SDT -> un
 // solo campo "SDT"; Coleccion -> Categoría del Ítem + Nombre del Ítem, y
-// despues el mismo patron Basico/SDT pero para el item).
+// despues el mismo patron Basico/SDT pero para el item). Largo/Decimales
+// solo se agregan al HTML cuando aplican para el tipo elegido (ver
+// pgLargoVisible/pgDecimalesVisible); "Valor por defecto" se decide aparte,
+// en pgRenderEditor, porque depende tambien de la Direccion.
 function pgDynamicFieldsHtml(field, showV4Extras) {
   if (field.cat === 'S') {
     return '<div class="pg-fgroup pg-fgroup-grow"><label class="pg-flabel">SDT</label>' +
@@ -602,16 +641,25 @@ function pgDynamicFieldsHtml(field, showV4Extras) {
       html += '<div class="pg-fgroup pg-fgroup-grow"><label class="pg-flabel">SDT del Ítem</label>' +
         '<input type="text" class="sdtgen-field-input pg-input-sdtitem" list="pg-sdt-list" placeholder="Buscar SDT..." value="' + pgEscapeAttr(field.ittipo) + '"></div>';
     } else {
-      html += '<div class="pg-fgroup"><label class="pg-flabel">Tipo del Ítem</label><input type="text" class="sdtgen-field-input pg-input-ittipo" list="pg-tipo-list" value="' + pgEscapeAttr(field.ittipo) + '"></div>' +
-        '<div class="pg-fgroup"><label class="pg-flabel">Largo del Ítem</label><input type="text" class="sdtgen-field-input pg-input-largo" value="' + pgEscapeAttr(field.largo) + '"></div>' +
-        (showV4Extras ? '<div class="pg-fgroup"><label class="pg-flabel">Decimales del Ítem</label><input type="text" class="sdtgen-field-input pg-input-deci" value="' + pgEscapeAttr(field.deci) + '"></div>' : '');
+      html += '<div class="pg-fgroup"><label class="pg-flabel">Tipo del Ítem</label><select class="sdtgen-field-input pg-input-ittipo">' + pgTipoOptionsHtml(field.ittipo) + '</select></div>';
+      if (pgLargoVisible(field.ittipo)) {
+        html += '<div class="pg-fgroup"><label class="pg-flabel">Largo del Ítem</label><input type="text" class="sdtgen-field-input pg-input-largo" value="' + pgEscapeAttr(field.largo) + '"></div>';
+      }
+      if (showV4Extras && pgDecimalesVisible(field.ittipo)) {
+        html += '<div class="pg-fgroup"><label class="pg-flabel">Decimales del Ítem</label><input type="text" class="sdtgen-field-input pg-input-deci" value="' + pgEscapeAttr(field.deci) + '"></div>';
+      }
     }
     return html;
   }
   // Basico.
-  return '<div class="pg-fgroup"><label class="pg-flabel">Tipo</label><input type="text" class="sdtgen-field-input pg-input-tipo" list="pg-tipo-list" value="' + pgEscapeAttr(field.tipo) + '"></div>' +
-    '<div class="pg-fgroup"><label class="pg-flabel">Largo</label><input type="text" class="sdtgen-field-input pg-input-largo" value="' + pgEscapeAttr(field.largo) + '"></div>' +
-    (showV4Extras ? '<div class="pg-fgroup"><label class="pg-flabel">Decimales</label><input type="text" class="sdtgen-field-input pg-input-deci" value="' + pgEscapeAttr(field.deci) + '"></div>' : '');
+  var html = '<div class="pg-fgroup"><label class="pg-flabel">Tipo</label><select class="sdtgen-field-input pg-input-tipo">' + pgTipoOptionsHtml(field.tipo) + '</select></div>';
+  if (pgLargoVisible(field.tipo)) {
+    html += '<div class="pg-fgroup"><label class="pg-flabel">Largo</label><input type="text" class="sdtgen-field-input pg-input-largo" value="' + pgEscapeAttr(field.largo) + '"></div>';
+  }
+  if (showV4Extras && pgDecimalesVisible(field.tipo)) {
+    html += '<div class="pg-fgroup"><label class="pg-flabel">Decimales</label><input type="text" class="sdtgen-field-input pg-input-deci" value="' + pgEscapeAttr(field.deci) + '"></div>';
+  }
+  return html;
 }
 
 // Conecta los listeners del tramo dinamico armado por pgDynamicFieldsHtml.
@@ -640,16 +688,26 @@ function pgWireDynamicFields(card, field, showV4Extras, updateErr) {
         updateErr();
       });
     } else {
-      card.querySelector('.pg-input-ittipo').addEventListener('input', function() { field.ittipo = this.value; updateErr(); });
-      card.querySelector('.pg-input-largo').addEventListener('input', function() { field.largo = this.value; updateErr(); });
-      if (showV4Extras) card.querySelector('.pg-input-deci').addEventListener('input', function() { field.deci = this.value; updateErr(); });
+      card.querySelector('.pg-input-ittipo').addEventListener('change', function() {
+        pgOnItTipoChange(field, this.value);
+        pgRenderEditor();
+      });
+      var itLargoInput = card.querySelector('.pg-input-largo');
+      if (itLargoInput) itLargoInput.addEventListener('input', function() { field.largo = this.value; updateErr(); });
+      var itDeciInput = card.querySelector('.pg-input-deci');
+      if (itDeciInput) itDeciInput.addEventListener('input', function() { field.deci = this.value; updateErr(); });
     }
     return;
   }
   // Basico.
-  card.querySelector('.pg-input-tipo').addEventListener('input', function() { field.tipo = this.value; updateErr(); });
-  card.querySelector('.pg-input-largo').addEventListener('input', function() { field.largo = this.value; updateErr(); });
-  if (showV4Extras) card.querySelector('.pg-input-deci').addEventListener('input', function() { field.deci = this.value; updateErr(); });
+  card.querySelector('.pg-input-tipo').addEventListener('change', function() {
+    pgOnTipoChange(field, this.value);
+    pgRenderEditor();
+  });
+  var largoInput = card.querySelector('.pg-input-largo');
+  if (largoInput) largoInput.addEventListener('input', function() { field.largo = this.value; updateErr(); });
+  var deciInput = card.querySelector('.pg-input-deci');
+  if (deciInput) deciInput.addEventListener('input', function() { field.deci = this.value; updateErr(); });
 }
 
 // Cada parametro es una tarjeta con sus propios campos etiquetados (no una
@@ -682,7 +740,7 @@ function pgRenderEditor() {
         '<div class="pg-fgroup"><label class="pg-flabel">Dirección</label><select class="sdtgen-field-input pg-input-dir">' + dirOpts + '</select></div>' +
         '<div class="pg-fgroup"><label class="pg-flabel">Categoría</label><select class="sdtgen-field-input pg-input-cat">' + catOpts + '</select></div>' +
         pgDynamicFieldsHtml(field, showV4Extras) +
-        '<div class="pg-fgroup pg-fgroup-grow"><label class="pg-flabel">Valor por defecto</label><input type="text" class="sdtgen-field-input pg-input-valor" value="' + pgEscapeAttr(field.valor) + '"></div>' +
+        (pgValorVisible(field) ? '<div class="pg-fgroup pg-fgroup-grow"><label class="pg-flabel">Valor por defecto</label><input type="text" class="sdtgen-field-input pg-input-valor" value="' + pgEscapeAttr(field.valor) + '"></div>' : '') +
         (showV4Extras ? '<div class="pg-fgroup pg-fgroup-grow"><label class="pg-flabel">Descripción</label><input type="text" class="sdtgen-field-input pg-input-dsc" value="' + pgEscapeAttr(field.dsc) + '"></div>' : '') +
       '</div>' +
       '<div class="sdtgen-field-err"></div>';
@@ -705,13 +763,18 @@ function pgRenderEditor() {
         pgFlashSuggestion(field);
         return;
       }
-      updateErr();
+      // "Valor por defecto" depende de la Direccion (ver pgValorVisible): se
+      // re-renderiza siempre para mostrarlo/ocultarlo, limpiando el valor si
+      // deja de aplicar en vez de arrastrar uno viejo que ya no se ve.
+      if (!pgValorVisible(field)) field.valor = '';
+      pgRenderEditor();
     });
     card.querySelector('.pg-input-cat').addEventListener('change', function() {
       pgOnCatChange(field, this.value);
       pgRenderEditor();
     });
-    card.querySelector('.pg-input-valor').addEventListener('input', function() { field.valor = this.value; updateErr(); });
+    var valorInput = card.querySelector('.pg-input-valor');
+    if (valorInput) valorInput.addEventListener('input', function() { field.valor = this.value; updateErr(); });
     if (showV4Extras) card.querySelector('.pg-input-dsc').addEventListener('input', function() { field.dsc = this.value; updateErr(); });
     pgWireDynamicFields(card, field, showV4Extras, updateErr);
     updateErr();
@@ -768,7 +831,7 @@ function pgFlashSuggestion(field) {
 }
 
 function pgAddParam() {
-  pgFields.push({ nom: 'NuevoParametro', nomjava: 'param0', dir: 'I', tipo: '', ittipo: '', valor: '', sdtver: '', cat: 'B', catit: 'B', largo: '0', lval: '', itnom: '', deci: '0', dsc: '' });
+  pgFields.push({ nom: 'NuevoParametro', nomjava: 'param0', dir: 'I', tipo: 'string', ittipo: '', valor: '', sdtver: '', cat: 'B', catit: 'B', largo: '0', lval: '', itnom: '', deci: '0', dsc: '' });
   pgRenderEditor();
 }
 
