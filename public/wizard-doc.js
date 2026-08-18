@@ -369,6 +369,25 @@ var PG_NAME_RE = /^[A-Za-z][A-Za-z0-9_]{0,99}$/;
 var PG_DIGITS_RE = /^\d{1,9}$/;
 var PG_FORBIDDEN_TEXT_RE = /['";\\\r\n]/;
 
+// Direccion "BusinessErrors (R)" siempre es el mismo parametro: una
+// coleccion fija de SdtsBTBusinessError que Bantotal usa para devolver
+// errores de negocio. En vez de que cada quien la tipee a mano cada vez,
+// elegir esta direccion autocompleta el resto de la fila con estos valores.
+var PG_BUSINESS_ERRORS_SHAPE = {
+  nom: 'businessErrors',
+  tipo: 'Collection',
+  ittipo: 'SdtsBTBusinessError',
+  valor: '',
+  sdtver: '1',
+  cat: 'C',
+  catit: 'S',
+  largo: '0',
+  lval: '',
+  itnom: 'businessError',
+  deci: '0',
+  dsc: 'Listado de errores de negocio.',
+};
+
 function pgEscapeAttr(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -473,15 +492,30 @@ async function pgLoadTipoOptions() {
   } catch(e) { /* el datalist es solo una ayuda, no bloquea el flujo si falla */ }
 }
 
-// Catalogo de SDTs (nombre + version) para los combos "SDT" / "SDT del
+// Catalogo de SDTs (nombre + version) para los campos "SDT" / "SDT del
 // Ítem" (Categoría=SDT, o Categoría=Colección con Categoría del Ítem=SDT).
+// Se muestran como <input list="pg-sdt-list"> (texto libre + datalist), no
+// <select>: el datalist filtra nativamente a medida que se escribe, mucho
+// mas comodo que scrollear un combo cuando hay cientos de SDTs.
 async function pgLoadSdtOptions() {
   try {
     var r = await fetch('/api/paramgen/sdt-options', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, apiMode: S.apiMode }) });
     var d = await r.json();
     if (!d.ok) return;
     pgSdtOptions = d.sdts || [];
-  } catch(e) { /* si falla, el combo SDT queda vacio pero el resto del editor sigue andando */ }
+    var dl = document.getElementById('pg-sdt-list');
+    if (dl) dl.innerHTML = pgSdtOptions.map(function(s) { return '<option value="' + pgEscapeAttr(s.nom) + '">'; }).join('');
+  } catch(e) { /* si falla, el datalist de SDT queda vacio pero el resto del editor sigue andando */ }
+}
+
+// El value de un <input list> es el nombre tipeado tal cual (no hay forma de
+// que el datalist "adjunte" la version): se busca la version correspondiente
+// en el catalogo ya cargado. Si no matchea ningun SDT conocido (el usuario
+// todavia esta escribiendo, o puso un nombre que no existe) devuelve '',
+// y pgValidateField/buildParams lo marcan como "falta elegir un SDT".
+function pgSdtVersionByName(nom) {
+  var found = pgSdtOptions.find(function(s) { return s.nom === nom; });
+  return found ? found.version : '';
 }
 
 // Misma idea que sdtgenValidateField: da feedback inmediato en el editor,
@@ -548,24 +582,14 @@ function pgOnCatitChange(field, newCatit) {
   field.deci = '0';
 }
 
-function pgSdtOptionsHtml(selectedNom, selectedVersion) {
-  var html = '<option value=""' + (selectedNom ? '' : ' selected') + ' disabled>-- Seleccionar SDT --</option>';
-  html += pgSdtOptions.map(function(s) {
-    var val = s.nom + '|' + s.version;
-    var isSel = s.nom === selectedNom && String(s.version) === String(selectedVersion);
-    return '<option value="' + pgEscapeAttr(val) + '"' + (isSel ? ' selected' : '') + '>' + pgEscapeAttr(s.nom) + ' - v' + pgEscapeAttr(s.version) + '</option>';
-  }).join('');
-  return html;
-}
-
 // Arma el tramo de campos que depende de la categoria elegida (ver los 3
 // combos posibles en el mock: Basico -> Tipo+Largo(+Decimales); SDT -> un
-// solo combo "SDT"; Coleccion -> Categoría del Ítem + Nombre del Ítem, y
+// solo campo "SDT"; Coleccion -> Categoría del Ítem + Nombre del Ítem, y
 // despues el mismo patron Basico/SDT pero para el item).
 function pgDynamicFieldsHtml(field, showV4Extras) {
   if (field.cat === 'S') {
     return '<div class="pg-fgroup pg-fgroup-grow"><label class="pg-flabel">SDT</label>' +
-      '<select class="sdtgen-field-input pg-input-sdt">' + pgSdtOptionsHtml(field.tipo, field.sdtver) + '</select></div>';
+      '<input type="text" class="sdtgen-field-input pg-input-sdt" list="pg-sdt-list" placeholder="Buscar SDT..." value="' + pgEscapeAttr(field.tipo) + '"></div>';
   }
   if (field.cat === 'C') {
     var catit = field.catit || 'B';
@@ -576,7 +600,7 @@ function pgDynamicFieldsHtml(field, showV4Extras) {
       '<div class="pg-fgroup"><label class="pg-flabel">Nombre del Ítem</label><input type="text" class="sdtgen-field-input pg-input-itnom" value="' + pgEscapeAttr(field.itnom) + '"></div>';
     if (catit === 'S') {
       html += '<div class="pg-fgroup pg-fgroup-grow"><label class="pg-flabel">SDT del Ítem</label>' +
-        '<select class="sdtgen-field-input pg-input-sdtitem">' + pgSdtOptionsHtml(field.ittipo, field.sdtver) + '</select></div>';
+        '<input type="text" class="sdtgen-field-input pg-input-sdtitem" list="pg-sdt-list" placeholder="Buscar SDT..." value="' + pgEscapeAttr(field.ittipo) + '"></div>';
     } else {
       html += '<div class="pg-fgroup"><label class="pg-flabel">Tipo del Ítem</label><input type="text" class="sdtgen-field-input pg-input-ittipo" list="pg-tipo-list" value="' + pgEscapeAttr(field.ittipo) + '"></div>' +
         '<div class="pg-fgroup"><label class="pg-flabel">Largo del Ítem</label><input type="text" class="sdtgen-field-input pg-input-largo" value="' + pgEscapeAttr(field.largo) + '"></div>' +
@@ -596,11 +620,9 @@ function pgDynamicFieldsHtml(field, showV4Extras) {
 // campo en memoria sin re-renderizar.
 function pgWireDynamicFields(card, field, showV4Extras, updateErr) {
   if (field.cat === 'S') {
-    var sdtSel = card.querySelector('.pg-input-sdt');
-    sdtSel.addEventListener('change', function() {
-      var parts = this.value.split('|');
-      field.tipo = parts[0] || '';
-      field.sdtver = parts[1] || '';
+    card.querySelector('.pg-input-sdt').addEventListener('input', function() {
+      field.tipo = this.value;
+      field.sdtver = pgSdtVersionByName(this.value);
       updateErr();
     });
     return;
@@ -612,10 +634,9 @@ function pgWireDynamicFields(card, field, showV4Extras, updateErr) {
     });
     card.querySelector('.pg-input-itnom').addEventListener('input', function() { field.itnom = this.value; updateErr(); });
     if (field.catit === 'S') {
-      card.querySelector('.pg-input-sdtitem').addEventListener('change', function() {
-        var parts = this.value.split('|');
-        field.ittipo = parts[0] || '';
-        field.sdtver = parts[1] || '';
+      card.querySelector('.pg-input-sdtitem').addEventListener('input', function() {
+        field.ittipo = this.value;
+        field.sdtver = pgSdtVersionByName(this.value);
         updateErr();
       });
     } else {
@@ -674,7 +695,18 @@ function pgRenderEditor() {
     }
 
     card.querySelector('.pg-input-nom').addEventListener('input', function() { field.nom = this.value; updateErr(); pgScheduleSuggestion(field); });
-    card.querySelector('.pg-input-dir').addEventListener('change', function() { field.dir = this.value; updateErr(); });
+    card.querySelector('.pg-input-dir').addEventListener('change', function() {
+      field.dir = this.value;
+      if (field.dir === 'R') {
+        // BusinessErrors siempre es el mismo parametro: se autocompleta toda
+        // la fila y se re-renderiza (cambia cat/catit, o sea que campos se ven).
+        Object.assign(field, PG_BUSINESS_ERRORS_SHAPE);
+        pgRenderEditor();
+        pgFlashSuggestion(field);
+        return;
+      }
+      updateErr();
+    });
     card.querySelector('.pg-input-cat').addEventListener('change', function() {
       pgOnCatChange(field, this.value);
       pgRenderEditor();
