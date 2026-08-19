@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 
 const {
   createParamEditFeature, buildParams, generateParamsScript, suggestParamShape,
+  buildFieldEdits, generateFieldsScript,
   isValidParamName, isValidDigits, isValidParamText, isValidDir, isValidCat, isValidCatit,
 } = require('./index.js');
 
@@ -11,6 +12,13 @@ function sourceParams() {
     { nom: 'ParamA', nomjava: 'param0', dir: 'I', tipo: 'string', ittipo: '', valor: '', sdtver: '', cat: 'B', catit: 'B', largo: '50', lval: '', itnom: '', deci: '0', dsc: 'Parametro A.' },
     { nom: 'ParamB', nomjava: 'param1', dir: 'O', tipo: 'double', ittipo: '', valor: '', sdtver: '', cat: 'B', catit: 'B', largo: '15', lval: '', itnom: '', deci: '2', dsc: 'Parametro B.' },
     { nom: 'ParamC', nomjava: 'param2', dir: 'I', tipo: 'SdtAnidado', ittipo: '', valor: '', sdtver: '1', cat: 'S', catit: 'B', largo: '0', lval: '', itnom: '', deci: '0', dsc: 'Parametro anidado.' },
+  ];
+}
+
+function sourceFields() {
+  return [
+    { elemnom: 'nombre', elemlargo: '50', elemdeci: '0', elemdsc: 'Nombre del cliente.', nomit: '' },
+    { elemnom: 'cuit', elemlargo: '11', elemdeci: '0', elemdsc: 'CUIT del titular.', nomit: '' },
   ];
 }
 
@@ -203,6 +211,65 @@ test('generateParamsScript (apiMode interna) genera UPDATE/INSERT/DELETE contra 
   assert.ok(script.split('\n').some(l => l.startsWith('INSERT INTO BTCBS019')));
 });
 
+test('buildFieldEdits conserva el orden recibido (define BTISDTELEMPOSI) y normaliza defaults', () => {
+  const built = buildFieldEdits([{ elemnom: 'campoNuevo' }]);
+  assert.equal(built[0].elemnom, 'campoNuevo');
+  assert.equal(built[0].elemlargo, '0');
+  assert.equal(built[0].elemdeci, '0');
+  assert.equal(built[0].elemdsc, '');
+  assert.equal(built[0].nomit, '');
+});
+
+test('buildFieldEdits lanza si la lista queda vacia', () => {
+  assert.throws(() => buildFieldEdits([]), /no puede quedar vacia/);
+  assert.throws(() => buildFieldEdits(null), /no puede quedar vacia/);
+});
+
+test('buildFieldEdits lanza si el nombre no es un identificador valido', () => {
+  for (const elemnom of ['campo A', '1campo', "campo'A", '']) {
+    assert.throws(() => buildFieldEdits([{ elemnom }]), /Nombre de parametro invalido/, 'deberia rechazar: ' + JSON.stringify(elemnom));
+  }
+});
+
+test('buildFieldEdits lanza si largo o decimales no son numericos', () => {
+  assert.throws(() => buildFieldEdits([{ elemnom: 'campoA', elemlargo: '12a' }]), /Largo invalido/);
+  assert.throws(() => buildFieldEdits([{ elemnom: 'campoA', elemdeci: '-1' }]), /Decimales invalidos/);
+});
+
+test('buildFieldEdits lanza si la descripcion o el iterador contienen comillas, punto y coma, barra invertida o salto de linea', () => {
+  for (const texto of ["Tiene ' apostrofo", 'Tiene ; punto y coma', 'Tiene \\ barra', 'Tiene\nsalto de linea']) {
+    assert.throws(() => buildFieldEdits([{ elemnom: 'campoA', elemdsc: texto }]), /Descripcion invalida/, 'deberia rechazar dsc: ' + JSON.stringify(texto));
+    assert.throws(() => buildFieldEdits([{ elemnom: 'campoA', nomit: texto }]), /Nombre de iterador invalido/, 'deberia rechazar nomit: ' + JSON.stringify(texto));
+  }
+});
+
+test('buildFieldEdits no toca tipo/categoria/SDT anidado: esta herramienta solo edita nombre/largo/decimales/descripcion/iterador', () => {
+  const built = buildFieldEdits([{ elemnom: 'campoA', elemtipo: 'IgnoradoDeberia', elemcat: 'S', elemsdt: 'SdtIgnorado' }]);
+  assert.deepEqual(Object.keys(built[0]).sort(), ['elemdeci', 'elemdsc', 'elemlargo', 'elemnom', 'nomit'].sort());
+});
+
+test('generateFieldsScript V4 con oldCount=newCount solo emite UPDATE (sin INSERT ni DELETE)', () => {
+  const script = generateFieldsScript('SdtCliente', sourceFields(), 'V4', 'publica', 2);
+  assert.ok(!script.includes('INSERT'), 'esta herramienta no agrega campos nuevos');
+  assert.ok(!script.includes('DELETE'), 'sin remociones no debe haber DELETE');
+  const lines = script.split('\n').filter(Boolean);
+  assert.equal(lines.length, 2);
+  assert.match(lines[0], /^UPDATE BTI026 SET .* WHERE BTISDTNOM='SdtCliente' AND BTISDTELEMPOSI=1;$/);
+  assert.ok(lines[0].includes("BTISDTELEMNOM='nombre'"));
+});
+
+test('generateFieldsScript DELETEa por posicion los campos que sobran cuando se quita uno', () => {
+  const script = generateFieldsScript('SdtCliente', sourceFields().slice(0, 1), 'V4', 'publica', 2);
+  assert.match(script, /DELETE FROM BTI026 WHERE BTISDTNOM='SdtCliente' AND BTISDTELEMPOSI > 1;/);
+  assert.ok(!script.includes('INSERT'));
+});
+
+test('generateFieldsScript (apiMode interna) genera UPDATE contra BTCBS026, no BTI026', () => {
+  const script = generateFieldsScript('SdtCliente', sourceFields(), 'V4', 'interna', 2);
+  assert.ok(script.includes('BTCBS026'));
+  assert.ok(!script.includes('BTI026'));
+});
+
 test('suggestParamShape devuelve null si no hay candidatos', () => {
   assert.equal(suggestParamShape([]), null);
   assert.equal(suggestParamShape(null), null);
@@ -246,6 +313,8 @@ function fakeDeps(overrides) {
     queryServiceVersions: async () => { throw new Error('queryServiceVersions no configurado en el fake'); },
     queryAllSdts: async () => { throw new Error('queryAllSdts no configurado en el fake'); },
     queryParamCandidates: async () => { throw new Error('queryParamCandidates no configurado en el fake'); },
+    queryBti025: async () => { throw new Error('queryBti025 no configurado en el fake'); },
+    queryBti026: async () => { throw new Error('queryBti026 no configurado en el fake'); },
   }, overrides || {});
 }
 
@@ -545,6 +614,144 @@ test('handleApi POST /api/paramgen/execute rechaza parametros invalidos sin toca
   assert.equal(res.body.ok, false);
   assert.match(res.body.message, /Largo invalido/);
   assert.equal(touched, false);
+});
+
+test('loadFields devuelve bti025 y bti026 del SDT pedido', async () => {
+  const feature = createParamEditFeature(fakeDeps({
+    queryBti025: async () => ({ nom: 'SdtCliente', version: '1', estado: 'Validado' }),
+    queryBti026: async () => sourceFields(),
+  }));
+  const result = await feature.loadFields('oracle', {}, 'V4', 'SdtCliente', 'publica');
+  assert.equal(result.bti025.nom, 'SdtCliente');
+  assert.deepEqual(result.bti026, sourceFields());
+});
+
+test('loadFields devuelve bti025:null y bti026:[] sin consultar los campos si el SDT no existe', async () => {
+  let touched = false;
+  const feature = createParamEditFeature(fakeDeps({
+    queryBti025: async () => null,
+    queryBti026: async () => { touched = true; throw new Error('no deberia llamarse'); },
+  }));
+  const result = await feature.loadFields('oracle', {}, 'V4', 'Inexistente', 'publica');
+  assert.equal(result.bti025, null);
+  assert.deepEqual(result.bti026, []);
+  assert.equal(touched, false);
+});
+
+test('executeFieldEdits (SQL Server) re-consulta la cantidad actual de campos y UPDATEa sin DELETE si no cambio', async () => {
+  const log = [];
+  const queriesRun = [];
+  const FakeTransaction = fakeMssqlTransaction(log);
+  const FakeRequest = class { async query(sql) { queriesRun.push(sql); } };
+  let queriedCount = null;
+  const feature = createParamEditFeature(fakeDeps({
+    getPool: async () => ({ pool: {}, mssql: { Transaction: FakeTransaction, Request: FakeRequest } }),
+    queryBti026: async () => { queriedCount = sourceFields().length; return sourceFields(); },
+  }));
+  const result = await feature.executeFieldEdits('sqlserver', {}, 'V4', 'SdtCliente', sourceFields(), 'publica');
+  assert.equal(queriedCount, 2, 'debe re-consultar la cantidad actual de campos antes de armar el script');
+  assert.equal(result.ok, true);
+  assert.ok(result.statementsRun > 0);
+  assert.deepEqual(log, ['begin', 'commit']);
+  assert.ok(queriesRun.every(q => q.startsWith('UPDATE BTI026')));
+  assert.deepEqual(queriesRun.filter(q => /;\s*$/.test(q)), [], 'ninguna sentencia debe terminar en ;');
+});
+
+test('executeFieldEdits (SQL Server) DELETEa por posicion cuando se quito un campo', async () => {
+  const queriesRun = [];
+  const FakeTransaction = fakeMssqlTransaction([]);
+  const FakeRequest = class { async query(sql) { queriesRun.push(sql); } };
+  const feature = createParamEditFeature(fakeDeps({
+    getPool: async () => ({ pool: {}, mssql: { Transaction: FakeTransaction, Request: FakeRequest } }),
+    queryBti026: async () => sourceFields(),
+  }));
+  await feature.executeFieldEdits('sqlserver', {}, 'V4', 'SdtCliente', sourceFields().slice(0, 1), 'publica');
+  assert.equal(queriesRun.filter(q => q.startsWith('UPDATE BTI026')).length, 1);
+  assert.ok(queriesRun.some(q => q.startsWith('DELETE FROM BTI026') && q.includes('BTISDTELEMPOSI > 1')));
+});
+
+test('executeFieldEdits rechaza campos invalidos sin tocar la base', async () => {
+  let touched = false;
+  const feature = createParamEditFeature(fakeDeps({
+    getPool: async () => { touched = true; throw new Error('no deberia llamarse'); },
+    getOra: async () => { touched = true; throw new Error('no deberia llamarse'); },
+  }));
+  const fields = sourceFields();
+  fields[0].elemlargo = 'no-numerico';
+  await assert.rejects(
+    () => feature.executeFieldEdits('sqlserver', {}, 'V4', 'SdtCliente', fields, 'publica'),
+    /Largo invalido/
+  );
+  assert.equal(touched, false);
+});
+
+test('handleApi POST /api/paramgen/sdt-fields responde con bti025 y bti026', async () => {
+  const feature = createParamEditFeature(fakeDeps({
+    queryBti025: async () => ({ nom: 'SdtCliente', version: '1' }),
+    queryBti026: async () => sourceFields(),
+  }));
+  const res = fakeRes();
+  const handled = await feature.handleApi(fakeReq('POST', '/api/paramgen/sdt-fields', {
+    platform: 'oracle', db: {}, version: 'V4', apiMode: 'publica', nom: 'SdtCliente',
+  }), res, fakeHelpers(res));
+  assert.equal(handled, true);
+  assert.equal(res.body.ok, true);
+  assert.equal(res.body.bti025.nom, 'SdtCliente');
+  assert.deepEqual(res.body.bti026, sourceFields());
+});
+
+test('handleApi POST /api/paramgen/sdt-fields responde ok:false si el SDT no existe', async () => {
+  const feature = createParamEditFeature(fakeDeps({ queryBti025: async () => null }));
+  const res = fakeRes();
+  await feature.handleApi(fakeReq('POST', '/api/paramgen/sdt-fields', {
+    platform: 'oracle', db: {}, version: 'V4', nom: 'Inexistente',
+  }), res, fakeHelpers(res));
+  assert.equal(res.body.ok, false);
+  assert.match(res.body.message, /Inexistente/);
+});
+
+test('handleApi POST /api/paramgen/generate-fields responde con el script', async () => {
+  const feature = createParamEditFeature(fakeDeps());
+  const res = fakeRes();
+  const handled = await feature.handleApi(fakeReq('POST', '/api/paramgen/generate-fields', {
+    version: 'V4', apiMode: 'publica', sdtNom: 'SdtCliente', editedFields: sourceFields(), oldCount: 2,
+  }), res, fakeHelpers(res));
+  assert.equal(handled, true);
+  assert.equal(res.body.ok, true);
+  assert.ok(res.body.script.includes('UPDATE BTI026'));
+});
+
+test('handleApi POST /api/paramgen/generate-fields rechaza un campo con nombre invalido', async () => {
+  const feature = createParamEditFeature(fakeDeps());
+  const res = fakeRes();
+  const fields = sourceFields();
+  fields[0].elemnom = "campo'; DROP TABLE BTI026--";
+  await feature.handleApi(fakeReq('POST', '/api/paramgen/generate-fields', {
+    version: 'V4', apiMode: 'publica', sdtNom: 'SdtCliente', editedFields: fields, oldCount: 2,
+  }), res, fakeHelpers(res));
+  assert.equal(res.body.ok, false);
+  assert.match(res.body.message, /Nombre de parametro invalido/);
+});
+
+test('handleApi POST /api/paramgen/execute-fields ejecuta usando los campos editados enviados por el cliente', async () => {
+  const log = [];
+  const queriesRun = [];
+  const FakeTransaction = fakeMssqlTransaction(log);
+  const FakeRequest = class { async query(sql) { queriesRun.push(sql); } };
+  const feature = createParamEditFeature(fakeDeps({
+    getPool: async () => ({ pool: {}, mssql: { Transaction: FakeTransaction, Request: FakeRequest } }),
+    queryBti026: async () => sourceFields(),
+  }));
+  const res = fakeRes();
+  const fields = sourceFields();
+  fields[0].elemdsc = 'Descripcion editada.';
+  const handled = await feature.handleApi(fakeReq('POST', '/api/paramgen/execute-fields', {
+    platform: 'sqlserver', db: {}, version: 'V4', apiMode: 'publica', sdtNom: 'SdtCliente', editedFields: fields,
+  }), res, fakeHelpers(res));
+  assert.equal(handled, true);
+  assert.equal(res.body.ok, true);
+  assert.ok(res.body.statementsRun > 0);
+  assert.ok(queriesRun.some(s => s.includes("'Descripcion editada.'")));
 });
 
 test('handleApi devuelve false para una ruta desconocida', async () => {

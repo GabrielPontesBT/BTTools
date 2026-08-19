@@ -42,6 +42,10 @@ var pgSrvVer = '1';
 var pgFields = []; // copia de trabajo de los parametros de BTI019/BTCBS019, en el orden en que se cargaron (no reordenable)
 var pgOriginalCount = 0; // cantidad de parametros que tenia el metodo al cargar, para el UPDATE/INSERT/DELETE (ver generateParamsScript)
 var pgSdtOptions = []; // catalogo { nom, version }[] para los combos "SDT" / "SDT del Ítem"
+var pgTargetMode = 'method'; // 'method' = editar BTI019 (parametros); 'sdt' = editar BTI026 (campos de un SDT existente)
+var pgSelectedSdtName = null;
+var pgSdtFields = []; // copia de trabajo de los campos del SDT elegido, en el orden en que se cargaron (no reordenable, no se agregan campos nuevos)
+var pgSdtOriginalCount = 0; // cantidad de campos que tenia el SDT al cargar, para el UPDATE/DELETE (ver generateFieldsScript)
 
 async function sdtgenLoadList() {
   var loading = document.getElementById('sdtgen-list-loading'), err = document.getElementById('sdtgen-list-err');
@@ -466,9 +470,35 @@ function pgEscapeAttr(s) {
 // de conexion dejaba el paso 4 mostrando el servicio/metodo de otra corrida.
 function pgInvalidateState() {
   pgServicesLoaded = false; pgAllServices = []; pgSelectedService = null; pgSelectedMethod = null; pgFields = []; pgOriginalCount = 0;
+  pgSelectedSdtName = null; pgSdtFields = []; pgSdtOriginalCount = 0;
   var svcSel = document.getElementById('pg-sel-svc'); if (svcSel) svcSel.innerHTML = '<option value="">-- Seleccionar --</option>';
   var mtdSel = document.getElementById('pg-sel-mtd'); if (mtdSel) mtdSel.innerHTML = '<option value="">-- Seleccionar --</option>';
+  var sdtSearch = document.getElementById('pg-sdt-search'); if (sdtSearch) sdtSearch.value = '';
   var out = document.getElementById('pg-sql-out'); if (out) out.value = '';
+  pgSetTargetMode('method');
+}
+
+// Alterna entre editar parametros de un metodo (BTI019) o campos de un SDT
+// existente (BTI026): son dos tablas y dos editores distintos (ver
+// pgRenderEditor/pgRenderSdtEditor), pero comparten el resto del flujo
+// (conexion, resultado, ejecutar).
+function pgSetTargetMode(mode) {
+  pgTargetMode = mode;
+  document.querySelectorAll('.pg-target-btn').forEach(function(b) { b.classList.toggle('sel', b.getAttribute('data-mode') === mode); });
+  var methodPicker = document.getElementById('pg-method-picker'); if (methodPicker) methodPicker.style.display = mode === 'method' ? '' : 'none';
+  var sdtPicker = document.getElementById('pg-sdt-picker'); if (sdtPicker) sdtPicker.style.display = mode === 'sdt' ? '' : 'none';
+  pgSelectedService = null; pgSelectedMethod = null; pgSelectedSdtName = null;
+  var sdtSearch = document.getElementById('pg-sdt-search'); if (sdtSearch) sdtSearch.value = '';
+  refreshPgNextBtn();
+}
+
+// El value de un <input list> es el nombre tipeado tal cual: solo se
+// considera "elegido" si matchea exacto un SDT real del catalogo (misma
+// logica que pgSdtVersionByName para el combo "SDT" del editor de BTI019).
+function pgOnSdtSearchInput() {
+  var val = v('pg-sdt-search');
+  pgSelectedSdtName = pgSdtOptions.some(function(s) { return s.nom === val; }) ? val : null;
+  refreshPgNextBtn();
 }
 
 async function pgLoadServices() {
@@ -522,10 +552,12 @@ function pgOnMethodChange() {
 
 function refreshPgNextBtn() {
   var btn = document.getElementById('btn-next');
-  if (btn && S.step === 4 && S.action === 'paramgen') btn.disabled = !pgSelectedMethod;
+  if (!btn || S.step !== 4 || S.action !== 'paramgen') return;
+  btn.disabled = pgTargetMode === 'sdt' ? !pgSelectedSdtName : !pgSelectedMethod;
 }
 
 async function pgGoToEdit() {
+  if (pgTargetMode === 'sdt') { await pgGoToSdtEdit(); return; }
   if (!pgSelectedService || !pgSelectedMethod) return;
   var btn = document.getElementById('btn-next');
   if (btn) { btn.innerHTML = '<span class="spin"></span>&nbsp;Cargando...'; btn.disabled = true; }
@@ -537,10 +569,31 @@ async function pgGoToEdit() {
     pgFields = (d.params || []).map(function(p) { return Object.assign({}, p); });
     pgOriginalCount = pgFields.length;
     document.getElementById('pg-mtd-name').textContent = pgSelectedService + ' / ' + pgSelectedMethod;
+    document.getElementById('pg-edit-sub').textContent = 'Editá, agregá o quitá parámetros. El orden de carga define la posición (BTISRVPARPOSI) y no se puede cambiar.';
     // Se espera el catalogo de SDTs antes de mostrar el editor: si show(5)
     // dispara pgRenderEditor() antes de que resuelva, los campos "SDT"/"SDT
     // del Ítem" arman su datalist vacio (pgRenderEditor no se vuelve a llamar
     // solo porque el catalogo llegue despues).
+    await pgLoadSdtOptions();
+    show(5);
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
+  if (btn) { btn.innerHTML = 'Siguiente &#8594;'; btn.disabled = false; }
+}
+
+async function pgGoToSdtEdit() {
+  if (!pgSelectedSdtName) return;
+  var btn = document.getElementById('btn-next');
+  if (btn) { btn.innerHTML = '<span class="spin"></span>&nbsp;Cargando...'; btn.disabled = true; }
+  try {
+    var r = await fetch('/api/paramgen/sdt-fields', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, apiMode: S.apiMode, nom: pgSelectedSdtName }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    pgSdtFields = (d.bti026 || []).map(function(f) { return Object.assign({}, f); });
+    pgSdtOriginalCount = pgSdtFields.length;
+    document.getElementById('pg-mtd-name').textContent = pgSelectedSdtName + (d.bti025 && d.bti025.version ? ' (v' + d.bti025.version + ')' : '');
+    document.getElementById('pg-edit-sub').textContent = 'Editá o quitá campos. El orden de carga define la posición (BTISDTELEMPOSI) y no se puede cambiar; para agregar campos nuevos usá "Generar SDT".';
     await pgLoadSdtOptions();
     show(5);
   } catch(e) {
@@ -766,6 +819,7 @@ function pgWireDynamicFields(card, field, showV4Extras, updateErr) {
 // una grilla de columnas compartida entre filas no tiene sentido aca (a
 // diferencia del editor de campos de SDT).
 function pgRenderEditor() {
+  var addBtn = document.getElementById('pg-add-param-btn'); if (addBtn) addBtn.style.display = '';
   var container = document.getElementById('pg-fields');
   container.innerHTML = '';
   var showV4Extras = S.version === 'V4';
@@ -886,8 +940,129 @@ function pgAddParam() {
   pgRenderEditor();
 }
 
+// ── Editor de campos de un SDT existente (BTI026/BTCBS026) ────
+// Mucho mas simple que el editor de parametros: solo Nombre, Largo,
+// Decimales, Descripcion e Iterador son editables (mismo criterio que
+// buildSdtCopy en Generar SDT); el Tipo se muestra de solo lectura porque
+// cambiarlo correctamente requeriria la misma logica en cascada de
+// Categoria/SDT que tiene el editor de BTI019, y esta herramienta esta
+// pensada para corregir datos (largo/descripcion), no para redefinir un
+// campo. No hay boton de "agregar campo": la posicion 1..N ya identifica
+// una fila real de la base (ver generateFieldsScript), asi que agregar uno
+// nuevo significaria elegirle un tipo — eso sigue siendo trabajo de
+// "Generar SDT".
+function pgSdtFieldValidate(f) {
+  if (!PG_NAME_RE.test(f.elemnom || '')) return 'Nombre invalido: debe empezar con una letra y usar solo letras, numeros o guion bajo.';
+  if (!PG_DIGITS_RE.test(f.elemlargo != null ? String(f.elemlargo) : '')) return 'Largo invalido: debe ser un numero entero (0 o mayor).';
+  if (!PG_DIGITS_RE.test(f.elemdeci != null ? String(f.elemdeci) : '0')) return 'Decimales invalidos: debe ser un numero entero (0 o mayor).';
+  if (PG_FORBIDDEN_TEXT_RE.test(f.elemdsc || '')) return 'Descripcion invalida: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
+  if (f.nomit && PG_FORBIDDEN_TEXT_RE.test(f.nomit)) return 'Nombre de iterador invalido: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
+  return null;
+}
+
+function pgSdtFieldsAllValid() {
+  return pgSdtFields.length > 0 && pgSdtFields.every(function(f) { return !pgSdtFieldValidate(f); });
+}
+
+function pgRenderSdtEditor() {
+  var addBtn = document.getElementById('pg-add-param-btn'); if (addBtn) addBtn.style.display = 'none';
+  var container = document.getElementById('pg-fields');
+  container.innerHTML = '';
+  var showV4Extras = S.version === 'V4';
+
+  pgSdtFields.forEach(function(field, idx) {
+    var card = document.createElement('div');
+    card.className = 'pg-param-card';
+
+    card.innerHTML =
+      '<div class="pg-param-top">' +
+        '<div class="pg-fgroup pg-fgroup-grow"><label class="pg-flabel">Nombre</label><input type="text" class="sdtgen-field-input pg-input-elemnom" value="' + pgEscapeAttr(field.elemnom) + '"></div>' +
+        '<span class="pg-suggest-badge" style="display:none">&#10003; autocompletado</span>' +
+        '<button type="button" class="sdtgen-field-rm" title="Quitar">&times;</button>' +
+      '</div>' +
+      '<div class="pg-param-fields">' +
+        '<div class="pg-fgroup"><label class="pg-flabel">Tipo</label><input type="text" class="sdtgen-field-input" value="' + pgEscapeAttr(field.elemtipo) + '" disabled></div>' +
+        '<div class="pg-fgroup"><label class="pg-flabel">Largo</label><input type="text" class="sdtgen-field-input pg-input-elemlargo" value="' + pgEscapeAttr(field.elemlargo) + '"></div>' +
+        (showV4Extras ? '<div class="pg-fgroup"><label class="pg-flabel">Decimales</label><input type="text" class="sdtgen-field-input pg-input-elemdeci" value="' + pgEscapeAttr(field.elemdeci) + '"></div>' : '') +
+        '<div class="pg-fgroup pg-fgroup-grow"><label class="pg-flabel">Descripción</label><input type="text" class="sdtgen-field-input pg-input-elemdsc" value="' + pgEscapeAttr(field.elemdsc) + '"></div>' +
+        (showV4Extras ? '<div class="pg-fgroup"><label class="pg-flabel">Iterador</label><input type="text" class="sdtgen-field-input pg-input-nomit" value="' + pgEscapeAttr(field.nomit) + '"></div>' : '') +
+      '</div>' +
+      '<div class="sdtgen-field-err"></div>';
+
+    var err = card.querySelector('.sdtgen-field-err');
+    function updateErr() {
+      var msg = pgSdtFieldValidate(field);
+      err.textContent = msg || '';
+      card.classList.toggle('invalid', !!msg);
+    }
+
+    card.querySelector('.pg-input-elemnom').addEventListener('input', function() { field.elemnom = this.value; updateErr(); pgScheduleSdtSuggestion(field); });
+    card.querySelector('.pg-input-elemlargo').addEventListener('input', function() { field.elemlargo = this.value; updateErr(); });
+    card.querySelector('.pg-input-elemdsc').addEventListener('input', function() { field.elemdsc = this.value; updateErr(); });
+    if (showV4Extras) {
+      card.querySelector('.pg-input-elemdeci').addEventListener('input', function() { field.elemdeci = this.value; updateErr(); });
+      card.querySelector('.pg-input-nomit').addEventListener('input', function() { field.nomit = this.value; updateErr(); });
+    }
+    updateErr();
+
+    card.querySelector('.sdtgen-field-rm').onclick = function() {
+      pgSdtFields.splice(idx, 1);
+      pgRenderSdtEditor();
+    };
+    container.appendChild(card);
+  });
+}
+
+// Mismo mecanismo de autocompletar por nombre que el editor de BTI019
+// (pgScheduleSuggestion), pero reutilizando el endpoint de Generar SDT
+// (/api/sdtgen/suggest-field): busca el nombre en CUALQUIER SDT y copia
+// largo+descripcion si encuentra una definicion que no sea el default de
+// "recien definido" (ver suggestFieldShape en scripts/generar-sdt).
+var pgSdtSuggestTimers = new WeakMap();
+var pgSdtSuggestedNames = new WeakMap();
+
+function pgScheduleSdtSuggestion(field) {
+  clearTimeout(pgSdtSuggestTimers.get(field));
+  var t = setTimeout(function() { pgLookupSdtSuggestion(field); }, 500);
+  pgSdtSuggestTimers.set(field, t);
+}
+
+async function pgLookupSdtSuggestion(field) {
+  var nombre = (field.elemnom || '').trim();
+  if (!PG_NAME_RE.test(nombre)) return;
+  if (pgSdtSuggestedNames.get(field) === nombre) return;
+  try {
+    var r = await fetch('/api/sdtgen/suggest-field', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, apiMode: S.apiMode, nombre: nombre }) });
+    var d = await r.json();
+    if (!d.ok || !d.suggestion) return;
+    if ((field.elemnom || '').trim() !== nombre) return;
+    pgSdtSuggestedNames.set(field, nombre);
+    field.elemlargo = d.suggestion.shape.largo;
+    field.elemdsc = d.suggestion.shape.dsc;
+    pgRenderSdtEditor();
+    pgFlashSdtSuggestion(field);
+  } catch(e) { /* la sugerencia es solo una ayuda, no bloquea el flujo si falla */ }
+}
+
+function pgFlashSdtSuggestion(field) {
+  var idx = pgSdtFields.indexOf(field);
+  if (idx < 0) return;
+  var card = document.querySelectorAll('#pg-fields .pg-param-card')[idx];
+  var badge = card && card.querySelector('.pg-suggest-badge');
+  if (!badge) return;
+  badge.style.display = '';
+  setTimeout(function() { badge.style.display = 'none'; }, 2500);
+}
+
 function pgGoToResult() {
   var err = document.getElementById('pg-edit-err');
+  if (pgTargetMode === 'sdt') {
+    if (!pgSdtFields.length) { err.className = 'cres show err'; err.textContent = 'Tiene que quedar al menos un campo.'; return; }
+    if (!pgSdtFieldsAllValid()) { err.className = 'cres show err'; err.textContent = 'Hay campos con datos invalidos, revisalos antes de continuar.'; return; }
+    err.className = 'cres';
+    show(6);
+    return;
+  }
   if (!pgFields.length) { err.className = 'cres show err'; err.textContent = 'Tiene que quedar al menos un parametro.'; return; }
   if (!pgFieldsAllValid()) { err.className = 'cres show err'; err.textContent = 'Hay parametros con datos invalidos, revisalos antes de continuar.'; return; }
   err.className = 'cres';
@@ -907,6 +1082,19 @@ async function pgDoGenerate() {
   } catch(e) { ta.value = 'Error: ' + e.message; }
 }
 
+async function pgDoGenerateSdtFields() {
+  var ta = document.getElementById('pg-sql-out');
+  ta.value = 'Generando...';
+  try {
+    var r = await fetch('/api/paramgen/generate-fields', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+      version: S.version, apiMode: S.apiMode, sdtNom: pgSelectedSdtName, editedFields: pgSdtFields, oldCount: pgSdtOriginalCount
+    }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    ta.value = d.script || '';
+  } catch(e) { ta.value = 'Error: ' + e.message; }
+}
+
 function pgCopyScript() {
   var ta = document.getElementById('pg-sql-out'); if (!ta.value.trim()) return;
   navigator.clipboard.writeText(ta.value).then(function() {
@@ -917,6 +1105,7 @@ function pgCopyScript() {
 }
 
 async function pgExecute() {
+  if (pgTargetMode === 'sdt') { await pgExecuteSdtFields(); return; }
   if (!confirm('Esto va a actualizar los parámetros de ' + pgSelectedService + ' / ' + pgSelectedMethod + ' (UPDATE de los existentes, INSERT de los nuevos, DELETE de los que se quitaron) contra la base conectada. ¿Confirmás?')) return;
   var res = document.getElementById('pg-exec-res');
   res.className = 'cres show'; res.textContent = 'Ejecutando...';
@@ -933,13 +1122,33 @@ async function pgExecute() {
   }
 }
 
+async function pgExecuteSdtFields() {
+  if (!confirm('Esto va a actualizar los campos del SDT ' + pgSelectedSdtName + ' (UPDATE de los existentes, DELETE de los que se quitaron) contra la base conectada. ¿Confirmás?')) return;
+  var res = document.getElementById('pg-exec-res');
+  res.className = 'cres show'; res.textContent = 'Ejecutando...';
+  try {
+    var r = await fetch('/api/paramgen/execute-fields', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+      platform: S.platform, db: getDbSG(), version: S.version, apiMode: S.apiMode,
+      sdtNom: pgSelectedSdtName, editedFields: pgSdtFields
+    }) });
+    var d = await r.json();
+    if (!d.ok) throw new Error(d.message);
+    res.className = 'cres show ok'; res.textContent = 'Ejecutado correctamente (' + d.statementsRun + ' sentencias) ✓';
+  } catch(e) {
+    res.className = 'cres show err'; res.textContent = 'Error: ' + e.message;
+  }
+}
+
 function pgReset() {
   pgSelectedService = null; pgSelectedMethod = null; pgFields = []; pgOriginalCount = 0; pgServicesLoaded = false;
+  pgSelectedSdtName = null; pgSdtFields = []; pgSdtOriginalCount = 0;
   var svcSel = document.getElementById('pg-sel-svc'); if (svcSel) svcSel.innerHTML = '<option value="">-- Seleccionar --</option>';
   var mtdSel = document.getElementById('pg-sel-mtd'); if (mtdSel) mtdSel.innerHTML = '<option value="">-- Seleccionar --</option>';
+  var sdtSearch = document.getElementById('pg-sdt-search'); if (sdtSearch) sdtSearch.value = '';
   document.getElementById('pg-sql-out').value = '';
   var res = document.getElementById('pg-exec-res'); if (res) res.className = 'cres';
-  show(4); // show() ya recarga la lista de servicios siempre al entrar al paso 4
+  pgSetTargetMode(pgTargetMode); // conserva el modo actual, solo refresca los pickers visibles
+  show(4); // show() ya recarga la lista de servicios/catalogo de SDT siempre al entrar al paso 4
 }
 
 // ── Historial de conexiones ───────────────────────────────────
@@ -1349,9 +1558,21 @@ function show(step) {
   if (step === 4 && S.action === 'sdtgen') sdtgenLoadList();
   if (step === 5 && S.action === 'sdtgen') sdtgenRenderEditor();
   if (step === 6 && S.action === 'sdtgen') sdtgenDoGenerate();
-  if (step === 4 && S.action === 'paramgen' && !pgServicesLoaded) pgLoadServices();
-  if (step === 5 && S.action === 'paramgen') pgRenderEditor();
-  if (step === 6 && S.action === 'paramgen') pgDoGenerate();
+  if (step === 4 && S.action === 'paramgen') {
+    if (!pgServicesLoaded) pgLoadServices();
+    pgLoadSdtOptions(); // catalogo de SDT: lo necesita tanto el buscador (modo SDT) como los campos "SDT"/"SDT del Ítem" (modo metodo)
+  }
+  if (step === 5 && S.action === 'paramgen') { pgTargetMode === 'sdt' ? pgRenderSdtEditor() : pgRenderEditor(); }
+  if (step === 6 && S.action === 'paramgen') {
+    var sub = document.getElementById('pg-result-sub');
+    if (pgTargetMode === 'sdt') {
+      if (sub) sub.textContent = 'Copiá el script o ejecutalo directo contra la conexión activa (UPDATE de los campos existentes y DELETE de los que se quitaron, sobre BTI026).';
+      pgDoGenerateSdtFields();
+    } else {
+      if (sub) sub.textContent = 'Copiá el script o ejecutalo directo contra la conexión activa (UPDATE de los parámetros existentes, INSERT de los nuevos y DELETE de los que se quitaron, sobre BTI019).';
+      pgDoGenerate();
+    }
+  }
 }
 
 function foot(step) {
@@ -1384,11 +1605,12 @@ function foot(step) {
   } else if (step === 6 && S.action === 'sdtgen') {
     ftr.innerHTML = '<button class="btn btn-ghost" onclick="sdtgenReset()">&#8635; Nueva copia</button>';
   } else if (step === 4 && S.action === 'paramgen') {
-    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (pgSelectedMethod ? '' : ' disabled') + '>Siguiente &#8594;</button>';
+    var pgReady = pgTargetMode === 'sdt' ? !!pgSelectedSdtName : !!pgSelectedMethod;
+    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (pgReady ? '' : ' disabled') + '>Siguiente &#8594;</button>';
   } else if (step === 5 && S.action === 'paramgen') {
     ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()">Siguiente &#8594;</button>';
   } else if (step === 6 && S.action === 'paramgen') {
-    ftr.innerHTML = '<button class="btn btn-ghost" onclick="pgReset()">&#8635; Editar otro método</button>';
+    ftr.innerHTML = '<button class="btn btn-ghost" onclick="pgReset()">&#8635; ' + (pgTargetMode === 'sdt' ? 'Editar otro SDT' : 'Editar otro método') + '</button>';
   } else if (step === 6) {
     ftr.innerHTML = '';
   } else {

@@ -1394,6 +1394,8 @@ const paramEditFeature = createParamEditFeature({
   queryServiceVersions: sg_queryServiceVersions,
   queryAllSdts: sg_queryAllSdts,
   queryParamCandidates: sg_queryParamCandidates,
+  queryBti025: sg_queryBti025,
+  queryBti026: sg_queryBti026,
 });
 
 // -- server ------------------------------------------------

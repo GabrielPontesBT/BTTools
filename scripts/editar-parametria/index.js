@@ -1,6 +1,6 @@
 'use strict';
 
-const { sg_generateParamsUpdateScript } = require('../generar-scripts/index.js');
+const { sg_generateParamsUpdateScript, sg_generateFieldsUpdateScript } = require('../generar-scripts/index.js');
 
 const PARAM_NAME_RE = /^[A-Za-z][A-Za-z0-9_]{0,99}$/;
 const PARAM_NAME_ERR = 'Nombre de parametro invalido: debe empezar con una letra y usar solo letras, numeros o guion bajo (maximo 100 caracteres).';
@@ -129,6 +129,42 @@ function generateParamsScript(service, srvver, method, editedParams, version, ap
   return sg_generateParamsUpdateScript({ version, apiMode, header, params }, oldCount || 0);
 }
 
+// editedFields: array ordenado de campos de UN SDT existente, mismo shape
+// que sg_queryBti026 (setup.js): elemnom, elemlargo, elemdeci, elemdsc,
+// nomit (el resto de columnas -- tipo, categoria, SDT anidado, etc. -- no se
+// tocan desde esta herramienta: para eso esta "Generar SDT"). Solo se puede
+// editar o quitar campos, no agregar: la posicion 1..N ya identifica una
+// fila real de la base (igual que en buildParams para BTI019), y agregar un
+// campo nuevo requeriria elegir su tipo/categoria, que es exactamente el
+// flujo que ya cubre "Generar SDT" (copiar un SDT nativo).
+function buildFieldEdits(editedFields) {
+  if (!Array.isArray(editedFields) || !editedFields.length) {
+    throw new Error('La lista de campos no puede quedar vacia.');
+  }
+  return editedFields.map((f) => {
+    const src = f || {};
+    const elemnom = (src.elemnom || '').trim();
+    if (!isValidParamName(elemnom)) throw new Error(PARAM_NAME_ERR + (elemnom ? ' (' + elemnom + ')' : ''));
+    const elemlargo = String(src.elemlargo != null && src.elemlargo !== '' ? src.elemlargo : '0');
+    if (!isValidDigits(elemlargo)) throw new Error('Largo invalido para el campo ' + elemnom + ': debe ser un numero entero (0 o mayor).');
+    const elemdeci = String(src.elemdeci != null && src.elemdeci !== '' ? src.elemdeci : '0');
+    if (!isValidDigits(elemdeci)) throw new Error('Decimales invalidos para el campo ' + elemnom + ': debe ser un numero entero (0 o mayor).');
+    const elemdsc = src.elemdsc || '';
+    if (!isValidParamText(elemdsc)) throw new Error('Descripcion invalida para el campo ' + elemnom + ': ' + FORBIDDEN_TEXT_ERR);
+    const nomit = src.nomit || '';
+    if (nomit && !isValidParamText(nomit)) throw new Error('Nombre de iterador invalido para el campo ' + elemnom + ': ' + FORBIDDEN_TEXT_ERR);
+    return { elemnom, elemlargo, elemdeci, elemdsc, nomit };
+  });
+}
+
+// oldCount: cantidad de campos que tenia el SDT ANTES de la edicion. Mismo
+// criterio que generateParamsScript: se UPDATEa por posicion, y solo se
+// DELETEa (por rango de posicion) si se quitaron campos.
+function generateFieldsScript(sdtNom, editedFields, version, apiMode, oldCount) {
+  const fields = buildFieldEdits(editedFields);
+  return sg_generateFieldsUpdateScript({ nom: sdtNom, bti026: fields }, oldCount || 0, version, apiMode);
+}
+
 // Campos "intrinsecos" de un parametro: describen QUE es el parametro, no
 // COMO se usa en un metodo puntual. Quedan afuera nom (es lo que el usuario
 // ya escribio), nomjava/lval (metadata interna sin valor para sugerir) y dir
@@ -167,6 +203,8 @@ function createParamEditFeature(deps) {
   const queryServiceVersions = deps.queryServiceVersions;
   const queryAllSdts = deps.queryAllSdts;
   const queryParamCandidates = deps.queryParamCandidates;
+  const queryBti025 = deps.queryBti025;
+  const queryBti026 = deps.queryBti026;
 
   async function resolveSrvVer(platform, db, version, service, apiMode) {
     const versions = await queryServiceVersions(platform, db, version, service, apiMode);
@@ -194,6 +232,67 @@ function createParamEditFeature(deps) {
   // parametro valido, a diferencia de sdtgen que solo trabaja con nativos.
   async function listSdtOptions(platform, db, version, apiMode) {
     return queryAllSdts(platform, db, version, apiMode);
+  }
+
+  // Campos de un SDT existente para editar (BTI026/BTCBS026), analogo a
+  // loadParams pero para el modo "SDT" del editor (ver public/wizard-doc.js,
+  // pgGoToSdtEdit). bti025 va solo para mostrar contexto (version, estado);
+  // no se edita desde aca.
+  async function loadFields(platform, db, version, sdtNom, apiMode) {
+    const bti025 = await queryBti025(platform, db, version, sdtNom, apiMode);
+    if (!bti025) return { bti025: null, bti026: [] };
+    const bti026 = await queryBti026(platform, db, version, sdtNom, apiMode);
+    return { bti025, bti026 };
+  }
+
+  function fieldsScriptToStatements(sdtNom, editedFields, version, apiMode, oldCount) {
+    const script = generateFieldsScript(sdtNom, editedFields, version, apiMode, oldCount);
+    return script.split('\n').map(s => s.trim()).filter(Boolean).map(s => s.replace(/;\s*$/, ''));
+  }
+
+  async function executeFieldEdits(platform, db, version, sdtNom, editedFields, apiMode) {
+    // Mismo orden que executeParams: se valida antes de tocar la base, y se
+    // re-consulta cuantos campos tiene HOY el SDT (no se confia en lo que
+    // mande el browser) antes de armar el UPDATE/DELETE.
+    buildFieldEdits(editedFields);
+    const currentFields = await queryBti026(platform, db, version, sdtNom, apiMode);
+    const statements = fieldsScriptToStatements(sdtNom, editedFields, version, apiMode, currentFields.length);
+    if (platform === 'sqlserver') {
+      const { pool, mssql } = await getPool(db);
+      const tx = new mssql.Transaction(pool);
+      await tx.begin();
+      try {
+        for (const stmt of statements) {
+          await new mssql.Request(tx).query(stmt);
+        }
+        await tx.commit();
+        return { ok: true, statementsRun: statements.length };
+      } catch (e) {
+        try {
+          await tx.rollback();
+        } catch (rollbackErr) {
+          throw new Error('Fallo la operacion (' + e.message + ') y tambien fallo el rollback (' + rollbackErr.message + '). La transaccion puede haber quedado abierta.', { cause: e });
+        }
+        throw e;
+      }
+    }
+    const { conn } = await getOra(db);
+    try {
+      for (const stmt of statements) {
+        await conn.execute(stmt, [], { autoCommit: false });
+      }
+      await conn.commit();
+      return { ok: true, statementsRun: statements.length };
+    } catch (e) {
+      try {
+        await conn.rollback();
+      } catch (rollbackErr) {
+        throw new Error('Fallo la operacion (' + e.message + ') y tambien fallo el rollback (' + rollbackErr.message + '). La transaccion puede haber quedado abierta.', { cause: e });
+      }
+      throw e;
+    } finally {
+      await conn.close();
+    }
   }
 
   function scriptToStatements(service, srvver, method, editedParams, version, apiMode, oldCount) {
@@ -284,6 +383,34 @@ function createParamEditFeature(deps) {
       return true;
     }
 
+    if (req.method === 'POST' && req.url === '/api/paramgen/sdt-fields') {
+      try {
+        const body = await readBody(req);
+        const { bti025, bti026 } = await loadFields(body.platform, body.db, body.version, body.nom, body.apiMode);
+        if (!bti025) { json(200, { ok: false, message: 'SDT no encontrado: ' + body.nom }); return true; }
+        json(200, { ok: true, bti025, bti026 });
+      } catch (e) { json(200, { ok: false, message: e.message }); }
+      return true;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/paramgen/generate-fields') {
+      try {
+        const body = await readBody(req);
+        const script = generateFieldsScript(body.sdtNom, body.editedFields, body.version, body.apiMode, body.oldCount);
+        json(200, { ok: true, script });
+      } catch (e) { json(200, { ok: false, message: e.message }); }
+      return true;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/paramgen/execute-fields') {
+      try {
+        const body = await readBody(req);
+        const result = await executeFieldEdits(body.platform, body.db, body.version, body.sdtNom, body.editedFields, body.apiMode);
+        json(200, Object.assign({ ok: true }, result));
+      } catch (e) { json(200, { ok: false, message: e.message }); }
+      return true;
+    }
+
     if (req.method === 'POST' && req.url === '/api/paramgen/generate') {
       try {
         const body = await readBody(req);
@@ -305,7 +432,11 @@ function createParamEditFeature(deps) {
     return false;
   }
 
-  return { loadParams, listSdtOptions, suggestParam, generateParamsScript, executeParams, handleApi };
+  return {
+    loadParams, listSdtOptions, suggestParam, generateParamsScript, executeParams,
+    loadFields, generateFieldsScript, executeFieldEdits,
+    handleApi,
+  };
 }
 
 module.exports = {
@@ -313,6 +444,8 @@ module.exports = {
   buildParams,
   suggestParamShape,
   generateParamsScript,
+  buildFieldEdits,
+  generateFieldsScript,
   isValidParamName,
   isValidDigits,
   isValidParamText,

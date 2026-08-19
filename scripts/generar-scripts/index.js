@@ -398,10 +398,65 @@ function sg_generateSdtScript(sdt, mode, version, apiMode) {
   return lines.join('\n');
 }
 
+// Genera UPDATE (+ DELETE por posicion si se quitan campos) para los campos
+// de un SDT YA EXISTENTE, misma filosofia que sg_generateParamsUpdateScript
+// para BTI019: la UI que la usa (editar-parametria) no permite reordenar ni
+// agregar campos nuevos, asi que la posicion 1..oldCount ya identifica una
+// fila real en la base y sobreescribirla con UPDATE es mas quirurgico que
+// borrar todo el SDT y reinsertarlo (que es lo que hace sg_generateSdtScript,
+// pensado para clonar un SDT entero en "Generar SDT", no para corregir uno
+// existente). Solo toca las columnas editables en ese flujo (elemnom,
+// elemlargo, elemdeci, elemdsc, nomit) — el resto (tipo, categoria, SDT
+// anidado, obligatoriedad, etc.) se preserva tal cual esta.
+//   i = 1..min(oldCount,newCount): UPDATE (la fila ya existia en esa posicion)
+//   i = newCount+1..oldCount:      DELETE (fila removida, sobra en la base)
+function btcbs_generateFieldsUpdateScript(sdt, oldCount) {
+  const nom = sdt.nom || '', b26 = sdt.bti026 || [];
+  const newCount = b26.length;
+  const q = (v, nullable) => btcbs_sq(v, nullable);
+  const lines = [];
+  for (let i = 0; i < Math.min(oldCount, newCount); i++) {
+    const e = b26[i], posi = i + 1;
+    const nomit = e.nomit ? q(e.nomit) : "' '";
+    const sets = ['BSELMNAME='+q(e.elemnom), 'BSELMLEN='+sg_nq(e.elemlargo), 'BSELMDECI='+sg_nq(e.elemdeci), 'BSELMDESC='+q(e.elemdsc), 'BSELMITNAM='+nomit].join(', ');
+    lines.push('UPDATE BTCBS026 SET '+sets+' WHERE BSSDTNAME='+q(nom)+' AND BSELMPOS='+posi+';');
+  }
+  if (oldCount > newCount) {
+    lines.push('DELETE FROM BTCBS026 WHERE BSSDTNAME='+q(nom)+' AND BSELMPOS > '+newCount+';');
+  }
+  return lines.join('\n');
+}
+
+function sg_generateFieldsUpdateScript(sdt, oldCount, version, apiMode) {
+  if (version === 'V4' && apiMode === 'interna') return btcbs_generateFieldsUpdateScript(sdt, oldCount);
+  const nom = sdt.nom || '', b26 = sdt.bti026 || [];
+  const newCount = b26.length;
+  const q = (v, nullable) => sg_sq(v, version, nullable);
+  const nomCol = version === 'V3' ? 'BTISDTNom' : 'BTISDTNOM';
+  const posiCol = version === 'V3' ? 'BTISDTElemPosi' : 'BTISDTELEMPOSI';
+  const lines = [];
+  for (let i = 0; i < Math.min(oldCount, newCount); i++) {
+    const e = b26[i], posi = i + 1;
+    let sets;
+    if (version === 'V3') {
+      sets = ['BTISDTElemNom='+q(e.elemnom), 'BTISDTElemLargo='+sg_nq(e.elemlargo), 'BTISDTElemDsc='+q(e.elemdsc)].join(', ');
+    } else {
+      const nomit = e.nomit ? q(e.nomit) : "' '";
+      sets = ['BTISDTELEMNOM='+q(e.elemnom), 'BTISDTELEMLARGO='+sg_nq(e.elemlargo), 'BTISDTELEMDECI='+sg_nq(e.elemdeci), 'BTISDTELEMDSC='+q(e.elemdsc), 'BTISDTELEMNOMIT='+nomit].join(', ');
+    }
+    lines.push('UPDATE BTI026 SET '+sets+' WHERE '+nomCol+'='+q(nom)+' AND '+posiCol+'='+posi+';');
+  }
+  if (oldCount > newCount) {
+    lines.push('DELETE FROM BTI026 WHERE '+nomCol+'='+q(nom)+' AND '+posiCol+' > '+newCount+';');
+  }
+  return lines.join('\n');
+}
+
 module.exports = {
   sg_generateScript,
   sg_generateParamsUpdateScript,
   sg_generateSdtScript,
+  sg_generateFieldsUpdateScript,
   sg_extractSdtNames,
   sg_isSdtType,
   sg_sq,

@@ -402,38 +402,52 @@
       <div class="cres" id="sdtgen-exec-res" style="margin-top:var(--sp-2)"></div>
     </div>
 
-    <!-- Paso 4 Editar Parametria: Elegir servicio y metodo -->
+    <!-- Paso 4 Editar Parametria: Elegir que editar (metodo o SDT) -->
     <div class="panel" id="p-paramsvc">
-      <div class="ptitle">¿Qué servicio y método querés editar?</div>
-      <div class="psub">Elegí el servicio y el método cuya parametría (tabla BTI019) querés modificar.</div>
-      <div id="pg-svc-loading" style="display:none;font-size:var(--fs-sm);color:var(--muted);margin-bottom:var(--sp-4);align-items:center;gap:var(--sp-2)"><span class="spin dk"></span>&nbsp;Cargando servicios...</div>
-      <div class="cres" id="pg-svc-err"></div>
-      <div class="svc-grid">
-        <div class="field" style="margin:0">
-          <label>Servicio</label>
-          <select id="pg-sel-svc" onchange="pgLoadMethods(this.value)"><option value="">-- Seleccionar --</option></select>
+      <div class="ptitle">¿Qué querés editar?</div>
+      <div class="psub">Elegí si vas a editar los parámetros de un método (BTI019) o los campos de un SDT (BTI026).</div>
+      <div style="display:flex;gap:var(--sp-2);margin-bottom:var(--sp-5)">
+        <button type="button" class="btn btn-outline pg-target-btn sel" data-mode="method" onclick="pgSetTargetMode('method')" style="flex:1">Parámetros de un método (BTI019)</button>
+        <button type="button" class="btn btn-outline pg-target-btn" data-mode="sdt" onclick="pgSetTargetMode('sdt')" style="flex:1">Campos de un SDT (BTI026)</button>
+      </div>
+
+      <div id="pg-method-picker">
+        <div id="pg-svc-loading" style="display:none;font-size:var(--fs-sm);color:var(--muted);margin-bottom:var(--sp-4);align-items:center;gap:var(--sp-2)"><span class="spin dk"></span>&nbsp;Cargando servicios...</div>
+        <div class="cres" id="pg-svc-err"></div>
+        <div class="svc-grid">
+          <div class="field" style="margin:0">
+            <label>Servicio</label>
+            <select id="pg-sel-svc" onchange="pgLoadMethods(this.value)"><option value="">-- Seleccionar --</option></select>
+          </div>
+          <div class="field" style="margin:0">
+            <label>Método</label>
+            <select id="pg-sel-mtd" onchange="pgOnMethodChange()"><option value="">-- Seleccionar --</option></select>
+          </div>
         </div>
-        <div class="field" style="margin:0">
-          <label>Método</label>
-          <select id="pg-sel-mtd" onchange="pgOnMethodChange()"><option value="">-- Seleccionar --</option></select>
+      </div>
+
+      <div id="pg-sdt-picker" style="display:none">
+        <div class="field">
+          <label>SDT</label>
+          <input type="text" id="pg-sdt-search" list="pg-sdt-list" placeholder="Buscar SDT..." autocomplete="off" oninput="pgOnSdtSearchInput()">
         </div>
       </div>
     </div>
 
-    <!-- Paso 5 Editar Parametria: Editar parametros -->
+    <!-- Paso 5 Editar Parametria: Editar parametros o campos -->
     <div class="panel" id="p-paramedit">
-      <div class="ptitle">Parámetros de <span id="pg-mtd-name"></span></div>
-      <div class="psub">Editá, agregá o quitá parámetros. El orden de carga define la posición (BTISRVPARPOSI) y no se puede cambiar.</div>
+      <div class="ptitle">Editando <span id="pg-mtd-name"></span></div>
+      <div class="psub" id="pg-edit-sub">Editá, agregá o quitá parámetros. El orden de carga define la posición (BTISRVPARPOSI) y no se puede cambiar.</div>
       <datalist id="pg-sdt-list"></datalist>
       <div id="pg-fields" class="sdtgen-fields" style="margin-bottom:var(--sp-3)"></div>
-      <button class="btn btn-outline btn-sm" onclick="pgAddParam()">+ Agregar parámetro</button>
+      <button class="btn btn-outline btn-sm" id="pg-add-param-btn" onclick="pgAddParam()">+ Agregar parámetro</button>
       <div class="cres" id="pg-edit-err" style="margin-top:var(--sp-3)"></div>
     </div>
 
     <!-- Paso 6 Editar Parametria: Resultado -->
     <div class="panel" id="p-paramresult">
       <div class="ptitle">Script generado</div>
-      <div class="psub">Copiá el script o ejecutalo directo contra la conexión activa (UPDATE de los parámetros existentes, INSERT de los nuevos y DELETE de los que se quitaron, sobre BTI019).</div>
+      <div class="psub" id="pg-result-sub">Copiá el script o ejecutalo directo contra la conexión activa (UPDATE de los parámetros existentes, INSERT de los nuevos y DELETE de los que se quitaron, sobre BTI019).</div>
       <div class="gen-btns">
         <button class="btn btn-success btn-sm" onclick="pgCopyScript()">Copiar</button>
         <button class="btn btn-outline btn-sm" onclick="pgExecute()">Ejecutar contra la conexión activa</button>

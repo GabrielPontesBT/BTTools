@@ -237,6 +237,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .pg-param-top{display:flex;gap:var(--sp-3);align-items:flex-end;margin-bottom:var(--sp-3)}
 .pg-param-top .sdtgen-field-rm{border:none;background:none;color:var(--red);font-size:20px;cursor:pointer;padding:0 4px;flex-shrink:0}
 .pg-suggest-badge{color:var(--green);font-size:var(--fs-sm);font-weight:600;align-self:center;white-space:nowrap;flex-shrink:0}
+.pg-target-btn.sel{background:var(--blue-l);color:var(--blue);border-color:var(--blue);font-weight:600}
 .pg-param-fields{display:flex;flex-wrap:wrap;gap:var(--sp-3)}
 .pg-fgroup{display:flex;flex-direction:column;gap:4px;min-width:120px}
 .pg-fgroup-grow{flex:1;min-width:160px}
