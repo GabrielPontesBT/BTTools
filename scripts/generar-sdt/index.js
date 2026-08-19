@@ -62,19 +62,43 @@ function generateSdtScript(nuevoNombre, bti025Copy, bti026Copy, version, mode, a
   return sg_generateSdtScript({ nom: nuevoNombre, bti025: bti025Copy, bti026: bti026Copy }, mode || 'both', version, apiMode);
 }
 
+// GeneXus/Bantotal completa la descripcion de un campo nuevo con el nombre
+// "humanizado": separa camelCase/snake_case/kebab-case en palabras y las
+// capitaliza ("countryId" -> "Country Id", "fecha_alta" -> "Fecha Alta"), no
+// siempre deja el nombre tal cual. suggestFieldShape necesita reconocer ese
+// patron para no confundirlo con una descripcion real ya completada.
+function humanizeFieldName(nombre) {
+  return (nombre || '')
+    .trim()
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
 // candidates: [{ largo, dsc }] de CUALQUIER campo (de cualquier SDT) que se
 // llame igual que el que se esta editando. Un campo recien definido por
-// primera vez queda con descripcion = su propio nombre y largo = 0 (los
-// defaults de "todavia no se completo", ver el editor V4 estandar de
-// Bantotal): esos no cuentan como informacion real, se descartan antes de
-// buscar la combinacion MAS FRECUENTE (la moda, no la primera que aparezca)
-// entre los que si fueron completados a mano.
+// primera vez queda con descripcion = su propio nombre (tal cual o
+// "humanizado", ver humanizeFieldName de arriba) y largo = 0 (los defaults
+// de "todavia no se completo", ver el editor V4 estandar de Bantotal): esos
+// no cuentan como informacion real, se descartan antes de buscar la
+// combinacion MAS FRECUENTE (la moda, no la primera que aparezca) entre los
+// que si fueron completados a mano.
 function suggestFieldShape(nombre, candidates) {
   const nom = (nombre || '').trim();
+  const nomHumanizado = humanizeFieldName(nom).toLowerCase();
   const useful = (candidates || []).filter((c) => {
     const largo = parseInt(c && c.largo, 10);
     const dsc = (c && c.dsc || '').trim();
-    return largo > 0 && !!dsc && dsc !== nom;
+    if (!(largo > 0 && dsc)) return false;
+    const dscLower = dsc.toLowerCase();
+    if (dscLower === nom.toLowerCase()) return false;
+    if (nomHumanizado && dscLower === nomHumanizado) return false;
+    return true;
   });
   if (!useful.length) return null;
   const counts = new Map();
@@ -295,6 +319,6 @@ function createSdtGenFeature(deps) {
 }
 
 module.exports = {
-  createSdtGenFeature, buildSdtCopy, generateSdtScript, suggestFieldShape,
+  createSdtGenFeature, buildSdtCopy, generateSdtScript, suggestFieldShape, humanizeFieldName,
   isValidSdtName, isValidFieldName, isValidDigits, isValidFieldText,
 };

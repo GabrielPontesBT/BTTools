@@ -196,7 +196,21 @@ test('generateSdtScript refleja un campo renombrado en el INSERT generado', () =
   assert.match(script, /INSERT INTO BTI026 \([^)]+\) VALUES\(N'SdtCopia', N'campoNuevoNombre'/);
 });
 
-const { createSdtGenFeature, suggestFieldShape } = require('./index.js');
+const { createSdtGenFeature, suggestFieldShape, humanizeFieldName } = require('./index.js');
+
+test('humanizeFieldName separa camelCase en palabras capitalizadas', () => {
+  assert.equal(humanizeFieldName('countryId'), 'Country Id');
+  assert.equal(humanizeFieldName('fechaAltaCliente'), 'Fecha Alta Cliente');
+});
+
+test('humanizeFieldName separa snake_case/kebab-case en palabras capitalizadas', () => {
+  assert.equal(humanizeFieldName('fecha_alta'), 'Fecha Alta');
+  assert.equal(humanizeFieldName('fecha-alta'), 'Fecha Alta');
+});
+
+test('humanizeFieldName separa siglas en mayuscula seguidas de una palabra normal (aunque no preserve el casing de la sigla)', () => {
+  assert.equal(humanizeFieldName('idCUITCliente'), 'Id Cuit Cliente');
+});
 
 test('suggestFieldShape devuelve null si no hay candidatos', () => {
   assert.equal(suggestFieldShape('campoA', []), null);
@@ -236,6 +250,29 @@ test('suggestFieldShape elige la combinacion mas frecuente (moda) entre los cand
 test('suggestFieldShape normaliza el largo (numero, no string con ceros/espacios)', () => {
   const suggestion = suggestFieldShape('campoA', [{ largo: '020', dsc: 'Descripcion real.' }]);
   assert.equal(suggestion.shape.largo, '20');
+});
+
+test('suggestFieldShape descarta candidatos cuya descripcion es el nombre "humanizado" (default de GeneXus, no informacion real)', () => {
+  // Caso real reportado: countryId con Largo=3, Decimales=0, Descripcion=
+  // "Country Id" -- ese default (nombre separado en palabras y capitalizado)
+  // no es informacion real, pese a no ser un match exacto de dsc===nombre.
+  const candidates = [
+    { largo: '3', dsc: 'Country Id' },
+    { largo: '3', dsc: 'Country Id' },
+    { largo: '3', dsc: 'country id' }, // mismo default, distinto casing
+  ];
+  assert.equal(suggestFieldShape('countryId', candidates), null);
+});
+
+test('suggestFieldShape SI sugiere cuando la descripcion humanizada coincide por casualidad con una descripcion real (unica) y el resto son defaults', () => {
+  const candidates = [
+    { largo: '3', dsc: 'Country Id' },     // default, se descarta
+    { largo: '5', dsc: 'Codigo de pais segun ISO 3166.' }, // real
+  ];
+  const suggestion = suggestFieldShape('countryId', candidates);
+  assert.equal(suggestion.shape.largo, '5');
+  assert.equal(suggestion.shape.dsc, 'Codigo de pais segun ISO 3166.');
+  assert.equal(suggestion.total, 1, 'el default humanizado no debe contarse ni siquiera como candidato util');
 });
 
 function fakeDeps(overrides) {
