@@ -196,7 +196,47 @@ test('generateSdtScript refleja un campo renombrado en el INSERT generado', () =
   assert.match(script, /INSERT INTO BTI026 \([^)]+\) VALUES\(N'SdtCopia', N'campoNuevoNombre'/);
 });
 
-const { createSdtGenFeature } = require('./index.js');
+const { createSdtGenFeature, suggestFieldShape } = require('./index.js');
+
+test('suggestFieldShape devuelve null si no hay candidatos', () => {
+  assert.equal(suggestFieldShape('campoA', []), null);
+  assert.equal(suggestFieldShape('campoA', null), null);
+});
+
+test('suggestFieldShape descarta candidatos con largo=0 (default de "recien definido")', () => {
+  const candidates = [
+    { largo: '0', dsc: 'Nombre del cliente.' },
+    { largo: '0', dsc: 'Otra descripcion valida.' },
+  ];
+  assert.equal(suggestFieldShape('campoA', candidates), null);
+});
+
+test('suggestFieldShape descarta candidatos con descripcion igual al nombre del campo (default de "recien definido")', () => {
+  const candidates = [
+    { largo: '20', dsc: 'campoA' },
+    { largo: '30', dsc: 'campoA' },
+  ];
+  assert.equal(suggestFieldShape('campoA', candidates), null);
+});
+
+test('suggestFieldShape elige la combinacion mas frecuente (moda) entre los candidatos utiles', () => {
+  const candidates = [
+    { largo: '0', dsc: 'campoA' },                 // default, se descarta
+    { largo: '20', dsc: 'Nombre del cliente.' },
+    { largo: '50', dsc: 'typo aislado.' },          // outlier
+    { largo: '20', dsc: 'Nombre del cliente.' },
+  ];
+  const suggestion = suggestFieldShape('campoA', candidates);
+  assert.equal(suggestion.shape.largo, '20');
+  assert.equal(suggestion.shape.dsc, 'Nombre del cliente.');
+  assert.equal(suggestion.count, 2);
+  assert.equal(suggestion.total, 3, 'total cuenta solo los utiles, no el descartado por default');
+});
+
+test('suggestFieldShape normaliza el largo (numero, no string con ceros/espacios)', () => {
+  const suggestion = suggestFieldShape('campoA', [{ largo: '020', dsc: 'Descripcion real.' }]);
+  assert.equal(suggestion.shape.largo, '20');
+});
 
 function fakeDeps(overrides) {
   return Object.assign({
@@ -204,6 +244,7 @@ function fakeDeps(overrides) {
     getOra: async () => { throw new Error('getOra no configurado en el fake'); },
     queryBti025: async () => { throw new Error('queryBti025 no configurado en el fake'); },
     queryBti026: async () => { throw new Error('queryBti026 no configurado en el fake'); },
+    queryFieldCandidates: async () => { throw new Error('queryFieldCandidates no configurado en el fake'); },
   }, overrides || {});
 }
 
@@ -300,6 +341,32 @@ test('listExistingCopies devuelve [] sin consultar la base si no hay nomInt', as
   assert.deepEqual(copiesVacio, []);
   assert.deepEqual(copiesNull, []);
   assert.equal(touched, false);
+});
+
+test('suggestField consulta candidatos por el nombre recibido y devuelve la combinacion mas frecuente', async () => {
+  const calls = [];
+  const feature = createSdtGenFeature(fakeDeps({
+    queryFieldCandidates: async (...a) => {
+      calls.push(a);
+      return [
+        { largo: '11', dsc: 'CUIT del titular.' },
+        { largo: '11', dsc: 'CUIT del titular.' },
+      ];
+    },
+  }));
+  const suggestion = await feature.suggestField('oracle', {}, 'V4', 'cuit', 'publica');
+  assert.deepEqual(calls, [['oracle', {}, 'V4', 'cuit', 'publica']]);
+  assert.equal(suggestion.shape.largo, '11');
+  assert.equal(suggestion.shape.dsc, 'CUIT del titular.');
+  assert.equal(suggestion.count, 2);
+});
+
+test('suggestField devuelve null si el unico candidato tiene los defaults de "recien definido"', async () => {
+  const feature = createSdtGenFeature(fakeDeps({
+    queryFieldCandidates: async () => [{ largo: '0', dsc: 'campoNuevo' }],
+  }));
+  const suggestion = await feature.suggestField('oracle', {}, 'V4', 'campoNuevo', 'publica');
+  assert.equal(suggestion, null);
 });
 
 function fakeMssqlTransaction(pool, log) {
@@ -516,6 +583,29 @@ test('handleApi POST /api/sdtgen/existing-copies responde con las copias no nati
   const handled = await feature.handleApi(fakeReq('POST', '/api/sdtgen/existing-copies', { platform: 'sqlserver', db: {}, version: 'V3', nomint: 'SdtOriginalInt' }), res, fakeHelpers(res));
   assert.equal(handled, true);
   assert.deepEqual(res.body, { ok: true, copies: [{ nom: 'SdtCopiaA', descrip: 'Copia.', estado: 'Validado' }] });
+});
+
+test('handleApi POST /api/sdtgen/suggest-field responde con la sugerencia', async () => {
+  const feature = createSdtGenFeature(fakeDeps({
+    queryFieldCandidates: async () => [{ largo: '8', dsc: 'Fecha de nacimiento.' }],
+  }));
+  const res = fakeRes();
+  const handled = await feature.handleApi(fakeReq('POST', '/api/sdtgen/suggest-field', {
+    platform: 'oracle', db: {}, version: 'V4', apiMode: 'publica', nombre: 'FechaNacimiento',
+  }), res, fakeHelpers(res));
+  assert.equal(handled, true);
+  assert.equal(res.body.ok, true);
+  assert.equal(res.body.suggestion.shape.largo, '8');
+  assert.equal(res.body.suggestion.shape.dsc, 'Fecha de nacimiento.');
+});
+
+test('handleApi POST /api/sdtgen/suggest-field responde con suggestion:null si no hay coincidencias utiles', async () => {
+  const feature = createSdtGenFeature(fakeDeps({ queryFieldCandidates: async () => [] }));
+  const res = fakeRes();
+  await feature.handleApi(fakeReq('POST', '/api/sdtgen/suggest-field', {
+    platform: 'oracle', db: {}, version: 'V4', nombre: 'Inexistente',
+  }), res, fakeHelpers(res));
+  assert.deepEqual(res.body, { ok: true, suggestion: null });
 });
 
 test('handleApi POST /api/sdtgen/generate responde con el script', async () => {

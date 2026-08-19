@@ -112,6 +112,57 @@ function sdtgenFieldsAllValid() {
   return sdtgenFields.every(function(f) { return !sdtgenValidateField(f); });
 }
 
+// Autocompletar por nombre: al escribir/renombrar un campo, busca ese mismo
+// nombre en cualquier otro SDT y copia su largo+descripcion (ver
+// suggestFieldShape en scripts/generar-sdt, que descarta los campos que
+// todavia tienen los valores por defecto de "recien definido": largo=0 o
+// descripcion=el propio nombre). Mismo patron de debounce que
+// pgScheduleSuggestion en Editar Parametria.
+var sdtgenSuggestTimers = new WeakMap(); // field -> timeout id del debounce
+var sdtgenSuggestedNames = new WeakMap(); // field -> ultimo nombre ya consultado/aplicado
+
+function sdtgenScheduleSuggestion(field) {
+  clearTimeout(sdtgenSuggestTimers.get(field));
+  var t = setTimeout(function() { sdtgenLookupSuggestion(field); }, 500);
+  sdtgenSuggestTimers.set(field, t);
+}
+
+async function sdtgenLookupSuggestion(field) {
+  var nombre = (field.elemnom || '').trim();
+  if (!SDTGEN_FIELD_NAME_RE.test(nombre)) return;
+  if (sdtgenSuggestedNames.get(field) === nombre) return;
+  try {
+    var r = await fetch('/api/sdtgen/suggest-field', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDbSG(), version: S.version, apiMode: S.apiMode, nombre: nombre }) });
+    var d = await r.json();
+    if (!d.ok || !d.suggestion) return;
+    // El usuario pudo seguir escribiendo mientras se esperaba la respuesta:
+    // si el nombre ya cambio, esta sugerencia quedo vieja y no se aplica.
+    if ((field.elemnom || '').trim() !== nombre) return;
+    sdtgenSuggestedNames.set(field, nombre);
+    field.elemlargo = d.suggestion.shape.largo;
+    field.elemdsc = d.suggestion.shape.dsc;
+    sdtgenRenderEditor();
+    sdtgenFlashSuggestion(field);
+  } catch(e) { /* la sugerencia es solo una ayuda, no bloquea el flujo si falla */ }
+}
+
+// El grid de sdtgen no tiene una columna libre para un badge (a diferencia
+// de las tarjetas de Editar Parametria): se reusa la linea de error, en
+// verde, unos segundos, y despues se recalcula el error real (si hay).
+function sdtgenFlashSuggestion(field) {
+  var idx = sdtgenFields.indexOf(field);
+  if (idx < 0) return;
+  var item = document.querySelectorAll('#sdtgen-fields .sdtgen-field-item')[idx];
+  var err = item && item.querySelector('.sdtgen-field-err');
+  if (!err) return;
+  err.textContent = '✓ autocompletado';
+  err.style.color = 'var(--green)';
+  setTimeout(function() {
+    err.style.color = '';
+    err.textContent = sdtgenValidateField(field) || '';
+  }, 2000);
+}
+
 async function sdtgenGoToEdit() {
   if (!sdtgenSelectedName) return;
   var btn = document.getElementById('btn-next');
@@ -238,7 +289,7 @@ function sdtgenRenderEditor() {
       item.classList.toggle('invalid', !!msg);
     }
 
-    item.querySelector('.sdtgen-field-input-nom').addEventListener('input', function() { field.elemnom = this.value; updateErr(); });
+    item.querySelector('.sdtgen-field-input-nom').addEventListener('input', function() { field.elemnom = this.value; updateErr(); sdtgenScheduleSuggestion(field); });
     item.querySelector('.sdtgen-field-input-largo').addEventListener('input', function() { field.elemlargo = this.value; updateErr(); });
     item.querySelector('.sdtgen-field-input-dsc').addEventListener('input', function() { field.elemdsc = this.value; updateErr(); });
     if (showV4Extras) {

@@ -976,6 +976,32 @@ async function sg_queryBti026(platform, db, version, sdtNom, apiMode) {
   }
 }
 
+// Candidatos para sugerir largo+descripcion de un campo de SDT por nombre
+// (ver scripts/generar-sdt: suggestFieldShape). A diferencia de
+// sg_queryBti026 (los campos de UN SDT puntual), busca CUALQUIER campo con
+// ese nombre en CUALQUIER SDT, para autocompletar cuando se define/renombra
+// un campo que ya se uso en otro lado. Tope de 500 filas: es una ayuda de UI
+// (elige la combinacion mas frecuente), no un reporte exhaustivo.
+async function sg_queryFieldCandidatesByName(platform, db, version, nombre, apiMode) {
+  const nom = (nombre || '').trim();
+  if (!nom) return [];
+  if (platform === 'sqlserver') {
+    const { pool, mssql } = await sg_getPool(db);
+    const r = await pool.request().input('nom', mssql.VarChar(100), nom).query('SELECT TOP 500 BTISDTElemLargo, BTISDTElemDsc FROM BTI026 WHERE LTRIM(RTRIM(BTISDTElemNom)) = @nom');
+    return r.recordset.map(function(row) { return { largo: row.BTISDTElemLargo != null ? String(row.BTISDTElemLargo) : '0', dsc: sg_cellText(row.BTISDTElemDsc).trim() }; });
+  }
+  const { conn, oracledb } = await sg_getOra(db);
+  const interna = apiMode === 'interna';
+  try {
+    if (interna) {
+      const r = await conn.execute('SELECT BSELMLEN, BSELMDESC FROM BTCBS026 WHERE TRIM(BSELMNAME)=:1 AND ROWNUM<=500', [nom], { outFormat: oracledb.OUT_FORMAT_OBJECT });
+      return r.rows.map(function(row) { return { largo: row.BSELMLEN != null ? String(row.BSELMLEN) : '0', dsc: sg_cellText(row.BSELMDESC).trim() }; });
+    }
+    const r = await conn.execute('SELECT BTISDTELEMLARGO, BTISDTELEMDSC FROM BTI026 WHERE TRIM(BTISDTELEMNOM)=:1 AND ROWNUM<=500', [nom], { outFormat: oracledb.OUT_FORMAT_OBJECT });
+    return r.rows.map(function(row) { return { largo: row.BTISDTELEMLARGO != null ? String(row.BTISDTELEMLARGO) : '0', dsc: sg_cellText(row.BTISDTELEMDSC).trim() }; });
+  } finally { await conn.close(); }
+}
+
 async function sg_querySdtsBatch(platform, db, version, initialSdtNames, apiMode) {
   const result = new Map();
   const toProcess = [...new Set(initialSdtNames.filter(Boolean).map(function(s){return s.trim();}).filter(Boolean))];
@@ -1358,6 +1384,7 @@ const sdtGenFeature = createSdtGenFeature({
   getOra: sg_getOra,
   queryBti025: sg_queryBti025,
   queryBti026: sg_queryBti026,
+  queryFieldCandidates: sg_queryFieldCandidatesByName,
 });
 
 const paramEditFeature = createParamEditFeature({

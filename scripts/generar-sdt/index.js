@@ -62,11 +62,42 @@ function generateSdtScript(nuevoNombre, bti025Copy, bti026Copy, version, mode, a
   return sg_generateSdtScript({ nom: nuevoNombre, bti025: bti025Copy, bti026: bti026Copy }, mode || 'both', version, apiMode);
 }
 
+// candidates: [{ largo, dsc }] de CUALQUIER campo (de cualquier SDT) que se
+// llame igual que el que se esta editando. Un campo recien definido por
+// primera vez queda con descripcion = su propio nombre y largo = 0 (los
+// defaults de "todavia no se completo", ver el editor V4 estandar de
+// Bantotal): esos no cuentan como informacion real, se descartan antes de
+// buscar la combinacion MAS FRECUENTE (la moda, no la primera que aparezca)
+// entre los que si fueron completados a mano.
+function suggestFieldShape(nombre, candidates) {
+  const nom = (nombre || '').trim();
+  const useful = (candidates || []).filter((c) => {
+    const largo = parseInt(c && c.largo, 10);
+    const dsc = (c && c.dsc || '').trim();
+    return largo > 0 && !!dsc && dsc !== nom;
+  });
+  if (!useful.length) return null;
+  const counts = new Map();
+  useful.forEach((c) => {
+    const shape = { largo: String(parseInt(c.largo, 10)), dsc: (c.dsc || '').trim() };
+    const key = JSON.stringify(shape);
+    const entry = counts.get(key);
+    if (entry) entry.count++;
+    else counts.set(key, { shape, count: 1 });
+  });
+  let best = null;
+  for (const entry of counts.values()) {
+    if (!best || entry.count > best.count) best = entry;
+  }
+  return { shape: best.shape, count: best.count, total: useful.length };
+}
+
 function createSdtGenFeature(deps) {
   const getPool = deps.getPool;
   const getOra = deps.getOra;
   const queryBti025 = deps.queryBti025;
   const queryBti026 = deps.queryBti026;
+  const queryFieldCandidates = deps.queryFieldCandidates;
 
   async function listSdtNames(platform, db, apiMode) {
     // Una copia no nativa solo puede armarse a partir de un SDT nativo.
@@ -122,6 +153,15 @@ function createSdtGenFeature(deps) {
     } finally {
       await conn.close();
     }
+  }
+
+  // Sugiere largo+descripcion para un campo buscando ese mismo nombre en
+  // cualquier otro SDT (ver public/wizard-doc.js, sdtgenLookupSuggestion): se
+  // llama al escribir/renombrar un campo, para no redefinir "Cuit" o
+  // "FechaNacimiento" con datos ligeramente distintos en cada SDT nuevo.
+  async function suggestField(platform, db, version, nombre, apiMode) {
+    const candidates = await queryFieldCandidates(platform, db, version, nombre, apiMode);
+    return suggestFieldShape(nombre, candidates);
   }
 
   function scriptToStatements(nuevoNombre, bti025Copy, bti026Copy, version, apiMode) {
@@ -204,6 +244,15 @@ function createSdtGenFeature(deps) {
       return true;
     }
 
+    if (req.method === 'POST' && req.url === '/api/sdtgen/suggest-field') {
+      try {
+        const body = await readBody(req);
+        const suggestion = await suggestField(body.platform, body.db, body.version, body.nombre, body.apiMode);
+        json(200, { ok: true, suggestion });
+      } catch (e) { json(200, { ok: false, message: e.message }); }
+      return true;
+    }
+
     if (req.method === 'POST' && req.url === '/api/sdtgen/generate') {
       try {
         const body = await readBody(req);
@@ -242,7 +291,10 @@ function createSdtGenFeature(deps) {
     return false;
   }
 
-  return { listSdtNames, listExistingCopies, executeSdtCopy, handleApi };
+  return { listSdtNames, listExistingCopies, suggestField, executeSdtCopy, handleApi };
 }
 
-module.exports = { createSdtGenFeature, buildSdtCopy, generateSdtScript, isValidSdtName, isValidFieldName, isValidDigits, isValidFieldText };
+module.exports = {
+  createSdtGenFeature, buildSdtCopy, generateSdtScript, suggestFieldShape,
+  isValidSdtName, isValidFieldName, isValidDigits, isValidFieldText,
+};
