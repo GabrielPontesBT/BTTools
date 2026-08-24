@@ -1,15 +1,23 @@
 ﻿// ── Estado compartido ────────────────────────────────────────
-var S = { step: 1, version: null, platform: null, action: null, engine: null, apiMode: 'publica' };
+// activeEnv = ambiente global activo (version/platform/motor/conexion), una
+// vez establecido se usa para TODAS las herramientas sin volver a pedirlo.
+// sdtEnv = conexion V4/Oracle especifica de Generar SDT, solo cuando el
+// ambiente global activo no es V4/Oracle (ver sdtgenEnterOrCapture). No
+// reemplaza a activeEnv salvo que el usuario lo confirme explicitamente.
+var S = { step: 1, version: null, platform: null, action: null, engine: null, apiMode: 'publica', activeEnv: null, sdtEnv: null };
 // Acciones que soportan trabajar contra la API Interna (tablas BTCBS);
 // Documentar y Validar siguen siempre contra la API Publica (BTI).
 var APIMODE_ACTIONS = new Set(['scripts', 'collections', 'sdtgen', 'paramgen']);
 var _connOk = false, _connTimer = null;
 var loadedEnv = null;
+var ACTIVE_ENV_STORAGE_KEY = 'bt_active_environment';
+var sdtEnvCaptureActive = false;
+var _p2OrigTitle = null, _p2OrigSub = null;
+var _pendingReconnectError = null;
 (function keepAlive() {
   var es = new EventSource('/api/alive');
   es.onerror = function() { es.close(); setTimeout(keepAlive, 3000); };
 })();
-function buildConnectString() { var h = v('db-host'), p = v('db-port-o') || '1521', s = v('db-service'); return h + ':' + p + '/' + s; }
 function parseConnectString(cs) { if (!cs) return { host: '', port: '1521', service: '' }; var c = cs.indexOf(':'), s = cs.indexOf('/'); if (c < 0 || s < 0) return { host: cs, port: '1521', service: '' }; return { host: cs.slice(0, c), port: cs.slice(c + 1, s), service: cs.slice(s + 1) }; }
 
 // ── Estado flujo Doc ─────────────────────────────────────────
@@ -1314,15 +1322,20 @@ function toFolderName(s) {
   return s.replace(/^Public/,'').replace(/([A-Z]+)([A-Z][a-z])/g,'$1-$2').replace(/([a-z\d])([A-Z])/g,'$1-$2');
 }
 
-function getDb() {
-  if (S.platform === 'sqlserver') return { DB_SERVER: v('db-server'), DB_PORT: v('db-port')||'1433', DB_DATABASE: v('db-name'), DB_USER: v('db-user-s'), DB_PASSWORD: vp('db-pass-s') };
-  return { DB_USER: v('db-user-o'), DB_PASSWORD: vp('db-pass-o'), DB_CONNECT_STRING: buildConnectString() };
-}
+// getDb()/getDbSG(): usados por TODAS las herramientas (doc, scripts, sdtgen,
+// paramgen, collections) para armar el body de sus llamadas al server. Leen
+// del ambiente activo (S.activeEnv / S.sdtEnv), no del DOM: los inputs de
+// conexion solo existen dentro del paso "Conexión" (p2), que ya no se vuelve
+// a mostrar salvo que el usuario elija cambiar de ambiente explicitamente.
+function getDb() { return shapeDbApi(S.platform, effectiveFields()); }
+function getDbSG() { return shapeDbSG(S.platform, effectiveFields()); }
 
-function getDbSG() {
-  if (S.platform === 'sqlserver') return { server: v('db-server'), port: v('db-port')||'1433', database: v('db-name'), user: v('db-user-s'), password: vp('db-pass-s') };
-  return { user: v('db-user-o'), password: vp('db-pass-o'), connectString: buildConnectString() };
-}
+// domDbShape()/domDbShapeSG(): variante que SI lee en vivo del DOM. Se usa
+// unicamente dentro del paso de Conexión (testConn/runAutoConnTest,
+// saveDbHistEntry) mientras el usuario todavia esta tipeando/probando una
+// conexion que no fue confirmada como ambiente activo.
+function domDbShape() { return shapeDbApi(S.platform, readFieldsFromDom(S.platform)); }
+function domDbShapeSG() { return shapeDbSG(S.platform, readFieldsFromDom(S.platform)); }
 
 function getApi() {
   return { BASE_URL: v('a-base'), API_BASE_URL: v('a-api'), API_AUTH_URL: v('a-auth'), API_USER: v('a-user'), API_PASSWORD: vp('a-pass'), API_CANAL: v('a-canal'), API_DEVICE: v('a-device'), API_REQUERIMIENTO: v('a-requerimiento'), DOC_ERRORES_MODELOS: v('doc-errores-modelos') };
@@ -1343,6 +1356,11 @@ function sgInvalidateState() {
   var out = document.getElementById('sg-sql-out'); if (out) out.value = '';
 }
 
+// El ambiente (version/motor/conexion) ahora se elige una sola vez, al
+// principio, y queda activo para todas las herramientas (S.activeEnv). Elegir
+// una accion ya NO reinicia version/motor: solo Generar SDT puede llegar a
+// pedir una conexion V4/Oracle aparte si el ambiente activo no lo es (ver
+// sdtgenEnterOrCapture), sin tocar el ambiente global salvo confirmacion.
 function pick(key, val, el) {
   sgInvalidateState();
   pgInvalidateState();
@@ -1354,61 +1372,25 @@ function pick(key, val, el) {
     tryLoadEnv(val);
     toggleEngineSection(val === 'V4');
   }
-  if (key === 'engine') {
-    // El bloque de API recien aparece cuando ya se eligio el motor.
-    toggleApiModeSection(APIMODE_ACTIONS.has(S.action));
-  }
   if (key === 'action') {
     updateStepLabels(val);
-    if (val === 'sdtgen') {
-      // Generar SDT solo trabaja contra V4 (Oracle) y se saltea el paso 2
-      // (version/motor), pero si elige API: ese toggle vive en el paso de
-      // conexion (conn-apimode-section), no se puede fijar de antemano.
-      S.version = 'V4';
-      S.platform = 'oracle';
-      S.engine = 'oracle';
-      S.apiMode = null;
-      tryLoadEnv('V4');
-      hideVersionExtras();
-    } else {
-      resetVersionSelection();
-    }
+    // Cada eleccion de herramienta es un pedido fresco de apiMode (si aplica)
+    // y descarta cualquier conexion especifica de Generar SDT de una vuelta
+    // anterior, para no arrastrar credenciales viejas.
+    S.sdtEnv = null;
+    toggleApiModeSection(APIMODE_ACTIONS.has(val));
   }
   refreshNextBtn();
-}
-
-function hideVersionExtras() {
-  ['engine-section', 'apimode-section'].forEach(function(id) {
-    var sec = document.getElementById(id);
-    if (!sec) return;
-    sec.style.display = 'none';
-    sec.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
-  });
-}
-
-// El paso de version tiene que arrancar limpio: si el usuario paso antes por
-// "Generar SDT" (o por V4) quedaban seteados version/motor/API y las tarjetas
-// marcadas al volver a entrar.
-function resetVersionSelection() {
-  S.version = null;
-  S.platform = null;
-  S.engine = null;
-  S.apiMode = 'publica';
-  loadedEnv = null;
-  var p1 = document.getElementById('p1');
-  if (p1) p1.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
-  hideVersionExtras();
 }
 
 function toggleEngineSection(show) {
   var sec = document.getElementById('engine-section');
   if (!sec) return;
-  hideVersionExtras();
   sec.style.display = show ? 'block' : 'none';
-  // Aparece sin nada marcado: el motor se elige a mano y eso destraba el
-  // bloque siguiente (API). V3 no pregunta motor, queda en null.
+  sec.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
+  // Aparece sin nada marcado: el motor se elige a mano. V3 no pregunta motor,
+  // queda en null.
   S.engine = null;
-  S.apiMode = 'publica';
 }
 
 function toggleApiModeSection(show) {
@@ -1420,24 +1402,21 @@ function toggleApiModeSection(show) {
   S.apiMode = show ? null : 'publica';
 }
 
-// Toggle de API en el paso de conexion (solo Generar SDT: ese flujo saltea
-// el paso de version, donde vive el toggle equivalente para Scripts/Collections).
-function pickConnApiMode(val, el) {
-  S.apiMode = val;
-  el.closest('.cards').querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
-  el.classList.add('sel');
-  updateConnBtn();
-}
-
 function sectionVisible(id) {
   var sec = document.getElementById(id);
   return !!sec && sec.style.display !== 'none';
 }
 
-// El paso 2 se completa de a un bloque: version -> motor -> API.
-function step2Ready() {
+// Paso 1 (Versión): version -> motor.
+function versionReady() {
   if (!S.version) return false;
   if (sectionVisible('engine-section') && !S.engine) return false;
+  return true;
+}
+
+// Paso 3 (Acción): accion -> API (si la herramienta la pide).
+function actionReady() {
+  if (!S.action) return false;
   if (sectionVisible('apimode-section') && !S.apiMode) return false;
   return true;
 }
@@ -1445,7 +1424,9 @@ function step2Ready() {
 function refreshNextBtn() {
   var nb = document.getElementById('btn-next');
   if (!nb) return;
-  nb.disabled = S.step === 2 ? !step2Ready() : false;
+  if (S.step === 1) nb.disabled = !versionReady();
+  else if (S.step === 3) nb.disabled = !actionReady();
+  else nb.disabled = false;
 }
 
 function updateStepLabels(action) {
@@ -1471,7 +1452,7 @@ function updateStepLabels(action) {
 
 function vizPos(step) {
   if (S.action === 'validate') {
-    return step === 1 ? 1 : 2; // action→1, panel→2
+    return step <= 3 ? 1 : 2; // ambiente+accion→1, panel→2
   }
   return step; // doc/scripts: 1-5 direct (step 6 success has no active dot)
 }
@@ -1480,9 +1461,12 @@ function dots(step) {
   var pos = vizPos(step);
   var isSingle = S.action === 'validate';
 
-  // Para validate: d2 = label, ocultar d3..d5; para otros: d2 = "Version"
+  // Para validate el flujo se resume a 2 pasos visuales: elegir (ambiente +
+  // accion) y validar. Para el resto, d1/d2/d3 muestran su rotulo real.
+  var lb1 = document.getElementById('lb1');
+  if (lb1) lb1.textContent = isSingle ? 'Ambiente' : 'Versión';
   var lb2 = document.getElementById('lb2');
-  if (lb2) lb2.textContent = S.action === 'validate' ? 'Validar' : 'Version';
+  if (lb2) lb2.textContent = isSingle ? 'Validar' : 'Conexión';
   ['d3','d4','d5','l2','l3','l4'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.style.display = isSingle ? 'none' : '';
@@ -1503,9 +1487,9 @@ function dots(step) {
 }
 
 function panelId(step) {
-  if (step === 1) return 'p3'; // acción
-  if (step === 2) return 'p1'; // versión
-  if (step === 3) return 'p2'; // conexión
+  if (step === 1) return 'p1'; // versión
+  if (step === 2) return 'p2'; // conexión
+  if (step === 3) return 'p3'; // acción
   if (S.action === 'validate') return 'p4v';
   if (S.action === 'collections') return step === 4 ? 'p4' : 'p4c';
   if (S.action === 'scripts') return step === 4 ? 'p4s' : 'p5s';
@@ -1527,22 +1511,22 @@ function show(step) {
   S.step = step;
   dots(step);
   foot(step);
-  if (step === 3) { // paso de conexión (ahora es el paso 3)
+  if (step === 1) { // versión + motor
+    markVersionCardsFromS();
+  }
+  if (step === 2) { // conexión — ya NO se limpia automaticamente: los campos
+    // reflejan lo que ya haya (ambiente activo si se esta editando, o lo que
+    // el usuario ya tipeo si volvio de otro paso). Solo se limpian de forma
+    // explicita (primer uso nunca tocado, o conexion especifica de sdtgen).
     document.getElementById('sql-fields').style.display = S.platform === 'sqlserver' ? 'block' : 'none';
     document.getElementById('ora-fields').style.display  = S.platform === 'oracle'    ? 'block' : 'none';
-    var connApiSec = document.getElementById('conn-apimode-section');
-    if (connApiSec) {
-      var showConnApiMode = S.action === 'sdtgen';
-      connApiSec.style.display = showConnApiMode ? 'block' : 'none';
-      connApiSec.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
-      if (showConnApiMode && S.apiMode) {
-        var card = document.getElementById('conn-apimode-' + S.apiMode);
-        if (card) card.classList.add('sel');
-      }
-    }
-    clearDbFields();
     loadDbHistory();
     setTimeout(setupConnWatchers, 0);
+    if (_pendingReconnectError) {
+      var res = document.getElementById('cres');
+      if (res) { res.className = 'cres show err'; res.textContent = _pendingReconnectError; }
+      _pendingReconnectError = null;
+    }
   }
   if (step === 4 && S.action === 'validate') { loadValidateFolders(); }
   if (step === 4 && S.action === 'doc') { if (!allServices.length) loadServices(); else renderList(); }
@@ -1596,13 +1580,13 @@ function foot(step) {
   var back = document.getElementById('btn-back');
   back.style.display = step > 1 ? 'flex' : 'none';
   var ftr = document.getElementById('ft-r');
-  if (step === 1) { // acción
-    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (S.action ? '' : ' disabled') + '>Siguiente &#8594;</button>';
-  } else if (step === 2) { // versión
-    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (step2Ready() ? '' : ' disabled') + '>Siguiente &#8594;</button>';
-  } else if (step === 3) { // conexión
+  if (step === 1) { // versión
+    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (versionReady() ? '' : ' disabled') + '>Siguiente &#8594;</button>';
+  } else if (step === 2) { // conexión
     ftr.innerHTML = '<button class="btn btn-outline" id="btn-test" onclick="testConn()">Probar conexión</button>&nbsp;&nbsp;' +
-      '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (step3Ready() ? '' : ' disabled') + '>Siguiente &#8594;</button>';
+      '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (connReady() ? '' : ' disabled') + '>Siguiente &#8594;</button>';
+  } else if (step === 3) { // acción
+    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (actionReady() ? '' : ' disabled') + '>Siguiente &#8594;</button>';
   } else if (step === 4 && S.action === 'validate') {
     ftr.innerHTML = '';
   } else if (step === 5 && S.action === 'collections') {
@@ -1636,15 +1620,16 @@ function foot(step) {
 }
 
 async function goNext() {
+  if (sdtEnvCaptureActive) { sdtEnvCaptureNext(); return; }
   var s = S.step;
-  if (s === 1 && !S.action) return;
-  if (s === 1 && S.action === 'validate') { show(4); return; } // saltar versión y conexión
-  if (s === 1 && S.action === 'sdtgen') { show(3); return; } // Generar SDT es siempre V4, saltar versión
-  if (s === 1) { show(2); return; }
-  if (s === 2 && !step2Ready()) return;
-  if (s === 2) { show(3); return; }
-  if (s === 3 && !step3Ready()) return;
-  if (s === 3) { show(4); return; }
+  if (s === 1) { if (!versionReady()) return; show(2); return; }
+  if (s === 2) { if (!connReady()) return; show(3); return; }
+  if (s === 3) {
+    if (!actionReady()) return;
+    if (S.action === 'sdtgen') { sdtgenEnterOrCapture(); return; }
+    show(4);
+    return;
+  }
   if (s === 4 && S.action === 'collections') { show(5); return; }
   if (s === 4 && S.action === 'scripts') {
     var grps = sgServiceGroups.filter(function(g) { return g.selected.size > 0; });
@@ -1661,12 +1646,8 @@ async function goNext() {
 }
 
 function goBack() {
+  if (sdtEnvCaptureActive) { sdtEnvCaptureCancel(); return; }
   var s = S.step;
-  if (s === 4 && S.action === 'validate') { show(1); return; } // saltar versión y conexión
-  if (s === 3 && S.action === 'sdtgen') { show(1); return; } // Generar SDT es siempre V4, saltar versión
-  if (s === 5 && S.action === 'collections') { show(4); return; }
-  if (s === 4) { show(3); return; }
-  if (s === 5 && S.action === 'scripts') { show(4); return; }
   if (s > 1) show(s - 1);
 }
 
@@ -1694,6 +1675,57 @@ function clearDbFields() {
   setVal('db-user-s', ''); setVal('db-pass-s', '');
   setVal('db-host', ''); setVal('db-port-o', '1521'); setVal('db-service', '');
   setVal('db-user-o', ''); setVal('db-pass-o', '');
+}
+
+// Forma "cruda" de los campos de conexion, tal cual se tipean en el DOM
+// (independiente de la forma que despues arman getDb()/getDbSG() para cada
+// endpoint). Es lo que se guarda en S.activeEnv/S.sdtEnv y en localStorage.
+function readFieldsFromDom(platform) {
+  if (platform === 'sqlserver') {
+    return { server: v('db-server'), port: v('db-port') || '1433', database: v('db-name'), user: v('db-user-s'), password: vp('db-pass-s') };
+  }
+  return { host: v('db-host'), port: v('db-port-o') || '1521', service: v('db-service'), user: v('db-user-o'), password: vp('db-pass-o') };
+}
+
+function applyFieldsToDom(platform, f) {
+  f = f || {};
+  if (platform === 'sqlserver') {
+    setVal('db-server', f.server || ''); setVal('db-port', f.port || '1433'); setVal('db-name', f.database || '');
+    setVal('db-user-s', f.user || ''); setVal('db-pass-s', f.password || '');
+  } else {
+    setVal('db-host', f.host || ''); setVal('db-port-o', f.port || '1521'); setVal('db-service', f.service || '');
+    setVal('db-user-o', f.user || ''); setVal('db-pass-o', f.password || '');
+  }
+}
+
+// ── Ambiente activo (persistencia + shapes para los endpoints) ────────────
+
+function saveActiveEnvToStorage() {
+  try { localStorage.setItem(ACTIVE_ENV_STORAGE_KEY, JSON.stringify(S.activeEnv)); } catch (e) {}
+}
+
+function loadActiveEnvFromStorage() {
+  try { return JSON.parse(localStorage.getItem(ACTIVE_ENV_STORAGE_KEY) || 'null'); } catch (e) { return null; }
+}
+
+// Campos "efectivos" para la conexion actual: la de Generar SDT si esta
+// activa una conexion especifica para esa herramienta (S.sdtEnv, ver
+// sdtgenEnterOrCapture), o si no el ambiente global activo.
+function effectiveFields() {
+  if (S.action === 'sdtgen' && S.sdtEnv) return S.sdtEnv.fields || {};
+  return (S.activeEnv && S.activeEnv.fields) || {};
+}
+
+function shapeDbApi(platform, f) {
+  f = f || {};
+  if (platform === 'sqlserver') return { DB_SERVER: f.server || '', DB_PORT: f.port || '1433', DB_DATABASE: f.database || '', DB_USER: f.user || '', DB_PASSWORD: f.password || '' };
+  return { DB_USER: f.user || '', DB_PASSWORD: f.password || '', DB_CONNECT_STRING: (f.host || '') + ':' + (f.port || '1521') + '/' + (f.service || '') };
+}
+
+function shapeDbSG(platform, f) {
+  f = f || {};
+  if (platform === 'sqlserver') return { server: f.server || '', port: f.port || '1433', database: f.database || '', user: f.user || '', password: f.password || '' };
+  return { user: f.user || '', password: f.password || '', connectString: (f.host || '') + ':' + (f.port || '1521') + '/' + (f.service || '') };
 }
 
 function fillDbFields() {
@@ -1869,7 +1901,7 @@ async function deleteDbHistEntry() {
 
 async function saveDbHistEntry() {
   if (!allConnFilled()) return;
-  var db = getDbSG();
+  var db = domDbShapeSG();
   var customName = v('db-conn-name');
   var autoLabel = S.platform === 'sqlserver'
     ? (v('db-name') || v('db-server')) + ' · ' + (v('db-server') || '') + ' (SQL Server)'
@@ -1908,12 +1940,19 @@ async function runAutoConnTest() {
   res.className = 'cres show'; res.style.color = 'var(--muted)';
   res.innerHTML = '<span class="spin dk"></span>&nbsp;Conectando...';
   try {
-    var r = await fetch('/api/test', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: getDb() }) });
+    var r = await fetch('/api/test', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: S.platform, db: domDbShape() }) });
     var d = await r.json(); res.style.color = '';
     res.className = 'cres show ' + (d.ok ? 'ok' : 'err');
     res.textContent = d.ok ? 'Conexión exitosa ✓' : d.message;
     _connOk = d.ok;
-    if (d.ok) { sgServiceGroups = []; allServices = []; sgServicesLoaded = false; saveDbHistEntry(); }
+    if (d.ok) {
+      sgServiceGroups = []; allServices = []; sgServicesLoaded = false;
+      saveDbHistEntry();
+      // La conexion de Generar SDT (cuando el ambiente global no es V4/Oracle)
+      // es un caso aparte: no se confirma sola como ambiente global, eso lo
+      // decide el usuario en sdtEnvCaptureNext() via confirm().
+      if (!sdtEnvCaptureActive) commitActiveEnv();
+    }
   } catch(e) { res.style.color = ''; res.className = 'cres show err'; res.textContent = 'No se pudo conectar'; _connOk = false; }
   updateConnBtn();
 }
@@ -1925,16 +1964,196 @@ async function testConn() {
   if (btn) { btn.innerHTML = 'Probar conexión'; btn.disabled = false; }
 }
 
-// El paso de conexion se completa con la prueba OK y, solo para Generar SDT
-// (unico flujo que muestra el toggle de API en este paso), con la API elegida.
-function step3Ready() {
-  if (!_connOk) return false;
-  if (S.action === 'sdtgen' && !S.apiMode) return false;
-  return true;
+// El paso de conexion se completa con la prueba OK (el toggle de API de
+// Generar SDT ahora se elige en el paso de Acción, no acá).
+function connReady() {
+  return _connOk;
 }
 
 function updateConnBtn() {
-  if (S.step === 3) { var btn = document.getElementById('btn-next'); if (btn) btn.disabled = !step3Ready(); }
+  if (sdtEnvCaptureActive || S.step === 2) {
+    var btn = document.getElementById('btn-next');
+    if (btn) btn.disabled = !_connOk;
+  }
+}
+
+// Confirma los datos tipeados en el paso de Conexión como el ambiente activo
+// global: a partir de aca todas las herramientas usan esta conexion sin
+// volver a pedirla (ver getDb()/getDbSG() / effectiveFields()).
+function commitActiveEnv() {
+  S.activeEnv = {
+    version: S.version,
+    platform: S.platform,
+    engine: S.engine,
+    connName: v('db-conn-name') || (_activeDbHistEntry && _activeDbHistEntry.label) || '',
+    fields: readFieldsFromDom(S.platform)
+  };
+  saveActiveEnvToStorage();
+  renderEnvChip();
+}
+
+// ── Chip de ambiente activo (navbar) ──────────────────────────
+
+function renderEnvChip() {
+  var chip = document.getElementById('env-chip');
+  if (!chip) return;
+  if (!S.activeEnv) { chip.style.display = 'none'; return; }
+  var e = S.activeEnv;
+  var host = e.platform === 'sqlserver' ? (e.fields.server || '') : (e.fields.host || '');
+  var label = (e.connName && e.connName.trim()) || host;
+  var txt = chip.querySelector('.env-chip-txt');
+  if (txt) txt.textContent = e.version + ' · ' + (e.platform === 'sqlserver' ? 'SQL Server' : 'Oracle') + (label ? ' · ' + label : '');
+  chip.style.display = 'flex';
+}
+
+// Marca las tarjetas de version/motor del paso 1 segun S.version/S.engine
+// (usado al reabrir ese paso: reconexion automatica fallida o cambio de
+// ambiente explicito desde el chip del navbar).
+function markVersionCardsFromS() {
+  var p1 = document.getElementById('p1');
+  if (!p1) return;
+  p1.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
+  if (!S.version) { var engSec = document.getElementById('engine-section'); if (engSec) engSec.style.display = 'none'; return; }
+  var verCard = p1.querySelector('.ccard[onclick="pick(\'version\',\'' + S.version + '\',this)"]');
+  if (verCard) verCard.classList.add('sel');
+  var engSec = document.getElementById('engine-section');
+  if (S.version === 'V4') {
+    if (engSec) engSec.style.display = 'block';
+    if (S.engine) {
+      var engCard = document.getElementById('engine-' + S.engine);
+      if (engCard) engCard.classList.add('sel');
+    }
+  } else if (engSec) {
+    engSec.style.display = 'none';
+  }
+}
+
+// Reabre el paso de Ambiente (version + conexión) para cambiarlo, con los
+// valores del ambiente activo precargados para editar. No se pierde nada de
+// forma destructiva: si hay una herramienta en curso se confirma antes.
+function openEnvSwitcher() {
+  if (S.action && !confirm('Vas a cambiar de ambiente. Esto reinicia la herramienta que tenías abierta (la conexión y el ambiente elegidos se mantienen hasta que confirmes uno nuevo). ¿Continuar?')) return;
+  if (sdtEnvCaptureActive) sdtEnvCaptureExit(); // no dejar la conexion especial de sdtgen a medio armar
+  S.action = null;
+  S.sdtEnv = null;
+  sgInvalidateState();
+  pgInvalidateState();
+  if (S.activeEnv) {
+    S.version = S.activeEnv.version;
+    S.platform = S.activeEnv.platform;
+    S.engine = S.activeEnv.engine;
+    applyFieldsToDom(S.platform, S.activeEnv.fields);
+    setVal('db-conn-name', S.activeEnv.connName || '');
+  }
+  show(1);
+}
+
+// ── Reconexión automática al último ambiente activo (localStorage) ───────
+
+function findMatchingHistEntry(saved) {
+  if (!saved || !_dbHistory) return null;
+  return _dbHistory.find(function(e) {
+    if (e.version !== saved.version || e.platform !== saved.platform) return false;
+    var f = saved.fields || {}, d = e.db || {};
+    if (saved.platform === 'sqlserver') return d.server === f.server && d.database === f.database && d.user === f.user;
+    var cs = (f.host || '') + ':' + (f.port || '1521') + '/' + (f.service || '');
+    return (d.connectString || '') === cs && d.user === f.user;
+  }) || null;
+}
+
+async function initWizard() {
+  var saved = loadActiveEnvFromStorage();
+  if (!saved || !saved.fields || !saved.version || !saved.platform) { show(1); return; }
+  var testResult;
+  try {
+    var r = await fetch('/api/test', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: saved.platform, db: shapeDbApi(saved.platform, saved.fields) }) });
+    testResult = await r.json();
+  } catch (e) {
+    testResult = { ok: false, message: 'No se pudo conectar con el servidor para validar el último ambiente guardado.' };
+  }
+  S.version = saved.version; S.platform = saved.platform; S.engine = saved.engine;
+  applyFieldsToDom(saved.platform, saved.fields);
+  setVal('db-conn-name', saved.connName || '');
+  if (testResult.ok) {
+    _connOk = true;
+    S.activeEnv = saved;
+    try { await loadDbHistory(); var m = findMatchingHistEntry(saved); if (m) _activeDbHistEntry = m; } catch (e) {}
+    renderEnvChip();
+    show(3); // ambiente ya activo: directo a elegir herramienta
+  } else {
+    _connOk = false;
+    _pendingReconnectError = 'No se pudo reconectar automáticamente al último ambiente activo: ' + (testResult.message || 'error desconocido') + '. Revisá los datos.';
+    show(2); // ir directo a Conexión: ahí vive el banner de error y los campos a corregir
+  }
+}
+
+// Guard: en el sandbox de los gate tests (wizard-doc.test.js) `document` es un
+// mock minimo sin addEventListener; evita que cargar el archivo reviente ahi.
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+  document.addEventListener('DOMContentLoaded', initWizard);
+}
+
+// ── Generar SDT: conexión V4/Oracle dedicada (si el ambiente global no lo es)
+
+// Al elegir Generar SDT: si el ambiente activo global ya es V4/Oracle, se usa
+// directo (S.sdtEnv queda null → effectiveFields() cae al ambiente global).
+// Si no, se pide una conexión V4/Oracle aparte SOLO para esta herramienta,
+// sin tocar el ambiente global salvo que el usuario lo confirme al final.
+function sdtgenEnterOrCapture() {
+  if (S.activeEnv && S.activeEnv.platform === 'oracle') {
+    S.sdtEnv = null;
+    S.version = 'V4'; S.platform = 'oracle'; S.engine = 'oracle';
+    show(4);
+    return;
+  }
+  S.version = 'V4'; S.platform = 'oracle'; S.engine = 'oracle';
+  sdtEnvCaptureActive = true;
+  clearDbFields();
+  tryLoadEnv('V4');
+  document.getElementById('sql-fields').style.display = 'none';
+  document.getElementById('ora-fields').style.display = 'block';
+  var t = document.querySelector('#p2 .ptitle'), sub = document.querySelector('#p2 .psub');
+  if (t && _p2OrigTitle === null) _p2OrigTitle = t.textContent;
+  if (sub && _p2OrigSub === null) _p2OrigSub = sub.textContent;
+  if (t) t.textContent = 'Conexión para Generar SDT (V4 / Oracle)';
+  if (sub) sub.textContent = 'Generar SDT solo trabaja contra V4/Oracle y tu ambiente activo es distinto. Conectate acá solo para esta herramienta — no se reemplaza tu ambiente global salvo que lo confirmes.';
+  document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+  document.getElementById('p2').classList.add('active');
+  _connOk = false;
+  var res = document.getElementById('cres'); if (res) res.className = 'cres';
+  loadDbHistory();
+  setTimeout(setupConnWatchers, 0);
+  document.getElementById('btn-back').style.display = 'flex';
+  var ftr = document.getElementById('ft-r');
+  ftr.innerHTML = '<button class="btn btn-outline" id="btn-test" onclick="testConn()">Probar conexión</button>&nbsp;&nbsp;' +
+    '<button class="btn btn-primary" id="btn-next" onclick="goNext()" disabled>Usar esta conexión &#8594;</button>';
+}
+
+function sdtEnvCaptureNext() {
+  if (!_connOk) return;
+  S.sdtEnv = { version: 'V4', platform: 'oracle', engine: 'oracle', connName: v('db-conn-name') || '', fields: readFieldsFromDom('oracle') };
+  var promote = confirm('¿Usar esta conexión también como ambiente global (se va a usar en todas las herramientas)?');
+  if (promote) {
+    S.activeEnv = Object.assign({}, S.sdtEnv);
+    S.sdtEnv = null;
+    saveActiveEnvToStorage();
+    renderEnvChip();
+  }
+  sdtEnvCaptureExit();
+  show(4);
+}
+
+function sdtEnvCaptureCancel() {
+  S.action = null;
+  sdtEnvCaptureExit();
+  show(3);
+}
+
+function sdtEnvCaptureExit() {
+  sdtEnvCaptureActive = false;
+  var t = document.querySelector('#p2 .ptitle'), sub = document.querySelector('#p2 .psub');
+  if (t && _p2OrigTitle !== null) { t.textContent = _p2OrigTitle; }
+  if (sub && _p2OrigSub !== null) { sub.textContent = _p2OrigSub; }
 }
 
 // ── Paso 4 Doc: API ────────────────────────────────────────────

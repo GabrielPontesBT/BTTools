@@ -15,17 +15,24 @@
     <div class="wiz-hd-logo" onclick="location.href='/'" role="button" title="Volver al inicio">
       <img src="/public/logo.png" alt="Bantotal">
     </div>
+    <div style="margin-left:auto;display:flex;align-items:center">
+      <button type="button" id="env-chip" class="btn btn-outline btn-sm" onclick="openEnvSwitcher()" title="Cambiar de ambiente" style="display:none;align-items:center;gap:8px;white-space:nowrap">
+        <span style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0"></span>
+        <span class="env-chip-txt"></span>
+        <span style="font-size:10px;opacity:.7">&#9662;</span>
+      </button>
+    </div>
   </div>
 
   <div class="wiz-main">
 
   <div class="wiz-sidebar">
     <div class="steps-bar">
-      <div class="step-row"><div class="sdot active" id="d1"><span id="dn1">1</span></div><span class="sdot-lb">Acción</span></div>
+      <div class="step-row"><div class="sdot active" id="d1"><span id="dn1">1</span></div><span class="sdot-lb" id="lb1">Versión</span></div>
       <div class="sline" id="l1"></div>
-      <div class="step-row"><div class="sdot" id="d2"><span id="dn2">2</span></div><span class="sdot-lb" id="lb2">Versión</span></div>
+      <div class="step-row"><div class="sdot" id="d2"><span id="dn2">2</span></div><span class="sdot-lb" id="lb2">Conexión</span></div>
       <div class="sline" id="l2"></div>
-      <div class="step-row"><div class="sdot" id="d3"><span id="dn3">3</span></div><span class="sdot-lb" id="lb3">Conexión</span></div>
+      <div class="step-row"><div class="sdot" id="d3"><span id="dn3">3</span></div><span class="sdot-lb" id="lb3">Acción</span></div>
       <div class="sline" id="l3"></div>
       <div class="step-row"><div class="sdot" id="d4"><span id="dn4">4</span></div><span class="sdot-lb" id="lb4"> </span></div>
       <div class="sline" id="l4"></div>
@@ -73,41 +80,12 @@
         </div>
       </div>
 
-      <div id="apimode-section" style="display:none;margin-top:var(--sp-5)">
-        <div class="psub" style="margin-bottom:var(--sp-3)">¿Con qué API vas a trabajar?</div>
-        <div class="cards" style="grid-template-columns:repeat(2,1fr)">
-          <div class="ccard" id="apimode-publica" onclick="pick('apiMode','publica',this)">
-            <span class="ccard-title">API Pública</span>
-            <span class="ccard-desc">Tablas BTI</span>
-          </div>
-          <div class="ccard" id="apimode-interna" onclick="pick('apiMode','interna',this)">
-            <span class="ccard-title">API Interna</span>
-            <span class="ccard-desc">Tablas BTCBS</span>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- Paso 2: Conexión (BD) -->
     <div class="panel" id="p2">
       <div class="ptitle">Datos de conexión a la base de datos</div>
       <div class="psub">Ingresá los datos del ambiente al que querés conectarte.</div>
-
-      <!-- Solo para Generar SDT: ese flujo saltea el paso de version (siempre
-           es V4/Oracle), asi que la eleccion de API va aca. -->
-      <div id="conn-apimode-section" style="display:none;margin-bottom:var(--sp-5)">
-        <div class="psub" style="margin-bottom:var(--sp-3)">¿Con qué API vas a trabajar?</div>
-        <div class="cards" style="grid-template-columns:repeat(2,1fr)">
-          <div class="ccard" id="conn-apimode-publica" onclick="pickConnApiMode('publica',this)">
-            <span class="ccard-title">API Pública</span>
-            <span class="ccard-desc">Tal cual está hoy.</span>
-          </div>
-          <div class="ccard" id="conn-apimode-interna" onclick="pickConnApiMode('interna',this)">
-            <span class="ccard-title">API Interna</span>
-            <span class="ccard-desc">Usa las tablas BTCBS.</span>
-          </div>
-        </div>
-      </div>
 
       <div class="cres" id="db-hist-err" style="margin-bottom:var(--sp-3)"></div>
       <div id="db-hist-wrap" style="display:none;margin-bottom:var(--sp-1)">
@@ -159,8 +137,8 @@
       <div class="cres" id="cres"></div>
     </div>
 
-    <!-- Paso 2: Acción -->
-    <div class="panel active" id="p3">
+    <!-- Paso 3: Acción -->
+    <div class="panel" id="p3">
       <div class="ptitle">¿Qué querés hacer?</div>
       <div class="psub">Elegí la herramienta que querés usar.</div>
       <div class="cards" style="grid-template-columns:repeat(3,1fr)">
@@ -194,6 +172,20 @@
           <span class="act-icon">&#9881;</span>
           <span class="ccard-title" style="font-size:var(--fs-2xl);display:block;margin-bottom:var(--sp-2)">Editar Parametría</span>
           <span class="ccard-desc">Elegí un servicio y un método para editar los parámetros de la tabla BTI019 (o BTCBS019).</span>
+        </div>
+      </div>
+
+      <div id="apimode-section" style="display:none;margin-top:var(--sp-5)">
+        <div class="psub" style="margin-bottom:var(--sp-3)">¿Con qué API vas a trabajar?</div>
+        <div class="cards" style="grid-template-columns:repeat(2,1fr)">
+          <div class="ccard" id="apimode-publica" onclick="pick('apiMode','publica',this)">
+            <span class="ccard-title">API Pública</span>
+            <span class="ccard-desc">Tablas BTI</span>
+          </div>
+          <div class="ccard" id="apimode-interna" onclick="pick('apiMode','interna',this)">
+            <span class="ccard-title">API Interna</span>
+            <span class="ccard-desc">Tablas BTCBS</span>
+          </div>
         </div>
       </div>
     </div>

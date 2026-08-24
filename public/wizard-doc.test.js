@@ -8,6 +8,15 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
+function makeMemoryStorage() {
+  var store = {};
+  return {
+    getItem: function(k) { return Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null; },
+    setItem: function(k, v) { store[k] = String(v); },
+    removeItem: function(k) { delete store[k]; },
+  };
+}
+
 function loadWizard() {
   const src = fs.readFileSync(path.join(__dirname, 'wizard-doc.js'), 'utf8');
   const sandbox = {
@@ -15,13 +24,46 @@ function loadWizard() {
     setTimeout: function() {},
     clearTimeout: function() {},
     console: { log: function() {} },
-    document: { getElementById: function() { return null; }, querySelectorAll: function() { return []; } },
+    document: {
+      getElementById: function() { return null; },
+      querySelectorAll: function() { return []; },
+      querySelector: function() { return null; },
+      addEventListener: function() {}, // wizard-doc.js se auto-inicia con esto; no debe correr initWizard en los tests
+    },
     fetch: function() { return Promise.reject(new Error('sin red en los tests')); },
+    localStorage: makeMemoryStorage(),
+    confirm: function() { return true; },
+    alert: function() {},
   };
   sandbox.window = sandbox;
   vm.createContext(sandbox);
   vm.runInContext(src, sandbox, { filename: 'wizard-doc.js' });
   return sandbox;
+}
+
+// Stub de elemento del DOM generico: sirve para las funciones que tocan
+// varios ids/selectores a la vez (paneles, footer, watchers de conexion) sin
+// tener que enumerar cada uno. Los tests que necesitan leer/ver un valor
+// puntual (inputs de conexion, etc.) siguen pisando getElementById con su
+// propio mock especifico.
+function stubEl() {
+  return {
+    style: {},
+    classList: { add: function() {}, remove: function() {}, contains: function() { return false; }, toggle: function() {} },
+    textContent: '', innerHTML: '', value: '', disabled: false,
+    querySelectorAll: function() { return []; },
+    querySelector: function() { return stubEl(); },
+    addEventListener: function() {}, removeEventListener: function() {},
+  };
+}
+
+function makeDomStub() {
+  return {
+    getElementById: function() { return stubEl(); },
+    querySelectorAll: function() { return []; },
+    querySelector: function() { return stubEl(); },
+    addEventListener: function() {},
+  };
 }
 
 function item(overrides) {
@@ -101,44 +143,57 @@ test('validateItems con apiMode publica advierte si el metodo no tiene ningun ca
   assert.match(warns[0].msg, /BTI012/);
 });
 
-test('el paso 2 solo habilita Siguiente cuando los bloques visibles estan elegidos', () => {
+// El ambiente (version+conexion) ahora se elige una sola vez, antes de
+// elegir herramienta: paso 1 = version/motor, paso 2 = conexion, paso 3 =
+// accion (con el toggle de API si la herramienta lo requiere).
+test('versionReady (paso 1) solo exige el motor cuando esa seccion esta visible', () => {
   const w = loadWizard();
-  const visible = { 'engine-section': 'block', 'apimode-section': 'none' };
+  const visible = { 'engine-section': 'block' };
   w.document.getElementById = function(id) {
     if (visible[id] === undefined) return null;
     return { style: { display: visible[id] } };
   };
-  w.S.version = null; w.S.engine = null; w.S.apiMode = null;
-  assert.equal(w.step2Ready(), false, 'sin version no se puede avanzar');
+  w.S.version = null; w.S.engine = null;
+  assert.equal(w.versionReady(), false, 'sin version no se puede avanzar');
   w.S.version = 'V4';
-  assert.equal(w.step2Ready(), false, 'motor visible sin elegir bloquea');
+  assert.equal(w.versionReady(), false, 'motor visible sin elegir bloquea');
   w.S.engine = 'oracle';
-  assert.equal(w.step2Ready(), true, 'API oculta no bloquea');
-  visible['apimode-section'] = 'block';
-  assert.equal(w.step2Ready(), false, 'API visible sin elegir bloquea');
-  w.S.apiMode = 'interna';
-  assert.equal(w.step2Ready(), true);
+  assert.equal(w.versionReady(), true);
+  visible['engine-section'] = 'none';
+  w.S.engine = null;
+  assert.equal(w.versionReady(), true, 'motor oculto (V3) no bloquea');
 });
 
-test('step3Ready exige conexion probada, y ademas API elegida solo para Generar SDT', () => {
+test('connReady (paso 2) depende solo de la conexion probada', () => {
   const w = loadWizard();
-  w._connOk = false; w.S.action = 'doc'; w.S.apiMode = null;
-  assert.equal(w.step3Ready(), false, 'sin conexion probada nunca esta listo');
+  w._connOk = false;
+  assert.equal(w.connReady(), false);
+  w._connOk = true;
+  assert.equal(w.connReady(), true);
+});
 
-  w._connOk = true; w.S.action = 'doc';
-  assert.equal(w.step3Ready(), true, 'doc no muestra el toggle, no lo exige');
+test('actionReady (paso 3) exige accion elegida y, si la herramienta lo pide, el modo de API', () => {
+  const w = loadWizard();
+  const visible = { 'apimode-section': 'none' };
+  w.document.getElementById = function(id) {
+    if (visible[id] === undefined) return null;
+    return { style: { display: visible[id] } };
+  };
+  w.S.action = null; w.S.apiMode = null;
+  assert.equal(w.actionReady(), false, 'sin accion no se puede avanzar');
 
-  w._connOk = true; w.S.action = 'scripts'; w.S.apiMode = 'interna';
-  assert.equal(w.step3Ready(), true, 'scripts ya eligio API en el paso de version');
+  w.S.action = 'doc';
+  assert.equal(w.actionReady(), true, 'doc no muestra el toggle, no lo exige');
 
-  w._connOk = true; w.S.action = 'sdtgen'; w.S.apiMode = null;
-  assert.equal(w.step3Ready(), false, 'sdtgen necesita elegir API en el paso de conexion');
+  w.S.action = 'sdtgen'; w.S.apiMode = null;
+  visible['apimode-section'] = 'block';
+  assert.equal(w.actionReady(), false, 'sdtgen necesita elegir API');
 
   w.S.apiMode = 'publica';
-  assert.equal(w.step3Ready(), true);
+  assert.equal(w.actionReady(), true);
 
   w.S.apiMode = 'interna';
-  assert.equal(w.step3Ready(), true);
+  assert.equal(w.actionReady(), true);
 });
 
 test('validateItems acepta descripcion de metodo o parametro terminada en signo de pregunta', () => {
@@ -158,7 +213,9 @@ test('validateItems sigue advirtiendo cuando la descripcion no termina ni en pun
   assert.ok(warns.some(function(w) { return w.field === 'BTIMTDDSC' && w.msg === 'No termina con punto ni signo de pregunta.'; }), JSON.stringify(warns));
 });
 
-test('pickConnApiMode setea S.apiMode y marca la tarjeta clickeada', () => {
+// El toggle de API vive ahora en el paso de Accion (para cualquier
+// herramienta de APIMODE_ACTIONS, no solo Generar SDT), via pick('apiMode',...).
+test('pick("apiMode",...) setea S.apiMode y marca la tarjeta clickeada', () => {
   const w = loadWizard();
   var marked = [];
   var cardPublica = { classList: { add: function(c) { marked.push(['pub', 'add', c]); }, remove: function(c) { marked.push(['pub', 'rm', c]); } } };
@@ -166,10 +223,15 @@ test('pickConnApiMode setea S.apiMode y marca la tarjeta clickeada', () => {
   var clicked = { closest: function() { return { querySelectorAll: function() { return [cardPublica, cardInterna]; } }; }, classList: cardInterna.classList };
   w.document.getElementById = function(id) { return id === 'btn-next' ? { disabled: true } : null; };
   w.S.step = 3;
-  w.pickConnApiMode('interna', clicked);
+  w.S.action = 'sdtgen'; // APIMODE_ACTIONS: la seccion aplica
+  w.pick('apiMode', 'interna', clicked);
   assert.equal(w.S.apiMode, 'interna');
   assert.ok(marked.some(m => m[0] === 'int' && m[1] === 'add' && m[2] === 'sel'));
 });
+
+// sgInvalidateState/pgInvalidateState (llamadas por pick()) tocan elementos
+// del DOM por id: con el mock generico (getElementById->null) no rompen nada,
+// asi que no hace falta stubearlas aparte.
 
 function sdtItem(elemOverrides) {
   return {
@@ -325,4 +387,176 @@ test('saveApiToActiveEntry manda la config actual atada al id de la conexion act
   assert.equal(sentBody.apiMode, 'publica');
   assert.deepEqual(w._activeDbHistEntry.api.interna, { BASE_URL: 'http://viejo-interna' }); // no se pisa
   assert.ok(w._activeDbHistEntry.api.publica); // se agrego la config nueva
+});
+
+// ── Ambiente activo global (S.activeEnv) ──────────────────────────────────
+// El ambiente se elige una sola vez (paso 1+2, antes de elegir herramienta) y
+// se usa para TODAS las herramientas via getDb()/getDbSG(). Generar SDT es la
+// unica excepcion: si el ambiente global no es V4/Oracle, usa una conexion
+// aparte (S.sdtEnv) sin pisar el ambiente global salvo confirmacion explicita.
+
+// Los objetos que devuelven getDb/getDbSG vienen del realm del vm (otro
+// prototipo Object que el de este proceso), asi que deepEqual estricto los
+// rechaza aunque el contenido sea identico (ver nota al inicio del archivo).
+// Un roundtrip por JSON los normaliza a objetos planos de este realm.
+function plain(o) { return JSON.parse(JSON.stringify(o)); }
+
+test('getDb/getDbSG leen del ambiente activo (S.activeEnv), no del DOM', () => {
+  const w = loadWizard();
+  w.S.platform = 'oracle';
+  w.S.activeEnv = { version: 'V4', platform: 'oracle', engine: 'oracle', connName: 'x', fields: { host: 'h1', port: '1521', service: 'svc', user: 'u1', password: 'p1' } };
+  assert.deepEqual(plain(w.getDb()), { DB_USER: 'u1', DB_PASSWORD: 'p1', DB_CONNECT_STRING: 'h1:1521/svc' });
+  assert.deepEqual(plain(w.getDbSG()), { user: 'u1', password: 'p1', connectString: 'h1:1521/svc' });
+});
+
+test('getDb/getDbSG con plataforma sqlserver arman el shape correcto desde S.activeEnv', () => {
+  const w = loadWizard();
+  w.S.platform = 'sqlserver';
+  w.S.activeEnv = { version: 'V3', platform: 'sqlserver', engine: null, fields: { server: 'srv', port: '1433', database: 'db', user: 'u', password: 'p' } };
+  assert.deepEqual(plain(w.getDb()), { DB_SERVER: 'srv', DB_PORT: '1433', DB_DATABASE: 'db', DB_USER: 'u', DB_PASSWORD: 'p' });
+  assert.deepEqual(plain(w.getDbSG()), { server: 'srv', port: '1433', database: 'db', user: 'u', password: 'p' });
+});
+
+test('sin ambiente activo, getDb/getDbSG devuelven campos vacios en vez de romper', () => {
+  const w = loadWizard();
+  w.S.platform = 'sqlserver';
+  w.S.activeEnv = null;
+  assert.deepEqual(plain(w.getDb()), { DB_SERVER: '', DB_PORT: '1433', DB_DATABASE: '', DB_USER: '', DB_PASSWORD: '' });
+});
+
+test('getDb/getDbSG usan la conexion especifica de Generar SDT (S.sdtEnv) cuando esta activa, sin tocar S.activeEnv', () => {
+  const w = loadWizard();
+  w.S.platform = 'oracle';
+  w.S.action = 'sdtgen';
+  w.S.activeEnv = { version: 'V3', platform: 'sqlserver', fields: { server: 's', database: 'd', user: 'gu', password: 'gp' } };
+  w.S.sdtEnv = { version: 'V4', platform: 'oracle', fields: { host: 'h2', port: '1521', service: 'svc2', user: 'u2', password: 'p2' } };
+  assert.equal(w.getDbSG().connectString, 'h2:1521/svc2');
+  assert.equal(w.getDbSG().user, 'u2');
+  assert.equal(w.S.activeEnv.platform, 'sqlserver', 'la conexion de sdtgen no pisa el ambiente global');
+});
+
+test('getDb/getDbSG ignoran S.sdtEnv fuera de la herramienta Generar SDT', () => {
+  const w = loadWizard();
+  w.S.platform = 'oracle';
+  w.S.action = 'scripts'; // no es sdtgen
+  w.S.activeEnv = { version: 'V4', platform: 'oracle', fields: { host: 'global', port: '1521', service: 'g', user: 'gu', password: 'gp' } };
+  w.S.sdtEnv = { version: 'V4', platform: 'oracle', fields: { host: 'restos-de-sdtgen', port: '1521', service: 'x', user: 'x', password: 'x' } };
+  assert.equal(w.getDbSG().connectString, 'global:1521/g');
+});
+
+test('commitActiveEnv arma S.activeEnv desde el DOM, lo persiste en localStorage y actualiza el chip', () => {
+  const w = loadWizard();
+  w.S.version = 'V4'; w.S.platform = 'oracle'; w.S.engine = 'oracle';
+  const values = { 'db-conn-name': 'Mi conexion', 'db-host': 'h', 'db-port-o': '1521', 'db-service': 'svc', 'db-user-o': 'u', 'db-pass-o': 'p' };
+  var chip = stubEl();
+  w.document.getElementById = function(id) {
+    if (id === 'env-chip') return chip;
+    if (id in values) return { value: values[id] };
+    return null;
+  };
+  w.document.querySelector = function() { return null; };
+  w.commitActiveEnv();
+  assert.equal(w.S.activeEnv.connName, 'Mi conexion');
+  assert.equal(w.S.activeEnv.fields.host, 'h');
+  const saved = JSON.parse(w.localStorage.getItem('bt_active_environment'));
+  assert.equal(saved.platform, 'oracle');
+  assert.equal(saved.fields.service, 'svc');
+  assert.equal(chip.style.display, 'flex', 'el chip del navbar se muestra al confirmar un ambiente');
+});
+
+test('openEnvSwitcher pide confirmacion si hay una herramienta en curso, y no reabre el paso de ambiente si se cancela', () => {
+  const w = loadWizard();
+  w.document = makeDomStub();
+  w.S.action = 'scripts';
+  w.confirm = function() { return false; };
+  let shown = false;
+  w.show = function() { shown = true; };
+  w.openEnvSwitcher();
+  assert.equal(shown, false, 'si el usuario cancela, no se reabre el paso de ambiente');
+  assert.equal(w.S.action, 'scripts', 'tampoco se pierde la herramienta actual');
+});
+
+test('openEnvSwitcher precarga el DOM con el ambiente activo y reabre el paso de version', () => {
+  const w = loadWizard();
+  const values = {};
+  w.document = makeDomStub();
+  w.document.getElementById = function(id) {
+    if (id === 'db-conn-name') return (values[id] = values[id] || { value: '' });
+    if (/^db-/.test(id)) return (values[id] = values[id] || { value: '' });
+    return stubEl();
+  };
+  w.S.action = 'doc';
+  w.S.activeEnv = { version: 'V4', platform: 'oracle', engine: 'oracle', connName: 'Prod', fields: { host: 'h', port: '1521', service: 's', user: 'u', password: 'p' } };
+  let shownStep = null;
+  w.show = function(step) { shownStep = step; };
+  w.openEnvSwitcher();
+  assert.equal(w.S.action, null, 'se vuelve a elegir herramienta despues de confirmar el ambiente');
+  assert.equal(values['db-host'].value, 'h', 'los campos de conexion se precargan con el ambiente activo');
+  assert.equal(shownStep, 1, 'reabre el paso de Versión');
+});
+
+test('sdtgenEnterOrCapture reutiliza el ambiente activo si ya es V4/Oracle, sin pedir una conexion aparte', () => {
+  const w = loadWizard();
+  w.S.activeEnv = { version: 'V4', platform: 'oracle', engine: 'oracle', fields: { host: 'h', service: 's', user: 'u', password: 'p' } };
+  w.S.sdtEnv = { version: 'V4', platform: 'oracle', fields: {} }; // residuo de una vuelta anterior, debe descartarse
+  let shownStep = null;
+  w.show = function(step) { shownStep = step; };
+  w.sdtgenEnterOrCapture();
+  assert.equal(w.S.sdtEnv, null, 'usa el ambiente global directo, no crea una conexion aparte');
+  assert.equal(w.S.version, 'V4'); assert.equal(w.S.platform, 'oracle'); assert.equal(w.S.engine, 'oracle');
+  assert.equal(shownStep, 4, 'entra directo al paso de elegir el SDT base');
+});
+
+test('sdtgenEnterOrCapture pide una conexion V4/Oracle aparte si el ambiente global no lo es, sin tocarlo', () => {
+  const w = loadWizard();
+  w.S.activeEnv = { version: 'V3', platform: 'sqlserver', engine: null, connName: 'Prod V3', fields: { server: 's', database: 'd', user: 'u', password: 'p' } };
+  w.document = makeDomStub();
+  w.fetch = function() { return Promise.reject(new Error('sin red')); };
+  w.sdtgenEnterOrCapture();
+  assert.equal(w.sdtEnvCaptureActive, true);
+  assert.equal(w.S.version, 'V4'); assert.equal(w.S.platform, 'oracle'); assert.equal(w.S.engine, 'oracle');
+  assert.equal(w.S.activeEnv.platform, 'sqlserver', 'el ambiente global no se toca todavia');
+  assert.equal(w.S.activeEnv.connName, 'Prod V3');
+});
+
+test('sdtEnvCaptureNext promueve la conexion a ambiente global solo si el usuario confirma', () => {
+  const w = loadWizard();
+  const values = { 'db-conn-name': 'SDT temporal', 'db-host': 'h3', 'db-port-o': '1521', 'db-service': 'svc3', 'db-user-o': 'u3', 'db-pass-o': 'p3' };
+  w.document = makeDomStub();
+  w.document.getElementById = function(id) { return (id in values) ? { value: values[id] } : stubEl(); };
+  w._connOk = true;
+  w.confirm = function() { return true; };
+  let shownStep = null;
+  w.show = function(step) { shownStep = step; };
+  w.sdtEnvCaptureNext();
+  assert.equal(w.S.activeEnv.fields.host, 'h3', 'confirmado: la conexion de sdtgen pasa a ser el ambiente global');
+  assert.equal(w.S.sdtEnv, null);
+  assert.equal(w.sdtEnvCaptureActive, false);
+  assert.equal(shownStep, 4);
+});
+
+test('sdtEnvCaptureNext no toca el ambiente global si el usuario no confirma la promocion', () => {
+  const w = loadWizard();
+  const values = { 'db-conn-name': '', 'db-host': 'h4', 'db-port-o': '1521', 'db-service': 'svc4', 'db-user-o': 'u4', 'db-pass-o': 'p4' };
+  w.document = makeDomStub();
+  w.document.getElementById = function(id) { return (id in values) ? { value: values[id] } : stubEl(); };
+  w.S.activeEnv = { version: 'V3', platform: 'sqlserver', fields: { server: 'orig' } };
+  w._connOk = true;
+  w.confirm = function() { return false; };
+  w.show = function() {};
+  w.sdtEnvCaptureNext();
+  assert.equal(w.S.activeEnv.platform, 'sqlserver', 'sin confirmar, el ambiente global no cambia');
+  assert.equal(w.S.sdtEnv.fields.host, 'h4', 'la conexion queda disponible solo para esta sesion de Generar SDT');
+});
+
+test('sdtEnvCaptureNext no hace nada si la conexion todavia no fue probada con exito', () => {
+  const w = loadWizard();
+  w.document = makeDomStub();
+  w._connOk = false;
+  w.S.sdtEnv = null;
+  let shown = false;
+  w.show = function() { shown = true; };
+  w.sdtEnvCaptureNext();
+  assert.equal(w.S.sdtEnv, null);
+  assert.equal(shown, false);
 });
