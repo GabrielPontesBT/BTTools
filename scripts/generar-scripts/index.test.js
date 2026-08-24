@@ -503,20 +503,40 @@ function fieldsData(overrides) {
   return Object.assign({
     nom: 'SdtCliente',
     bti026: [
-      { elemnom: 'nombre', elemlargo: '50', elemdeci: '0', elemdsc: 'Nombre del cliente.', nomit: '' },
+      { version: '1', elemnom: 'nombre', nint: '', obl: 'N', elemcat: 'B', elemtipo: 'string', elemsdt: '', sdtve: '', plano: '', elemlargo: '50', enu: '', val: '', elemdsc: 'Nombre del cliente.', catit: 'B', elemdeci: '0', nomit: '' },
     ],
   }, overrides || {});
 }
 
-test('sg_generateFieldsUpdateScript V4 UPDATEa por posicion (BTINom + posicion, no version) y no toca INSERT/DELETE si no cambio la cantidad', () => {
+test('sg_generateFieldsUpdateScript V4 UPDATEa la fila completa por posicion y no toca INSERT/DELETE si no cambio la cantidad', () => {
   const script = sg_generateFieldsUpdateScript(fieldsData(), 1, 'V4', 'publica');
   assert.doesNotMatch(script, /INSERT|DELETE/);
-  assert.match(script, /^UPDATE BTI026 SET BTISDTELEMNOM='nombre', BTISDTELEMLARGO=50, BTISDTELEMDECI=0, BTISDTELEMDSC='Nombre del cliente\.', BTISDTELEMNOMIT=' ' WHERE BTISDTNOM='SdtCliente' AND BTISDTELEMPOSI=1;$/);
+  assert.match(script, /^UPDATE BTI026 SET .* WHERE BTISDTNOM='SdtCliente' AND BTISDTELEMPOSI=1;$/);
+  assert.ok(script.includes("BTISDTELEMNOM='nombre'"));
+  assert.ok(script.includes('BTISDTELEMLARGO=50'));
+  assert.ok(script.includes("BTISDTELEMTIPO='string'"), 'debe escribir el tipo tambien, no solo las columnas editables');
+  assert.ok(script.includes("BTISDTELEMCAT='B'"));
+});
+
+test('sg_generateFieldsUpdateScript V4 mueve el tipo/categoria JUNTO con el campo reordenado (no se queda pegado a la posicion vieja)', () => {
+  // Simula un reorden: el campo SDT (elemtipo='SdtDireccion', elemcat='S')
+  // que estaba en la posicion 2 ahora es el primero del array.
+  const campoSdt = { version: '1', elemnom: 'direccion', nint: '', obl: 'N', elemcat: 'S', elemtipo: 'SdtDireccion', elemsdt: 'SdtDireccion', sdtve: '1', plano: '', elemlargo: '0', enu: '', val: '', elemdsc: 'Direccion del cliente.', catit: 'B', elemdeci: '0', nomit: '' };
+  const campoBasico = fieldsData().bti026[0];
+  const script = sg_generateFieldsUpdateScript({ nom: 'SdtCliente', bti026: [campoSdt, campoBasico] }, 2, 'V4', 'publica');
+  const lines = script.split('\n');
+  assert.match(lines[0], /WHERE BTISDTNOM='SdtCliente' AND BTISDTELEMPOSI=1;$/);
+  assert.ok(lines[0].includes("BTISDTELEMNOM='direccion'"));
+  assert.ok(lines[0].includes("BTISDTELEMTIPO='SdtDireccion'"), 'la posicion 1 ahora debe tener el tipo del campo SDT que se movio ahi');
+  assert.ok(lines[0].includes("BTISDTELEMCAT='S'"));
+  assert.match(lines[1], /WHERE BTISDTNOM='SdtCliente' AND BTISDTELEMPOSI=2;$/);
+  assert.ok(lines[1].includes("BTISDTELEMNOM='nombre'"));
+  assert.ok(lines[1].includes("BTISDTELEMTIPO='string'"), 'la posicion 2 ahora debe tener el tipo del campo basico que se movio ahi');
 });
 
 test('sg_generateFieldsUpdateScript V4 escapa comillas y preserva el nombre de iterador si viene', () => {
   const script = sg_generateFieldsUpdateScript(fieldsData({
-    bti026: [{ elemnom: "campo'x", elemlargo: '10', elemdeci: '0', elemdsc: "Con ' comilla.", nomit: 'iterA' }],
+    bti026: [Object.assign({}, fieldsData().bti026[0], { elemnom: "campo'x", elemdsc: "Con ' comilla.", nomit: 'iterA' })],
   }), 1, 'V4', 'publica');
   assert.match(script, /BTISDTELEMNOM='campo''x'/);
   assert.match(script, /BTISDTELEMDSC='Con '' comilla\.'/);
@@ -525,7 +545,7 @@ test('sg_generateFieldsUpdateScript V4 escapa comillas y preserva el nombre de i
 
 test('sg_generateFieldsUpdateScript V3 usa el prefijo N, columnas PascalCase y no incluye decimales/iterador (no existen en V3)', () => {
   const script = sg_generateFieldsUpdateScript(fieldsData(), 1, 'V3', 'publica');
-  assert.match(script, /^UPDATE BTI026 SET BTISDTElemNom=N'nombre', BTISDTElemLargo=50, BTISDTElemDsc=N'Nombre del cliente\.' WHERE BTISDTNom=N'SdtCliente' AND BTISDTElemPosi=1;$/);
+  assert.match(script, /^UPDATE BTI026 SET BTISDTElemNom=N'nombre', BTISDTElemTipo=N'string', BTISDTElemLargo=50, BTISDTElemCat=N'B', BTISDTElemDsc=N'Nombre del cliente\.', BTISDTElemSDT=N'' WHERE BTISDTNom=N'SdtCliente' AND BTISDTElemPosi=1;$/);
   assert.doesNotMatch(script, /DECI|NOMIT/);
 });
 
@@ -539,9 +559,13 @@ test('sg_generateFieldsUpdateScript DELETEa por posicion los campos que sobran c
 
 test('sg_generateFieldsUpdateScript (apiMode interna) UPDATEa BTCBS026, no BTI026', () => {
   const script = sg_generateFieldsUpdateScript(fieldsData({
-    bti026: [{ elemnom: "campo'y", elemlargo: '20', elemdeci: '2', elemdsc: 'Descripcion.', nomit: '' }],
+    bti026: [Object.assign({}, fieldsData().bti026[0], { elemnom: "campo'y", elemlargo: '20', elemdeci: '2', elemdsc: 'Descripcion.' })],
   }), 1, 'V4', 'interna');
   assert.ok(script.includes('BTCBS026'));
   assert.ok(!script.includes('BTI026'));
-  assert.match(script, /^UPDATE BTCBS026 SET BSELMNAME='campo''y', BSELMLEN=20, BSELMDECI=2, BSELMDESC='Descripcion\.', BSELMITNAM=' ' WHERE BSSDTNAME='SdtCliente' AND BSELMPOS=1;$/);
+  assert.match(script, /^UPDATE BTCBS026 SET .* WHERE BSSDTNAME='SdtCliente' AND BSELMPOS=1;$/);
+  assert.ok(script.includes("BSELMNAME='campo''y'"));
+  assert.ok(script.includes('BSELMLEN=20'));
+  assert.ok(script.includes('BSELMDECI=2'));
+  assert.ok(script.includes("BSELMDESC='Descripcion.'"));
 });

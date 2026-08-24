@@ -243,9 +243,12 @@ test('buildFieldEdits lanza si la descripcion o el iterador contienen comillas, 
   }
 });
 
-test('buildFieldEdits no toca tipo/categoria/SDT anidado: esta herramienta solo edita nombre/largo/decimales/descripcion/iterador', () => {
-  const built = buildFieldEdits([{ elemnom: 'campoA', elemtipo: 'IgnoradoDeberia', elemcat: 'S', elemsdt: 'SdtIgnorado' }]);
-  assert.deepEqual(Object.keys(built[0]).sort(), ['elemdeci', 'elemdsc', 'elemlargo', 'elemnom', 'nomit'].sort());
+test('buildFieldEdits preserva tipo/categoria/SDT anidado tal cual llegaron (no los valida ni los pisa): esta herramienta solo edita nombre/largo/decimales/descripcion/iterador', () => {
+  const built = buildFieldEdits([{ elemnom: 'campoA', elemtipo: 'SdtDireccion', elemcat: 'S', elemsdt: 'SdtDireccion', sdtve: '1' }]);
+  assert.equal(built[0].elemtipo, 'SdtDireccion', 'el tipo debe preservarse para que un reorden no lo pierda');
+  assert.equal(built[0].elemcat, 'S');
+  assert.equal(built[0].elemsdt, 'SdtDireccion');
+  assert.equal(built[0].sdtve, '1');
 });
 
 test('generateFieldsScript V4 con oldCount=newCount solo emite UPDATE (sin INSERT ni DELETE)', () => {
@@ -268,6 +271,18 @@ test('generateFieldsScript (apiMode interna) genera UPDATE contra BTCBS026, no B
   const script = generateFieldsScript('SdtCliente', sourceFields(), 'V4', 'interna', 2);
   assert.ok(script.includes('BTCBS026'));
   assert.ok(!script.includes('BTI026'));
+});
+
+test('generateFieldsScript soporta reordenar campos: el tipo/categoria viaja junto con el campo movido', () => {
+  const campoBasico = { elemnom: 'nombre', elemtipo: 'string', elemcat: 'B', elemlargo: '50', elemdeci: '0', elemdsc: 'Nombre del cliente.', nomit: '' };
+  const campoSdt = { elemnom: 'direccion', elemtipo: 'SdtDireccion', elemcat: 'S', elemsdt: 'SdtDireccion', sdtve: '1', elemlargo: '0', elemdeci: '0', elemdsc: 'Direccion del cliente.', nomit: '' };
+  // El campo SDT estaba en la posicion 2 y el usuario lo arrastro a la 1.
+  const script = generateFieldsScript('SdtCliente', [campoSdt, campoBasico], 'V4', 'publica', 2);
+  const lines = script.split('\n');
+  assert.match(lines[0], /BTISDTELEMPOSI=1;$/);
+  assert.ok(lines[0].includes("BTISDTELEMNOM='direccion'") && lines[0].includes("BTISDTELEMTIPO='SdtDireccion'"));
+  assert.match(lines[1], /BTISDTELEMPOSI=2;$/);
+  assert.ok(lines[1].includes("BTISDTELEMNOM='nombre'") && lines[1].includes("BTISDTELEMTIPO='string'"));
 });
 
 test('suggestParamShape devuelve null si no hay candidatos', () => {

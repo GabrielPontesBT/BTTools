@@ -234,6 +234,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .pg-param-card:last-child{border-bottom:none}
 .pg-param-card.invalid{background:var(--red-l)}
 .pg-param-card .sdtgen-field-err{padding-left:0}
+.pg-param-card[draggable="true"]{cursor:grab}
+.pg-param-card.dragging{opacity:.4}
+.pg-param-card .sdtgen-drag-handle{color:var(--muted);font-size:16px;flex-shrink:0;align-self:center}
 .pg-param-top{display:flex;gap:var(--sp-3);align-items:flex-end;margin-bottom:var(--sp-3)}
 .pg-param-top .sdtgen-field-rm{border:none;background:none;color:var(--red);font-size:20px;cursor:pointer;padding:0 4px;flex-shrink:0}
 .pg-suggest-badge{color:var(--green);font-size:var(--fs-sm);font-weight:600;align-self:center;white-space:nowrap;flex-shrink:0}

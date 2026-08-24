@@ -400,16 +400,18 @@ function sg_generateSdtScript(sdt, mode, version, apiMode) {
 
 // Genera UPDATE (+ DELETE por posicion si se quitan campos) para los campos
 // de un SDT YA EXISTENTE, misma filosofia que sg_generateParamsUpdateScript
-// para BTI019: la UI que la usa (editar-parametria) no permite reordenar ni
-// agregar campos nuevos, asi que la posicion 1..oldCount ya identifica una
-// fila real en la base y sobreescribirla con UPDATE es mas quirurgico que
-// borrar todo el SDT y reinsertarlo (que es lo que hace sg_generateSdtScript,
-// pensado para clonar un SDT entero en "Generar SDT", no para corregir uno
-// existente). Solo toca las columnas editables en ese flujo (elemnom,
-// elemlargo, elemdeci, elemdsc, nomit) — el resto (tipo, categoria, SDT
-// anidado, obligatoriedad, etc.) se preserva tal cual esta.
-//   i = 1..min(oldCount,newCount): UPDATE (la fila ya existia en esa posicion)
-//   i = newCount+1..oldCount:      DELETE (fila removida, sobra en la base)
+// para BTI019: no se agregan campos nuevos (para eso sigue "Generar SDT"),
+// asi que la posicion 1..oldCount ya identifica una fila real en la base y
+// sobreescribirla con UPDATE es mas quirurgico que borrar todo el SDT y
+// reinsertarlo (que es lo que hace sg_generateSdtScript). A diferencia de
+// sg_generateParamsUpdateScript, la UI SI permite reordenar los campos (ver
+// public/wizard-doc.js, pgRenderSdtEditor): por eso el UPDATE escribe la fila
+// COMPLETA (tipo, categoria, SDT anidado, obligatoriedad, etc.), no solo las
+// columnas editables. Si solo se pisaran elemnom/elemlargo/elemdeci/elemdsc/
+// nomit, un campo movido de posicion terminaria con el tipo/categoria de
+// OTRO campo que antes estaba ahi -- moverlo tiene que mover la fila entera.
+//   i = 1..min(oldCount,newCount): UPDATE (esa posicion ya existia en la base)
+//   i = newCount+1..oldCount:      DELETE (posicion removida, sobra en la base)
 function btcbs_generateFieldsUpdateScript(sdt, oldCount) {
   const nom = sdt.nom || '', b26 = sdt.bti026 || [];
   const newCount = b26.length;
@@ -417,8 +419,19 @@ function btcbs_generateFieldsUpdateScript(sdt, oldCount) {
   const lines = [];
   for (let i = 0; i < Math.min(oldCount, newCount); i++) {
     const e = b26[i], posi = i + 1;
+    const sdtNm = e.elemsdt ? q(e.elemsdt) : "' '";
+    const sdtve = e.sdtve ? q(e.sdtve) : "' '";
+    const plano = e.plano ? q(e.plano) : "' '";
+    const enu = e.enu ? q(e.enu) : "' '";
+    const val = e.val ? q(e.val) : "' '";
+    const catit = e.catit ? q(e.catit) : "' '";
     const nomit = e.nomit ? q(e.nomit) : "' '";
-    const sets = ['BSELMNAME='+q(e.elemnom), 'BSELMLEN='+sg_nq(e.elemlargo), 'BSELMDECI='+sg_nq(e.elemdeci), 'BSELMDESC='+q(e.elemdsc), 'BSELMITNAM='+nomit].join(', ');
+    const sets = [
+      'BSSDTVER='+q(e.version||'1'), 'BSELMNAME='+q(e.elemnom), 'BSELMDESC='+q(e.elemdsc), 'BSELMINTNM='+q(e.nint||''),
+      'BSELMISREQ='+sn_num(e.obl||'N'), 'BSELMCAT='+q(e.elemcat), 'BSEIMITCAT='+catit, 'BSELMITNAM='+nomit,
+      'BSELMTYPE='+q(e.elemtipo), 'BSELMSDTNM='+sdtNm, 'BSELMSDTVE='+sdtve, 'BSELMFLAT='+plano,
+      'BSELMLEN='+sg_nq(e.elemlargo), 'BSELMDECI='+sg_nq(e.elemdeci), 'BSELMENUM='+enu, 'BSELMVALS='+val,
+    ].join(', ');
     lines.push('UPDATE BTCBS026 SET '+sets+' WHERE BSSDTNAME='+q(nom)+' AND BSELMPOS='+posi+';');
   }
   if (oldCount > newCount) {
@@ -431,7 +444,7 @@ function sg_generateFieldsUpdateScript(sdt, oldCount, version, apiMode) {
   if (version === 'V4' && apiMode === 'interna') return btcbs_generateFieldsUpdateScript(sdt, oldCount);
   const nom = sdt.nom || '', b26 = sdt.bti026 || [];
   const newCount = b26.length;
-  const q = (v, nullable) => sg_sq(v, version, nullable);
+  const q = (v) => sg_sq(v, version);
   const nomCol = version === 'V3' ? 'BTISDTNom' : 'BTISDTNOM';
   const posiCol = version === 'V3' ? 'BTISDTElemPosi' : 'BTISDTELEMPOSI';
   const lines = [];
@@ -439,10 +452,26 @@ function sg_generateFieldsUpdateScript(sdt, oldCount, version, apiMode) {
     const e = b26[i], posi = i + 1;
     let sets;
     if (version === 'V3') {
-      sets = ['BTISDTElemNom='+q(e.elemnom), 'BTISDTElemLargo='+sg_nq(e.elemlargo), 'BTISDTElemDsc='+q(e.elemdsc)].join(', ');
+      sets = [
+        'BTISDTElemNom='+q(e.elemnom), 'BTISDTElemTipo='+q(e.elemtipo), 'BTISDTElemLargo='+sg_nq(e.elemlargo),
+        'BTISDTElemCat='+q(e.elemcat), 'BTISDTElemDsc='+q(e.elemdsc), 'BTISDTElemSDT='+q(e.elemsdt||''),
+      ].join(', ');
     } else {
+      const dsc = e.elemdsc ? q(e.elemdsc) : "' '";
+      const sdtNm = e.elemsdt ? q(e.elemsdt) : "' '";
+      const sdtve = e.sdtve ? q(e.sdtve) : "' '";
+      const plano = e.plano ? q(e.plano) : "' '";
+      const enu = e.enu ? q(e.enu) : "' '";
+      const val = e.val ? q(e.val) : "' '";
+      const catit = e.catit ? q(e.catit) : "' '";
       const nomit = e.nomit ? q(e.nomit) : "' '";
-      sets = ['BTISDTELEMNOM='+q(e.elemnom), 'BTISDTELEMLARGO='+sg_nq(e.elemlargo), 'BTISDTELEMDECI='+sg_nq(e.elemdeci), 'BTISDTELEMDSC='+q(e.elemdsc), 'BTISDTELEMNOMIT='+nomit].join(', ');
+      sets = [
+        'BTISDTVERSION='+q(e.version||'1'), 'BTISDTELEMNOM='+q(e.elemnom), 'BTISDTELEMNINT='+q(e.nint||''),
+        'BTISDTELEMOBL='+q(e.obl||'N'), 'BTISDTELEMCAT='+q(e.elemcat), 'BTISDTELEMTIPO='+q(e.elemtipo),
+        'BTISDTELEMSDT='+sdtNm, 'BTISDTELEMSDTVE='+sdtve, 'BTISDTELEMPLANO='+plano, 'BTISDTELEMLARGO='+sg_nq(e.elemlargo),
+        'BTISDTELEMENU='+enu, 'BTISDTELEMVAL='+val, 'BTISDTELEMDSC='+dsc, 'BTISDTELEMCATIT='+catit,
+        'BTISDTELEMDECI='+sg_nq(e.elemdeci), 'BTISDTELEMNOMIT='+nomit,
+      ].join(', ');
     }
     lines.push('UPDATE BTI026 SET '+sets+' WHERE '+nomCol+'='+q(nom)+' AND '+posiCol+'='+posi+';');
   }

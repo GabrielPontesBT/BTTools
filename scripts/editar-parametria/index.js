@@ -131,12 +131,17 @@ function generateParamsScript(service, srvver, method, editedParams, version, ap
 
 // editedFields: array ordenado de campos de UN SDT existente, mismo shape
 // que sg_queryBti026 (setup.js): elemnom, elemlargo, elemdeci, elemdsc,
-// nomit (el resto de columnas -- tipo, categoria, SDT anidado, etc. -- no se
-// tocan desde esta herramienta: para eso esta "Generar SDT"). Solo se puede
-// editar o quitar campos, no agregar: la posicion 1..N ya identifica una
-// fila real de la base (igual que en buildParams para BTI019), y agregar un
-// campo nuevo requeriria elegir su tipo/categoria, que es exactamente el
-// flujo que ya cubre "Generar SDT" (copiar un SDT nativo).
+// nomit son los unicos editables desde esta herramienta (el resto -- tipo,
+// categoria, SDT anidado, obligatoriedad, etc. -- se preserva tal cual llego,
+// via Object.assign). Solo se puede editar, quitar o REORDENAR campos, no
+// agregar uno nuevo: eso requeriria elegirle tipo/categoria, que es
+// exactamente el flujo que ya cubre "Generar SDT" (copiar un SDT nativo).
+//
+// Importante para el reorden: se preserva la fila COMPLETA (no solo las
+// columnas editables) porque sg_generateFieldsUpdateScript escribe el campo
+// entero en su nueva posicion. Si solo se pisaran elemnom/elemlargo/
+// elemdeci/elemdsc/nomit, un campo movido de posicion terminaria con el
+// tipo/categoria de OTRO campo que antes estaba ahi.
 function buildFieldEdits(editedFields) {
   if (!Array.isArray(editedFields) || !editedFields.length) {
     throw new Error('La lista de campos no puede quedar vacia.');
@@ -153,7 +158,7 @@ function buildFieldEdits(editedFields) {
     if (!isValidParamText(elemdsc)) throw new Error('Descripcion invalida para el campo ' + elemnom + ': ' + FORBIDDEN_TEXT_ERR);
     const nomit = src.nomit || '';
     if (nomit && !isValidParamText(nomit)) throw new Error('Nombre de iterador invalido para el campo ' + elemnom + ': ' + FORBIDDEN_TEXT_ERR);
-    return { elemnom, elemlargo, elemdeci, elemdsc, nomit };
+    return Object.assign({}, src, { elemnom, elemlargo, elemdeci, elemdsc, nomit });
   });
 }
 

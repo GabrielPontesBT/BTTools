@@ -46,6 +46,7 @@ var pgTargetMode = 'method'; // 'method' = editar BTI019 (parametros); 'sdt' = e
 var pgSelectedSdtName = null;
 var pgSdtFields = []; // copia de trabajo de los campos del SDT elegido, en el orden en que se cargaron (no reordenable, no se agregan campos nuevos)
 var pgSdtOriginalCount = 0; // cantidad de campos que tenia el SDT al cargar, para el UPDATE/DELETE (ver generateFieldsScript)
+var pgSdtDragIdx = null; // indice de la tarjeta que se esta arrastrando para reordenar (solo modo SDT: en modo metodo la posicion no se puede cambiar)
 
 async function sdtgenLoadList() {
   var loading = document.getElementById('sdtgen-list-loading'), err = document.getElementById('sdtgen-list-err');
@@ -470,7 +471,7 @@ function pgEscapeAttr(s) {
 // de conexion dejaba el paso 4 mostrando el servicio/metodo de otra corrida.
 function pgInvalidateState() {
   pgServicesLoaded = false; pgAllServices = []; pgSelectedService = null; pgSelectedMethod = null; pgFields = []; pgOriginalCount = 0;
-  pgSelectedSdtName = null; pgSdtFields = []; pgSdtOriginalCount = 0;
+  pgSelectedSdtName = null; pgSdtFields = []; pgSdtOriginalCount = 0; pgSdtDragIdx = null;
   var svcSel = document.getElementById('pg-sel-svc'); if (svcSel) svcSel.innerHTML = '<option value="">-- Seleccionar --</option>';
   var mtdSel = document.getElementById('pg-sel-mtd'); if (mtdSel) mtdSel.innerHTML = '<option value="">-- Seleccionar --</option>';
   var sdtSearch = document.getElementById('pg-sdt-search'); if (sdtSearch) sdtSearch.value = '';
@@ -593,7 +594,7 @@ async function pgGoToSdtEdit() {
     pgSdtFields = (d.bti026 || []).map(function(f) { return Object.assign({}, f); });
     pgSdtOriginalCount = pgSdtFields.length;
     document.getElementById('pg-mtd-name').textContent = pgSelectedSdtName + (d.bti025 && d.bti025.version ? ' (v' + d.bti025.version + ')' : '');
-    document.getElementById('pg-edit-sub').textContent = 'Editá o quitá campos. El orden de carga define la posición (BTISDTELEMPOSI) y no se puede cambiar; para agregar campos nuevos usá "Generar SDT".';
+    document.getElementById('pg-edit-sub').textContent = 'Editá, quitá o arrastrá para reordenar campos. Para agregar campos nuevos usá "Generar SDT".';
     await pgLoadSdtOptions();
     show(5);
   } catch(e) {
@@ -973,9 +974,11 @@ function pgRenderSdtEditor() {
   pgSdtFields.forEach(function(field, idx) {
     var card = document.createElement('div');
     card.className = 'pg-param-card';
+    card.draggable = true;
 
     card.innerHTML =
       '<div class="pg-param-top">' +
+        '<span class="sdtgen-drag-handle" title="Arrastrá para reordenar">&#9776;</span>' +
         '<div class="pg-fgroup pg-fgroup-grow"><label class="pg-flabel">Nombre</label><input type="text" class="sdtgen-field-input pg-input-elemnom" value="' + pgEscapeAttr(field.elemnom) + '"></div>' +
         '<span class="pg-suggest-badge" style="display:none">&#10003; autocompletado</span>' +
         '<button type="button" class="sdtgen-field-rm" title="Quitar">&times;</button>' +
@@ -1009,6 +1012,20 @@ function pgRenderSdtEditor() {
       pgSdtFields.splice(idx, 1);
       pgRenderSdtEditor();
     };
+    card.addEventListener('dragstart', function(e) {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON')) { e.preventDefault(); return; }
+      pgSdtDragIdx = idx; card.classList.add('dragging');
+    });
+    card.addEventListener('dragend', function() { card.classList.remove('dragging'); });
+    card.addEventListener('dragover', function(e) { e.preventDefault(); });
+    card.addEventListener('drop', function(e) {
+      e.preventDefault();
+      if (pgSdtDragIdx === null || pgSdtDragIdx === idx) return;
+      var moved = pgSdtFields.splice(pgSdtDragIdx, 1)[0];
+      pgSdtFields.splice(idx, 0, moved);
+      pgSdtDragIdx = null;
+      pgRenderSdtEditor();
+    });
     container.appendChild(card);
   });
 }
@@ -1141,7 +1158,7 @@ async function pgExecuteSdtFields() {
 
 function pgReset() {
   pgSelectedService = null; pgSelectedMethod = null; pgFields = []; pgOriginalCount = 0; pgServicesLoaded = false;
-  pgSelectedSdtName = null; pgSdtFields = []; pgSdtOriginalCount = 0;
+  pgSelectedSdtName = null; pgSdtFields = []; pgSdtOriginalCount = 0; pgSdtDragIdx = null;
   var svcSel = document.getElementById('pg-sel-svc'); if (svcSel) svcSel.innerHTML = '<option value="">-- Seleccionar --</option>';
   var mtdSel = document.getElementById('pg-sel-mtd'); if (mtdSel) mtdSel.innerHTML = '<option value="">-- Seleccionar --</option>';
   var sdtSearch = document.getElementById('pg-sdt-search'); if (sdtSearch) sdtSearch.value = '';
