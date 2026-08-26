@@ -256,9 +256,11 @@ test('generateFieldsScript V4 con oldCount=newCount solo emite UPDATE (sin INSER
   assert.ok(!script.includes('INSERT'), 'esta herramienta no agrega campos nuevos');
   assert.ok(!script.includes('DELETE'), 'sin remociones no debe haber DELETE');
   const lines = script.split('\n').filter(Boolean);
-  assert.equal(lines.length, 2);
-  assert.match(lines[0], /^UPDATE BTI026 SET .* WHERE BTISDTNOM='SdtCliente' AND BTISDTELEMPOSI=1;$/);
-  assert.ok(lines[0].includes("BTISDTELEMNOM='nombre'"));
+  // fase 0 (blanquear nombre por posicion) + fase 1 (UPDATE completo) por
+  // cada uno de los 2 campos -- ver ORA-00001 en sg_generateFieldsUpdateScript.
+  assert.equal(lines.length, 4);
+  assert.match(lines[2], /^UPDATE BTI026 SET .* WHERE BTISDTNOM='SdtCliente' AND BTISDTELEMPOSI=1;$/);
+  assert.ok(lines[2].includes("BTISDTELEMNOM='nombre'"));
 });
 
 test('generateFieldsScript DELETEa por posicion los campos que sobran cuando se quita uno', () => {
@@ -279,10 +281,12 @@ test('generateFieldsScript soporta reordenar campos: el tipo/categoria viaja jun
   // El campo SDT estaba en la posicion 2 y el usuario lo arrastro a la 1.
   const script = generateFieldsScript('SdtCliente', [campoSdt, campoBasico], 'V4', 'publica', 2);
   const lines = script.split('\n');
-  assert.match(lines[0], /BTISDTELEMPOSI=1;$/);
-  assert.ok(lines[0].includes("BTISDTELEMNOM='direccion'") && lines[0].includes("BTISDTELEMTIPO='SdtDireccion'"));
-  assert.match(lines[1], /BTISDTELEMPOSI=2;$/);
-  assert.ok(lines[1].includes("BTISDTELEMNOM='nombre'") && lines[1].includes("BTISDTELEMTIPO='string'"));
+  // Las primeras 2 lineas son la fase 0 (blanquear nombre por posicion);
+  // las lineas 2-3 son la fase 1 (UPDATE de la fila completa).
+  assert.match(lines[2], /BTISDTELEMPOSI=1;$/);
+  assert.ok(lines[2].includes("BTISDTELEMNOM='direccion'") && lines[2].includes("BTISDTELEMTIPO='SdtDireccion'"));
+  assert.match(lines[3], /BTISDTELEMPOSI=2;$/);
+  assert.ok(lines[3].includes("BTISDTELEMNOM='nombre'") && lines[3].includes("BTISDTELEMTIPO='string'"));
 });
 
 test('suggestParamShape devuelve null si no hay candidatos', () => {
@@ -681,7 +685,9 @@ test('executeFieldEdits (SQL Server) DELETEa por posicion cuando se quito un cam
     queryBti026: async () => sourceFields(),
   }));
   await feature.executeFieldEdits('sqlserver', {}, 'V4', 'SdtCliente', sourceFields().slice(0, 1), 'publica');
-  assert.equal(queriesRun.filter(q => q.startsWith('UPDATE BTI026')).length, 1);
+  // fase 0 (blanquear nombre) + fase 1 (UPDATE completo) para la unica
+  // posicion tocada, ver ORA-00001 en sg_generateFieldsUpdateScript.
+  assert.equal(queriesRun.filter(q => q.startsWith('UPDATE BTI026')).length, 2);
   assert.ok(queriesRun.some(q => q.startsWith('DELETE FROM BTI026') && q.includes('BTISDTELEMPOSI > 1')));
 });
 

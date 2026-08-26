@@ -412,12 +412,26 @@ function sg_generateSdtScript(sdt, mode, version, apiMode) {
 // OTRO campo que antes estaba ahi -- moverlo tiene que mover la fila entera.
 //   i = 1..min(oldCount,newCount): UPDATE (esa posicion ya existia en la base)
 //   i = newCount+1..oldCount:      DELETE (posicion removida, sobra en la base)
+// Nombre temporal, unico por posicion dentro del SDT (la posicion 1..newCount
+// nunca se repite), usado por la "fase 0" de sg_generateFieldsUpdateScript /
+// btcbs_generateFieldsUpdateScript para blanquear la columna de nombre de
+// campo antes de reescribirla. Ver el comentario sobre ORA-00001 mas abajo.
+function sg_tempElemName(posi) { return '~TMP~' + posi; }
+
 function btcbs_generateFieldsUpdateScript(sdt, oldCount) {
   const nom = sdt.nom || '', b26 = sdt.bti026 || [];
   const newCount = b26.length;
   const q = (v, nullable) => btcbs_sq(v, nullable);
   const lines = [];
-  for (let i = 0; i < Math.min(oldCount, newCount); i++) {
+  const touched = Math.min(oldCount, newCount);
+  // Fase 0: blanquear BSELMNAME (unique por SDT) a un valor temporal antes de
+  // reescribir filas por posicion. Ver comentario extenso en la version V4/V3
+  // (sg_generateFieldsUpdateScript) sobre por que hace falta esto.
+  for (let i = 0; i < touched; i++) {
+    const posi = i + 1;
+    lines.push('UPDATE BTCBS026 SET BSELMNAME='+q(sg_tempElemName(posi))+' WHERE BSSDTNAME='+q(nom)+' AND BSELMPOS='+posi+';');
+  }
+  for (let i = 0; i < touched; i++) {
     const e = b26[i], posi = i + 1;
     const sdtNm = e.elemsdt ? q(e.elemsdt) : "' '";
     const sdtve = e.sdtve ? q(e.sdtve) : "' '";
@@ -447,8 +461,28 @@ function sg_generateFieldsUpdateScript(sdt, oldCount, version, apiMode) {
   const q = (v) => sg_sq(v, version);
   const nomCol = version === 'V3' ? 'BTISDTNom' : 'BTISDTNOM';
   const posiCol = version === 'V3' ? 'BTISDTElemPosi' : 'BTISDTELEMPOSI';
+  const elemNomCol = version === 'V3' ? 'BTISDTElemNom' : 'BTISDTELEMNOM';
   const lines = [];
-  for (let i = 0; i < Math.min(oldCount, newCount); i++) {
+  const touched = Math.min(oldCount, newCount);
+  // Fase 0: si se reordenaron campos (drag-and-drop, ver pgRenderSdtEditor en
+  // public/wizard-doc.js), el UPDATE de abajo reescribe la fila COMPLETA que
+  // hoy esta en cada posicion con los datos del campo que quedo ahi (asi
+  // viaja tipo/categoria/SDT anidado junto con el campo, no solo su nombre).
+  // Eso esta bien para el estado FINAL, pero las sentencias corren una por
+  // una dentro de la misma transaccion: si dos campos "cruzan" posiciones
+  // (A pasa a la posicion de B y viceversa), la primera UPDATE dejaria
+  // transitoriamente dos filas con el mismo (BTISDTNOM, BTISDTELEMNOM) antes
+  // de que la segunda UPDATE resuelva el cruce -- Oracle valida el UNIQUE al
+  // final de CADA sentencia (no es diferible), y tira ORA-00001 aunque el
+  // resultado final del script sea perfectamente valido. Blanquear el nombre
+  // a un valor temporal unico-por-posicion en una pasada aparte, ANTES de
+  // reescribir las filas, elimina esa colision transitoria sin necesidad de
+  // detectar si hubo o no un cruce.
+  for (let i = 0; i < touched; i++) {
+    const posi = i + 1;
+    lines.push('UPDATE BTI026 SET '+elemNomCol+'='+q(sg_tempElemName(posi))+' WHERE '+nomCol+'='+q(nom)+' AND '+posiCol+'='+posi+';');
+  }
+  for (let i = 0; i < touched; i++) {
     const e = b26[i], posi = i + 1;
     let sets;
     if (version === 'V3') {

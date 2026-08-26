@@ -511,11 +511,14 @@ function fieldsData(overrides) {
 test('sg_generateFieldsUpdateScript V4 UPDATEa la fila completa por posicion y no toca INSERT/DELETE si no cambio la cantidad', () => {
   const script = sg_generateFieldsUpdateScript(fieldsData(), 1, 'V4', 'publica');
   assert.doesNotMatch(script, /INSERT|DELETE/);
-  assert.match(script, /^UPDATE BTI026 SET .* WHERE BTISDTNOM='SdtCliente' AND BTISDTELEMPOSI=1;$/);
-  assert.ok(script.includes("BTISDTELEMNOM='nombre'"));
-  assert.ok(script.includes('BTISDTELEMLARGO=50'));
-  assert.ok(script.includes("BTISDTELEMTIPO='string'"), 'debe escribir el tipo tambien, no solo las columnas editables');
-  assert.ok(script.includes("BTISDTELEMCAT='B'"));
+  const lines = script.split('\n');
+  assert.equal(lines.length, 2, 'fase 0 (blanquear nombre) + fase 1 (UPDATE completo), ver ORA-00001');
+  assert.match(lines[0], /^UPDATE BTI026 SET BTISDTELEMNOM='~TMP~1' WHERE BTISDTNOM='SdtCliente' AND BTISDTELEMPOSI=1;$/);
+  assert.match(lines[1], /^UPDATE BTI026 SET .* WHERE BTISDTNOM='SdtCliente' AND BTISDTELEMPOSI=1;$/);
+  assert.ok(lines[1].includes("BTISDTELEMNOM='nombre'"));
+  assert.ok(lines[1].includes('BTISDTELEMLARGO=50'));
+  assert.ok(lines[1].includes("BTISDTELEMTIPO='string'"), 'debe escribir el tipo tambien, no solo las columnas editables');
+  assert.ok(lines[1].includes("BTISDTELEMCAT='B'"));
 });
 
 test('sg_generateFieldsUpdateScript V4 mueve el tipo/categoria JUNTO con el campo reordenado (no se queda pegado a la posicion vieja)', () => {
@@ -525,13 +528,40 @@ test('sg_generateFieldsUpdateScript V4 mueve el tipo/categoria JUNTO con el camp
   const campoBasico = fieldsData().bti026[0];
   const script = sg_generateFieldsUpdateScript({ nom: 'SdtCliente', bti026: [campoSdt, campoBasico] }, 2, 'V4', 'publica');
   const lines = script.split('\n');
-  assert.match(lines[0], /WHERE BTISDTNOM='SdtCliente' AND BTISDTELEMPOSI=1;$/);
-  assert.ok(lines[0].includes("BTISDTELEMNOM='direccion'"));
-  assert.ok(lines[0].includes("BTISDTELEMTIPO='SdtDireccion'"), 'la posicion 1 ahora debe tener el tipo del campo SDT que se movio ahi');
-  assert.ok(lines[0].includes("BTISDTELEMCAT='S'"));
-  assert.match(lines[1], /WHERE BTISDTNOM='SdtCliente' AND BTISDTELEMPOSI=2;$/);
-  assert.ok(lines[1].includes("BTISDTELEMNOM='nombre'"));
-  assert.ok(lines[1].includes("BTISDTELEMTIPO='string'"), 'la posicion 2 ahora debe tener el tipo del campo basico que se movio ahi');
+  // 2 UPDATE de fase 0 (blanquear nombre por posicion) + 2 UPDATE de fase 1 (fila completa).
+  assert.equal(lines.length, 4);
+  assert.match(lines[2], /WHERE BTISDTNOM='SdtCliente' AND BTISDTELEMPOSI=1;$/);
+  assert.ok(lines[2].includes("BTISDTELEMNOM='direccion'"));
+  assert.ok(lines[2].includes("BTISDTELEMTIPO='SdtDireccion'"), 'la posicion 1 ahora debe tener el tipo del campo SDT que se movio ahi');
+  assert.ok(lines[2].includes("BTISDTELEMCAT='S'"));
+  assert.match(lines[3], /WHERE BTISDTNOM='SdtCliente' AND BTISDTELEMPOSI=2;$/);
+  assert.ok(lines[3].includes("BTISDTELEMNOM='nombre'"));
+  assert.ok(lines[3].includes("BTISDTELEMTIPO='string'"), 'la posicion 2 ahora debe tener el tipo del campo basico que se movio ahi');
+});
+
+test('sg_generateFieldsUpdateScript V4 blanquea el nombre a un valor temporal unico por posicion ANTES de reescribir la fila (evita ORA-00001 al cruzar posiciones)', () => {
+  // Reproduce el bug real: dos campos "cruzan" posiciones (A pasa a donde
+  // estaba B y viceversa). Si el UPDATE de la fila completa corriera antes
+  // de blanquear el nombre, la primera sentencia dejaria transitoriamente
+  // dos filas con el mismo BTISDTELEMNOM y Oracle tiraria ORA-00001 por el
+  // UNIQUE (BTISDTNOM, BTISDTELEMNOM), aunque el estado final sea valido.
+  const campoA = Object.assign({}, fieldsData().bti026[0], { elemnom: 'campoA' });
+  const campoB = Object.assign({}, fieldsData().bti026[0], { elemnom: 'campoB' });
+  // Estado viejo en la base: posicion 1 = campoA, posicion 2 = campoB.
+  // Estado nuevo (reordenado): posicion 1 = campoB, posicion 2 = campoA.
+  const script = sg_generateFieldsUpdateScript({ nom: 'SdtCliente', bti026: [campoB, campoA] }, 2, 'V4', 'publica');
+  const lines = script.split('\n');
+  assert.equal(lines.length, 4);
+  // Fase 0: las dos posiciones se blanquean a un valor temporal unico-por-
+  // posicion ANTES de que cualquier UPDATE toque el nombre real -- en
+  // ningun punto de la ejecucion secuencial hay dos filas con el mismo
+  // BTISDTELEMNOM.
+  assert.match(lines[0], /^UPDATE BTI026 SET BTISDTELEMNOM='~TMP~1' WHERE BTISDTNOM='SdtCliente' AND BTISDTELEMPOSI=1;$/);
+  assert.match(lines[1], /^UPDATE BTI026 SET BTISDTELEMNOM='~TMP~2' WHERE BTISDTNOM='SdtCliente' AND BTISDTELEMPOSI=2;$/);
+  // Fase 1: recien aca se escribe el nombre final, ya sin riesgo de colision
+  // porque las dos filas dejaron de compartir el nombre real en el medio.
+  assert.ok(lines[2].includes("BTISDTELEMNOM='campoB'") && lines[2].includes('BTISDTELEMPOSI=1'));
+  assert.ok(lines[3].includes("BTISDTELEMNOM='campoA'") && lines[3].includes('BTISDTELEMPOSI=2'));
 });
 
 test('sg_generateFieldsUpdateScript V4 escapa comillas y preserva el nombre de iterador si viene', () => {
@@ -545,14 +575,17 @@ test('sg_generateFieldsUpdateScript V4 escapa comillas y preserva el nombre de i
 
 test('sg_generateFieldsUpdateScript V3 usa el prefijo N, columnas PascalCase y no incluye decimales/iterador (no existen en V3)', () => {
   const script = sg_generateFieldsUpdateScript(fieldsData(), 1, 'V3', 'publica');
-  assert.match(script, /^UPDATE BTI026 SET BTISDTElemNom=N'nombre', BTISDTElemTipo=N'string', BTISDTElemLargo=50, BTISDTElemCat=N'B', BTISDTElemDsc=N'Nombre del cliente\.', BTISDTElemSDT=N'' WHERE BTISDTNom=N'SdtCliente' AND BTISDTElemPosi=1;$/);
+  const lines = script.split('\n');
+  assert.equal(lines.length, 2);
+  assert.match(lines[0], /^UPDATE BTI026 SET BTISDTElemNom=N'~TMP~1' WHERE BTISDTNom=N'SdtCliente' AND BTISDTElemPosi=1;$/);
+  assert.match(lines[1], /^UPDATE BTI026 SET BTISDTElemNom=N'nombre', BTISDTElemTipo=N'string', BTISDTElemLargo=50, BTISDTElemCat=N'B', BTISDTElemDsc=N'Nombre del cliente\.', BTISDTElemSDT=N'' WHERE BTISDTNom=N'SdtCliente' AND BTISDTElemPosi=1;$/);
   assert.doesNotMatch(script, /DECI|NOMIT/);
 });
 
 test('sg_generateFieldsUpdateScript DELETEa por posicion los campos que sobran cuando se quita uno (sin INSERT: no se agregan campos nuevos)', () => {
   const script = sg_generateFieldsUpdateScript(fieldsData(), 3, 'V4', 'publica');
   const updateLines = script.split('\n').filter(l => l.startsWith('UPDATE'));
-  assert.equal(updateLines.length, 1);
+  assert.equal(updateLines.length, 2, 'fase 0 (blanquear nombre) + fase 1 (UPDATE completo) para la unica posicion tocada');
   assert.match(script, /DELETE FROM BTI026 WHERE BTISDTNOM='SdtCliente' AND BTISDTELEMPOSI > 1;/);
   assert.doesNotMatch(script, /INSERT/);
 });
@@ -563,9 +596,22 @@ test('sg_generateFieldsUpdateScript (apiMode interna) UPDATEa BTCBS026, no BTI02
   }), 1, 'V4', 'interna');
   assert.ok(script.includes('BTCBS026'));
   assert.ok(!script.includes('BTI026'));
-  assert.match(script, /^UPDATE BTCBS026 SET .* WHERE BSSDTNAME='SdtCliente' AND BSELMPOS=1;$/);
-  assert.ok(script.includes("BSELMNAME='campo''y'"));
-  assert.ok(script.includes('BSELMLEN=20'));
-  assert.ok(script.includes('BSELMDECI=2'));
-  assert.ok(script.includes("BSELMDESC='Descripcion.'"));
+  const lines = script.split('\n');
+  assert.equal(lines.length, 2);
+  assert.match(lines[0], /^UPDATE BTCBS026 SET BSELMNAME='~TMP~1' WHERE BSSDTNAME='SdtCliente' AND BSELMPOS=1;$/);
+  assert.match(lines[1], /^UPDATE BTCBS026 SET .* WHERE BSSDTNAME='SdtCliente' AND BSELMPOS=1;$/);
+  assert.ok(lines[1].includes("BSELMNAME='campo''y'"));
+  assert.ok(lines[1].includes('BSELMLEN=20'));
+  assert.ok(lines[1].includes('BSELMDECI=2'));
+  assert.ok(lines[1].includes("BSELMDESC='Descripcion.'"));
+});
+
+test('sg_generateFieldsUpdateScript (apiMode interna) tambien blanquea BSELMNAME antes de reescribir (mismo fix de ORA-00001 que la API publica)', () => {
+  const campoA = Object.assign({}, fieldsData().bti026[0], { elemnom: 'campoA' });
+  const campoB = Object.assign({}, fieldsData().bti026[0], { elemnom: 'campoB' });
+  const script = sg_generateFieldsUpdateScript({ nom: 'SdtCliente', bti026: [campoB, campoA] }, 2, 'V4', 'interna');
+  const lines = script.split('\n');
+  assert.equal(lines.length, 4);
+  assert.match(lines[0], /^UPDATE BTCBS026 SET BSELMNAME='~TMP~1' WHERE BSSDTNAME='SdtCliente' AND BSELMPOS=1;$/);
+  assert.match(lines[1], /^UPDATE BTCBS026 SET BSELMNAME='~TMP~2' WHERE BSSDTNAME='SdtCliente' AND BSELMPOS=2;$/);
 });
