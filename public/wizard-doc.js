@@ -982,11 +982,16 @@ function pgRenderSdtEditor() {
   pgSdtFields.forEach(function(field, idx) {
     var card = document.createElement('div');
     card.className = 'pg-param-card';
-    card.draggable = true;
+    // El drag arranca SOLO desde el handle (ver listeners de mousedown/touchstart
+    // mas abajo), no clickeando en cualquier parte de la tarjeta: si no, mover
+    // el cursor por arriba de un input o una label podia disparar un drag sin
+    // querer. draggable se prende/apaga alrededor de cada intento de arrastre.
+    card.draggable = false;
 
     card.innerHTML =
       '<div class="pg-param-top">' +
         '<span class="sdtgen-drag-handle" title="Arrastrá para reordenar">&#9776;</span>' +
+        '<div class="pg-fgroup pg-fgroup-pos"><label class="pg-flabel">Orden</label><input type="number" class="sdtgen-field-input pg-input-posi" min="1" max="' + pgSdtFields.length + '" value="' + (idx + 1) + '" title="Posición del campo: cambiala para reordenar sin arrastrar"></div>' +
         '<div class="pg-fgroup pg-fgroup-grow"><label class="pg-flabel">Nombre</label><input type="text" class="sdtgen-field-input pg-input-elemnom" value="' + pgEscapeAttr(field.elemnom) + '"></div>' +
         '<span class="pg-suggest-badge" style="display:none">&#10003; autocompletado</span>' +
         '<button type="button" class="sdtgen-field-rm" title="Quitar">&times;</button>' +
@@ -1020,22 +1025,46 @@ function pgRenderSdtEditor() {
       pgSdtFields.splice(idx, 1);
       pgRenderSdtEditor();
     };
+    // Reordenar tipeando la posicion: alternativa al drag-and-drop para
+    // quien prefiera no arrastrar. Se confirma con Enter o al salir del
+    // campo (blur), asi no reordena en cada tecla mientras se escribe.
+    var posInput = card.querySelector('.pg-input-posi');
+    function commitPosInput() {
+      var target = parseInt(posInput.value, 10);
+      if (!Number.isFinite(target)) { posInput.value = idx + 1; return; }
+      var targetIdx = Math.min(Math.max(target, 1), pgSdtFields.length) - 1;
+      if (targetIdx === idx) { posInput.value = idx + 1; return; }
+      pgMoveSdtField(idx, targetIdx);
+    }
+    posInput.addEventListener('change', commitPosInput);
+    posInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); posInput.blur(); } });
+    posInput.addEventListener('click', function(e) { e.stopPropagation(); });
+    // El drag arranca SOLO al apretar el handle (ver comentario en card.draggable
+    // mas arriba): mousedown ahi prende draggable, mouseup/dragend lo apagan.
+    // Asi el resto de la tarjeta (inputs, labels, el campo Orden) queda libre
+    // para click/seleccionar texto sin disparar un drag por accidente.
+    var handle = card.querySelector('.sdtgen-drag-handle');
+    handle.addEventListener('mousedown', function() { card.draggable = true; });
+    card.addEventListener('mouseup', function() { card.draggable = false; });
     card.addEventListener('dragstart', function(e) {
-      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON')) { e.preventDefault(); return; }
       pgSdtDragIdx = idx; card.classList.add('dragging');
     });
-    card.addEventListener('dragend', function() { card.classList.remove('dragging'); });
+    card.addEventListener('dragend', function() { card.classList.remove('dragging'); card.draggable = false; });
     card.addEventListener('dragover', function(e) { e.preventDefault(); });
     card.addEventListener('drop', function(e) {
       e.preventDefault();
       if (pgSdtDragIdx === null || pgSdtDragIdx === idx) return;
-      var moved = pgSdtFields.splice(pgSdtDragIdx, 1)[0];
-      pgSdtFields.splice(idx, 0, moved);
+      pgMoveSdtField(pgSdtDragIdx, idx);
       pgSdtDragIdx = null;
-      pgRenderSdtEditor();
     });
     container.appendChild(card);
   });
+}
+
+function pgMoveSdtField(fromIdx, toIdx) {
+  var moved = pgSdtFields.splice(fromIdx, 1)[0];
+  pgSdtFields.splice(toIdx, 0, moved);
+  pgRenderSdtEditor();
 }
 
 // Mismo mecanismo de autocompletar por nombre que el editor de BTI019
