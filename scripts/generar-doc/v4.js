@@ -15,6 +15,7 @@ const path = require('path');
 const { tituloDesdeMetodo, nombreCortoMetodo } = require('./method-name');
 const { buildExecPayload, buildExampleQuery, buildExampleBody } = require('./exec-payload');
 const { leerEjemplosExistentes } = require('./existing-examples');
+const { nombreVisibleParam, nombreVisibleCampo } = require('./sdt-display-name');
 
 const toFolderName = s => s
   .replace(/^Public/, '')
@@ -213,13 +214,9 @@ function generarTabla(rows) {
   if (!rows || rows.length === 0) return 'No aplica.';
   const lines = ['Nombre | Tipo | Comentarios', ':--------- | :--------- | :---------'];
   for (const r of rows) {
-    const parittipo = (r.BTISRVPARITTIPO || '').trim();
-    const vartipo   = (r.BTISRVVARTIPO   || '').trim();
-    const sdtNombre = (parittipo && parittipo.startsWith('Sdt'))
-      ? parittipo
-      : (vartipo && vartipo.startsWith('Sdt') ? vartipo : null);
-    const tipo = sdtNombre
-      ? `[${sdtNombre}](#${sdtNombre.toLowerCase()})`
+    const visible = nombreVisibleParam(r);
+    const tipo = visible.esSdt
+      ? `[${visible.nombre}](#${visible.nombre.toLowerCase()})`
       : mapearTipo(r.BTISRVVARTIPO, r.BTISRVPARLARGO, r.BTISRVCATIT, r.BTISRVPARDECI);
     lines.push(`${r.BTISRVPARNOM} | ${tipo} | ${r.BTISRVPARDSC ? r.BTISRVPARDSC.trim() : ''}`);
   }
@@ -233,12 +230,9 @@ function generarTablaSdt(rows, sdtNombre) {
   const lines = ['Nombre | Tipo | Comentarios', ':--------- | :--------- | :---------'];
   for (const r of rows) {
     let tipo;
-    const sdtRef = r.BTISDTELEMSDT && r.BTISDTELEMSDT.trim();
-    if (sdtRef) {
-      tipo = `[${sdtRef}](#${sdtRef.toLowerCase()})`;
-    } else if (r.BTISDTELEMTIPO && r.BTISDTELEMTIPO.startsWith('Sdt')) {
-      const sdtName = r.BTISDTELEMTIPO.trim();
-      tipo = `[${sdtName}](#${sdtName.toLowerCase()})`;
+    const visible = nombreVisibleCampo(r);
+    if (visible.esSdt) {
+      tipo = `[${visible.nombre}](#${visible.nombre.toLowerCase()})`;
     } else {
       tipo = mapearTipo(r.BTISDTELEMTIPO, r.BTISDTELEMLARGO, r.BTISDTELEMCAT, r.BTISDTELEMDECI);
       const tipoRaw = (r.BTISDTELEMTIPO || '').toUpperCase();
@@ -685,34 +679,39 @@ async function generarMd(servicio, metodo, carpeta, ejecutar = false, inputParam
       }
     }
 
+    // sdtNomMd es el nombre visible en la documentación (nombre del
+    // parámetro o del item, ver sdt-display-name.js) - nunca el nombre
+    // interno del SDT (sdtNomDB), que solo se usa para consultar BTI026
+    // y para deduplicar recursión en SDTs autorreferenciados.
     async function procesarSdt(sdtNomMd, sdtNomDB, procesados = new Set()) {
       if (procesados.has(sdtNomDB)) return;
       procesados.add(sdtNomDB);
       await fetchSdtCache(sdtNomDB);
       const rows = sdtCache.get(sdtNomDB);
       if (!rows || rows.length === 0) return;
-      const tabla = generarTablaSdt(rows, sdtNomDB);
+      const tabla = generarTablaSdt(rows, sdtNomMd);
       sdtSection += `
-::: details ${sdtNomDB}
+::: details ${sdtNomMd}
 
-### ${sdtNomDB}
+### ${sdtNomMd}
 
 ::: center
-Los campos del tipo de dato estructurado ${sdtNomDB} son los siguientes:
+Los campos del tipo de dato estructurado ${sdtNomMd} son los siguientes:
 
 ${tabla}
 :::
 `;
       for (const campo of rows) {
-        const nestedSdt = (campo.BTISDTELEMSDT && campo.BTISDTELEMSDT.trim()) ||
-                          (campo.BTISDTELEMTIPO && campo.BTISDTELEMTIPO.startsWith('Sdt') ? campo.BTISDTELEMTIPO.trim() : null);
-        if (nestedSdt) await procesarSdt(campo.BTISDTELEMNOM, nestedSdt, procesados);
+        const visibleCampo = nombreVisibleCampo(campo);
+        if (visibleCampo.esSdt) await procesarSdt(visibleCampo.nombre, visibleCampo.sdtNomDB, procesados);
       }
     }
 
     for (const param of sdtsConTipo) {
-      const sdtNomDB = (param.BTISRVPARITTIPO && param.BTISRVPARITTIPO.trim()) || param.BTISRVVARTIPO;
-      await procesarSdt(param.BTISRVPARNOM, sdtNomDB);
+      const visibleParam = nombreVisibleParam(param);
+      const sdtNomDB = visibleParam.esSdt ? visibleParam.sdtNomDB : ((param.BTISRVPARITTIPO && param.BTISRVPARITTIPO.trim()) || param.BTISRVVARTIPO);
+      const sdtNomMd = visibleParam.esSdt ? visibleParam.nombre : param.BTISRVPARNOM;
+      await procesarSdt(sdtNomMd, sdtNomDB);
     }
     _ts(`SDTs total (${sdtCache.size} tipos resueltos)`, tSdtStart);
 
