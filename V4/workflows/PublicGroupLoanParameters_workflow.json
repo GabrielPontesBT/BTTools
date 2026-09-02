@@ -1,0 +1,19 @@
+{
+  "service": "PublicGroupLoanParameters",
+  "folder": "Group-Loan-Parameters",
+  "steps": [
+    {
+      "method": "getCapitalRange",
+      "params": {
+        "cycleId": "1",
+        "productGUID": "951c9591-4438-445e-bf43-6b46c271338a"
+      }
+    },
+    {
+      "method": "getMemberCountRange"
+    },
+    {
+      "method": "getMemberTypes"
+    }
+  ]
+}

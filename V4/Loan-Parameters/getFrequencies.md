@@ -1,17 +1,19 @@
 ---
-title: Get Frequencies
+title: Frequencies
+type: GET
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para obtener la periodicidad de cuotas de un producto de préstamos.
+::: note
+Método para obtener la periodicidad de cuotas de un producto de préstamos.
 
-**Nombre publicación:** PublicLoanParameters.getFrequencies
-
-**Módulo:** Loans
+**Nombre publicación:** PublicLoanParameters.frequencies
 
 **Programa:** PublicAPI.BTLOPA0028
 
 **Alcance:** Global
+
+**Endpoint:** /public/LoanParameters/v1/frequencies
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -21,20 +23,30 @@ title: Get Frequencies
 @tab Datos de Entrada
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+:--------- | :--------- | :---------
 productGUID | String $<(Length: 36)>$ | GUID (identificador único global) del producto.
+
+@tab Body
+
+No aplica.
 
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-frequencies | [SdtsBTLOListParameter](#sdtsbtlolistparameter) | Listado de frecuencias de pago.
+:--------- | :--------- | :---------
+frequencies | [frequency](#frequency) | Listado de frecuencias de pago.
 
 @tab Errores
 
 Código | Descripción
-:--------- | :-----------
+:--------- | :---------
+500 | 
+980083 | La moneda y/o papel no está asociada al producto
+990070 | El sistema no se encuentra definido
+990071 | El parámetro no se encuentra definido
+50050003 | No existe la empresa ingresada
 120050009 | Debe ingresar el GUID de producto.
+
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -43,65 +55,41 @@ Código | Descripción
 <!-- ABRE EJEMPLO DE INVOCACIÓN -->
 ::: details Ejemplo de Invocación
 ::: code-tabs #Formato
-@tab JSON
-```json
-{
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "15A37FA9852954F6770E9868"
-  },
-  "productGUID": "bf0d7e10-dce6-4bd4-b866-9984556613ec"
-}'
+
+@tab cURL
+```bash
+curl -X GET \
+  '{{baseUrl}}/public/LoanParameters/v1/frequencies?productGUID=bf0d7e10-dce6-4bd4-b866-9984556613ec' \
+  -H 'Device: {{device}}' \
+  -H 'Usuario: {{usuario}}' \
+  -H 'Requerimiento: {{requerimiento}}' \
+  -H 'Canal: {{canal}}' \
+  -H 'Token: {{token}}'
 ```
+
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
 
 <!-- ABRE EJEMPLO DE RESPUESTA -->
 ::: details Ejemplo de Respuesta
 ::: code-tabs #Formato
+
 @tab JSON
 ```json
 {
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "15A37FA9852954F6770E9868"
-  },
   "frequencies": {
     "frequency": [
       {
-        "id": 7,
         "description": "SEMANAL",
-        "defaultValue": true
+        "id": 7,
+        "valueByDefect": true
       },
       {
-        "id": 15,
         "description": "BISEMANAL",
-        "defaultValue": false
-      },
-      {
-        "id": 30,
-        "description": "MENSUAL",
-        "defaultValue": false
+        "id": 15,
+        "valueByDefect": false
       }
     ]
-  },
-  "BusinessErrors": {
-    "BusinessError": []
-  },
-  "Btoutreq": {
-    "Estado": "OK",
-    "Fecha": "2026-06-03",
-    "Hora": "17:34:58",
-    "Numero": 13568695,
-    "Servicio": "PublicLoanParameters.getFrequencies",
-    "Requerimiento": "1",
-    "Canal": "BTDIGITAL"
   }
 }
 ```
@@ -111,17 +99,17 @@ Código | Descripción
 ## **Tipos de Dato Estructurado**
 
 <!-- ABRE SDT -->
-::: details SdtsBTLOListParameter
+::: details frequency
 
-### SdtsBTLOListParameter
+### frequency
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTLOListParameter son los siguientes:
+Los campos del tipo de dato estructurado frequency son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-id | Int $<(Length: 5)>$ | Identificador de frecuencia.
-description | String $<(Length: 256)>$ | Descripción de frecuencia.
-defaultValue | Boolean | ¿Está preseteado como valor por defecto para el producto?
+:--------- | :--------- | :---------
+id | Int $<(Length: 5)>$ | Identificador del parámetro.
+description | String $<(Length: 256)>$ | Descripción del parámetro.
+valueByDefect | Boolean | Valor por defecto.
 :::
 <!-- CIERRA SDT -->

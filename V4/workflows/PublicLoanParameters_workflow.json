@@ -1,39 +1,27 @@
 {
   "service": "PublicLoanParameters",
-  "folder": "PublicLoanParameters",
+  "folder": "Loan-Parameters",
   "steps": [
     {
-      "method": "getCapital",
+      "method": "getCapitalRange",
       "params": {
         "productGUID": "bf0d7e10-dce6-4bd4-b866-9984556613ec"
       }
     },
     {
-      "method": "getFrequencies",
-      "extract": [
-        {
-          "path": "frequencies.frequency[0].id",
-          "as": "frequencyId"
-        }
-      ]
+      "method": "getCollectionOptions"
     },
     {
-      "method": "getGroupLoanCapitalParameters",
-      "params": {
-        "cycleId": "1"
-      }
+      "method": "getDisbursementOptions"
     },
     {
-      "method": "getGroupLoanMembersCountParameters"
+      "method": "getFrequencies"
     },
     {
-      "method": "getInstallmentCount"
+      "method": "getInstallmentCountRange"
     },
     {
       "method": "getInsurances"
-    },
-    {
-      "method": "getLoanDisbursementOptions"
     },
     {
       "method": "getRate"

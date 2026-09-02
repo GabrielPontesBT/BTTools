@@ -1,6 +1,6 @@
 {
   "service": "PublicSavingAccounts",
-  "folder": "PublicSavingAccounts",
+  "folder": "Saving-Accounts",
   "steps": [
     {
       "method": "getProducts"
@@ -11,7 +11,10 @@
         "personGUID": "183f5194-f5a9-4590-9aff-b43de58c263d"
       },
       "extract": [
-        { "path": "products.product[5].ProductGUID", "as": "productGUID" }
+        {
+          "path": "products.product[5].ProductGUID",
+          "as": "productGUID"
+        }
       ]
     },
     {
@@ -22,7 +25,9 @@
         "branchId": 1,
         "signatureType": "A"
       },
-      "extract": ["savingAccountGUID"]
+      "extract": [
+        "savingAccountGUID"
+      ]
     },
     {
       "method": "getDetailedData"
@@ -36,13 +41,19 @@
     {
       "method": "getCancellationOrigins",
       "extract": [
-        { "path": "cancellationOrigins.cancellationOrigin[0].id", "as": "cancellationOriginId" }
+        {
+          "path": "cancellationOrigins.cancellationOrigin[0].id",
+          "as": "cancellationOriginId"
+        }
       ]
     },
     {
       "method": "getCancellationReasons",
       "extract": [
-        { "path": "cancellationReasons.cancellationReason[0].id", "as": "cancellationReasonId" }
+        {
+          "path": "cancellationReasons.cancellationReason[0].id",
+          "as": "cancellationReasonId"
+        }
       ]
     },
     {

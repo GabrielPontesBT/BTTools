@@ -1,19 +1,19 @@
 ---
-title: Get Administrative Levels
+title: Administrative Levels
 type: GET
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
 ::: note
-Método para obtener las divisiones administrativas de un país de forma jerárquica. Si se ingresa únicamente el país, retorna el listado de primeros niveles administrativos correspondientes. Si se ingresa el país y el primer nivel, retorna los segundos niveles correspondientes. Si se ingresan los tres parámetros, retorna los terceros niveles correspondientes.
+Método para obtener un listado de los niveles administrativos de un país.
 
-**Nombre publicación:** PublicGeneral.getAdministrativeLevels
+**Nombre publicación:** PublicGeneral.administrativeLevels
 
 **Programa:** PublicAPI.BTCNPA0002
 
 **Alcance:** Global
 
-**Endpoint:** /public/General/v1/getAdministrativeLevels
+**Endpoint:** /public/General/v1/administrativeLevels
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -36,13 +36,14 @@ No aplica.
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-administrativeLevels | [SdtsBTCNWAdministrativeLevel](#sdtsbtcnwadministrativelevel) | Listado de niveles administrativos.
+administrativeLevels | [SdtsBTCNPAAdministrativeLevel](#sdtsbtcnpaadministrativelevel) | Listado de niveles administrativos.
 
 @tab Errores
 
 Código | Descripción
 :--------- | :---------
-50020018 | El país no se encuentra registrado.
+500 | 
+50020018 | El país no se encuentra registrado
 
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -56,7 +57,7 @@ Código | Descripción
 @tab cURL
 ```bash
 curl -X GET \
-  '{{baseUrl}}/public/General/v1/getAdministrativeLevels?countryId=484&firstLevel=9&secondLevel=0' \
+  '{{baseUrl}}/public/General/v1/administrativeLevels?countryId=484' \
   -H 'Device: {{device}}' \
   -H 'Usuario: {{usuario}}' \
   -H 'Requerimiento: {{requerimiento}}' \
@@ -77,68 +78,136 @@ curl -X GET \
   "administrativeLevels": {
     "administrativeLevel": [
       {
-        "Description": "Azcapotzalco",
-        "Id": 2
+        "administrativeLevelDescription": "AGUASCALIENTES",
+        "administrativeLevelId": 1
       },
       {
-        "Description": "Coyoacan",
-        "Id": 3
+        "administrativeLevelDescription": "BAJA CALIFORNIA",
+        "administrativeLevelId": 2
       },
       {
-        "Description": "Cuajimalpa de Morelos",
-        "Id": 4
+        "administrativeLevelDescription": "BAJA CALIFORNIA SUR",
+        "administrativeLevelId": 3
       },
       {
-        "Description": "Gustavo A. Madero",
-        "Id": 5
+        "administrativeLevelDescription": "CAMPECHE",
+        "administrativeLevelId": 4
       },
       {
-        "Description": "Iztacalco",
-        "Id": 6
+        "administrativeLevelDescription": "COAHUILA DE ZARAGOZA",
+        "administrativeLevelId": 5
       },
       {
-        "Description": "Iztapalapa",
-        "Id": 7
+        "administrativeLevelDescription": "COLIMA",
+        "administrativeLevelId": 6
       },
       {
-        "Description": "La Magdalena Contreras",
-        "Id": 8
+        "administrativeLevelDescription": "CHIAPAS",
+        "administrativeLevelId": 7
       },
       {
-        "Description": "Milpa Alta",
-        "Id": 9
+        "administrativeLevelDescription": "CHIHUAHUA",
+        "administrativeLevelId": 8
       },
       {
-        "Description": "alvaro Obregon",
-        "Id": 10
+        "administrativeLevelDescription": "CIUDAD DE MÉXICO",
+        "administrativeLevelId": 9
       },
       {
-        "Description": "Tlahuac",
-        "Id": 11
+        "administrativeLevelDescription": "DURANGO",
+        "administrativeLevelId": 10
       },
       {
-        "Description": "Tlalpan",
-        "Id": 12
+        "administrativeLevelDescription": "GUANAJUATO",
+        "administrativeLevelId": 11
       },
       {
-        "Description": "Xochimilco",
-        "Id": 13
+        "administrativeLevelDescription": "GUERRERO",
+        "administrativeLevelId": 12
       },
       {
-        "Description": "Benito Juarez",
-        "Id": 14
+        "administrativeLevelDescription": "HIDALGO",
+        "administrativeLevelId": 13
       },
       {
-        "Description": "Cuauhtemoc",
-        "Id": 15
+        "administrativeLevelDescription": "JALISCO",
+        "administrativeLevelId": 14
       },
       {
-        "Description": "Miguel Hidalgo",
-        "Id": 16
+        "administrativeLevelDescription": "ESTADO DE MÉXICO",
+        "administrativeLevelId": 15
       },
       {
-        "Description": "Venustiano Carranza",
-        "Id": 17
+        "administrativeLevelDescription": "MICHOACAN DE OCAMPO",
+        "administrativeLevelId": 16
+      },
+      {
+        "administrativeLevelDescription": "MORELOS",
+        "administrativeLevelId": 17
+      },
+      {
+        "administrativeLevelDescription": "NAYARIT",
+        "administrativeLevelId": 18
+      },
+      {
+        "administrativeLevelDescription": "NUEVO LEON",
+        "administrativeLevelId": 19
+      },
+      {
+        "administrativeLevelDescription": "OAXACA",
+        "administrativeLevelId": 20
+      },
+      {
+        "administrativeLevelDescription": "PUEBLA",
+        "administrativeLevelId": 21
+      },
+      {
+        "administrativeLevelDescription": "QUERETARO",
+        "administrativeLevelId": 22
+      },
+      {
+        "administrativeLevelDescription": "QUINTANA ROO",
+        "administrativeLevelId": 23
+      },
+      {
+        "administrativeLevelDescription": "SAN LUIS POTOSI",
+        "administrativeLevelId": 24
+      },
+      {
+        "administrativeLevelDescription": "SINALOA",
+        "administrativeLevelId": 25
+      },
+      {
+        "administrativeLevelDescription": "SONORA",
+        "administrativeLevelId": 26
+      },
+      {
+        "administrativeLevelDescription": "TABASCO",
+        "administrativeLevelId": 27
+      },
+      {
+        "administrativeLevelDescription": "TAMAULIPAS",
+        "administrativeLevelId": 28
+      },
+      {
+        "administrativeLevelDescription": "TLAXCALA",
+        "administrativeLevelId": 29
+      },
+      {
+        "administrativeLevelDescription": "VERACRUZ",
+        "administrativeLevelId": 30
+      },
+      {
+        "administrativeLevelDescription": "YUCATAN",
+        "administrativeLevelId": 31
+      },
+      {
+        "administrativeLevelDescription": "ZACATECAS",
+        "administrativeLevelId": 32
+      },
+      {
+        "administrativeLevelDescription": "EXTRANJERO",
+        "administrativeLevelId": 33
       }
     ]
   }
@@ -150,16 +219,16 @@ curl -X GET \
 ## **Tipos de Dato Estructurado**
 
 <!-- ABRE SDT -->
-::: details SdtsBTCNWAdministrativeLevel
+::: details SdtsBTCNPAAdministrativeLevel
 
-### SdtsBTCNWAdministrativeLevel
+### SdtsBTCNPAAdministrativeLevel
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTCNWAdministrativeLevel son los siguientes:
+Los campos del tipo de dato estructurado SdtsBTCNPAAdministrativeLevel son los siguientes:
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-Id | Int $<(Length: 9)>$ | Identificador del nivel administrativo.
-Description | String $<(Length: 30)>$ | Descripción del nivel administrativo.
+administrativeLevelId | Int | Identificador del nivel administrativo.
+administrativeLevelDescription | String | Descripción del nivel administrativo.
 :::
 <!-- CIERRA SDT -->

@@ -1,19 +1,19 @@
 ---
-title: Rate
+title: Capital Range
 type: GET
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
 ::: note
-Método para obtener la tasa definida para un producto.
+Método para obtener los parámetros de capital de un crédito.
 
-**Nombre publicación:** PublicLoanParameters.rate
+**Nombre publicación:** PublicGroupLoanParameters.capitalRange
 
-**Programa:** PublicAPI.BTLOPA0026
+**Programa:** PublicAPI.BTLOPA0027
 
 **Alcance:** Global
 
-**Endpoint:** /public/LoanParameters/v1/rate
+**Endpoint:** /public/GroupLoanParameters/v1/capitalRange
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -24,6 +24,7 @@ Método para obtener la tasa definida para un producto.
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
+cycleId | Int $<(Length: 9)>$ | Identificador del ciclo.
 productGUID | String $<(Length: 36)>$ | GUID (identificador único global) del producto.
 
 @tab Body
@@ -34,21 +35,17 @@ No aplica.
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-defaultRate | Double $<(Length: 11.6)>$ | Tasa por defecto.
-rateType | Byte $<(Length: 1)>$ | Tipo de tasa.
-rateTypeDescription | String $<(Length: 20)>$ | Descripción del tipo de tasa.
+minimumCapital | Double $<(Length: 18.2)>$ | Capital mínimo.
+maximumCapital | Double $<(Length: 18.2)>$ | Capital máximo.
 
 @tab Errores
 
 Código | Descripción
 :--------- | :---------
 500 | 
-980083 | La moneda y/o papel no está asociada al producto
-990070 | El sistema no se encuentra definido
-990071 | El parámetro no se encuentra definido
-20010014 | No existe el tipo de tasa ingresado
 50050003 | No existe la empresa ingresada
 120050009 | Debe ingresar el GUID de producto.
+120060126 | No existe configuración para el ciclo
 
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -62,7 +59,7 @@ Código | Descripción
 @tab cURL
 ```bash
 curl -X GET \
-  '{{baseUrl}}/public/LoanParameters/v1/rate?productGUID=bf0d7e10-dce6-4bd4-b866-9984556613ec' \
+  '{{baseUrl}}/public/GroupLoanParameters/v1/capitalRange?cycleId=1&productGUID=951c9591-4438-445e-bf43-6b46c271338a' \
   -H 'Device: {{device}}' \
   -H 'Usuario: {{usuario}}' \
   -H 'Requerimiento: {{requerimiento}}' \
@@ -80,9 +77,8 @@ curl -X GET \
 @tab JSON
 ```json
 {
-  "defaultRate": 72.33,
-  "rateType": 1,
-  "rateTypeDescription": "Efectiva Anual"
+  "maximumCapital": 100000000,
+  "minimumCapital": 10000
 }
 ```
 :::

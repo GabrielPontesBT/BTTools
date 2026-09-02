@@ -104,7 +104,7 @@ test('formato v4 legado: contra el archivo real V4/Loan-Parameters/getCapital.md
 });
 
 test('formato v4 actual: no se confunde con legado (tiene tab cURL)', () => {
-  const ruta = path.join(__dirname, '..', '..', 'V4', 'PublicGeneral', 'getAdministrativeLevels.md');
+  const ruta = path.join(__dirname, '..', '..', 'V4', 'General', 'getAdministrativeLevels.md');
   const md = fs.readFileSync(ruta, 'utf8');
   const ejemplos = leerEjemplosExistentes(md);
   assert.equal(ejemplos.formato, 'v4-actual');

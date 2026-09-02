@@ -1,19 +1,19 @@
 ---
-title: Rate
+title: Installment Count Range
 type: GET
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
 ::: note
-Método para obtener la tasa definida para un producto.
+Método para obtener la cantidad de cuotas parametrizadas de un producto de préstamos.
 
-**Nombre publicación:** PublicLoanParameters.rate
+**Nombre publicación:** PublicLoanParameters.installmentCountRange
 
-**Programa:** PublicAPI.BTLOPA0026
+**Programa:** PublicAPI.BTLOPA0021
 
 **Alcance:** Global
 
-**Endpoint:** /public/LoanParameters/v1/rate
+**Endpoint:** /public/LoanParameters/v1/installmentCountRange
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -34,9 +34,9 @@ No aplica.
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-defaultRate | Double $<(Length: 11.6)>$ | Tasa por defecto.
-rateType | Byte $<(Length: 1)>$ | Tipo de tasa.
-rateTypeDescription | String $<(Length: 20)>$ | Descripción del tipo de tasa.
+minimum | Long $<(Length: 10)>$ | Mínimo.
+maximum | Long $<(Length: 10)>$ | Máximo.
+defaultValue | Long $<(Length: 10)>$ | Valor por defecto.
 
 @tab Errores
 
@@ -46,7 +46,6 @@ Código | Descripción
 980083 | La moneda y/o papel no está asociada al producto
 990070 | El sistema no se encuentra definido
 990071 | El parámetro no se encuentra definido
-20010014 | No existe el tipo de tasa ingresado
 50050003 | No existe la empresa ingresada
 120050009 | Debe ingresar el GUID de producto.
 
@@ -62,7 +61,7 @@ Código | Descripción
 @tab cURL
 ```bash
 curl -X GET \
-  '{{baseUrl}}/public/LoanParameters/v1/rate?productGUID=bf0d7e10-dce6-4bd4-b866-9984556613ec' \
+  '{{baseUrl}}/public/LoanParameters/v1/installmentCountRange?productGUID=bf0d7e10-dce6-4bd4-b866-9984556613ec' \
   -H 'Device: {{device}}' \
   -H 'Usuario: {{usuario}}' \
   -H 'Requerimiento: {{requerimiento}}' \
@@ -80,9 +79,9 @@ curl -X GET \
 @tab JSON
 ```json
 {
-  "defaultRate": 72.33,
-  "rateType": 1,
-  "rateTypeDescription": "Efectiva Anual"
+  "defaultValue": 3,
+  "maximum": 7,
+  "minimum": 3
 }
 ```
 :::

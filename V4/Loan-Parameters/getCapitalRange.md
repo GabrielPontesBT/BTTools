@@ -1,19 +1,19 @@
 ---
-title: Rate
+title: Capital Range
 type: GET
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
 ::: note
-Método para obtener la tasa definida para un producto.
+Método para obtener el capital mínimo, máximo y por defecto de un producto de préstamos.
 
-**Nombre publicación:** PublicLoanParameters.rate
+**Nombre publicación:** PublicLoanParameters.capitalRange
 
-**Programa:** PublicAPI.BTLOPA0026
+**Programa:** PublicAPI.BTLOPA0022
 
 **Alcance:** Global
 
-**Endpoint:** /public/LoanParameters/v1/rate
+**Endpoint:** /public/LoanParameters/v1/capitalRange
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -34,9 +34,9 @@ No aplica.
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-defaultRate | Double $<(Length: 11.6)>$ | Tasa por defecto.
-rateType | Byte $<(Length: 1)>$ | Tipo de tasa.
-rateTypeDescription | String $<(Length: 20)>$ | Descripción del tipo de tasa.
+minimum | Double $<(Length: 18.2)>$ | Mínimo.
+maximum | Double $<(Length: 18.2)>$ | Máximo.
+defaultValue | Double $<(Length: 18.2)>$ | Valor por defecto.
 
 @tab Errores
 
@@ -46,7 +46,6 @@ Código | Descripción
 980083 | La moneda y/o papel no está asociada al producto
 990070 | El sistema no se encuentra definido
 990071 | El parámetro no se encuentra definido
-20010014 | No existe el tipo de tasa ingresado
 50050003 | No existe la empresa ingresada
 120050009 | Debe ingresar el GUID de producto.
 
@@ -62,7 +61,7 @@ Código | Descripción
 @tab cURL
 ```bash
 curl -X GET \
-  '{{baseUrl}}/public/LoanParameters/v1/rate?productGUID=bf0d7e10-dce6-4bd4-b866-9984556613ec' \
+  '{{baseUrl}}/public/LoanParameters/v1/capitalRange?productGUID=bf0d7e10-dce6-4bd4-b866-9984556613ec' \
   -H 'Device: {{device}}' \
   -H 'Usuario: {{usuario}}' \
   -H 'Requerimiento: {{requerimiento}}' \
@@ -80,9 +79,9 @@ curl -X GET \
 @tab JSON
 ```json
 {
-  "defaultRate": 72.33,
-  "rateType": 1,
-  "rateTypeDescription": "Efectiva Anual"
+  "defaultValue": 7000,
+  "maximum": 97500,
+  "minimum": 7000
 }
 ```
 :::

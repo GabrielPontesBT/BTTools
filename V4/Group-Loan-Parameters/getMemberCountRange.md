@@ -1,19 +1,19 @@
 ---
-title: Rate
+title: Member Count Range
 type: GET
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
 ::: note
-Método para obtener la tasa definida para un producto.
+Método para obtener la cantidad de integrantes permitidos en un crédito.
 
-**Nombre publicación:** PublicLoanParameters.rate
+**Nombre publicación:** PublicGroupLoanParameters.memberCountRange
 
-**Programa:** PublicAPI.BTLOPA0026
+**Programa:** PublicAPI.BTLOPA0025
 
 **Alcance:** Global
 
-**Endpoint:** /public/LoanParameters/v1/rate
+**Endpoint:** /public/GroupLoanParameters/v1/memberCountRange
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -24,7 +24,7 @@ Método para obtener la tasa definida para un producto.
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-productGUID | String $<(Length: 36)>$ | GUID (identificador único global) del producto.
+cycleId | Int $<(Length: 9)>$ | Identificador del ciclo.
 
 @tab Body
 
@@ -34,21 +34,15 @@ No aplica.
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-defaultRate | Double $<(Length: 11.6)>$ | Tasa por defecto.
-rateType | Byte $<(Length: 1)>$ | Tipo de tasa.
-rateTypeDescription | String $<(Length: 20)>$ | Descripción del tipo de tasa.
+minimumMembers | Short $<(Length: 3)>$ | Número mínimo de integrantes.
+maximumMembers | Short $<(Length: 3)>$ | Número máximo de integrantes.
 
 @tab Errores
 
 Código | Descripción
 :--------- | :---------
-500 | 
-980083 | La moneda y/o papel no está asociada al producto
-990070 | El sistema no se encuentra definido
-990071 | El parámetro no se encuentra definido
-20010014 | No existe el tipo de tasa ingresado
 50050003 | No existe la empresa ingresada
-120050009 | Debe ingresar el GUID de producto.
+120060126 | No existe configuración para el ciclo
 
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -62,7 +56,7 @@ Código | Descripción
 @tab cURL
 ```bash
 curl -X GET \
-  '{{baseUrl}}/public/LoanParameters/v1/rate?productGUID=bf0d7e10-dce6-4bd4-b866-9984556613ec' \
+  '{{baseUrl}}/public/GroupLoanParameters/v1/memberCountRange?cycleId=1' \
   -H 'Device: {{device}}' \
   -H 'Usuario: {{usuario}}' \
   -H 'Requerimiento: {{requerimiento}}' \
@@ -80,9 +74,8 @@ curl -X GET \
 @tab JSON
 ```json
 {
-  "defaultRate": 72.33,
-  "rateType": 1,
-  "rateTypeDescription": "Efectiva Anual"
+  "maximumMembers": 999,
+  "minimumMembers": 3
 }
 ```
 :::

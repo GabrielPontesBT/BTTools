@@ -1,19 +1,19 @@
 ---
-title: Disbursement Options
+title: Collection Options
 type: GET
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
 ::: note
-Método para obtener un listado de las opciones de desembolso de un producto de préstamos.
+Método para obtener un listado de las opciones de cobro.
 
-**Nombre publicación:** PublicLoanParameters.disbursementOptions
+**Nombre publicación:** PublicLoanParameters.collectionOptions
 
 **Programa:** PublicAPI.BTLOPA0024
 
 **Alcance:** Global
 
-**Endpoint:** /public/LoanParameters/v1/disbursementOptions
+**Endpoint:** /public/LoanParameters/v1/collectionOptions
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -34,7 +34,7 @@ No aplica.
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-disbursementOptions | [disbursementOption](#disbursementoption) | Listado de opciones de desembolso.
+paymentOptions | [paymentOption](#paymentoption) | Listado de opciones de cobro.
 
 @tab Errores
 
@@ -63,7 +63,7 @@ Código | Descripción
 @tab cURL
 ```bash
 curl -X GET \
-  '{{baseUrl}}/public/LoanParameters/v1/disbursementOptions?productGUID=bf0d7e10-dce6-4bd4-b866-9984556613ec' \
+  '{{baseUrl}}/public/LoanParameters/v1/collectionOptions?productGUID=bf0d7e10-dce6-4bd4-b866-9984556613ec' \
   -H 'Device: {{device}}' \
   -H 'Usuario: {{usuario}}' \
   -H 'Requerimiento: {{requerimiento}}' \
@@ -81,8 +81,8 @@ curl -X GET \
 @tab JSON
 ```json
 {
-  "disbursementOptions": {
-    "disbursementOption": [
+  "paymentOptions": {
+    "paymentOption": [
       {
         "asksBranch": false,
         "asksCounterparty": false,
@@ -93,11 +93,11 @@ curl -X GET \
       },
       {
         "asksBranch": false,
-        "asksCounterparty": true,
+        "asksCounterparty": false,
         "asksCurrency": false,
-        "asksSavingAccount": false,
-        "description": "ORDEN DE PAGO",
-        "optionId": 25
+        "asksSavingAccount": true,
+        "description": "CTAS. POR PAGAR - GRUPALES",
+        "optionId": 65
       }
     ]
   }
@@ -109,12 +109,12 @@ curl -X GET \
 ## **Tipos de Dato Estructurado**
 
 <!-- ABRE SDT -->
-::: details disbursementOption
+::: details paymentOption
 
-### disbursementOption
+### paymentOption
 
 ::: center
-Los campos del tipo de dato estructurado disbursementOption son los siguientes:
+Los campos del tipo de dato estructurado paymentOption son los siguientes:
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------

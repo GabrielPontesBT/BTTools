@@ -1,5 +1,5 @@
 ---
-title: Get System Date
+title: System Date
 type: GET
 ---
 
@@ -7,13 +7,13 @@ type: GET
 ::: note
 Método para obtener la fecha del sistema.
 
-**Nombre publicación:** PublicGeneral.getSystemDate
+**Nombre publicación:** PublicGeneral.systemDate
 
 **Programa:** PublicAPI.BTCYPA0001
 
 **Alcance:** Global
 
-**Endpoint:** /public/General/v1/getSystemDate
+**Endpoint:** /public/General/v1/systemDate
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -40,7 +40,6 @@ Código | Descripción
 :--------- | :---------
 500 | 
 50050003 | No existe la empresa ingresada
-99990010006 | No se pudo resolver el usuario
 
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -54,7 +53,7 @@ Código | Descripción
 @tab cURL
 ```bash
 curl -X GET \
-  '{{baseUrl}}/public/General/v1/getSystemDate' \
+  '{{baseUrl}}/public/General/v1/systemDate' \
   -H 'Device: {{device}}' \
   -H 'Usuario: {{usuario}}' \
   -H 'Requerimiento: {{requerimiento}}' \
@@ -72,7 +71,7 @@ curl -X GET \
 @tab JSON
 ```json
 {
-  "systemDate": "2028-05-29"
+  "systemDate": "2027-12-02"
 }
 ```
 :::

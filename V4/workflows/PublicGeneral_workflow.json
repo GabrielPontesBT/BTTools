@@ -1,40 +1,29 @@
 {
   "service": "PublicGeneral",
-  "folder": "PublicGeneral",
+  "folder": "General",
   "steps": [
     {
-      "method": "getCountries",
-      "extract": [
-        {
-          "path": "countries.country[0].Id",
-          "as": "countryId"
-        }
-      ]
-    },
-    {
       "method": "getAdministrativeLevels",
-      "extract": [
-        {
-          "path": "administrativeLevels.administrativeLevel[0].Id",
-          "as": "administrativeLevelId"
-        }
-      ]
-    },
-    {
-      "method": "getBranches",
       "params": {
-        "offset": "0",
-        "limit": "10"
+        "countryId": "484"
       }
     },
     {
+      "method": "getCountries",
+      "params": {
+        "offset": "0",
+        "limit": "10",
+        "countryIdFilter": "484"
+      }
+    },
+    {
+      "method": "getBranches"
+    },
+    {
       "method": "getDocumentTypes",
-      "extract": [
-        {
-          "path": "documentTypes.documentType[0].Id",
-          "as": "documentTypeId"
-        }
-      ]
+      "params": {
+        "appliesTo": "F"
+      }
     },
     {
       "method": "getSystemDate"

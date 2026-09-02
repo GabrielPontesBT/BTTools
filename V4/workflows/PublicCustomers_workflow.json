@@ -1,17 +1,23 @@
 {
   "service": "PublicCustomers",
-  "folder": "PublicCustomers",
+  "folder": "Customers",
   "steps": [
     {
       "method": "getStatuses",
       "extract": [
-        { "path": "statuses.status[0].Id", "as": "statusId" }
+        {
+          "path": "statuses.status[0].Id",
+          "as": "statusId"
+        }
       ]
     },
     {
       "method": "getStatusUpdateReasons",
       "extract": [
-        { "path": "reasonsForStatusChange.reasonForStatusChange[0].Id", "as": "reasonForStatusChangeId" }
+        {
+          "path": "reasonsForStatusChange.reasonForStatusChange[0].Id",
+          "as": "reasonForStatusChangeId"
+        }
       ]
     },
     {
@@ -49,7 +55,9 @@
           "SegmentId": 1
         }
       },
-      "extract": ["counterpartyGUID"]
+      "extract": [
+        "counterpartyGUID"
+      ]
     },
     {
       "method": "get"

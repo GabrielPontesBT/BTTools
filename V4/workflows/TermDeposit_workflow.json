@@ -1,6 +1,6 @@
 {
   "service": "PublicTermDeposit",
-  "folder": "TermDeposit",
+  "folder": "Term-Deposit",
   "steps": [
     {
       "method": "getProducts"

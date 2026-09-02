@@ -16,11 +16,7 @@ const { tituloDesdeMetodo, nombreCortoMetodo } = require('./method-name');
 const { buildExecPayload, buildExampleQuery, buildExampleBody } = require('./exec-payload');
 const { leerEjemplosExistentes } = require('./existing-examples');
 const { nombreVisibleParam, nombreVisibleCampo } = require('./sdt-display-name');
-
-const toFolderName = s => s
-  .replace(/^Public/, '')
-  .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
-  .replace(/([a-z\d])([A-Z])/g, '$1-$2');
+const { toFolderName } = require('./folder-name');
 
 // ── VALIDACION DE ENTORNO ─────────────────────────────────────
 (function validarEntorno() {
@@ -957,13 +953,17 @@ async function ejecutarWorkflow(workflowFile) {
     process.exit(1);
   }
 
-  const { service: servicio, steps, folder } = workflow;
+  const { service: servicio, steps } = workflow;
   if (!servicio || !Array.isArray(steps) || steps.length === 0) {
     console.error('❌ El workflow debe tener "service" y "steps"');
     process.exit(1);
   }
 
-  const dir = folder || toFolderName(servicio);
+  // Se ignora un eventual "folder" guardado en el workflow.json: es un
+  // valor derivado de "service" y guardarlo aparte es lo que hacía que
+  // terminara desincronizado con la carpeta que usa la generación por
+  // método individual (quedaban .md duplicados en dos carpetas).
+  const dir = toFolderName(servicio);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
   function deepMerge(target, source) {

@@ -1,11 +1,14 @@
 {
   "service": "PublicPersons",
-  "folder": "PublicPersons",
+  "folder": "Persons",
   "steps": [
     {
       "method": "getActivityTypes",
       "extract": [
-        { "path": "activityTypes.activityType[0].ActivityTypeId", "as": "activityTypeId" }
+        {
+          "path": "activityTypes.activityType[0].ActivityTypeId",
+          "as": "activityTypeId"
+        }
       ]
     },
     {
@@ -45,7 +48,9 @@
       "params": {
         "personGUID": "f43a3946-4ae1-4a27-861d-c1c2d9cee87d"
       },
-      "extract": ["naturalPerson"]
+      "extract": [
+        "naturalPerson"
+      ]
     },
     {
       "method": "create",
@@ -54,7 +59,9 @@
           "DocumentNumber": "12345679"
         }
       },
-      "extract": ["personGUID"]
+      "extract": [
+        "personGUID"
+      ]
     },
     {
       "method": "getGUID",

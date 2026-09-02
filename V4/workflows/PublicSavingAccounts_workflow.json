@@ -1,6 +1,6 @@
 {
   "service": "PublicSavingAccounts",
-  "folder": "PublicSavingAccounts",
+  "folder": "Saving-Accounts",
   "steps": [
     {
       "method": "getCancellationOrigins",

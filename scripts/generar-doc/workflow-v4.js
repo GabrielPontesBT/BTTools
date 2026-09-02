@@ -8,6 +8,7 @@ require('./_node-modules')(module, 'V4');
 require('dotenv').config();
 const oracledb = require('oracledb');
 const fs = require('fs');
+const { toFolderName } = require('./folder-name');
 
 const DB_CONFIG = {
   user: process.env.DB_USER,
@@ -329,7 +330,7 @@ async function generarWorkflow(servicio, archivoSalida) {
       return step;
     });
 
-    const workflow = { service: servicio, folder: servicio, steps };
+    const workflow = { service: servicio, folder: toFolderName(servicio), steps };
     const outputFile = archivoSalida || `${servicio}_workflow.json`;
     fs.writeFileSync(outputFile, JSON.stringify(workflow, null, 2), 'utf8');
 

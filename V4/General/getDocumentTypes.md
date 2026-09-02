@@ -1,19 +1,19 @@
 ---
-title: Get Document Types
+title: Document Types
 type: GET
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
 ::: note
-Método para obtener un listado de los tipos de documento.
+Método para obtener un listado de tipos los de documento.
 
-**Nombre publicación:** PublicGeneral.getDocumentTypes
+**Nombre publicación:** PublicGeneral.documentTypes
 
 **Programa:** PublicAPI.BTDTPA0001
 
 **Alcance:** Global
 
-**Endpoint:** /public/General/v1/getDocumentTypes
+**Endpoint:** /public/General/v1/documentTypes
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -22,7 +22,11 @@ Método para obtener un listado de los tipos de documento.
 
 @tab Datos de Entrada
 
-No aplica.
+Nombre | Tipo | Comentarios
+:--------- | :--------- | :---------
+offset | Long $<(Length: 10)>$ | Número de registros a omitir desde el inicio del resultado.
+limit | Long $<(Length: 10)>$ | Cantidad máxima de registros a retornar en una sola respuesta.
+appliesTo | String $<(Length: 1)>$ | Tipo de persona para el que aplica (F:Física, J:Jurídica, A:Ambas).
 
 @tab Body
 
@@ -32,11 +36,14 @@ No aplica.
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-documentTypes | [SdtsBTDTWDocumentType](#sdtsbtdtwdocumenttype) | Listado de tipos de documentos.
+hasNext | Boolean | Indica si existen más páginas disponibles.
+documentTypes | [SdtsBTDTPADocumentType](#sdtsbtdtpadocumenttype) | Listados de tipos de documento.
 
 @tab Errores
 
-No aplica.
+Código | Descripción
+:--------- | :---------
+99990010002 | Datos de Paginación Incorrectos
 
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -50,7 +57,7 @@ No aplica.
 @tab cURL
 ```bash
 curl -X GET \
-  '{{baseUrl}}/public/General/v1/getDocumentTypes' \
+  '{{baseUrl}}/public/General/v1/documentTypes?offset=0&limit=10&appliesTo=F' \
   -H 'Device: {{device}}' \
   -H 'Usuario: {{usuario}}' \
   -H 'Requerimiento: {{requerimiento}}' \
@@ -71,403 +78,118 @@ curl -X GET \
   "documentTypes": {
     "documentType": [
       {
-        "MainDocument": true,
-        "Description": "Cédula de Identidad",
-        "Format": "N",
-        "MinLength": 7,
-        "PersonType": "F",
-        "Id": 1,
-        "AppliesToFI": "N",
-        "MaxLength": 12,
-        "ShortDescription": "CI"
+        "appliesToFI": "N",
+        "documentTypeDescription": "CURP",
+        "documentTypeId": 1,
+        "format": "A",
+        "mainDocument": true,
+        "maximumLength": 18,
+        "minimumLength": 18,
+        "personType": "F",
+        "shortDescription": "CURP"
       },
       {
-        "MainDocument": true,
-        "Description": "RUT",
-        "Format": "N",
-        "MinLength": 7,
-        "PersonType": "J",
-        "Id": 2,
-        "AppliesToFI": "S",
-        "MaxLength": 24,
-        "ShortDescription": "RUT"
+        "appliesToFI": "N",
+        "documentTypeDescription": "PASAPORTE",
+        "documentTypeId": 3,
+        "format": "A",
+        "mainDocument": true,
+        "maximumLength": 18,
+        "minimumLength": 6,
+        "personType": "F",
+        "shortDescription": "PAS"
       },
       {
-        "MainDocument": true,
-        "Description": "PASAPORTE",
-        "Format": "A",
-        "MinLength": 6,
-        "PersonType": "F",
-        "Id": 3,
-        "AppliesToFI": "N",
-        "MaxLength": 18,
-        "ShortDescription": "PAS"
+        "appliesToFI": "N",
+        "documentTypeDescription": "LIBRETA DE ENROLAMIE",
+        "documentTypeId": 6,
+        "format": "N",
+        "mainDocument": false,
+        "maximumLength": 99,
+        "minimumLength": 1,
+        "personType": "F",
+        "shortDescription": "LEN"
       },
       {
-        "MainDocument": true,
-        "Description": "NO RESIDENTE",
-        "Format": "N",
-        "MinLength": 1,
-        "PersonType": "J",
-        "Id": 4,
-        "AppliesToFI": "N",
-        "MaxLength": 9,
-        "ShortDescription": "NRE"
+        "appliesToFI": "N",
+        "documentTypeDescription": "CIA(ARGENT.C.DE ID.)",
+        "documentTypeId": 7,
+        "format": "N",
+        "mainDocument": false,
+        "maximumLength": 99,
+        "minimumLength": 1,
+        "personType": "F",
+        "shortDescription": "CIA"
       },
       {
-        "MainDocument": false,
-        "Description": "LIBRETA DE ENROLAMIE",
-        "Format": "N",
-        "MinLength": 1,
-        "PersonType": "F",
-        "Id": 6,
-        "AppliesToFI": "N",
-        "MaxLength": 99,
-        "ShortDescription": "LEN"
+        "appliesToFI": "N",
+        "documentTypeDescription": "Cadastro de Pessoas",
+        "documentTypeId": 9,
+        "format": "N",
+        "mainDocument": true,
+        "maximumLength": 99,
+        "minimumLength": 1,
+        "personType": "F",
+        "shortDescription": "CPF"
       },
       {
-        "MainDocument": false,
-        "Description": "CIA(ARGENT.C.DE ID.)",
-        "Format": "N",
-        "MinLength": 1,
-        "PersonType": "F",
-        "Id": 7,
-        "AppliesToFI": "N",
-        "MaxLength": 99,
-        "ShortDescription": "CIA"
+        "appliesToFI": "N",
+        "documentTypeDescription": "CIP(PARAG.C.DE ID.)",
+        "documentTypeId": 10,
+        "format": "N",
+        "mainDocument": false,
+        "maximumLength": 99,
+        "minimumLength": 1,
+        "personType": "F",
+        "shortDescription": "CIP"
       },
       {
-        "MainDocument": false,
-        "Description": "CI (BRASIL C.DE ID.)",
-        "Format": "N",
-        "MinLength": 1,
-        "PersonType": "J",
-        "Id": 8,
-        "AppliesToFI": "N",
-        "MaxLength": 99,
-        "ShortDescription": "CI"
+        "appliesToFI": "N",
+        "documentTypeDescription": "D.N.I.",
+        "documentTypeId": 11,
+        "format": "N",
+        "mainDocument": true,
+        "maximumLength": 8,
+        "minimumLength": 8,
+        "personType": "F",
+        "shortDescription": "DNI"
       },
       {
-        "MainDocument": true,
-        "Description": "Cadastro de Pessoas",
-        "Format": "N",
-        "MinLength": 1,
-        "PersonType": "F",
-        "Id": 9,
-        "AppliesToFI": "N",
-        "MaxLength": 99,
-        "ShortDescription": "CPF"
+        "appliesToFI": "N",
+        "documentTypeDescription": "III(OTRS.DOC.REST.P.",
+        "documentTypeId": 12,
+        "format": "N",
+        "mainDocument": false,
+        "maximumLength": 9,
+        "minimumLength": 1,
+        "personType": "F",
+        "shortDescription": "III"
       },
       {
-        "MainDocument": false,
-        "Description": "CIP(PARAG.C.DE ID.)",
-        "Format": "N",
-        "MinLength": 1,
-        "PersonType": "F",
-        "Id": 10,
-        "AppliesToFI": "N",
-        "MaxLength": 99,
-        "ShortDescription": "CIP"
+        "appliesToFI": "N",
+        "documentTypeDescription": "LIBRETA CÍVICA",
+        "documentTypeId": 13,
+        "format": "N",
+        "mainDocument": true,
+        "maximumLength": 9,
+        "minimumLength": 1,
+        "personType": "F",
+        "shortDescription": "LCI"
       },
       {
-        "MainDocument": true,
-        "Description": "D.N.I.",
-        "Format": "N",
-        "MinLength": 8,
-        "PersonType": "F",
-        "Id": 11,
-        "AppliesToFI": "N",
-        "MaxLength": 8,
-        "ShortDescription": "DNI"
-      },
-      {
-        "MainDocument": false,
-        "Description": "III(OTRS.DOC.REST.P.",
-        "Format": "N",
-        "MinLength": 1,
-        "PersonType": "F",
-        "Id": 12,
-        "AppliesToFI": "N",
-        "MaxLength": 9,
-        "ShortDescription": "III"
-      },
-      {
-        "MainDocument": true,
-        "Description": "LIBRETA CÍVICA",
-        "Format": "N",
-        "MinLength": 1,
-        "PersonType": "F",
-        "Id": 13,
-        "AppliesToFI": "N",
-        "MaxLength": 9,
-        "ShortDescription": "LCI"
-      },
-      {
-        "MainDocument": true,
-        "Description": "Carnet Extranjería",
-        "Format": "A",
-        "MinLength": 9,
-        "PersonType": "F",
-        "Id": 14,
-        "AppliesToFI": "N",
-        "MaxLength": 12,
-        "ShortDescription": "C.E."
-      },
-      {
-        "MainDocument": true,
-        "Description": "R.U.C.",
-        "Format": "N",
-        "MinLength": 11,
-        "PersonType": "J",
-        "Id": 15,
-        "AppliesToFI": "S",
-        "MaxLength": 11,
-        "ShortDescription": "RUC"
-      },
-      {
-        "MainDocument": true,
-        "Description": "N.I.T.",
-        "Format": "A",
-        "MinLength": 1,
-        "PersonType": "J",
-        "Id": 16,
-        "AppliesToFI": "N",
-        "MaxLength": 12,
-        "ShortDescription": "NIT"
-      },
-      {
-        "MainDocument": false,
-        "Description": "CREDENCIAL CÍVICA",
-        "Format": "A",
-        "MinLength": 6,
-        "PersonType": "F",
-        "Id": 18,
-        "AppliesToFI": "N",
-        "MaxLength": 8,
-        "ShortDescription": "C.C."
-      },
-      {
-        "MainDocument": true,
-        "Description": "DOCUMENTO",
-        "Format": "N",
-        "MinLength": 5,
-        "PersonType": "A",
-        "Id": 19,
-        "AppliesToFI": "N",
-        "MaxLength": 9,
-        "ShortDescription": "DOC"
-      },
-      {
-        "MainDocument": false,
-        "Description": "DEPENDENC. ESTATALES",
-        "Format": "X",
-        "MinLength": 1,
-        "PersonType": "A",
-        "Id": 20,
-        "AppliesToFI": "N",
-        "MaxLength": 99,
-        "ShortDescription": "DEP"
-      },
-      {
-        "MainDocument": false,
-        "Description": "CIT(ARGENT.-CUIT)",
-        "Format": "N",
-        "MinLength": 1,
-        "PersonType": "J",
-        "Id": 21,
-        "AppliesToFI": "N",
-        "MaxLength": 99,
-        "ShortDescription": "CIT"
-      },
-      {
-        "MainDocument": false,
-        "Description": "CNP(BRASIL-CNPJ)",
-        "Format": "N",
-        "MinLength": 1,
-        "PersonType": "J",
-        "Id": 22,
-        "AppliesToFI": "N",
-        "MaxLength": 99,
-        "ShortDescription": "CNP"
-      },
-      {
-        "MainDocument": false,
-        "Description": "CGC (BRASIL)",
-        "Format": "N",
-        "MinLength": 1,
-        "PersonType": "J",
-        "Id": 23,
-        "AppliesToFI": "N",
-        "MaxLength": 99,
-        "ShortDescription": "CGC"
-      },
-      {
-        "MainDocument": false,
-        "Description": "RPC (PARAGUAY)",
-        "Format": "N",
-        "MinLength": 1,
-        "PersonType": "J",
-        "Id": 24,
-        "AppliesToFI": "N",
-        "MaxLength": 99,
-        "ShortDescription": "RPC"
-      },
-      {
-        "MainDocument": false,
-        "Description": "AUTONUM PRUEBA",
-        "Format": "X",
-        "MinLength": 0,
-        "PersonType": "F",
-        "Id": 25,
-        "AppliesToFI": "N",
-        "MaxLength": 0,
-        "ShortDescription": "NUM"
-      },
-      {
-        "MainDocument": true,
-        "Description": "CLAVE ÚNICA REGISTRO POBlACIÓN",
-        "Format": "A",
-        "MinLength": 18,
-        "PersonType": "F",
-        "Id": 26,
-        "AppliesToFI": "N",
-        "MaxLength": 18,
-        "ShortDescription": "CURP"
-      },
-      {
-        "MainDocument": false,
-        "Description": "BPS",
-        "Format": "N",
-        "MinLength": 9,
-        "PersonType": "J",
-        "Id": 30,
-        "AppliesToFI": "N",
-        "MaxLength": 15,
-        "ShortDescription": "BPS"
-      },
-      {
-        "MainDocument": false,
-        "Description": "INS (BRASIL-INSS)",
-        "Format": "N",
-        "MinLength": 1,
-        "PersonType": "J",
-        "Id": 31,
-        "AppliesToFI": "N",
-        "MaxLength": 99,
-        "ShortDescription": "INS"
-      },
-      {
-        "MainDocument": false,
-        "Description": "IPS (PARAGUAY)",
-        "Format": "N",
-        "MinLength": 1,
-        "PersonType": "J",
-        "Id": 32,
-        "AppliesToFI": "N",
-        "MaxLength": 9,
-        "ShortDescription": "ips"
-      },
-      {
-        "MainDocument": false,
-        "Description": "OPS (RESTO D/MUNDO)",
-        "Format": "N",
-        "MinLength": 8,
-        "PersonType": "J",
-        "Id": 34,
-        "AppliesToFI": "N",
-        "MaxLength": 20,
-        "ShortDescription": "OPS"
-      },
-      {
-        "MainDocument": false,
-        "Description": "REG(ID.REGISTR.MUNDO",
-        "Format": "N",
-        "MinLength": 1,
-        "PersonType": "J",
-        "Id": 35,
-        "AppliesToFI": "N",
-        "MaxLength": 15,
-        "ShortDescription": "REG"
-      },
-      {
-        "MainDocument": false,
-        "Description": "CPI(SI NO POSEE ID.)",
-        "Format": "N",
-        "MinLength": 1,
-        "PersonType": "J",
-        "Id": 36,
-        "AppliesToFI": "N",
-        "MaxLength": 99,
-        "ShortDescription": "CPI"
-      },
-      {
-        "MainDocument": false,
-        "Description": "prueba",
-        "Format": "A",
-        "MinLength": 9,
-        "PersonType": "A",
-        "Id": 37,
-        "AppliesToFI": "N",
-        "MaxLength": 20,
-        "ShortDescription": "prueb"
-      },
-      {
-        "MainDocument": false,
-        "Description": "CUIT",
-        "Format": "N",
-        "MinLength": 11,
-        "PersonType": "J",
-        "Id": 80,
-        "AppliesToFI": "N",
-        "MaxLength": 11,
-        "ShortDescription": "CUIT"
-      },
-      {
-        "MainDocument": true,
-        "Description": "A REGULARIZAR",
-        "Format": "X",
-        "MinLength": 0,
-        "PersonType": "F",
-        "Id": 90,
-        "AppliesToFI": "N",
-        "MaxLength": 0,
-        "ShortDescription": "AREG"
-      },
-      {
-        "MainDocument": false,
-        "Description": "CPJ (TODO MUNDO)",
-        "Format": "N",
-        "MinLength": 1,
-        "PersonType": "J",
-        "Id": 96,
-        "AppliesToFI": "N",
-        "MaxLength": 9,
-        "ShortDescription": "CPJ"
-      },
-      {
-        "MainDocument": false,
-        "Description": "CNP (BRASIL)",
-        "Format": "N",
-        "MinLength": 1,
-        "PersonType": "J",
-        "Id": 97,
-        "AppliesToFI": "N",
-        "MaxLength": 9,
-        "ShortDescription": "CNP"
-      },
-      {
-        "MainDocument": true,
-        "Description": "Inst. Financiera",
-        "Format": "X",
-        "MinLength": 0,
-        "PersonType": "J",
-        "Id": 99,
-        "AppliesToFI": "E",
-        "MaxLength": 0,
-        "ShortDescription": "IF"
+        "appliesToFI": "N",
+        "documentTypeDescription": "Carnet Extranjería",
+        "documentTypeId": 14,
+        "format": "A",
+        "mainDocument": true,
+        "maximumLength": 12,
+        "minimumLength": 9,
+        "personType": "F",
+        "shortDescription": "C.E."
       }
     ]
-  }
+  },
+  "hasNext": true
 }
 ```
 :::
@@ -476,23 +198,23 @@ curl -X GET \
 ## **Tipos de Dato Estructurado**
 
 <!-- ABRE SDT -->
-::: details SdtsBTDTWDocumentType
+::: details SdtsBTDTPADocumentType
 
-### SdtsBTDTWDocumentType
+### SdtsBTDTPADocumentType
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTDTWDocumentType son los siguientes:
+Los campos del tipo de dato estructurado SdtsBTDTPADocumentType son los siguientes:
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-AppliesToFI | String $<(Length: 1)>$ | ¿Aplica a institución financiera? (S:Si, N:No, E:Exclusivo para instituciones financieras).
-Description | String $<(Length: 30)>$ | Descripción del tipo de documento.
-Format | String $<(Length: 1)>$ | Formato. (A:Alfanumérico, N:Numérico, X:Autonumerado).
-Id | Short | Identificador del tipo de documento.
-MainDocument | Boolean $<(Length: 1)>$ | ¿Es documento principal?
-MaxLength | Short | Longitud máxima.
-MinLength | Byte $<(Length: 2)>$ | Longitud mínima.
-PersonType | String $<(Length: 1)>$ | Tipo de persona para el que aplica. (F:Física, J:Jurídica, A:Ambos).
-ShortDescription | String $<(Length: 5)>$ | Descripción corta.
+appliesToFI | String $<(Length: 1)>$ | ¿Aplica para instituciones financieras? (S: Si, N: No, E: Exclusivo de instituciones financieras).
+documentTypeId | Short $<(Length: 4)>$ | Identificador del tipo de documento.
+documentTypeDescription | String $<(Length: 30)>$ | Descripción del tipo de documento.
+format | String $<(Length: 1)>$ | Formato.
+mainDocument | Boolean | ¿Es documento principal?
+maximumLength | Short $<(Length: 4)>$ | Largo máximo.
+minimumLength | Byte $<(Length: 2)>$ | Largo mínimo.
+personType | String $<(Length: 1)>$ | Tipo de persona (F: Física, J: Jurídica, A: Ambas).
+shortDescription | String $<(Length: 5)>$ | Descripción corta del tipo de documento.
 :::
 <!-- CIERRA SDT -->
