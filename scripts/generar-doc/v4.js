@@ -12,6 +12,9 @@ const xml2js = require('xml2js');
 const { spawnSync } = require('child_process');
 const os = require('os');
 const path = require('path');
+const { tituloDesdeMetodo, nombreCortoMetodo } = require('./method-name');
+const { buildExecPayload, buildExampleQuery, buildExampleBody } = require('./exec-payload');
+const { leerEjemplosExistentes } = require('./existing-examples');
 
 const toFolderName = s => s
   .replace(/^Public/, '')
@@ -620,7 +623,8 @@ async function generarMd(servicio, metodo, carpeta, ejecutar = false, inputParam
 
     const descripcionRaw = r14rows[0].BTIMTDDSC ? r14rows[0].BTIMTDDSC.trim() : '';
 
-    const titulo = metodo.replace(/([A-Z])/g, ' $1').trim().replace(/^[a-z]/, c => c.toUpperCase());
+    const titulo = tituloDesdeMetodo(metodo);
+    const nombreCorto = nombreCortoMetodo(metodo);
     const descripcion = descripcionRaw || '[Pendiente de completar]';
     const programa = r14rows[0].BTIMTDPGMNOM || '';
     const progParts = programa.split('.');
@@ -715,7 +719,7 @@ ${tabla}
     // ── URL y método HTTP ──
     const httpMethod    = inferirMetodoHttp(metodo);
     const serviceSuffix = servicio.replace(/^Public/, '');
-    const endpointBasePath = `/public/${serviceSuffix}/v1/${metodo}`;
+    const endpointBasePath = `/public/${serviceSuffix}/v1/${nombreCorto}`;
     const url              = `${process.env.BASE_URL || ''}${endpointBasePath}`;
 
     // ── Headers de autenticación (van en HTTP, no en el body) ──
@@ -739,16 +743,19 @@ ${tabla}
       ? Object.fromEntries(Object.entries(inputParams).filter(([k]) => entradaNombres.has(k)))
       : {};
     const requestPayload  = { ...construirJsonParams(entrada, sdtCache), ...filteredParams };
+    const execPayload     = buildExecPayload(httpMethod, filteredParams, requestPayload);
     const salidaPayload   = construirJsonParams(salida, sdtCache);
     const responsePayload = Object.keys(salidaPayload).length > 0 ? salidaPayload : {};
 
     const endpointPath = endpointBasePath;
 
-    const exPayloadQuery = construirJsonParams(entradaQuery, sdtCache);
-    const exPayloadBody  = construirJsonParams(entradaBody, sdtCache);
+    const exPayloadQuery = buildExampleQuery(filteredParams, entradaQuery);
+    const exPayloadBody  = buildExampleBody(filteredParams, entradaBody, construirJsonParams(entradaBody, sdtCache));
     let jsonEjemplo  = Object.keys(exPayloadBody).length > 0 ? JSON.stringify(exPayloadBody, null, 2) : null;
     let curlCmd      = buildCurlCmdPlaceholder(httpMethod, endpointPath, exPayloadQuery, exPayloadBody);
     let responseJson = JSON.stringify(responsePayload, null, 2);
+
+    const nombreArchivo = `${carpeta}\\${metodo}.md`;
 
     let realResponse = null;
     if (ejecutar) {
@@ -756,8 +763,8 @@ ${tabla}
         process.stdout.write(`  🌐 Ejecutando ${servicio}.${metodo}... `);
         const serviceSuffixExec = servicio.replace(/^Public/, '');
         const respuestaReal = await ejecutarServicio(
-          `${PUBLIC_BASE_URL}/public/${serviceSuffixExec}/v1/${metodo}`,
-          requestPayload,
+          `${PUBLIC_BASE_URL}/public/${serviceSuffixExec}/v1/${nombreCorto}`,
+          execPayload,
           httpMethod
         );
         if (respuestaReal !== null) {
@@ -770,6 +777,14 @@ ${tabla}
       } catch (e) {
         console.log(`⚠️  ${e.message} — usando valores de ejemplo`);
       }
+    } else if (fs.existsSync(nombreArchivo)) {
+      const ejemplosPrevios = leerEjemplosExistentes(fs.readFileSync(nombreArchivo, 'utf8'));
+      if (ejemplosPrevios) {
+        if (ejemplosPrevios.curlCmd) curlCmd = ejemplosPrevios.curlCmd;
+        if (ejemplosPrevios.requestJson) jsonEjemplo = ejemplosPrevios.requestJson;
+        if (ejemplosPrevios.responseJson) responseJson = ejemplosPrevios.responseJson;
+        console.log('  ♻️  Ejemplos preservados del documento existente (no se llamó a la API)');
+      }
     }
 
     // ── Tablas ──
@@ -779,13 +794,16 @@ ${tabla}
     // ── Errores posibles (Documentador de Errores) ──
     let tablaErrores = `Código | Descripción\n:--------- | :---------\nCompletar manualmente | Completar manualmente`;
     const _docModelos = process.env.DOC_ERRORES_MODELOS;
-    const scriptFile = path.join(process.cwd(), '..', 'error-docs', 'scripts', 'simulate_program_flow.py');
+    const errorDocsRoot = path.join(process.cwd(), '..', 'error-docs');
+    const scriptFile = path.join(errorDocsRoot, 'scripts', 'simulate_program_flow.py');
+    const embeddedPython = path.join(errorDocsRoot, 'python-embed', 'python', 'python.exe');
+    const pythonBin = fs.existsSync(embeddedPython) ? embeddedPython : 'python';
     if (_docModelos && progNombreKB && fs.existsSync(scriptFile)) {
       const progNombreScript = progNombreKB.startsWith('A') ? progNombreKB.slice(1) : progNombreKB;
       console.log(`⏳ Documentando errores para ${progNombreScript}...`);
       const tPy = Date.now();
       const tmpFile = `${os.tmpdir()}\\errores_${progNombreScript}_${Date.now()}.md`;
-      const result = spawnSync('python', [scriptFile, progNombreScript, '--models', _docModelos, '--errors-md', tmpFile], {
+      const result = spawnSync(pythonBin, [scriptFile, progNombreScript, '--models', _docModelos, '--errors-md', tmpFile], {
         encoding: 'utf8',
         timeout: 180000,
       });
@@ -829,7 +847,7 @@ type: ${httpMethod}
 ::: note
 ${descripcion}
 
-**Nombre publicación:** ${servicio}.${metodo}
+**Nombre publicación:** ${servicio}.${nombreCorto}
 
 **Programa:** ${progFinal}
 
@@ -886,7 +904,6 @@ ${responseJson}
 ${sdtSection ? `## **Tipos de Dato Estructurado**\n\n<!-- ABRE SDT -->\n${sdtSection.trim()}\n<!-- CIERRA SDT -->` : ''}
 `;
 
-    const nombreArchivo = `${carpeta}\\${metodo}.md`;
     fs.writeFileSync(nombreArchivo, md, 'utf8');
     console.log(`✅ Archivo generado: ${nombreArchivo}`);
     console.log(`  ⏱  TOTAL: ${Date.now() - t0}ms`);

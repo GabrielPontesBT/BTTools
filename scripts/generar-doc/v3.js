@@ -9,6 +9,7 @@ const sql = require('mssql');
 const fs = require('fs');
 const https = require('https');
 const http = require('http');
+const { leerEjemplosExistentes } = require('./existing-examples');
 
 // ── VALIDACION DE ENTORNO ─────────────────────────────────────
 (function validarEntorno() {
@@ -78,9 +79,7 @@ function mapearTipo(tipo, largo, esColeccion) {
   return t;
 }
 
-function tituloDesdeMetodo(metodo) {
-  return metodo.replace(/([A-Z])/g, ' $1').trim().replace(/^[a-z]/, c => c.toUpperCase());
-}
+const { tituloDesdeMetodo, nombreCortoMetodo } = require('./method-name');
 
 // ── EJECUCION DE SERVICIOS ────────────────────────────────────
 
@@ -407,6 +406,7 @@ async function generarMd(servicio, metodo, carpeta, ejecutar = false, inputParam
     const descripcionRaw = r14.recordset[0].BTIMTDDSC ? r14.recordset[0].BTIMTDDSC.trim() : '';
 
     const titulo = tituloDesdeMetodo(metodo);
+    const nombreCorto = nombreCortoMetodo(metodo);
     const descripcion = descripcionRaw || '[Pendiente de completar]';
     const programa = r14.recordset[0].BTIMTDPGMNOM || '';
     const progFinal = programa ? programa.toUpperCase() : 'Completar manualmente';
@@ -509,6 +509,10 @@ ${tabla}
     };
     let requestJson  = JSON.stringify(requestPayload, null, 2);
     let responseJson = JSON.stringify(responsePayload, null, 2);
+    let requestXml  = null;
+    let responseXml = null;
+
+    const nombreArchivo = `${carpeta}\\${metodo}.md`;
 
     let realResponse = null;
     if (ejecutar) {
@@ -523,11 +527,20 @@ ${tabla}
       } catch (e) {
         console.log(`⚠️  ${e.message} — usando valores de ejemplo`);
       }
+    } else if (fs.existsSync(nombreArchivo)) {
+      const ejemplosPrevios = leerEjemplosExistentes(fs.readFileSync(nombreArchivo, 'utf8'));
+      if (ejemplosPrevios) {
+        if (ejemplosPrevios.requestJson) requestJson = ejemplosPrevios.requestJson;
+        if (ejemplosPrevios.responseJson) responseJson = ejemplosPrevios.responseJson;
+        if (ejemplosPrevios.requestXml) requestXml = ejemplosPrevios.requestXml;
+        if (ejemplosPrevios.responseXml) responseXml = ejemplosPrevios.responseXml;
+        console.log('  ♻️  Ejemplos preservados del documento existente (no se llamó a la API)');
+      }
     }
 
-    const xmlToken   = (ejecutar && cachedToken) ? cachedToken : 'TOKEN_AQUI';
-    const requestXml  = buildRequestXml(servicio, metodo, entrada, sdtCache, xmlToken);
-    const responseXml = buildResponseXml(servicio, metodo, salida, sdtCache);
+    const xmlToken = (ejecutar && cachedToken) ? cachedToken : 'TOKEN_AQUI';
+    if (requestXml === null) requestXml = buildRequestXml(servicio, metodo, entrada, sdtCache, xmlToken);
+    if (responseXml === null) responseXml = buildResponseXml(servicio, metodo, salida, sdtCache);
 
     // ── Tablas ──
     const tablaEntrada = generarTabla(entrada);
@@ -552,7 +565,7 @@ backtotop: false
 <!-- ABRE DATOS DEL MÉTODO -->
 ::: note ${descripcion}
 
-**Nombre publicación:** ${servicio}.${metodo}
+**Nombre publicación:** ${servicio}.${nombreCorto}
 
 **Programa:** ${progFinal}
 
@@ -613,7 +626,6 @@ ${responseJson}
 ${sdtSection ? `## **Tipos de Dato Estructurado**\n\n<!-- ABRE SDT -->\n${sdtSection.trim()}\n<!-- CIERRA SDT -->` : ''}
 `;
 
-    const nombreArchivo = `${carpeta}\\${metodo}.md`;
     fs.writeFileSync(nombreArchivo, md, 'utf8');
     console.log(`✅ Archivo generado: ${nombreArchivo}`);
 
