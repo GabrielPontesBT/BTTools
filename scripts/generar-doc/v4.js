@@ -739,12 +739,37 @@ ${tabla}
 
     // ── Ejemplos JSON (body sin Btinreq) ──
     const entradaNombres = new Set(entrada.map(r => r.BTISRVPARNOM));
-    const filteredParams = inputParams
+    const salidaNombres  = new Set(salida.map(r => r.BTISRVPARNOM));
+    const nombreArchivo  = `${carpeta}\\${metodo}.md`;
+
+    // Si no se va a ejecutar la API real, se lee el .md existente para no
+    // perder ejemplos de una corrida anterior. Si ese .md está en el
+    // formato viejo (un único @tab JSON envuelto en Btinreq, de una
+    // version anterior del script), no se preserva tal cual -eso lo
+    // clavaría en el formato viejo para siempre- sino que se migran sus
+    // valores reales a la plantilla actual (cURL + JSON Body limpio).
+    const ejemplosPrevios = (!ejecutar && fs.existsSync(nombreArchivo))
+      ? leerEjemplosExistentes(fs.readFileSync(nombreArchivo, 'utf8'))
+      : null;
+    const esLegado = ejemplosPrevios && ejemplosPrevios.formato === 'v4-legado';
+
+    const valoresMigradosEntrada = esLegado
+      ? Object.fromEntries(Object.entries(ejemplosPrevios.valoresEntrada).filter(([k]) => entradaNombres.has(k)))
+      : {};
+    const valoresMigradosSalida = esLegado
+      ? Object.fromEntries(Object.entries(ejemplosPrevios.valoresSalida).filter(([k]) => salidaNombres.has(k)))
+      : {};
+
+    const filteredParamsInput = inputParams
       ? Object.fromEntries(Object.entries(inputParams).filter(([k]) => entradaNombres.has(k)))
       : {};
+    // Lo completado a mano en esta corrida pisa lo migrado del documento
+    // viejo, que a su vez pisa el placeholder genérico.
+    const filteredParams = { ...valoresMigradosEntrada, ...filteredParamsInput };
+
     const requestPayload  = { ...construirJsonParams(entrada, sdtCache), ...filteredParams };
     const execPayload     = buildExecPayload(httpMethod, filteredParams, requestPayload);
-    const salidaPayload   = construirJsonParams(salida, sdtCache);
+    const salidaPayload   = { ...construirJsonParams(salida, sdtCache), ...valoresMigradosSalida };
     const responsePayload = Object.keys(salidaPayload).length > 0 ? salidaPayload : {};
 
     const endpointPath = endpointBasePath;
@@ -754,8 +779,6 @@ ${tabla}
     let jsonEjemplo  = Object.keys(exPayloadBody).length > 0 ? JSON.stringify(exPayloadBody, null, 2) : null;
     let curlCmd      = buildCurlCmdPlaceholder(httpMethod, endpointPath, exPayloadQuery, exPayloadBody);
     let responseJson = JSON.stringify(responsePayload, null, 2);
-
-    const nombreArchivo = `${carpeta}\\${metodo}.md`;
 
     let realResponse = null;
     if (ejecutar) {
@@ -777,14 +800,13 @@ ${tabla}
       } catch (e) {
         console.log(`⚠️  ${e.message} — usando valores de ejemplo`);
       }
-    } else if (fs.existsSync(nombreArchivo)) {
-      const ejemplosPrevios = leerEjemplosExistentes(fs.readFileSync(nombreArchivo, 'utf8'));
-      if (ejemplosPrevios) {
-        if (ejemplosPrevios.curlCmd) curlCmd = ejemplosPrevios.curlCmd;
-        if (ejemplosPrevios.requestJson) jsonEjemplo = ejemplosPrevios.requestJson;
-        if (ejemplosPrevios.responseJson) responseJson = ejemplosPrevios.responseJson;
-        console.log('  ♻️  Ejemplos preservados del documento existente (no se llamó a la API)');
-      }
+    } else if (esLegado) {
+      console.log('  🔄 Ejemplos migrados del formato viejo al formato actual (no se llamó a la API)');
+    } else if (ejemplosPrevios) {
+      if (ejemplosPrevios.curlCmd) curlCmd = ejemplosPrevios.curlCmd;
+      if (ejemplosPrevios.requestJson) jsonEjemplo = ejemplosPrevios.requestJson;
+      if (ejemplosPrevios.responseJson) responseJson = ejemplosPrevios.responseJson;
+      console.log('  ♻️  Ejemplos preservados del documento existente (no se llamó a la API)');
     }
 
     // ── Tablas ──
