@@ -315,6 +315,7 @@ function collectionGetFlowLifecycleManager() {
     getActiveScenario: collectionGetActiveScenario,
     getVersion: function() { return typeof S !== 'undefined' ? S.version : ''; },
     getPlatform: function() { return typeof S !== 'undefined' ? S.platform : ''; },
+    getApiMode: function() { return typeof S !== 'undefined' ? S.apiMode : ''; },
     getDb: function() { return typeof getDb === 'function' ? getDb() : {}; },
     apiClient: collectionApiClient,
     ensureScenarioConnections: collectionEnsureScenarioConnections,

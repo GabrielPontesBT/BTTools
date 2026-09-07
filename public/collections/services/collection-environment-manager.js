@@ -27,11 +27,20 @@
      */
     syncSourceUi() {
       var source = this.getSelectedSource();
+      var wizardState = this.options.getWizardState ? this.options.getWizardState() : {};
       var swaggerField = document.getElementById('collection-swagger-field');
+      var internaBaseField = document.getElementById('collection-interna-base-field');
       var loadButton = document.getElementById('btn-collection-load-services');
       var sourceSelect = document.getElementById('collection-source-select');
 
       if (swaggerField) swaggerField.style.display = source === 'swagger' ? 'block' : 'none';
+      if (source === 'swagger') this.renderSwaggerUrlList();
+      // La URL de la API interna (gateway REST distinto del de API publica,
+      // ej. ':5107/api/platform' en vez de ':5101/api/publicapi') solo hace
+      // falta cuando el catalogo viene de Base de datos y el ambiente es
+      // "API interna" — con Swagger como origen, esa base ya sale del propio
+      // documento (ver resolveSwaggerServerUrl en index.js).
+      if (internaBaseField) internaBaseField.style.display = (source === 'database' && wizardState.apiMode === 'interna') ? 'block' : 'none';
       if (loadButton) loadButton.textContent = 'Cargar servicios';
       if (sourceSelect) sourceSelect.value = source;
 
@@ -55,18 +64,28 @@
       var state = this.options.getState();
       var wizardState = this.options.getWizardState ? this.options.getWizardState() : {};
       var isV3 = wizardState.version === 'V3';
+      // "API interna" tambien expone algunos servicios solo por SOAP (mismos
+      // servlets com.dlya.bantotal.ardwsbt_{Service}_v1 que V3, mismo Core),
+      // asi que el selector de formato aplica igual que V3 en ese caso -- pero
+      // SOLO cuando el catalogo viene de Base de datos: un Swagger describe
+      // API REST/JSON por definicion, no hay eleccion posible ahi (elegir
+      // "XML (SOAP)" con origen Swagger hacia que la ejecucion tomara la rama
+      // SOAP de executeCollectionFlow contra operaciones que en realidad son
+      // REST, rompiendo todo con errores como "Token is blank").
+      var isV4Interna = wizardState.version === 'V4' && wizardState.apiMode === 'interna' && this.getSelectedSource() === 'database';
+      var showFormatChoice = isV3 || isV4Interna;
       var formatField = document.getElementById('collection-format-field');
       var formatSelect = document.getElementById('collection-format-select');
 
-      if (!isV3) {
-        // V4 no tiene UI para elegir formato: siempre JSON.
+      if (!showFormatChoice) {
+        // Sin eleccion de formato (V4 publica): siempre JSON.
         state.format = 'json';
       } else if (!state.v3FormatInitialized) {
         state.format = 'xml';
         state.v3FormatInitialized = true;
       }
 
-      if (formatField) formatField.style.display = isV3 ? 'block' : 'none';
+      if (formatField) formatField.style.display = showFormatChoice ? 'block' : 'none';
       if (formatSelect) formatSelect.value = state.format || 'xml';
     }
 
@@ -118,14 +137,14 @@
         ? (api.API_AUTH_URL || 'sin API_AUTH_URL')
         : this.options.resolveV4AuthUrl(api);
 
-      var swaggerInput = document.getElementById('collection-swagger-url');
-      if (swaggerInput && !swaggerInput.value) {
-        var guessedSwaggerUrl = state.swaggerUrl || this.options.guessSwaggerUrl(api);
-        if (guessedSwaggerUrl) {
-          swaggerInput.value = guessedSwaggerUrl;
-          state.swaggerUrl = guessedSwaggerUrl;
-        }
+      // Solo se autocompleta mientras la lista este vacia -- una vez que el
+      // usuario agrego (o borro) swaggers a mano, no le pisamos la eleccion.
+      if (!Array.isArray(state.swaggerUrls)) state.swaggerUrls = [];
+      if (!state.swaggerUrls.length) {
+        var guessedSwaggerUrl = this.options.guessSwaggerUrl(api);
+        if (guessedSwaggerUrl) state.swaggerUrls.push(guessedSwaggerUrl);
       }
+      this.renderSwaggerUrlList();
 
       this.syncSourceUi();
 
@@ -139,10 +158,70 @@
     }
 
     /**
-     * Guarda la URL Swagger que el usuario escribe manualmente.
+     * Guarda la URL base del gateway REST de "API interna" (distinta de la
+     * de "API publica" — ver loadServicesFromDatabase, que es donde se usa).
      */
-    updateSwaggerUrl(value) {
-      this.options.getState().swaggerUrl = String(value || '').trim();
+    updateInternaBaseUrl(value) {
+      this.options.getState().internaBaseUrl = String(value || '').trim();
+    }
+
+    /**
+     * Guarda si se debe detectar y probar la autenticacion automaticamente al
+     * cargar servicios (Session.userLogin/Authenticate detectado en el
+     * swagger). Destildado, el usuario ajusta la autenticacion a mano
+     * despues -- util cuando la deteccion le pega mal a un ambiente puntual.
+     */
+    updateAutoDetectAuth(checked) {
+      this.options.getState().autoDetectAuth = checked !== false;
+    }
+
+    /**
+     * Suma una URL Swagger a la lista del ambiente. Cada microservicio de un
+     * ambiente real puede tener la suya propia (distinto host/puerto); ver
+     * loadServicesFromSwagger, que carga todas juntas y arma un catalogo
+     * combinado. Ignora vacios y duplicados exactos.
+     */
+    addSwaggerUrl(value) {
+      var state = this.options.getState();
+      if (!Array.isArray(state.swaggerUrls)) state.swaggerUrls = [];
+      var url = String(value || '').trim();
+      if (!url || state.swaggerUrls.indexOf(url) !== -1) return;
+      state.swaggerUrls.push(url);
+      this.renderSwaggerUrlList();
+    }
+
+    /**
+     * Quita una URL Swagger de la lista por indice.
+     */
+    removeSwaggerUrl(index) {
+      var state = this.options.getState();
+      if (!Array.isArray(state.swaggerUrls)) return;
+      state.swaggerUrls.splice(index, 1);
+      this.renderSwaggerUrlList();
+    }
+
+    /**
+     * Redibuja la lista de swaggers agregados con su boton de quitar. El
+     * input de texto queda libre para escribir la siguiente URL a agregar.
+     */
+    renderSwaggerUrlList() {
+      var container = document.getElementById('collection-swagger-url-list');
+      if (!container) return;
+      var state = this.options.getState();
+      var urls = Array.isArray(state.swaggerUrls) ? state.swaggerUrls : [];
+      var escapeHtml = this.options.escapeHtml || function(text) { return String(text == null ? '' : text); };
+
+      if (!urls.length) {
+        container.innerHTML = '<div class="collection-swagger-url-empty">Sin swaggers agregados todavia.</div>';
+        return;
+      }
+
+      container.innerHTML = urls.map(function(url, index) {
+        return '<div class="collection-swagger-url-row">' +
+          '<span class="collection-swagger-url-text">' + escapeHtml(url) + '</span>' +
+          '<button type="button" class="collection-swagger-url-remove" onclick="collectionRemoveSwaggerUrl(' + index + ')">Quitar</button>' +
+          '</div>';
+      }).join('');
     }
 
     /**
@@ -245,18 +324,31 @@
      * Mantiene el flujo actual de Swagger/OpenAPI como origen principal.
      */
     async loadServicesFromSwagger(wizardState, state) {
-      state.swaggerUrl = String(state.swaggerUrl || ((document.getElementById('collection-swagger-url') || {}).value || '')).trim();
-      if (!state.swaggerUrl) {
-        this.options.showStatus('err', 'Indica primero la ruta Swagger del ambiente.');
+      // Un ambiente puede tener varios swaggers (un microservicio por puerto
+      // -- publicapi/loan/customer/etc, cada uno con su propio host) en vez
+      // de un gateway unico. La lista se arma con addSwaggerUrl/
+      // renderSwaggerUrlList; ver tambien extractSwaggerOperations en
+      // index.js (cada operacion recuerda de que swagger salio).
+      var swaggerUrls = (Array.isArray(state.swaggerUrls) ? state.swaggerUrls : [])
+        .map(function(url) { return String(url || '').trim(); })
+        .filter(Boolean);
+      if (!swaggerUrls.length) {
+        this.options.showStatus('err', 'Agrega al menos una ruta Swagger del ambiente.');
         return;
       }
 
-      this.options.showStatus('ok', 'Cargando servicios desde Swagger...');
+      this.options.showStatus('ok', swaggerUrls.length > 1
+        ? 'Cargando servicios desde ' + swaggerUrls.length + ' swaggers...'
+        : 'Cargando servicios desde Swagger...');
+
+      var autoDetectAuth = state.autoDetectAuth !== false;
 
       try {
         var swaggerData = await this.options.apiClient.loadSwaggerServices({
-          swaggerUrl: state.swaggerUrl,
-          api: this.options.getApi()
+          swaggerUrls: swaggerUrls,
+          api: this.options.getApi(),
+          apiMode: wizardState.apiMode,
+          autoDetectAuth: autoDetectAuth
         });
         if (!swaggerData.ok) throw new Error(swaggerData.message);
 
@@ -265,30 +357,56 @@
         state.swaggerResolvedUrl = swaggerData.resolvedUrl || '';
         state.swaggerBaseUrl = swaggerData.baseUrl || '';
         state.swaggerAuthUrl = swaggerData.authUrl || '';
+        // 'session-userlogin' para "API interna" (detectado en el swagger),
+        // 'authenticate-execute' para "API publica" -- ver
+        // findInternaAuthOperation en index.js. Determina el shape del
+        // request/response tanto al ejecutar como al exportar la collection.
+        state.swaggerAuthKind = swaggerData.authKind || null;
 
         var servicesPanel = document.getElementById('collection-services');
         if (servicesPanel) servicesPanel.style.display = 'block';
 
-        // La autenticacion solo hace falta para ejecutar de verdad (Probar,
-        // rellenar datos); el catalogo ya se resolvio leyendo el Swagger, asi
-        // que una falla aca es una advertencia y no debe bloquear el builder.
-        this.options.showStatus('ok', 'Swagger resuelto. Validando autenticacion del ambiente...');
-        try {
-          var authData = await this.options.apiClient.testAuthentication({
-            version: wizardState.version,
-            api: this.options.getApi(),
-            authUrl: state.swaggerAuthUrl
-          });
-          if (authData.ok) state.authContext = authData.authContext || null;
-          else this.options.showStatus('warn', (authData.message || 'No se pudo autenticar usando el Authenticate del Swagger.') + ' Los servicios ya estan cargados; podes revisar la autenticacion mas tarde.', 'Autenticacion pendiente');
-        } catch (authError) {
-          this.options.showStatus('warn', 'No se pudo validar la autenticacion del ambiente. Los servicios ya estan cargados; podes revisar la autenticacion mas tarde.', 'Autenticacion pendiente');
+        // No todos los swaggers de la lista tienen por que responder bien
+        // (ej. un microservicio caido) -- se avisa cuales fallaron, pero no
+        // bloquea a los que si funcionaron.
+        var failedSources = swaggerData.failedSources || [];
+        var failedNote = failedSources.length
+          ? (' (' + failedSources.length + ' de ' + swaggerUrls.length + ' no respondieron: ' + failedSources.map(function(f) { return f.swaggerUrl; }).join(', ') + ')')
+          : '';
+
+        // Con "Detectar autenticacion automaticamente" destildado, o si la
+        // deteccion no encontro nada (swaggerData.authWarning), no se intenta
+        // autenticar: el catalogo ya quedo cargado y el usuario ajusta la
+        // autenticacion a mano despues (en la collection generada).
+        if (!autoDetectAuth || !state.swaggerAuthUrl) {
+          state.authContext = null;
+          var skipNote = swaggerData.authWarning || 'Autenticacion no detectada automaticamente.';
+          this.options.showStatus('ok', 'Swagger resuelto' + failedNote + '. ' + skipNote + ' Entrando al builder...', 'Servicios cargados');
+        } else {
+          // La autenticacion solo hace falta para ejecutar de verdad (Probar,
+          // rellenar datos); el catalogo ya se resolvio leyendo el/los
+          // Swagger, asi que una falla aca es una advertencia y no debe
+          // bloquear el builder.
+          this.options.showStatus('ok', 'Swagger resuelto' + failedNote + '. Validando autenticacion del ambiente...');
+          try {
+            var authData = await this.options.apiClient.testAuthentication({
+              version: wizardState.version,
+              api: this.options.getApi(),
+              authUrl: state.swaggerAuthUrl,
+              apiMode: wizardState.apiMode,
+              authKind: state.swaggerAuthKind
+            });
+            if (authData.ok) state.authContext = authData.authContext || null;
+            else this.options.showStatus('warn', (authData.message || 'No se pudo autenticar usando el Authenticate del Swagger.') + ' Los servicios ya estan cargados; podes revisar la autenticacion mas tarde.', 'Autenticacion pendiente');
+          } catch (authError) {
+            this.options.showStatus('warn', 'No se pudo validar la autenticacion del ambiente. Los servicios ya estan cargados; podes revisar la autenticacion mas tarde.', 'Autenticacion pendiente');
+          }
         }
 
         this.options.filterServices();
         this.options.renderVariableEditor();
         this.options.setStudioStage('builder');
-        if (state.authContext) this.options.showStatus('ok', 'Entrando al builder...', 'Servicios cargados correctamente');
+        if (state.authContext) this.options.showStatus('ok', 'Entrando al builder...' + failedNote, 'Servicios cargados correctamente');
       } catch (error) {
         this.options.showStatus('err', error.message || 'No se pudieron cargar los servicios.');
       }
@@ -298,12 +416,23 @@
      * Carga servicios desde BTI014/BTI019 y los normaliza al mismo contrato del builder.
      */
     async loadServicesFromDatabase(wizardState, state) {
+      var isInterna = wizardState.apiMode === 'interna';
+      if (isInterna && !String(state.internaBaseUrl || '').trim()) {
+        this.options.showStatus('err', 'Completa primero la URL de la API interna (el gateway REST de este ambiente, distinto del de API publica).');
+        return;
+      }
+
       this.options.showStatus('ok', 'Cargando servicios desde Base de datos...');
 
       try {
         var databaseData = await this.options.apiClient.loadDatabaseServices({
           version: wizardState.version,
           platform: wizardState.platform,
+          apiMode: wizardState.apiMode,
+          // El catalogo queda armado (httpMethod/path por item) segun el
+          // formato ya elegido en el panel -- para "API interna" cambia si
+          // es SOAP o REST (ver buildDatabaseOperations en index.js).
+          format: state.format,
           db: this.options.getDb(),
           api: this.options.getApi()
         });
@@ -312,21 +441,39 @@
         state.services = databaseData.services || [];
         state.serviceOperations = databaseData.operationsByService || {};
         state.swaggerResolvedUrl = '';
-        state.swaggerBaseUrl = String((this.options.getApi().BASE_URL || '')).trim();
-        state.swaggerAuthUrl = wizardState.version === 'V4'
-          ? this.options.resolveV4AuthUrl(this.options.getApi())
-          : String((this.options.getApi().API_AUTH_URL || '')).trim();
+        // Para "API interna" el catalogo viene de la base (BTCBS014/019/026)
+        // pero la ruta real de ejecucion es un gateway distinto (ej.
+        // ':5107/api/platform', sin el prefijo '/public/') que no se puede
+        // inferir de ningun otro campo del wizard — el usuario lo escribe
+        // en "URL de la API interna" (ver syncSourceUi/updateInternaBaseUrl).
+        state.swaggerBaseUrl = isInterna
+          ? String(state.internaBaseUrl || '').trim()
+          : String((this.options.getApi().BASE_URL || '')).trim();
+        if (isInterna) {
+          // "API interna" no se autentica con Authenticate.Execute (eso es
+          // de la API publica, resolveV4AuthUrl no sabe nada de interna) --
+          // la autenticacion real es Session.userLogin por SOAP y ya se
+          // resuelve sola al ejecutar (ver authenticateSessionInternaSoap en
+          // index.js). Este chequeo previo no aplica aca: se salta en vez de
+          // fallar con una URL armada para el mecanismo equivocado.
+          state.swaggerAuthUrl = '';
+          state.authContext = null;
+        } else {
+          state.swaggerAuthUrl = wizardState.version === 'V4'
+            ? this.options.resolveV4AuthUrl(this.options.getApi())
+            : String((this.options.getApi().API_AUTH_URL || '')).trim();
 
-        this.options.showStatus('ok', 'Catalogo BTI resuelto. Validando autenticacion del ambiente...');
+          this.options.showStatus('ok', 'Catalogo BTI resuelto. Validando autenticacion del ambiente...');
 
-        var authData = await this.options.apiClient.testAuthentication({
-          version: wizardState.version,
-          api: this.options.getApi(),
-          authUrl: state.swaggerAuthUrl
-        });
-        if (!authData.ok) throw new Error(authData.message || 'No se pudo autenticar usando la API publica del ambiente.');
+          var authData = await this.options.apiClient.testAuthentication({
+            version: wizardState.version,
+            api: this.options.getApi(),
+            authUrl: state.swaggerAuthUrl
+          });
+          if (!authData.ok) throw new Error(authData.message || 'No se pudo autenticar usando la API publica del ambiente.');
 
-        state.authContext = authData.authContext || null;
+          state.authContext = authData.authContext || null;
+        }
 
         var servicesPanel = document.getElementById('collection-services');
         if (servicesPanel) servicesPanel.style.display = 'block';

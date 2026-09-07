@@ -53,10 +53,12 @@
           target: this.options.getTarget(),
           version: version,
           platform: this.options.getPlatform(),
+          apiMode: this.options.getApiMode ? this.options.getApiMode() : '',
           db: this.options.getDb(),
           api: this.options.getApi(),
           swaggerBaseUrl: this.options.getSwaggerBaseUrl(),
           swaggerAuthUrl: this.options.getSwaggerAuthUrl(),
+          swaggerAuthKind: this.options.getSwaggerAuthKind ? this.options.getSwaggerAuthKind() : '',
           collectionName: this.options.getCollectionName(),
           scenarios: scenarios
         });

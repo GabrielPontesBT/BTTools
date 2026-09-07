@@ -179,6 +179,12 @@
       var isSearching = !!searchTerm;
       var selectionCount = shellManager ? shellManager.getCatalogSelectionCount() : 0;
 
+      // Tildar un checkbox (o cualquier otro cambio) repinta todo el catalogo
+      // -- sin esto, el scroll de la lista volvia arriba en cada click porque
+      // el div ".collection-service-drawer-scroll" se recrea de cero.
+      var previousScroll = container.querySelector('.collection-service-drawer-scroll');
+      var scrollTop = previousScroll ? previousScroll.scrollTop : 0;
+
       container.innerHTML = '<div class="collection-service-drawer-scroll">' + groups.map(function renderGroup(group) {
         var escapedService = this.options.escapeHtml(group.service);
         var isCollapsed = !isSearching && !!(shellManager && shellManager.isServiceGroupCollapsed(group.service));
@@ -221,6 +227,9 @@
           '<button type="button" class="btn btn-primary" id="btn-collection-add-selected" onclick="collectionAddSelectedCatalogOperations()" disabled>Agregar al flujo</button>' +
         '</div>' +
       '</div>';
+
+      var nextScroll = container.querySelector('.collection-service-drawer-scroll');
+      if (nextScroll) nextScroll.scrollTop = scrollTop;
 
       if (typeof collectionSyncBuilderShellState === 'function') collectionSyncBuilderShellState();
     }

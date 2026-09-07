@@ -121,6 +121,7 @@
      */
     open() {
       if (typeof collectionCloseServiceDrawer === 'function') collectionCloseServiceDrawer();
+      if (typeof collectionCloseTokenSourcesDrawer === 'function') collectionCloseTokenSourcesDrawer();
 
       var selectedItem = this.options.getSelectedItem();
       if (selectedItem) {

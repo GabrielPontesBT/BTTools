@@ -151,19 +151,25 @@ async function queryServices(platform, db, apiMode) {
 }
 
 /**
- * Trae TODOS los servicios y metodos de BTI014 en una sola consulta y una
- * sola conexion, en vez de una consulta por servicio. Pensado para el
- * builder de Collections, que necesita el catalogo completo de una vez y
- * puede apuntar a ambientes de produccion: minimizar la cantidad de golpes
- * a la base es mas importante que la simplicidad del codigo por servicio.
+ * Trae TODOS los servicios y metodos en una sola consulta y una sola
+ * conexion, en vez de una consulta por servicio. Pensado para el builder de
+ * Collections, que necesita el catalogo completo de una vez y puede apuntar
+ * a ambientes de produccion: minimizar la cantidad de golpes a la base es
+ * mas importante que la simplicidad del codigo por servicio.
+ *
+ * apiMode 'interna' resuelve contra BTCBS014; cualquier otro valor, BTI014.
  */
-async function queryServicesWithMethods(platform, db) {
-  function groupRows(rows) {
+async function queryServicesWithMethods(platform, db, apiMode) {
+  // Las columnas se pasan por parametro porque "API interna" resuelve el
+  // catalogo contra BTCBS014 (BSSRVNAME/BSMTDNAME) y no contra BTI014
+  // (BTISRVNOM/BTIMTDNOM). Mismo criterio que queryServices y queryMethods,
+  // mas abajo en este archivo.
+  function groupRows(rows, serviceCol, methodCol) {
     const services = [];
     const methodsByService = {};
     (rows || []).forEach(function(row) {
-      const service = String(row.BTISRVNOM || '').trim();
-      const method = String(row.BTIMTDNOM || '').trim();
+      const service = String(row[serviceCol] || '').trim();
+      const method = String(row[methodCol] || '').trim();
       if (!service || !method) return;
       if (!methodsByService[service]) { methodsByService[service] = []; services.push(service); }
       methodsByService[service].push(method);
@@ -181,62 +187,11 @@ async function queryServicesWithMethods(platform, db) {
       options: { trustServerCertificate: true }, connectionTimeout: 8000,
     });
     await pool.connect();
+    // V3 (SQL Server) no tiene API interna: siempre BTI014.
     const r = await pool.request()
       .query('SELECT BTISRVNOM, BTIMTDNOM FROM BTI014 ORDER BY BTISRVNOM, BTIMTDNOM');
     await pool.close();
-    return groupRows(r.recordset);
-  } else {
-    const mod = path.join(ROOT, 'V4', 'node_modules', 'oracledb');
-    if (!fs.existsSync(mod)) throw new Error('oracledb no instalado - ejecuta npm install en V4/');
-    const oracledb = oraFetchLobsAsString(require(mod));
-    const conn = await oracledb.getConnection({
-      user: db.DB_USER, password: db.DB_PASSWORD, connectString: db.DB_CONNECT_STRING,
-    });
-    const interna = apiMode === 'interna';
-    const r = await conn.execute(
-      'SELECT DISTINCT BTISRVNOM FROM BTI014 ORDER BY BTISRVNOM', [],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
-    );
-    await conn.close();
-    return r.rows.map(function(row) { return (row.BTISRVNOM || '').trim(); }).filter(Boolean);
-  }
-}
-
-/**
- * Trae TODOS los servicios y metodos de BTI014 en una sola consulta y una
- * sola conexion, en vez de una consulta por servicio. Pensado para el
- * builder de Collections, que necesita el catalogo completo de una vez y
- * puede apuntar a ambientes de produccion: minimizar la cantidad de golpes
- * a la base es mas importante que la simplicidad del codigo por servicio.
- */
-async function queryServicesWithMethods(platform, db) {
-  function groupRows(rows) {
-    const services = [];
-    const methodsByService = {};
-    (rows || []).forEach(function(row) {
-      const service = String(row.BTISRVNOM || '').trim();
-      const method = String(row.BTIMTDNOM || '').trim();
-      if (!service || !method) return;
-      if (!methodsByService[service]) { methodsByService[service] = []; services.push(service); }
-      methodsByService[service].push(method);
-    });
-    return { services, methodsByService };
-  }
-
-  if (platform === 'sqlserver') {
-    const mod = path.join(ROOT, 'V3', 'node_modules', 'mssql');
-    if (!fs.existsSync(mod)) throw new Error('mssql no instalado - ejecuta npm install en V3/');
-    const mssql = require(mod);
-    const pool = new mssql.ConnectionPool({
-      server: db.DB_SERVER, port: Number(db.DB_PORT) || 1433,
-      database: db.DB_DATABASE, user: db.DB_USER, password: db.DB_PASSWORD,
-      options: { trustServerCertificate: true }, connectionTimeout: 8000,
-    });
-    await pool.connect();
-    const r = await pool.request()
-      .query('SELECT BTISRVNOM, BTIMTDNOM FROM BTI014 ORDER BY BTISRVNOM, BTIMTDNOM');
-    await pool.close();
-    return groupRows(r.recordset);
+    return groupRows(r.recordset, 'BTISRVNOM', 'BTIMTDNOM');
   } else {
     const mod = path.join(ROOT, 'V4', 'node_modules', 'oracledb');
     if (!fs.existsSync(mod)) throw new Error('oracledb no instalado - ejecuta npm install en V4/');
@@ -244,12 +199,16 @@ async function queryServicesWithMethods(platform, db) {
     const conn = await oracledb.getConnection({
       user: db.DB_USER, password: db.DB_PASSWORD, connectString: db.DB_CONNECT_STRING,
     });
+    const interna = apiMode === 'interna';
     const r = await conn.execute(
-      'SELECT BTISRVNOM, BTIMTDNOM FROM BTI014 ORDER BY BTISRVNOM, BTIMTDNOM', [],
+      interna
+        ? 'SELECT BSSRVNAME, BSMTDNAME FROM BTCBS014 ORDER BY BSSRVNAME, BSMTDNAME'
+        : 'SELECT BTISRVNOM, BTIMTDNOM FROM BTI014 ORDER BY BTISRVNOM, BTIMTDNOM',
+      [],
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
     await conn.close();
-    return groupRows(r.rows);
+    return groupRows(r.rows, interna ? 'BSSRVNAME' : 'BTISRVNOM', interna ? 'BSMTDNAME' : 'BTIMTDNOM');
   }
 }
 
@@ -1490,7 +1449,7 @@ http.createServer(async (req, res) => {
 
   if (req.method === 'POST' && req.url === '/api/test-auth') {
     try {
-      const { version, api, authUrl: explicitAuthUrl } = await readBody(req);
+      const { version, api, authUrl: explicitAuthUrl, apiMode, authKind } = await readBody(req);
       const https = require('https');
       let authUrl = explicitAuthUrl || (version === 'V3' ? api.API_AUTH_URL : resolveV4AuthUrl(api));
       if (version === 'V3') {
@@ -1500,13 +1459,19 @@ http.createServer(async (req, res) => {
         }
       }
       const isV4 = version === 'V4';
-      const body = isV4
-        ? JSON.stringify({ UserId: api.API_USER, UserPassword: api.API_PASSWORD })
-        : JSON.stringify({
-            Btinreq: { Canal: api.API_CANAL || 'BTDIGITAL', Usuario: api.API_USER, Device: api.API_DEVICE || 'INSTALADOR', Requerimiento: api.API_REQUERIMIENTO || '1', Token: '' },
-            UserId: api.API_USER,
-            UserPassword: api.API_PASSWORD
-          });
+      // "API interna" via REST/Swagger expone Session.userLogin en vez de
+      // Authenticate/Execute. Quien resuelve authKind es
+      // findInternaAuthOperation, en generar-collections/index.js.
+      const isSessionUserLogin = isV4 && apiMode === 'interna' && authKind === 'session-userlogin';
+      const body = isSessionUserLogin
+        ? JSON.stringify({ user: api.API_USER, userPassword: api.API_PASSWORD, jwt: true })
+        : isV4
+          ? JSON.stringify({ UserId: api.API_USER, UserPassword: api.API_PASSWORD })
+          : JSON.stringify({
+              Btinreq: { Canal: api.API_CANAL || 'BTDIGITAL', Usuario: api.API_USER, Device: api.API_DEVICE || 'INSTALADOR', Requerimiento: api.API_REQUERIMIENTO || '1', Token: '' },
+              UserId: api.API_USER,
+              UserPassword: api.API_PASSWORD
+            });
       const parsed = new URL(authUrl);
       const mod = parsed.protocol === 'https:' ? require('https') : require('http');
       const raw = await new Promise((resolve, reject) => {
@@ -1532,8 +1497,13 @@ http.createServer(async (req, res) => {
       });
       let parsed2;
       try { parsed2 = JSON.parse(raw); } catch { throw new Error('Respuesta inesperada: ' + raw.slice(0, 200)); }
-      const token = parsed2.SessionToken;
-      if (!token) throw new Error(parsed2.Btoutreq?.Mensaje || parsed2.Mensaje || JSON.stringify(parsed2).slice(0, 200));
+      // Session.userLogin responde "sessionToken" en minuscula, y los errores
+      // en BusinessErrors/messages.global, distinto de Authenticate/Execute.
+      const token = isSessionUserLogin ? parsed2.sessionToken : parsed2.SessionToken;
+      if (!token) {
+        const businessError = parsed2.BusinessErrors?.BusinessError?.[0];
+        throw new Error(businessError?.Description || parsed2.messages?.global || parsed2.Btoutreq?.Mensaje || parsed2.Mensaje || JSON.stringify(parsed2).slice(0, 200));
+      }
       json(200, {
         ok: true,
         token,

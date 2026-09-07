@@ -14,9 +14,7 @@ function createCollectionFeature(deps) {
   const queryServicesWithMethods = deps.queryServicesWithMethods;
   const queryMethodSchema = deps.queryMethodSchema;
 
-  const styles = loadAsset('styles.css');
   const panelHtml = loadAsset('panel.html');
-  const clientScript = loadAsset('client-shared.js');
   const outputDir = path.join(ROOT, 'scripts', 'generar-collections', 'output');
   const dataDir = path.join(ROOT, 'scripts', 'generar-collections', 'data');
   const successfulValuesPath = path.join(dataDir, 'successful-values.json');
@@ -302,6 +300,33 @@ function createCollectionFeature(deps) {
       return joinSwaggerBaseAndPath(baseUrl || '', authPath);
     }
     return joinSwaggerBaseAndPath(baseUrl || '', '/Authenticate/v1/Execute');
+  }
+
+  /**
+   * "API interna" no se autentica con Authenticate/Execute (eso es de "API
+   * publica") -- expone Session.userLogin (ver ejemplo real pegado por el
+   * usuario: POST /Session/v1/userLogin, {user,userPassword,jwt} =>
+   * {success,sessionToken,userCode,refreshToken}, sessionToken en minuscula).
+   * Se busca en el catalogo ya fusionado de todos los swaggers cargados (cada
+   * operacion sabe de que swagger salio via sourceBaseUrl -- ver
+   * extractSwaggerOperations). Si ningun swagger expone Session.userLogin, se
+   * cae a Authenticate/Execute como plan B: algunos ambientes interna
+   * tambien lo exponen.
+   */
+  function findInternaAuthOperation(operationsByService) {
+    let sessionOp = null;
+    let executeOp = null;
+    Object.keys(operationsByService || {}).forEach(function(service) {
+      (operationsByService[service] || []).forEach(function(operation) {
+        if (String(operation.httpMethod || '').toUpperCase() !== 'POST') return;
+        const path = String(operation.path || '');
+        if (!sessionOp && /\/Session\/v\d+\/userLogin$/i.test(path)) sessionOp = operation;
+        if (!executeOp && /\/Authenticate\/v\d+\/Execute$/i.test(path)) executeOp = operation;
+      });
+    });
+    if (sessionOp) return { kind: 'session-userlogin', baseUrl: sessionOp.sourceBaseUrl || '', path: sessionOp.path };
+    if (executeOp) return { kind: 'authenticate-execute', baseUrl: executeOp.sourceBaseUrl || '', path: executeOp.path };
+    return null;
   }
 
   function resolveJsonBaseUrl(config) {
@@ -604,37 +629,51 @@ function createCollectionFeature(deps) {
     });
   }
 
-  async function buildDatabaseOperations(platform, db, version) {
+  async function buildDatabaseOperations(platform, db, version, apiMode, format) {
     if (typeof queryServicesWithMethods !== 'function' || typeof queryMethodSchema !== 'function') {
       throw new Error('El origen Base de datos no esta disponible en esta version del servidor.');
     }
 
-    // Una sola consulta con todos los servicios/metodos de BTI014, en vez de
-    // una consulta (y una conexion) por servicio: menos golpes al ambiente,
-    // clave cuando se apunta a produccion.
-    const catalog = await queryServicesWithMethods(platform, db);
+    // Una sola consulta con todos los servicios/metodos de BTI014 (o
+    // BTCBS014 si el ambiente es "API interna"), en vez de una consulta (y
+    // una conexion) por servicio: menos golpes al ambiente, clave cuando se
+    // apunta a produccion.
+    const catalog = await queryServicesWithMethods(platform, db, apiMode);
     const services = catalog.services || [];
     const methodsByService = catalog.methodsByService || {};
     const operationsByService = {};
+    const sourceTables = apiMode === 'interna' ? 'BTCBS014/BTCBS019' : 'BTI014/BTI019';
 
-    // V3 es SOA/GeneXus (servlet + ?Metodo, siempre POST); V4 es REST/JSON
-    // (/public/{service}/v1/{metodo}, verbo inferido del nombre).
+    // V3 es SOA/GeneXus (servlet + ?Metodo, siempre POST). V4 pública es
+    // REST/JSON (/public/{service}/v1/{metodo}). "API interna" tiene DOS
+    // caminos segun el formato elegido en el panel: JSON contra su propio
+    // gateway REST (sin el prefijo "/public/", ver "URL de la API interna"),
+    // o SOAP igual que V3 (servlet ardwsbt_{Service}, pero SIN "_v1" ni el
+    // sufijo "?{metodo}" -- ver soapServletSuffix/authenticateSessionInternaSoap).
+    // El catalogo se resuelve UNA vez con el "Formato" ya elegido en el panel
+    // porque httpMethod/path quedan grabados en cada item desde este momento.
     const isV3 = version === 'V3';
+    const isInterna = apiMode === 'interna';
+    const isInternaSoap = isInterna && format === 'xml';
+    const isXmlSoap = isV3 || isInternaSoap;
     for (const service of services) {
       const methods = methodsByService[service] || [];
       operationsByService[service] = methods.map(function buildOperation(methodName) {
         const trimmedMethod = String(methodName || '').trim();
-        const httpMethod = isV3 ? 'POST' : inferHttpMethodFromMethodName(methodName);
+        const httpMethod = isXmlSoap ? 'POST' : inferHttpMethodFromMethodName(methodName);
+        const servicePathName = normalizeDatabaseServicePathName(service);
         const path = isV3
           ? '/servlet/com.dlya.bantotal.ardwsbt_' + service + '_v1?' + trimmedMethod
-          : '/public/' + normalizeDatabaseServicePathName(service) + '/v1/' + trimmedMethod;
+          : (isInternaSoap
+              ? '/servlet/com.dlya.bantotal.ardwsbt_' + service
+              : (isInterna ? '/' + servicePathName + '/v1/' + trimmedMethod : '/public/' + servicePathName + '/v1/' + trimmedMethod));
         return {
           operationKey: 'DB ' + service + '.' + methodName,
           service,
           methodName,
           httpMethod,
           path,
-          summary: 'Metodo cargado desde BTI014/BTI019.',
+          summary: 'Metodo cargado desde ' + sourceTables + '.',
           manualInputs: [],
           bodyTemplate: null,
           outputFields: [],
@@ -649,14 +688,22 @@ function createCollectionFeature(deps) {
     };
   }
 
-  async function buildDatabaseOperationDetails(platform, db, service, methodName, version) {
+  async function buildDatabaseOperationDetails(platform, db, service, methodName, version, apiMode, format) {
     if (typeof queryMethodSchema !== 'function') {
       throw new Error('No se pudo resolver el schema del metodo desde Base de datos.');
     }
 
-    const schema = await queryMethodSchema(platform, db, service, methodName);
+    const schema = await queryMethodSchema(platform, db, service, methodName, apiMode);
     const isV3 = version === 'V3';
-    const httpMethod = isV3 ? 'POST' : inferHttpMethodFromMethodName(methodName);
+    // Mismo criterio que buildDatabaseOperations (que arma el catalogo): hay
+    // que repetirlo aca porque este paso de "hidratacion" (al agregar el
+    // metodo al canvas) SOBREESCRIBE httpMethod/path del item entero, y
+    // hasta ahora lo hacia sin saber nada de "API interna" -- por eso un
+    // metodo SOAP de interna quedaba con verbo/ruta de REST publica al
+    // agregarlo (ver isPathSupported en collection-studio-manager.js).
+    const isInternaSoap = apiMode === 'interna' && format === 'xml';
+    const isXmlSoap = isV3 || isInternaSoap;
+    const httpMethod = isXmlSoap ? 'POST' : inferHttpMethodFromMethodName(methodName);
     const servicePathName = normalizeDatabaseServicePathName(service);
     const sdtMap = buildDbSdtMap(schema);
     const outputFields = [];
@@ -682,8 +729,10 @@ function createCollectionFeature(deps) {
       httpMethod,
       path: isV3
         ? '/servlet/com.dlya.bantotal.ardwsbt_' + service + '_v1?' + String(methodName || '').trim()
-        : '/public/' + servicePathName + '/v1/' + String(methodName || '').trim(),
-      summary: (schema && schema.description) || 'Metodo cargado desde BTI014/BTI019.',
+        : (isInternaSoap
+            ? '/servlet/com.dlya.bantotal.ardwsbt_' + service
+            : (apiMode === 'interna' ? '/' + servicePathName + '/v1/' + String(methodName || '').trim() : '/public/' + servicePathName + '/v1/' + String(methodName || '').trim())),
+      summary: (schema && schema.description) || 'Metodo cargado desde ' + (apiMode === 'interna' ? 'BTCBS014/BTCBS019' : 'BTI014/BTI019') + '.',
       manualInputs: scalarManualInputs.concat(bodyData && Array.isArray(bodyData.manualInputs) ? bodyData.manualInputs : []),
       bodyTemplate: bodyData ? bodyData.template : null,
       outputFields,
@@ -1095,7 +1144,7 @@ function createCollectionFeature(deps) {
     return '__COL_VAR__' + key;
   }
 
-  function extractSwaggerOperations(doc) {
+  function extractSwaggerOperations(doc, sourceBaseUrl) {
     const services = {};
     const paths = doc.paths || {};
     Object.keys(paths).forEach(function(pathName) {
@@ -1109,17 +1158,25 @@ function createCollectionFeature(deps) {
         const manualInputs = [];
         const parameters = [].concat(pathItem.parameters || [], operation.parameters || []);
         parameters.forEach(function(param) {
-          if (String(param.in || '').toLowerCase() === 'header' && isReservedAuthInput(param.name)) {
+          // Los headers de auth compartidos suelen venir como
+          // {$ref:'#/components/parameters/X'} en vez de inline (se definen una
+          // sola vez y se reusan en todos los endpoints). Hay que resolver el
+          // $ref del parametro igual que ya se resuelve param.schema, o se
+          // pierden name/in/schema y el parametro cae como campo anonimo con
+          // location 'query' (nunca coincide con isReservedAuthInput, y termina
+          // mandandose de verdad como "value" en el query string).
+          const resolvedParam = resolveSwaggerRef(doc, param) || param;
+          if (String(resolvedParam.in || '').toLowerCase() === 'header' && isReservedAuthInput(resolvedParam.name)) {
             return;
           }
-          const schema = resolveSwaggerRef(doc, param.schema || {});
+          const schema = resolveSwaggerRef(doc, resolvedParam.schema || {});
           manualInputs.push({
-            key: sanitizeVariableKey(param.name),
-            pathLabel: param.name,
+            key: sanitizeVariableKey(resolvedParam.name),
+            pathLabel: resolvedParam.name,
             type: (schema && schema.type) || '',
-            description: param.description || '',
-            defaultValue: param.example != null ? String(param.example) : '',
-            location: param.in || 'query'
+            description: resolvedParam.description || '',
+            defaultValue: resolvedParam.example != null ? String(resolvedParam.example) : '',
+            location: resolvedParam.in || 'query'
           });
         });
 
@@ -1146,7 +1203,13 @@ function createCollectionFeature(deps) {
           summary: operation.summary || operation.description || '',
           manualInputs,
           bodyTemplate,
-          outputFields
+          outputFields,
+          // Un ambiente puede tener varios swaggers (uno por microservicio,
+          // cada uno en su propio host/puerto) en vez de un unico gateway.
+          // Cada operacion recuerda de que swagger vino para poder armar su
+          // URL real con la base correcta, sin depender de un unico
+          // "swaggerBaseUrl" global (ver resolveOperationBaseUrl).
+          sourceBaseUrl: sourceBaseUrl || ''
         });
       });
     });
@@ -1469,7 +1532,108 @@ function createCollectionFeature(deps) {
     };
   }
 
-  function buildAuthRequestItem(version, api) {
+  /**
+   * Parecido a buildPostmanTestScript(_, true), pero busca "sessionToken"
+   * en minuscula ademas de "SessionToken": la respuesta real de
+   * Session.userLogin ("API interna") trae el tag en minuscula, y
+   * parseSoapXml/xml2Json no normalizan mayusculas/minusculas -- el
+   * generico de arriba solo revisa "SessionToken"/"Token" y no matchea.
+   * Ver authenticateSessionInternaSoap, mismo criterio en el camino en vivo.
+   */
+  function buildInternaSessionAuthTestScript() {
+    const lines = [
+      "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+      "var text = pm.response.text();",
+      "var jsonData = xml2Json(text);",
+      "pm.collectionVariables.set('lastSoapResponse', JSON.stringify(jsonData));",
+      "function findNode(node, key) {",
+      "  if (!node || typeof node !== 'object') return null;",
+      "  if (Object.prototype.hasOwnProperty.call(node, key)) return node[key];",
+      "  for (var k in node) {",
+      "    if (!Object.prototype.hasOwnProperty.call(node, k)) continue;",
+      "    var found = findNode(node[k], key);",
+      "    if (found !== null && found !== undefined) return found;",
+      "  }",
+      "  return null;",
+      "}",
+      "var businessErrors = findNode(jsonData, 'BusinessErrors');",
+      "var businessError = businessErrors ? (businessErrors.businessError || businessErrors.BusinessError) : null;",
+      "pm.test('Sin errores de negocio', function () {",
+      "  pm.expect(businessError, JSON.stringify(businessErrors)).to.not.exist;",
+      "});",
+      "var sessionToken = findNode(jsonData, 'sessionToken') || findNode(jsonData, 'SessionToken');",
+      "pm.test('sessionToken disponible', function () { pm.expect(sessionToken, JSON.stringify(jsonData)).to.exist; });",
+      "if (sessionToken !== null && sessionToken !== undefined) {",
+      "  pm.collectionVariables.set('token', String(sessionToken));",
+      "}"
+    ];
+    return {
+      listen: 'test',
+      script: {
+        type: 'text/javascript',
+        exec: lines
+      }
+    };
+  }
+
+  /**
+   * Item de autenticacion exportado para "API interna" (V4): Session.userLogin
+   * por SOAP contra el Core, en vez de Authenticate.Execute. No usa "URL de
+   * autenticacion" (esa es especifica de la API publica) ni el sufijo "_v1"
+   * (ver soapServletSuffix) -- mismo sobre que authenticateSessionInternaSoap,
+   * la version en vivo de esta misma autenticacion, con variables {{...}} de
+   * Postman en vez de valores ya resueltos.
+   */
+  function buildInternaSessionAuthRequestItem(api) {
+    const coreBaseUrl = String(api.API_BASE_URL || '').replace(/\/+$/g, '');
+    const resolvedAuthUrl = coreBaseUrl + '/servlet/com.dlya.bantotal.ardwsbt_Session';
+    const rawUrl = '{{api_base_url}}/servlet/com.dlya.bantotal.ardwsbt_Session';
+    const rawXml = [
+      '<?xml version="1.0" encoding="utf-8"?>',
+      '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:bts="http://uy.com.dlya.bantotal/BTSOA/">',
+      '  <soapenv:Header/>',
+      '  <soapenv:Body>',
+      '    <bts:Session.userLogin>',
+      '      <bts:Btinreq>',
+      '        <bts:Canal>{{channel}}</bts:Canal>',
+      '        <bts:Usuario>{{username}}</bts:Usuario>',
+      '        <bts:Device>{{device}}</bts:Device>',
+      '        <bts:Requerimiento>{{requirement}}</bts:Requerimiento>',
+      '        <bts:Token></bts:Token>',
+      '      </bts:Btinreq>',
+      '      <bts:user>{{username}}</bts:user>',
+      '      <bts:userPassword>{{password}}</bts:userPassword>',
+      '      <bts:jwt></bts:jwt>',
+      '    </bts:Session.userLogin>',
+      '  </soapenv:Body>',
+      '</soapenv:Envelope>'
+    ].join('\n');
+
+    return {
+      name: '0. Authenticate (Session.userLogin)',
+      event: [buildInternaSessionAuthTestScript()],
+      request: {
+        method: 'POST',
+        header: [
+          { key: 'Content-Type', value: 'text/xml; charset=utf-8', type: 'text' },
+          { key: 'SOAPAction', value: 'http://uy.com.dlya.bantotal/BTSOA/action/ASESSION.userLogin', type: 'text' }
+        ],
+        body: {
+          mode: 'raw',
+          raw: rawXml,
+          options: { raw: { language: 'xml' } }
+        },
+        url: parsePostmanUrl(rawUrl, resolvedAuthUrl),
+        description: 'Obtiene el jwt de sesion de "API interna" via Session.userLogin (no usa "URL de autenticacion", especifica de la API publica).'
+      },
+      response: []
+    };
+  }
+
+  function buildAuthRequestItem(version, api, apiMode) {
+    if (version === 'V4' && apiMode === 'interna') {
+      return buildInternaSessionAuthRequestItem(api);
+    }
     if (version === 'V4') {
       const resolvedAuthUrl = resolveV4AuthUrl(api);
       const rawUrl = '{{auth_url}}';
@@ -1566,7 +1730,52 @@ function createCollectionFeature(deps) {
    * Para V4 reusa buildAuthRequestItem sin cambios; para V3 arma JSON con
    * Btinreq (no SOAP), consistente con el resto de este flujo.
    */
+  /**
+   * Item de autenticacion exportado para "API interna" via REST/Swagger:
+   * Session.userLogin, detectado automaticamente en el/los swagger cargados
+   * (ver findInternaAuthOperation). Distinto del homonimo SOAP
+   * (buildInternaSessionAuthRequestItem, usado solo por el camino XML/Base de
+   * datos de "API interna" contra el Core) -- este pega directo al
+   * microservicio REST que expuso el endpoint en su propio swagger.
+   */
+  function buildInternaJsonSessionAuthRequestItem(api) {
+    const resolvedAuthUrl = resolveJsonAuthUrl(api);
+    const rawUrl = '{{auth_url}}';
+    const rawJson = JSON.stringify({
+      user: '{{username}}',
+      userPassword: '{{password}}',
+      jwt: true
+    }, null, 2);
+
+    return {
+      name: '0. Authenticate (Session.userLogin)',
+      event: [buildPostmanJsonAuthTestScript()],
+      request: {
+        method: 'POST',
+        header: [
+          { key: 'Content-Type', value: 'application/json', type: 'text' },
+          { key: 'Canal', value: '{{channel}}', type: 'text' },
+          { key: 'Device', value: '{{device}}', type: 'text' },
+          { key: 'Usuario', value: '{{username}}', type: 'text' },
+          { key: 'Requerimiento', value: '{{requirement}}', type: 'text' },
+          { key: 'Token', value: '', type: 'text' }
+        ],
+        body: {
+          mode: 'raw',
+          raw: rawJson,
+          options: { raw: { language: 'json' } }
+        },
+        url: parsePostmanUrl(rawUrl, resolvedAuthUrl),
+        description: 'Obtiene el sessionToken de "API interna" via Session.userLogin (REST), detectado automaticamente en el swagger del ambiente.'
+      },
+      response: []
+    };
+  }
+
   function buildJsonAuthRequestItem(version, api) {
+    if (version === 'V4' && api.SWAGGER_AUTH_KIND === 'session-userlogin') {
+      return buildInternaJsonSessionAuthRequestItem(api);
+    }
     if (version === 'V4') return buildAuthRequestItem(version, api);
 
     const rawJson = JSON.stringify({
@@ -1611,18 +1820,24 @@ function createCollectionFeature(deps) {
   // elemento raiz del body (`<bts:{Servicio}.{Metodo}>`) lo que le dice al
   // servidor que operacion ejecutar. A diferencia del camino JSON (que usaba
   // `?{Metodo}` como sufijo de la URL), SOAP NO necesita ese sufijo.
-  function buildSoapRequestUrl(api, schema) {
-    const resolvedBaseUrl = String(api.API_BASE_URL || '').replace(/\/+$/g, '');
-    return resolvedBaseUrl + '/servlet/com.dlya.bantotal.ardwsbt_' + schema.service + '_v1';
+  // "API interna" no versiona el nombre del servlet (sin "_v1"): confirmado
+  // con dos ejemplos reales dados por el usuario (Session, PublicCASHManagement).
+  // "API publica"/V3 si lo versiona. Ver authenticateSessionInternaSoap.
+  function soapServletSuffix(apiMode) {
+    return apiMode === 'interna' ? '' : '_v1';
   }
 
-  function buildMethodRequestItem(schema, state, api) {
+  function buildSoapRequestUrl(api, schema, apiMode) {
+    const resolvedBaseUrl = String(api.API_BASE_URL || '').replace(/\/+$/g, '');
+    return resolvedBaseUrl + '/servlet/com.dlya.bantotal.ardwsbt_' + schema.service + soapServletSuffix(apiMode);
+  }
+
+  function buildMethodRequestItem(schema, state, api, apiMode) {
     const outputNames = getExportableOutputs(schema).map(function(param) { return param.name; });
     // Sin "?metodo": SOAP identifica la operacion via SOAPAction + el elemento
     // raiz del body, no via query string (ver nota en buildSoapRequestUrl).
-    const rawUrl = '{{api_base_url}}/servlet/com.dlya.bantotal.ardwsbt_' + schema.service + '_v1';
-    const resolvedBaseUrl = String(api.API_BASE_URL || '').replace(/\/+$/g, '');
-    const resolvedUrl = resolvedBaseUrl + '/servlet/com.dlya.bantotal.ardwsbt_' + schema.service + '_v1';
+    const rawUrl = '{{api_base_url}}/servlet/com.dlya.bantotal.ardwsbt_' + schema.service + soapServletSuffix(apiMode);
+    const resolvedUrl = buildSoapRequestUrl(api, schema, apiMode);
     return {
       name: schema.orderLabel + '. ' + schema.service + '.' + schema.method,
       event: [buildPostmanTestScript(outputNames, false)],
@@ -1781,7 +1996,8 @@ function createCollectionFeature(deps) {
         inputMappings: scenario.inputMappings || {},
         inputAliases: scenario.inputAliases || {},
         outputAliases: scenario.outputAliases || {},
-        repeatableOverrides: scenario.repeatableOverrides || {}
+        repeatableOverrides: scenario.repeatableOverrides || {},
+        tokenSources: scenario.tokenSources || {}
       };
       }).filter(function(scenario) {
         return scenario.items.length > 0;
@@ -1796,7 +2012,8 @@ function createCollectionFeature(deps) {
       inputMappings: body.inputMappings || {},
       inputAliases: body.inputAliases || {},
       outputAliases: body.outputAliases || {},
-      repeatableOverrides: body.repeatableOverrides || {}
+      repeatableOverrides: body.repeatableOverrides || {},
+      tokenSources: body.tokenSources || {}
     }].filter(function(scenario) {
       return scenario.items.length > 0;
     });
@@ -1847,6 +2064,7 @@ function createCollectionFeature(deps) {
           inputAliases: scenario.inputAliases || {},
           outputAliases: scenario.outputAliases || {},
           variableOverrides: scenario.variableOverrides || {},
+          tokenSources: scenario.tokenSources || {},
           stepInputOverrides: (scenario.items || []).map(function(item) {
             return item.inputOverrides || {};
           })
@@ -1875,7 +2093,7 @@ function createCollectionFeature(deps) {
         items: scenario.items
       });
       const bindingsInfo = computeBindingsAndMappings(schemas);
-      const folderItems = [buildAuthRequestItem(body.version, body.api)];
+      const folderItems = [buildAuthRequestItem(body.version, body.api, body.apiMode)];
 
       schemas.forEach(function(schema, index) {
         // scenario.items[index] es el mismo item que ya vio el inspector (con
@@ -1893,7 +2111,7 @@ function createCollectionFeature(deps) {
           scenario: scenario,
           manualInputsByPath: buildManualInputsByPath(item)
         };
-        folderItems.push(buildMethodRequestItem(schema, state, body.api));
+        folderItems.push(buildMethodRequestItem(schema, state, body.api, body.apiMode));
       });
 
       Object.assign(mergedOverrides, scenario.variableOverrides || {});
@@ -2026,10 +2244,17 @@ function createCollectionFeature(deps) {
     };
   }
 
-  function buildJsonRawUrl(pathName, manualInputs, variableNameResolver) {
+  function buildJsonRawUrl(pathName, manualInputs, variableNameResolver, baseUrlText) {
     const resolver = typeof variableNameResolver === 'function'
       ? variableNameResolver
       : function(input) { return input.key; };
+    // Por defecto usa la variable de coleccion {{base_url}} (un solo valor
+    // editable para todo el ambiente). Cuando el item viene de un swagger
+    // puntual con su propia base (varios microservicios, cada uno con host
+    // distinto -- ver extractSwaggerOperations), se pasa esa base ya
+    // resuelta en vez de la variable: usar {{base_url}} ahi seria incorrecto,
+    // porque esa variable representa un solo ambiente, no el de este item.
+    const base = String(baseUrlText || '').replace(/\/+$/g, '') || '{{base_url}}';
     const replacedPath = String(pathName || '').replace(/\{([^}]+)\}/g, function(_, name) {
       const key = sanitizeVariableKey(name);
       return '{{' + resolver({ key, pathLabel: name, location: 'path' }) + '}}';
@@ -2037,11 +2262,11 @@ function createCollectionFeature(deps) {
     const queryParams = (manualInputs || []).filter(function(input) {
       return String(input.location || '').toLowerCase() === 'query';
     });
-    if (!queryParams.length) return '{{base_url}}' + replacedPath;
+    if (!queryParams.length) return base + replacedPath;
     const queryString = queryParams.map(function(input) {
       return encodeURIComponent(input.pathLabel || input.key) + '={{' + resolver(input) + '}}';
     }).join('&');
-    return '{{base_url}}' + replacedPath + '?' + queryString;
+    return base + replacedPath + '?' + queryString;
   }
 
   function buildJsonResolvedUrl(baseUrl, pathName, manualInputs, overrides) {
@@ -2312,10 +2537,19 @@ function createCollectionFeature(deps) {
       (scenario && scenario.variableOverrides) || {},
       (operation && operation.inputOverrides) || {}
     );
+    const operationBaseUrl = operation.sourceBaseUrl || '';
     const rawUrl = buildJsonRawUrl(operation.path, operation.manualInputs || [], function(input) {
       return resolveMappedVariableName(operation, input, scenario);
-    });
-    const resolvedUrl = buildJsonResolvedUrl(resolveJsonBaseUrl(api), operation.path, operation.manualInputs || [], resolvedOverrides);
+    }, operationBaseUrl);
+    const resolvedUrl = buildJsonResolvedUrl(operationBaseUrl || resolveJsonBaseUrl(api), operation.path, operation.manualInputs || [], resolvedOverrides);
+    // Si este grupo (su sourceBaseUrl -- un swagger/microservicio puede tener
+    // su propio token) tiene una "Fuente de token" configurada (ver
+    // CollectionTokenSourceManager), el header Token apunta directo a esa
+    // variable de salida en vez de la global {{token}} -- el paso fuente ya
+    // la publica como collection variable via su propio test script
+    // (buildPostmanTestScript), no hace falta nada mas para que funcione.
+    const tokenSourceKey = (scenario && scenario.tokenSources) ? scenario.tokenSources[operationBaseUrl] : null;
+    const tokenVariableRef = '{{' + (tokenSourceKey || 'token') + '}}';
     // V3 lleva Canal/Usuario/Device/Requerimiento/Token dentro del body (Btinreq),
     // no como headers custom: asi es como responde el servlet real (ver authenticateSession).
     const headers = isV3 ? [] : [
@@ -2323,7 +2557,7 @@ function createCollectionFeature(deps) {
       { key: 'Device', value: '{{device}}', type: 'text' },
       { key: 'Usuario', value: '{{username}}', type: 'text' },
       { key: 'Requerimiento', value: '{{requirement}}', type: 'text' },
-      { key: 'Token', value: '{{token}}', type: 'text' }
+      { key: 'Token', value: tokenVariableRef, type: 'text' }
     ];
     const method = String(operation.httpMethod || 'GET').toUpperCase();
     if (method !== 'GET') {
@@ -2390,10 +2624,17 @@ function createCollectionFeature(deps) {
     const effectiveApi = Object.assign({}, body.api || {}, {
       BASE_URL: resolveJsonBaseUrl(body),
       SWAGGER_BASE_URL: resolveJsonBaseUrl(body),
-      SWAGGER_AUTH_URL: resolveJsonAuthUrl(body)
+      SWAGGER_AUTH_URL: resolveJsonAuthUrl(body),
+      SWAGGER_AUTH_KIND: body.swaggerAuthKind || null
     });
+    // Igual criterio que executeCollectionFlow: sin una URL de autenticacion
+    // resuelta (Swagger sin Session.userLogin/Authenticate detectado, o
+    // "Detectar automaticamente" destildado) no se agrega el paso "0.
+    // Authenticate" a la collection exportada -- el usuario ya armo su propio
+    // login como paso manual del flujo.
+    const hasResolvedAuth = String(body.swaggerAuthUrl || '').trim().length > 0;
     scenarios.forEach(function(scenario) {
-      const folderItems = [buildJsonAuthRequestItem(body.version, effectiveApi)];
+      const folderItems = hasResolvedAuth ? [buildJsonAuthRequestItem(body.version, effectiveApi)] : [];
       Object.assign(mergedOverrides, scenario.variableOverrides || {});
       scenario.items.forEach(function(item, index) {
         (item.manualInputs || []).forEach(function(input) {
@@ -2465,26 +2706,38 @@ function createCollectionFeature(deps) {
 
   async function authenticateSession(version, api) {
     const isV4 = version === 'V4';
+    // "API interna" via REST/Swagger no usa Authenticate/Execute -- ver
+    // findInternaAuthOperation y el ejemplo real pegado por el usuario
+    // (Session.userLogin, {user,userPassword,jwt} => sessionToken en
+    // minuscula). `api` aca es el body completo del execute, por eso se lee
+    // swaggerAuthKind (mismo criterio que resolveJsonAuthUrl con swaggerAuthUrl).
+    const isSessionUserLogin = isV4 && api.swaggerAuthKind === 'session-userlogin';
     const authContext = resolveExecutionAuthContext(api);
     const authUrl = version === 'V3'
       ? `${api.API_AUTH_URL}?Execute`
       : resolveJsonAuthUrl(api);
-    const body = isV4
+    const body = isSessionUserLogin
       ? JSON.stringify({
-          UserId: authContext.username,
-          UserPassword: authContext.password
+          user: authContext.username,
+          userPassword: authContext.password,
+          jwt: true
         })
-      : JSON.stringify({
-          Btinreq: {
-            Canal: authContext.channel,
-            Usuario: authContext.username,
-            Device: authContext.device,
-            Requerimiento: authContext.requirement,
-            Token: ''
-          },
-          UserId: authContext.username,
-          UserPassword: authContext.password
-        });
+      : isV4
+        ? JSON.stringify({
+            UserId: authContext.username,
+            UserPassword: authContext.password
+          })
+        : JSON.stringify({
+            Btinreq: {
+              Canal: authContext.channel,
+              Usuario: authContext.username,
+              Device: authContext.device,
+              Requerimiento: authContext.requirement,
+              Token: ''
+            },
+            UserId: authContext.username,
+            UserPassword: authContext.password
+          });
     const parsed = new URL(authUrl);
     const mod = parsed.protocol === 'https:' ? require('https') : require('http');
     const raw = await new Promise(function(resolve, reject) {
@@ -2518,9 +2771,19 @@ function createCollectionFeature(deps) {
     } catch (e) {
       throw Object.assign(new Error('Respuesta inesperada de auth: ' + raw.slice(0, 200)), { raw });
     }
-    const token = parsedJson.SessionToken;
+    // Session.userLogin responde con "sessionToken" en minuscula y errores en
+    // BusinessErrors/messages.global, distinto de Authenticate/Execute
+    // (SessionToken en mayuscula, error en Btoutreq.Mensaje) -- ver ejemplo
+    // real pegado por el usuario.
+    const token = isSessionUserLogin ? parsedJson.sessionToken : parsedJson.SessionToken;
     if (!token) {
-      throw Object.assign(new Error(parsedJson.Btoutreq && parsedJson.Btoutreq.Mensaje || parsedJson.Mensaje || JSON.stringify(parsedJson).slice(0, 200)), { raw });
+      const businessError = parsedJson.BusinessErrors && parsedJson.BusinessErrors.BusinessError && parsedJson.BusinessErrors.BusinessError[0];
+      const message = (businessError && businessError.Description)
+        || (parsedJson.messages && parsedJson.messages.global)
+        || (parsedJson.Btoutreq && parsedJson.Btoutreq.Mensaje)
+        || parsedJson.Mensaje
+        || JSON.stringify(parsedJson).slice(0, 200);
+      throw Object.assign(new Error(message), { raw });
     }
     return { token, raw };
   }
@@ -2599,6 +2862,90 @@ function createCollectionFeature(deps) {
     if (!token) {
       throw Object.assign(
         new Error('No se pudo obtener el SessionToken de la respuesta SOAP.'),
+        { raw: response.body }
+      );
+    }
+
+    return { token: String(token), raw: response.body };
+  }
+
+  // ================================================================
+  // authenticateSessionInternaSoap
+  // ----------------------------------------------------------------
+  // Autenticacion SOAP para "API interna" (V4): a diferencia de la
+  // publica/V3, NO es Authenticate.Execute sino Session.userLogin, contra
+  // un servlet propio (ardwsbt_Session, sin el sufijo "_v1" que si tiene
+  // Authenticate). Cuelga del mismo Core ya configurado (api.API_BASE_URL,
+  // "URL de la API") -- este camino no usa "URL de autenticacion" en
+  // absoluto, esa es especifica de la API publica.
+  //
+  // Sobre confirmado 2026-08-13 contra un ambiente real (respuesta real
+  // capturada por el usuario, Estado=OK): Session.userLogin con un Btinreq
+  // (Canal/Usuario/Device/Requerimiento/Token) igual que Authenticate, mas
+  // user/userPassword (mismas credenciales que API_USER/API_PASSWORD), mas
+  // un campo "jwt" adicional -- y CONFIRMADO que Btinreq.Token y "jwt" van
+  // vacios en el login sin que el ambiente real lo rechace (no hay sesion
+  // todavia, no hay otro valor real para poner ahi).
+  //
+  // La respuesta trae el token de sesion en "sessionToken" (misma
+  // convencion que Authenticate.Execute) -- NO en un campo "jwt" como se
+  // penso originalmente antes de ver una respuesta real; "jwt" solo
+  // describia el TIPO de token, no el nombre del tag XML.
+  // ================================================================
+  async function authenticateSessionInternaSoap(api) {
+    const authContext = resolveExecutionAuthContext(api);
+    const coreBaseUrl = String((api && api.API_BASE_URL) || '').trim().replace(/\/+$/g, '');
+    if (!coreBaseUrl) {
+      throw new Error('Falta "URL de la API" (Core) en la configuracion del ambiente.');
+    }
+    const authUrl = coreBaseUrl + '/servlet/com.dlya.bantotal.ardwsbt_Session';
+    const soapAction = 'http://uy.com.dlya.bantotal/BTSOA/action/ASESSION.userLogin';
+
+    const xmlBody = [
+      '<?xml version="1.0" encoding="utf-8"?>',
+      '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:bts="http://uy.com.dlya.bantotal/BTSOA/">',
+      '  <soapenv:Header/>',
+      '  <soapenv:Body>',
+      '    <bts:Session.userLogin>',
+      '      <bts:Btinreq>',
+      '        <bts:Canal>' + xmlEscape(authContext.channel) + '</bts:Canal>',
+      '        <bts:Usuario>' + xmlEscape(authContext.username) + '</bts:Usuario>',
+      '        <bts:Device>' + xmlEscape(authContext.device) + '</bts:Device>',
+      '        <bts:Requerimiento>' + xmlEscape(authContext.requirement) + '</bts:Requerimiento>',
+      '        <bts:Token></bts:Token>',
+      '      </bts:Btinreq>',
+      '      <bts:user>' + xmlEscape(authContext.username) + '</bts:user>',
+      '      <bts:userPassword>' + xmlEscape(authContext.password) + '</bts:userPassword>',
+      '      <bts:jwt></bts:jwt>',
+      '    </bts:Session.userLogin>',
+      '  </soapenv:Body>',
+      '</soapenv:Envelope>'
+    ].join('\n');
+
+    const response = await invokeSoapXml(authUrl, soapAction, xmlBody);
+
+    let parsed;
+    try {
+      parsed = await parseSoapXml(response.body);
+    } catch (e) {
+      throw Object.assign(
+        new Error('Respuesta SOAP inesperada de Session.userLogin: ' + String(response.body || '').slice(0, 300)),
+        { raw: response.body }
+      );
+    }
+
+    const businessError = extractBusinessError(parsed);
+    if (businessError) {
+      throw Object.assign(new Error(businessError), { raw: response.body });
+    }
+
+    // Confirmado 2026-08-13 contra un ambiente real: el campo se llama
+    // "sessionToken" (igual convencion que Authenticate.Execute), no "jwt"
+    // -- "jwt" describia el TIPO de token, no el nombre del tag XML.
+    const token = findNodeDeep(parsed, 'sessionToken') || findNodeDeep(parsed, 'SessionToken');
+    if (!token) {
+      throw Object.assign(
+        new Error('No se pudo obtener el sessionToken de la respuesta de Session.userLogin.'),
         { raw: response.body }
       );
     }
@@ -2721,36 +3068,46 @@ function createCollectionFeature(deps) {
   async function executeCollectionFlow(body) {
     if (body.format === 'json') {
       const authContext = resolveExecutionAuthContext(body);
-      const steps = [{
-        index: 0,
-        name: 'Authenticate',
-        ok: false,
-        requestUrl: resolveJsonAuthUrl(body)
-      }];
+      const steps = [];
       const runtimeValues = Object.assign({}, body.variableOverrides || {}, {
         channel: authContext.channel,
         username: authContext.username,
         device: authContext.device,
         requirement: authContext.requirement
       });
-      try {
-        const auth = await authenticateSession(body.version, body);
-        runtimeValues.token = auth.token;
-        steps[0].ok = true;
-        steps[0].responseStatus = 200;
-        steps[0].extractedValues = { token: auth.token };
-        steps[0].responseXml = auth.raw;
-      } catch (e) {
-        steps[0].error = e.message || 'No se pudo autenticar contra el ambiente.';
-        if (e.raw) steps[0].responseXml = e.raw;
-        throw Object.assign(new Error(steps[0].error), { steps, runtimeValues });
+      // Sin una URL de autenticacion resuelta (Swagger sin Session.userLogin/
+      // Authenticate detectado, o "Detectar automaticamente" destildado) no
+      // se agrega ningun paso de autenticacion automatico -- el usuario arma
+      // su propio login como paso manual del flujo (ver catalogo) y le pasa
+      // el token a los siguientes pasos via "Origen del valor".
+      if (String(body.swaggerAuthUrl || '').trim()) {
+        const authStep = {
+          index: 0,
+          name: 'Authenticate',
+          ok: false,
+          requestUrl: resolveJsonAuthUrl(body)
+        };
+        try {
+          const auth = await authenticateSession(body.version, body);
+          runtimeValues.token = auth.token;
+          authStep.ok = true;
+          authStep.responseStatus = 200;
+          authStep.extractedValues = { token: auth.token };
+          authStep.responseXml = auth.raw;
+        } catch (e) {
+          authStep.error = e.message || 'No se pudo autenticar contra el ambiente.';
+          if (e.raw) authStep.responseXml = e.raw;
+          steps.push(authStep);
+          throw Object.assign(new Error(authStep.error), { steps, runtimeValues });
+        }
+        steps.push(authStep);
       }
 
       for (let i = 0; i < body.items.length; i++) {
         const item = body.items[i];
         const step = {
-          index: i + 1,
-          name: item.method || item.path || ('Paso ' + (i + 1))
+          index: steps.length,
+          name: item.method || item.path || ('Paso ' + (steps.length))
         };
         try {
           const stepRuntimeValues = mergeExecutionStepValues(runtimeValues, item.inputOverrides || {});
@@ -2767,9 +3124,25 @@ function createCollectionFeature(deps) {
               stepRuntimeValues[input.key] = input.defaultValue;
             }
           });
-          const requestUrl = buildJsonExecutionUrl(resolveJsonBaseUrl(body), item.path, item.manualInputs || [], stepRuntimeValues);
+          // Si el item viene de un swagger puntual (ver extractSwaggerOperations),
+          // su propia sourceBaseUrl manda por sobre la base global del
+          // ambiente -- necesario cuando hay varios swaggers (uno por
+          // microservicio) con hosts distintos entre si.
+          const stepBaseUrl = item.sourceBaseUrl || resolveJsonBaseUrl(body);
+          const requestUrl = buildJsonExecutionUrl(stepBaseUrl, item.path, item.manualInputs || [], stepRuntimeValues);
           const isV3 = body.version === 'V3';
           const filledBodyValue = item.bodyTemplate ? fillJsonTemplate(item.bodyTemplate, stepRuntimeValues) : null;
+          // Si el grupo de este item (su sourceBaseUrl) tiene una "Fuente de
+          // token" configurada (ver CollectionTokenSourceManager), y esa
+          // salida ya se resolvio en algun paso anterior de este mismo
+          // flujo, manda sobre el token global de Authenticate -- necesario
+          // cuando distintos swaggers/microservicios se autentican con
+          // tokens distintos. Sin override (o si el paso fuente todavia no
+          // corrio), sigue usando el token global de siempre.
+          const groupTokenKey = (body.tokenSources || {})[item.sourceBaseUrl || ''];
+          const effectiveToken = (groupTokenKey && Object.prototype.hasOwnProperty.call(stepRuntimeValues, groupTokenKey))
+            ? stepRuntimeValues[groupTokenKey]
+            : stepRuntimeValues.token;
           // V3 manda Canal/Usuario/Device/Requerimiento/Token dentro del body (Btinreq),
           // no como headers custom (ver authenticateSession, que ya hace lo mismo para el auth).
           const headers = isV3 ? {} : buildBantotalJsonHeaders({
@@ -2777,7 +3150,7 @@ function createCollectionFeature(deps) {
             username: stepRuntimeValues.username,
             device: stepRuntimeValues.device,
             requirement: stepRuntimeValues.requirement
-          }, stepRuntimeValues.token);
+          }, effectiveToken);
           const bodyValue = isV3
             ? Object.assign({
                 Btinreq: {
@@ -2785,7 +3158,7 @@ function createCollectionFeature(deps) {
                   Usuario: stepRuntimeValues.username,
                   Device: stepRuntimeValues.device,
                   Requerimiento: stepRuntimeValues.requirement,
-                  Token: stepRuntimeValues.token
+                  Token: effectiveToken
                 }
               }, filledBodyValue || {})
             : filledBodyValue;
@@ -2833,13 +3206,22 @@ function createCollectionFeature(deps) {
       return { ok: true, steps, runtimeValues: summarizeVariables(runtimeValues) };
     }
 
-    // Esta rama es exclusivamente el flujo SOAP/XML (V3). El unico "format"
-    // que no es 'json' hoy es 'xml', y "Casos de uso" solo ofrece XML para V3
-    // (ver isPathSupported en collection-studio-manager.js), por lo que la
-    // autenticacion se hace SIEMPRE por SOAP real aca, sin ternario por version.
+    // Esta rama es el flujo SOAP/XML: V3 siempre, y V4 cuando el ambiente es
+    // "API interna" (ver isPathSupported en collection-studio-manager.js).
+    // La autenticacion real difiere entre ambos: V3/API publica llaman
+    // Authenticate.Execute; "API interna" llama Session.userLogin (ver
+    // authenticateSessionInternaSoap) -- nunca los dos a la vez.
+    const isInterna = body.apiMode === 'interna';
     const schemas = await loadSchemasForItems(body);
     const bindingsInfo = computeBindingsAndMappings(schemas);
-    const steps = [{
+    const steps = [isInterna ? {
+      index: 0,
+      name: 'Session.userLogin',
+      ok: false,
+      // No hay fallback por _v1 aca: "API interna" no lo usa (ver
+      // soapServletSuffix) y este camino no depende de "URL de autenticacion".
+      requestUrl: String(body.api.API_BASE_URL || '').replace(/\/+$/g, '') + '/servlet/com.dlya.bantotal.ardwsbt_Session'
+    } : {
       index: 0,
       name: 'Authenticate',
       ok: false,
@@ -2855,7 +3237,9 @@ function createCollectionFeature(deps) {
       requirement: body.api.API_REQUERIMIENTO || '1'
     });
     try {
-      const auth = await authenticateSessionSoap(body.api);
+      const auth = isInterna
+        ? await authenticateSessionInternaSoap(body.api)
+        : await authenticateSessionSoap(body.api);
       runtimeValues.token = auth.token;
       steps[0].ok = true;
       steps[0].responseStatus = 200;
@@ -2890,7 +3274,7 @@ function createCollectionFeature(deps) {
           scenario: body,
           manualInputsByPath: buildManualInputsByPath(item)
         };
-        step.requestUrl = buildSoapRequestUrl(body.api, schema);
+        step.requestUrl = buildSoapRequestUrl(body.api, schema, body.apiMode);
         step.soapAction = buildSoapAction(schema);
         step.requestXml = buildSoapRequestXml(schema, state);
         const response = await invokeSoapXml(step.requestUrl, step.soapAction, step.requestXml);
@@ -2948,16 +3332,93 @@ function createCollectionFeature(deps) {
     if (req.method === 'POST' && req.url === '/api/collection/swagger/load') {
       try {
         const body = await readBody(req);
-        const loaded = await loadSwaggerDocument(body.swaggerUrl, body.api || {});
-        const operationsByService = extractSwaggerOperations(loaded.doc);
-        const baseUrl = resolveSwaggerServerUrl(loaded.doc, loaded.resolvedUrl);
-        const authUrl = resolveSwaggerAuthUrl(loaded.doc, loaded.resolvedUrl, baseUrl, body.api);
+        // Un ambiente real puede tener varios swaggers (un microservicio por
+        // puerto -- publicapi/term-deposit/loan/customer/etc, cada uno con su
+        // propio host) en vez de un unico gateway. Se acepta una lista;
+        // swaggerUrl (singular) sigue andando igual que siempre para no
+        // romper el camino de un solo swagger ya probado.
+        const requestedUrls = Array.isArray(body.swaggerUrls) && body.swaggerUrls.length
+          ? body.swaggerUrls
+          : [body.swaggerUrl];
+        const swaggerUrls = requestedUrls.map(function(url) { return String(url || '').trim(); }).filter(Boolean);
+        if (!swaggerUrls.length) {
+          json(200, { ok: false, message: 'Indica al menos una ruta Swagger.' });
+          return true;
+        }
+
+        const operationsByService = {};
+        const sources = [];
+        const failedSources = [];
+
+        // Se leen una por una (no en paralelo) y se toleran fallos puntuales
+        // -- si un microservicio esta caido no tiene por que tirar abajo la
+        // carga de los otros 8.
+        for (const swaggerUrl of swaggerUrls) {
+          try {
+            const loaded = await loadSwaggerDocument(swaggerUrl, body.api || {});
+            const baseUrl = resolveSwaggerServerUrl(loaded.doc, loaded.resolvedUrl);
+            const authUrl = resolveSwaggerAuthUrl(loaded.doc, loaded.resolvedUrl, baseUrl, body.api);
+            const opsForThisSource = extractSwaggerOperations(loaded.doc, baseUrl);
+            Object.keys(opsForThisSource).forEach(function(service) {
+              if (!operationsByService[service]) operationsByService[service] = [];
+              operationsByService[service] = operationsByService[service].concat(opsForThisSource[service]);
+            });
+            sources.push({ swaggerUrl, resolvedUrl: loaded.resolvedUrl, baseUrl, authUrl });
+          } catch (e) {
+            failedSources.push({ swaggerUrl, message: e.message });
+          }
+        }
+
+        if (!sources.length) {
+          json(200, {
+            ok: false,
+            message: 'No se pudo leer ningun swagger: ' + failedSources.map(function(f) { return f.swaggerUrl + ' (' + f.message + ')'; }).join(' | ')
+          });
+          return true;
+        }
+
         const services = Object.keys(operationsByService).sort();
+
+        // Autenticacion: "API publica" siempre usa Authenticate/Execute (sin
+        // cambios). "API interna" expone Session.userLogin en su lugar -- se
+        // busca en el catalogo recien fusionado (ver findInternaAuthOperation).
+        // El check "Detectar automaticamente" (autoDetectAuth) permite
+        // saltear esto por completo cuando la deteccion le pega mal a un
+        // ambiente puntual -- ahi el usuario ajusta la autenticacion a mano
+        // en la collection generada.
+        const autoDetectAuth = body.autoDetectAuth !== false;
+        let authUrl = '';
+        let authKind = null;
+        let authWarning = '';
+        if (autoDetectAuth) {
+          if (body.apiMode === 'interna') {
+            const foundAuth = findInternaAuthOperation(operationsByService);
+            if (foundAuth) {
+              authUrl = joinSwaggerBaseAndPath(foundAuth.baseUrl, foundAuth.path);
+              authKind = foundAuth.kind;
+            } else {
+              authWarning = 'No se encontro Session.userLogin ni Authenticate/Execute en los swaggers cargados para "API interna". Configura la autenticacion manualmente en la collection generada.';
+            }
+          } else {
+            authUrl = sources[0].authUrl;
+            authKind = 'authenticate-execute';
+          }
+        }
+
         json(200, {
           ok: true,
-          resolvedUrl: loaded.resolvedUrl,
-          baseUrl,
+          // Compatibilidad con el camino de un solo swagger (ya probado):
+          // resolvedUrl/baseUrl quedan resueltos contra la PRIMERA fuente que
+          // respondio bien. Con varias fuentes ya no representan "la" base
+          // unica del ambiente -- cada operacion trae la suya propia en
+          // sourceBaseUrl (ver extractSwaggerOperations).
+          resolvedUrl: sources[0].resolvedUrl,
+          baseUrl: sources[0].baseUrl,
           authUrl,
+          authKind,
+          authWarning,
+          sources,
+          failedSources,
           services,
           operationsByService
         });
@@ -2970,13 +3431,14 @@ function createCollectionFeature(deps) {
     if (req.method === 'POST' && req.url === '/api/collection/database/load') {
       try {
         const body = await readBody(req);
-        const loaded = await buildDatabaseOperations(body.platform, body.db, body.version);
+        const loaded = await buildDatabaseOperations(body.platform, body.db, body.version, body.apiMode, body.format);
+        const sourceTables = body.apiMode === 'interna' ? 'BTCBS014/BTCBS019' : 'BTI014/BTI019';
         json(200, {
           ok: true,
           services: loaded.services,
           operationsByService: loaded.operationsByService,
           source: 'database',
-          warning: 'Los endpoints y bodies se inferieron desde BTI014/BTI019. Si el ambiente JSON difiere del convenio estandar, puede requerir ajustes manuales.'
+          warning: 'Los endpoints y bodies se inferieron desde ' + sourceTables + '. Si el ambiente JSON difiere del convenio estandar, puede requerir ajustes manuales.'
         });
       } catch (e) {
         json(200, { ok: false, message: e.message });
@@ -2987,7 +3449,7 @@ function createCollectionFeature(deps) {
     if (req.method === 'POST' && req.url === '/api/collection/database/operation') {
       try {
         const body = await readBody(req);
-        const operation = await buildDatabaseOperationDetails(body.platform, body.db, body.service, body.method, body.version);
+        const operation = await buildDatabaseOperationDetails(body.platform, body.db, body.service, body.method, body.version, body.apiMode, body.format);
         json(200, { ok: true, operation });
       } catch (e) {
         json(200, { ok: false, message: e.message });
@@ -3184,9 +3646,7 @@ function createCollectionFeature(deps) {
   }
 
   return {
-    styles,
     panelHtml,
-    clientScript,
     handleApi
   };
 }

@@ -507,16 +507,22 @@
         target: 'postman',
         version: this.options.getVersion(),
         platform: this.options.getPlatform ? this.options.getPlatform() : '',
+        apiMode: this.options.getApiMode ? this.options.getApiMode() : '',
         db: this.options.getDb ? this.options.getDb() : {},
         api: this.options.getApi ? this.options.getApi() : {},
         authContext: this.options.getAuthContext ? this.options.getAuthContext() : null,
         swaggerBaseUrl: this.options.getSwaggerBaseUrl ? this.options.getSwaggerBaseUrl() : '',
         swaggerAuthUrl: this.options.getSwaggerAuthUrl ? this.options.getSwaggerAuthUrl() : '',
+        swaggerAuthKind: this.options.getSwaggerAuthKind ? this.options.getSwaggerAuthKind() : '',
         items: Array.isArray(safeScenario.items) ? safeScenario.items : [],
         variableOverrides: safeScenario.variableOverrides || {},
         inputMappings: safeScenario.inputMappings || {},
         outputAliases: safeScenario.outputAliases || {},
-        repeatableOverrides: safeScenario.repeatableOverrides || {}
+        repeatableOverrides: safeScenario.repeatableOverrides || {},
+        // Por sourceBaseUrl, que salida alimenta el header Token de ese grupo
+        // (ver CollectionTokenSourceManager) -- distinto de swaggerAuthKind,
+        // que es el mecanismo del Authenticate automatico, no un override manual.
+        tokenSources: safeScenario.tokenSources || {}
       };
     }
 

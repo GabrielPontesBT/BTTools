@@ -303,6 +303,11 @@
       var response = await this.options.apiClient.loadDatabaseOperation({
         version: this.options.getVersion ? this.options.getVersion() : '',
         platform: this.options.getPlatform ? this.options.getPlatform() : '',
+        apiMode: this.options.getApiMode ? this.options.getApiMode() : '',
+        // Mismo motivo que en loadServicesFromDatabase: para "API interna"
+        // el verbo/ruta que se grava en el item depende de si el formato
+        // elegido es SOAP o REST (ver buildDatabaseOperationDetails).
+        format: this.options.getState().format,
         db: this.options.getDb ? this.options.getDb() : {},
         service: service,
         method: operation.methodName
@@ -342,8 +347,14 @@
 
       var previousItem = safeIndex > 0 ? scenario.items[safeIndex - 1] : null;
       var nextItem = safeIndex < scenario.items.length ? scenario.items[safeIndex] : null;
+      // Se compara por operationKey (incluye el verbo HTTP, ej. "GET /x" vs
+      // "PUT /x"), no por method (el nombre de metodo, que puede repetirse
+      // entre operaciones con el mismo nombre pero distinto verbo -- ej.
+      // additionalInformation GET y additionalInformation PUT). Comparar por
+      // method las trataba como la misma operacion y descartaba la segunda
+      // al seleccionar varias del catalogo.
       var exists = scenario.items.some(function alreadyExists(item) {
-        return item.service === service && item.method === method;
+        return item.service === service && item.operationKey && item.operationKey === selectedOperation.operationKey;
       });
       if (exists) return;
 

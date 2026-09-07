@@ -36,9 +36,36 @@
               <option value="json">JSON (experimental)</option>
             </select>
           </div>
+          <!-- Un ambiente real puede tener un swagger por microservicio (cada
+               uno en su propio host/puerto) en vez de un unico gateway -- se
+               agregan de a uno con el boton y quedan en una lista; ver
+               CollectionEnvironmentManager.addSwaggerUrl/renderSwaggerUrlList. -->
           <div class="field" id="collection-swagger-field" style="margin-bottom:12px">
             <label>Ruta Swagger</label>
-            <input type="text" id="collection-swagger-url" placeholder="ej: http://10.0.0.5:5101/api/swagger-ui/index.html#/" oninput="collectionUpdateSwaggerUrl(this.value)">
+            <div class="collection-swagger-url-add">
+              <input type="text" id="collection-swagger-url" placeholder="ej: http://10.0.0.5:5101/api/swagger-ui/index.html#/" onkeydown="if(event.key==='Enter'){event.preventDefault();collectionAddSwaggerUrl();}">
+              <button class="btn btn-ghost" type="button" onclick="collectionAddSwaggerUrl()">+ Agregar swagger</button>
+            </div>
+            <div id="collection-swagger-url-list" class="collection-swagger-url-list"></div>
+            <!-- Detecta Session.userLogin ("API interna") o Authenticate/Execute
+                 ("API publica") dentro de los swaggers cargados; ver
+                 findInternaAuthOperation en index.js. Destildar cuando la
+                 deteccion le pega mal a un ambiente puntual -- ahi la
+                 autenticacion se ajusta a mano en la collection generada. -->
+            <label class="collection-auto-auth-toggle">
+              <input type="checkbox" id="collection-auto-detect-auth" checked onchange="collectionUpdateAutoDetectAuth(this.checked)">
+              Detectar autenticacion automaticamente (Session.userLogin / Authenticate)
+            </label>
+          </div>
+          <!-- Solo para Base de datos + API interna: ese ambiente resuelve el
+               catalogo contra BTCBS014/019/026, pero ejecuta contra un gateway
+               REST propio (sin el prefijo "/public/" de la API publica, ej.
+               ":5107/api/platform" en vez de ":5101/api/publicapi") que no se
+               puede inferir de ningun otro dato del wizard. Ver
+               CollectionEnvironmentManager.syncSourceUi()/loadServicesFromDatabase(). -->
+          <div class="field" id="collection-interna-base-field" style="margin-bottom:12px; display:none">
+            <label>URL de la API interna</label>
+            <input type="text" id="collection-interna-base-url" placeholder="ej: http://10.0.0.7:5107/api/platform" oninput="collectionUpdateInternaBaseUrl(this.value)">
           </div>
           <div class="collection-catalog-actions">
             <button class="btn btn-primary" type="button" id="btn-collection-load-services">Cargar servicios</button>
@@ -101,6 +128,10 @@
                       <button type="button" class="collection-builder-menu-item" id="btn-collection-fill-data" onclick="collectionFillData()" disabled title="Agrega servicios para completar datos de entrada."><span class="collection-btn-icon">◫</span><span>Rellenar datos</span></button>
                       <button type="button" class="collection-builder-menu-item" id="btn-collection-open-console" onclick="if(typeof collectionOpenExecutionConsole==='function'){collectionOpenExecutionConsole();}" disabled title="Ejecuta la cadena para ver los resultados."><span class="collection-btn-icon">◉</span><span>Ver ejecucion</span></button>
                       <button type="button" class="collection-builder-menu-item" id="btn-collection-import" onclick="collectionTriggerImportCollection()" title="Reconstruye casos de uso a partir de una collection generada antes por esta app. Requiere tener los servicios del ambiente ya cargados."><span class="collection-btn-icon">&#8593;</span><span>Importar collection</span></button>
+                      <!-- Solo tiene sentido cuando hay mas de un swagger/microservicio
+                           en juego, cada uno con su propio token -- ver
+                           CollectionTokenSourceManager. -->
+                      <button type="button" class="collection-builder-menu-item" id="btn-collection-token-sources" onclick="collectionOpenTokenSourcesDrawer()" title="Elegi que salida alimenta el header Token cuando distintos servicios se autentican con tokens distintos."><span class="collection-btn-icon">&#128273;</span><span>Fuentes de token</span></button>
                     </div>
                   </details>
                   <!-- Oculto: dispara collectionImportCollectionFile al elegir un
@@ -184,6 +215,17 @@
                     <button type="button" class="collection-chain-suggestion-close" onclick="collectionCloseChainSuggestionDrawer()" aria-label="Cerrar">&times;</button>
                   </div>
                   <div id="collection-chain-suggestion-body" class="collection-chain-suggestion-body"></div>
+                </aside>
+
+                <aside id="collection-token-sources-drawer" class="collection-chain-suggestion-drawer collection-token-sources-drawer">
+                  <div class="collection-chain-suggestion-head">
+                    <div>
+                      <div class="collection-chain-suggestion-title">&#128273; Fuentes de token</div>
+                      <div class="collection-chain-suggestion-subtitle">Elegi que salida alimenta el header Token de cada grupo de servicios (por swagger/microservicio).</div>
+                    </div>
+                    <button type="button" class="collection-chain-suggestion-close" onclick="collectionCloseTokenSourcesDrawer()" aria-label="Cerrar">&times;</button>
+                  </div>
+                  <div id="collection-token-sources-body" class="collection-chain-suggestion-body"></div>
                 </aside>
               </div>
 

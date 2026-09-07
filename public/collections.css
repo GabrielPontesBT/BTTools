@@ -416,10 +416,11 @@
 .collection-inspector-accordion-open .collection-inspector-accordion-chevron{transform:rotate(90deg) scaleX(-1)}
 .collection-inspector-accordion-summary{padding:0 2px 11px;margin-top:-6px;font-size:11.5px;color:#94a3b8;line-height:1.4}
 .collection-inspector-accordion-body{padding:2px 2px 16px}
-/* Grupo visual de entradas de un mismo SDT/coleccion (ver
-   groupScalarInputsByParent en collection-inspector-manager.js): un fondo
-   suave + borde izquierdo lo distinguen de una fila normal, y sus hijos
-   quedan indentados adentro sin heredar el borde inferior de cada fila. */
+/* Grupo visual de entradas/salidas de un mismo SDT (ver buildFieldGroupTree
+   y renderGroupTree en collection-inspector-manager.js, se anida un nivel
+   por cada SDT real): un fondo suave + borde izquierdo lo distinguen de una
+   fila normal, y sus hijos quedan indentados adentro sin heredar el borde
+   inferior de cada fila. */
 .collection-inspector-input-group{background:#fafbfc;border-radius:10px;margin:4px 0;padding:0 10px}
 .collection-inspector-input-group-children{padding:0 0 4px 12px;margin-left:2px;border-left:2px solid #eef0f3}
 .collection-inspector-input-group-children>.collection-inspector-accordion{border-bottom:1px solid #f1f2f4}
@@ -795,6 +796,7 @@
 .collection-builder-workspace.collection-builder-service-open .collection-builder-service-drawer{transform:translateX(0);opacity:1}
 .collection-builder-workspace.collection-builder-inspector-open .collection-builder-inspector-drawer{transform:translateX(0);opacity:1}
 .collection-builder-workspace.collection-builder-suggestion-open .collection-chain-suggestion-drawer{transform:translateX(0);opacity:1}
+.collection-builder-workspace.collection-builder-token-sources-open .collection-token-sources-drawer{transform:translateX(0);opacity:1}
 .collection-chain-suggestion-drawer{width:clamp(360px,32vw,440px)}
 .collection-builder-drawer-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:18px 18px 14px;border-bottom:1px solid #eef2f7}
 .collection-builder-drawer-kicker{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8}
@@ -837,7 +839,10 @@
 .collection-service-card{display:grid;grid-template-columns:20px minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:8px;border:1px solid transparent;border-radius:10px;cursor:pointer;transition:background-color .15s ease,border-color .15s ease}
 .collection-service-card:hover{background:#f8fafc}
 .collection-service-card-selected{background:var(--red-l);border-color:#f3c9c8}
-.collection-service-card-check{display:flex;align-items:center;justify-content:center;cursor:pointer}
+/* padding+margin negativo: agranda el area clickeable bien mas alla del
+   cuadradito visual de 15px (que obligaba a clickear con precision de pixel)
+   sin correr el resto de la fila -- la columna del grid sigue midiendo 20px. */
+.collection-service-card-check{display:flex;align-items:center;justify-content:center;cursor:pointer;padding:9px;margin:-9px}
 .collection-service-card-check input{position:absolute;opacity:0;pointer-events:none}
 .collection-service-card-check span{display:block;width:15px;height:15px;border:1.5px solid #c6c7c7;border-radius:5px;background:#fff;position:relative;transition:border-color .15s ease}
 .collection-service-card-check:hover span{border-color:var(--red)}
@@ -870,6 +875,27 @@
 .collection-studio-top-simple .collection-studio-title{font-size:clamp(30px,2.1vw,38px)}
 .collection-studio-top-simple .collection-studio-subtitle{max-width:780px}
 .collection-catalog-lead{margin:0 0 12px;font-size:13px;color:#64748b}
+.collection-swagger-url-add{display:flex;gap:8px;align-items:center}
+.collection-swagger-url-add input{flex:1}
+.collection-swagger-url-list{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.collection-swagger-url-empty{font-size:12px;color:#94a3b8}
+.collection-swagger-url-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 10px;border:1px solid #e5e7eb;border-radius:10px;background:#f8fafc}
+.collection-swagger-url-text{font-size:12px;color:#334155;word-break:break-all}
+.collection-swagger-url-remove{border:none;background:none;color:#ef4444;font-size:12px;font-weight:700;cursor:pointer;padding:2px 6px}
+.collection-swagger-url-remove:hover{text-decoration:underline}
+.collection-auto-auth-toggle{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:#475569;cursor:pointer}
+.collection-auto-auth-toggle input{margin:0;width:16px;height:16px;flex:none}
+/* La grilla del catalogo (.collection-catalog-grid label/input, redeclarada
+   mas abajo con la misma especificidad) le gana a las dos reglas de arriba
+   por orden de aparicion -- se prefija con el id del contenedor para ganar
+   por especificidad en vez de depender del orden. */
+#collection-swagger-field .collection-auto-auth-toggle{display:flex;margin-bottom:0}
+#collection-swagger-field .collection-auto-auth-toggle input{width:16px;height:16px;flex:none}
+/* "Ruta Swagger" crece con la lista de URLs + el check de autenticacion --
+   ocupa la fila entera del grid en vez de compartir alto con Fuente/Formato
+   (que con align-items:end quedaban empujados hacia abajo por esta misma
+   columna cuando eran mas cortos). */
+#collection-swagger-field{grid-column:1 / -1;align-self:start}
 .collection-catalog-grid{display:grid;grid-template-columns:minmax(220px,260px) minmax(280px,1fr) auto;gap:14px;align-items:end}
 .collection-catalog-actions{display:flex;justify-content:flex-end;align-items:end}
 .collection-catalog-actions .btn{min-width:180px}
