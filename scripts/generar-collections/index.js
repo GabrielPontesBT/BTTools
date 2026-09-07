@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { resolveCollectionRequestData } = require('./request-data-resolver');
 const { suggestChains } = require('./chain-suggestion');
+const { buildSwaggerCandidateUrls, SUFIJOS_SWAGGER } = require('./swagger-candidates');
 
 function loadAsset(fileName) {
   return fs.readFileSync(path.join(__dirname, fileName), 'utf8');
@@ -227,12 +228,16 @@ function createCollectionFeature(deps) {
     return '/Authenticate/v1/Execute';
   }
 
-  // Sufijos que "buildSwaggerCandidateUrls" agrega para encontrar el documento.
+  // Sufijos que buildSwaggerCandidateUrls agrega para encontrar el documento.
   // Si la URL que efectivamente respondio termina en uno de estos, la raiz
   // real del ambiente es lo que queda antes: es un dato verificado (esa URL
   // SI respondio), a diferencia del campo "servers" que declara el propio
   // Swagger, que puede estar desactualizado.
-  const SWAGGER_DOC_SUFFIXES = ['/v3/api-docs', '/api-docs', '/swagger/v1/swagger.json', '/swagger.json', '/openapi.json'];
+  //
+  // Se importa de swagger-candidates en vez de repetir la lista: si las dos
+  // se desincronizan, se prueba un sufijo que despues no se sabe recortar y
+  // la raiz del ambiente sale mal.
+  const SWAGGER_DOC_SUFFIXES = SUFIJOS_SWAGGER;
 
   function deriveSwaggerRootFromResolvedUrl(resolvedUrl) {
     const trimmed = String(resolvedUrl || '').trim().replace(/\/+$/g, '');
@@ -740,36 +745,9 @@ function createCollectionFeature(deps) {
     };
   }
 
-  function buildSwaggerCandidateUrls(rawUrl, api) {
-    const trimmed = String(rawUrl || '').trim();
-    const candidates = [];
-    const push = function(url) {
-      const clean = String(url || '').trim();
-      if (!clean || candidates.includes(clean)) return;
-      candidates.push(clean);
-    };
-
-    if (trimmed) push(trimmed.replace(/#.*$/, ''));
-    if (/\/swagger-ui\/index\.html/i.test(trimmed)) {
-      const base = trimmed.replace(/\/swagger-ui\/index\.html.*$/i, '');
-      push(base + '/v3/api-docs');
-      push(base + '/api-docs');
-      push(base + '/swagger/v1/swagger.json');
-      push(base + '/swagger.json');
-      push(base + '/openapi.json');
-    }
-    const publicBaseUrl = String((api && api.BASE_URL) || '').replace(/\/+$/g, '');
-    if (publicBaseUrl) {
-      const apiRoot = publicBaseUrl.replace(/\/publicapi$/i, '');
-      push(apiRoot + '/v3/api-docs');
-      push(apiRoot + '/api-docs');
-      push(apiRoot + '/swagger/v1/swagger.json');
-      push(apiRoot + '/swagger.json');
-      push(apiRoot + '/openapi.json');
-      push(apiRoot + '/swagger-ui/index.html');
-    }
-    return candidates;
-  }
+  // Extraida a scripts/generar-collections/swagger-candidates/ (con tests):
+  // era interna a este closure y tenia tres defectos que se veian todos
+  // como "No se pudo leer el swagger". Ver el encabezado de ese modulo.
 
   function httpGetText(url) {
     return new Promise((resolve, reject) => {
@@ -827,8 +805,12 @@ function createCollectionFeature(deps) {
     return '';
   }
 
-  async function loadSwaggerDocument(swaggerUrl, api) {
-    const candidates = buildSwaggerCandidateUrls(swaggerUrl, api);
+  async function loadSwaggerDocument(swaggerUrl, api, opciones) {
+    const candidates = buildSwaggerCandidateUrls(swaggerUrl, api, opciones);
+    if (!candidates.length) {
+      throw new Error('No hay ninguna ruta Swagger para probar: escribi la URL del swagger, ' +
+                      'o configura la URL base del ambiente en el paso anterior.');
+    }
     let lastError = null;
     for (const candidate of candidates) {
       try {
@@ -3340,10 +3322,24 @@ function createCollectionFeature(deps) {
         const requestedUrls = Array.isArray(body.swaggerUrls) && body.swaggerUrls.length
           ? body.swaggerUrls
           : [body.swaggerUrl];
-        const swaggerUrls = requestedUrls.map(function(url) { return String(url || '').trim(); }).filter(Boolean);
-        if (!swaggerUrls.length) {
-          json(200, { ok: false, message: 'Indica al menos una ruta Swagger.' });
-          return true;
+        let swaggerUrls = requestedUrls.map(function(url) { return String(url || '').trim(); }).filter(Boolean);
+
+        // Dejar el campo Swagger vacio es un caso valido y ya funcionaba
+        // antes de que esto aceptara una lista: significa "descubrilo a
+        // partir de la URL base del ambiente" (api.BASE_URL). El filter de
+        // arriba lo dejaba en cero y se cortaba antes de intentarlo. Se
+        // conserva ese camino con un unico item vacio, que es lo que
+        // buildSwaggerCandidateUrls interpreta como autodescubrir.
+        const autodescubrir = !swaggerUrls.length;
+        if (autodescubrir) {
+          if (!String((body.api && body.api.BASE_URL) || '').trim()) {
+            json(200, {
+              ok: false,
+              message: 'Indica la ruta del Swagger, o configura la URL base del ambiente en el paso anterior para descubrirlo solo.'
+            });
+            return true;
+          }
+          swaggerUrls = [''];
         }
 
         const operationsByService = {};
@@ -3355,7 +3351,13 @@ function createCollectionFeature(deps) {
         // carga de los otros 8.
         for (const swaggerUrl of swaggerUrls) {
           try {
-            const loaded = await loadSwaggerDocument(swaggerUrl, body.api || {});
+            // El fallback a api.BASE_URL solo cuando NO hay URL explicita.
+            // Con varias fuentes, dejarlo prendido hacia que un microservicio
+            // caido resolviera al swagger principal y duplicara todas sus
+            // operaciones en el catalogo fusionado.
+            const loaded = await loadSwaggerDocument(swaggerUrl, body.api || {}, {
+              incluirFallbackDeBaseUrl: autodescubrir,
+            });
             const baseUrl = resolveSwaggerServerUrl(loaded.doc, loaded.resolvedUrl);
             const authUrl = resolveSwaggerAuthUrl(loaded.doc, loaded.resolvedUrl, baseUrl, body.api);
             const opsForThisSource = extractSwaggerOperations(loaded.doc, baseUrl);
