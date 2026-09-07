@@ -221,3 +221,132 @@ test('el mismo nombre con dos verbos cuenta como dos operaciones', async () => {
     assert.equal(add.length, 2, 'GET y PUT del mismo path son dos: ' + nombres.join(' | '));
   } finally { await sw.cerrar(); }
 });
+
+// ── HTTPS con certificado interno ────────────────────────────
+//
+// Los ambientes Bantotal usan certificados que no validan contra las CAs
+// del sistema. El proyecto ya lo asume en 7 lugares (setup.js
+// /api/test-auth y 3 veces en index.js); httpGetText era el unico que no,
+// asi que un swagger servido por HTTPS fallaba con error de TLS y el
+// usuario solo veia "no se pudo leer".
+
+// ── Reporte de intentos ──────────────────────────────────────
+
+test('cuando no encuentra nada, el error lista CADA ruta probada y su motivo', async () => {
+  // Puerto 1: nadie escucha, todos los candidatos dan ECONNREFUSED.
+  const r = await cargarSwagger(feature(), { swaggerUrl: 'http://127.0.0.1:1/btv4core', api: {} });
+
+  assert.equal(r.ok, false);
+  assert.match(r.message, /Se probaron \d+ rutas/,
+               'el mensaje tiene que decir cuantas probo; dijo: ' + r.message);
+  assert.match(r.message, /\/v3\/api-docs/, 'y nombrar los candidatos');
+  assert.match(r.message, /\/swagger\.json/);
+  assert.match(r.message, /ECONNREFUSED|refused/i, 'y el motivo de cada uno');
+});
+
+test('un 404 se reporta como HTTP 404, no como error generico', async () => {
+  const sw = await servidorSwagger();
+  try {
+    // /nada no matchea ninguna ruta del servidor de prueba: siempre 404.
+    const r = await cargarSwagger(feature(), { swaggerUrl: sw.raiz + '/nada/openapi.json', api: {} });
+    assert.equal(r.ok, false);
+    assert.match(r.message, /HTTP 404/, 'dijo: ' + r.message);
+  } finally { await sw.cerrar(); }
+});
+
+test('una respuesta que no es swagger se reporta como tal, no como "no se pudo leer"', async () => {
+  const otro = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ hola: 'no soy un swagger' }));
+  });
+  await new Promise((r) => otro.listen(0, '127.0.0.1', r));
+  try {
+    const raiz = 'http://127.0.0.1:' + otro.address().port;
+    const r = await cargarSwagger(feature(), { swaggerUrl: raiz + '/v3/api-docs', api: {} });
+    assert.equal(r.ok, false);
+    assert.match(r.message, /no es un documento Swagger|sin campo/i, 'dijo: ' + r.message);
+  } finally { await new Promise((r) => otro.close(r)); }
+});
+
+// ── HTTPS con certificado interno ────────────────────────────
+//
+// Los ambientes Bantotal usan certificados que no validan contra las CAs
+// del sistema. El proyecto ya lo asume en 7 lugares (setup.js
+// /api/test-auth y 3 veces en index.js); httpGetText era el unico que no,
+// asi que un swagger servido por HTTPS fallaba con error de TLS y el
+// usuario solo veia "no se pudo leer". Es la causa mas probable del caso
+// que no se pudo reproducir en local.
+//
+// Se verifica la opcion que se le pasa a https.request en vez de levantar
+// un servidor TLS: generar un certificado autofirmado necesitaria una
+// dependencia nueva (regla de "vanilla por defecto") o meter una clave
+// privada de test en el repo, que es justo lo que este proyecto acaba de
+// terminar de limpiar. La asercion pinta exactamente la linea que importa,
+// asi que si alguien la borra el test se cae.
+
+test('un swagger por HTTPS no valida el certificado contra las CAs del sistema', async () => {
+  const https = require('https');
+  const original = https.request;
+  const opcionesVistas = [];
+
+  https.request = function(url, opciones, cb) {
+    opcionesVistas.push(opciones);
+    // Se corta el pedido: solo interesa con que opciones se abrio.
+    const { EventEmitter } = require('events');
+    const falso = new EventEmitter();
+    falso.end = function() { setImmediate(() => falso.emit('error', new Error('cortado por el test'))); };
+    falso.setTimeout = function() {};
+    falso.destroy = function() {};
+    return falso;
+  };
+
+  try {
+    await cargarSwagger(feature(), { swaggerUrl: 'https://10.0.0.7:5110/btv4core/v3/api-docs', api: {} });
+  } finally {
+    https.request = original;
+  }
+
+  assert.ok(opcionesVistas.length > 0, 'no se llamo a https.request');
+  opcionesVistas.forEach(function(o) {
+    assert.equal(o.rejectUnauthorized, false,
+                 'https.request se abrio validando el certificado: un swagger con cert interno falla');
+  });
+});
+
+test('un swagger por HTTP no toca la opcion de certificados', async () => {
+  const http2 = require('http');
+  const original = http2.request;
+  const opcionesVistas = [];
+
+  http2.request = function(url, opciones, cb) {
+    opcionesVistas.push(opciones);
+    const { EventEmitter } = require('events');
+    const falso = new EventEmitter();
+    falso.end = function() { setImmediate(() => falso.emit('error', new Error('cortado por el test'))); };
+    falso.setTimeout = function() {};
+    falso.destroy = function() {};
+    return falso;
+  };
+
+  try {
+    await cargarSwagger(feature(), { swaggerUrl: 'http://10.0.0.7:5110/btv4core/v3/api-docs', api: {} });
+  } finally {
+    http2.request = original;
+  }
+
+  assert.ok(opcionesVistas.length > 0, 'no se llamo a http.request');
+  opcionesVistas.forEach(function(o) {
+    assert.equal('rejectUnauthorized' in o, false, 'en HTTP la opcion no tiene sentido');
+  });
+});
+
+test('cada candidato tiene timeout: un host que dropea no deja la herramienta colgada', () => {
+  // Se lee del fuente porque el timeout solo se puede observar esperandolo,
+  // y un test que espera 15s no es un gate test. La asercion existe para que
+  // sacar el setTimeout rompa algo.
+  const fs = require('fs');
+  const src = fs.readFileSync(path.join(__dirname, 'index.js'), 'utf8');
+  assert.match(src, /req\.setTimeout\(SWAGGER_TIMEOUT_MS/,
+               'httpGetText perdio el timeout por candidato');
+  assert.match(src, /const SWAGGER_TIMEOUT_MS = \d+/);
+});

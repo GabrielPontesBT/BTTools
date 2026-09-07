@@ -32,6 +32,7 @@ carpeta hermana, no se acumula en `index.js`:
 |---|---|
 | `request-data-resolver/` | Resuelve valores realistas para los campos de un request (clasificación semántica, generación de valores, catálogo de campos de respuesta) |
 | `chain-suggestion/` | Sugiere cadenas de llamadas entre servicios (grafo, path-finder, reglas de seguridad) |
+| `swagger-candidates/` | Qué URLs probar para encontrar el documento Swagger/OpenAPI de un ambiente, y en qué orden. Función pura, sin I/O — el fetch queda en `index.js` |
 | `data/` | Datos estáticos de referencia (ej. `successful-values.json`) |
 | `docs/` | Notas de diseño (mockups, decisiones) — no código |
 | `output/` | Colecciones generadas (artefactos de salida, no fuente — no es lugar para lógica) |

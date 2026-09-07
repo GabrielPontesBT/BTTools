@@ -749,17 +749,32 @@ function createCollectionFeature(deps) {
   // era interna a este closure y tenia tres defectos que se veian todos
   // como "No se pudo leer el swagger". Ver el encabezado de ese modulo.
 
+  // Timeout por candidato. Sin esto, un host que dropea paquetes en vez de
+  // rechazar la conexion (firewall corporativo) dejaba el pedido colgado sin
+  // fin y la herramienta parecia trabada en vez de dar un error.
+  const SWAGGER_TIMEOUT_MS = 15000;
+
   function httpGetText(url) {
     return new Promise((resolve, reject) => {
       const parsed = new URL(url);
-      const mod = parsed.protocol === 'https:' ? require('https') : require('http');
-      const req = mod.request(parsed, { method: 'GET' }, function(res) {
+      const esHttps = parsed.protocol === 'https:';
+      const mod = esHttps ? require('https') : require('http');
+      const opciones = { method: 'GET' };
+      // Los ambientes Bantotal usan certificados internos que no validan
+      // contra las CAs del sistema. El resto del proyecto ya lo asume en 7
+      // lugares (setup.js /api/test-auth, y 3 veces en este mismo archivo);
+      // este era el unico que no, asi que un swagger en HTTPS fallaba con
+      // error de TLS y el mensaje solo decia "no se pudo leer".
+      if (esHttps) opciones.rejectUnauthorized = false;
+
+      const req = mod.request(parsed, opciones, function(res) {
         let body = '';
         res.setEncoding('utf8');
         res.on('data', function(chunk) { body += chunk; });
         res.on('end', function() {
           if (res.statusCode >= 400) {
-            reject(new Error('No se pudo leer Swagger en ' + url + ' (HTTP ' + res.statusCode + ').'));
+            reject(new Error('HTTP ' + res.statusCode +
+                             (res.statusMessage ? ' ' + res.statusMessage : '')));
             return;
           }
           resolve({
@@ -770,6 +785,9 @@ function createCollectionFeature(deps) {
         });
       });
       req.on('error', reject);
+      req.setTimeout(SWAGGER_TIMEOUT_MS, function() {
+        req.destroy(new Error('sin respuesta en ' + (SWAGGER_TIMEOUT_MS / 1000) + 's (timeout)'));
+      });
       req.end();
     });
   }
@@ -811,12 +829,16 @@ function createCollectionFeature(deps) {
       throw new Error('No hay ninguna ruta Swagger para probar: escribi la URL del swagger, ' +
                       'o configura la URL base del ambiente en el paso anterior.');
     }
-    let lastError = null;
+    // Se guarda el resultado de CADA candidato, no solo el ultimo error.
+    // Antes, con 6 candidatos probados, el mensaje mostraba unicamente el
+    // fallo del ultimo, que es el menos informativo de todos: no habia forma
+    // de saber si el problema era TLS, un 401, un 404 o un timeout.
+    const intentos = [];
     for (const candidate of candidates) {
       try {
         const response = await httpGetText(candidate);
         const text = String(response.body || '').trim();
-        if (!text) continue;
+        if (!text) { intentos.push({ url: candidate, resultado: 'respondio vacio' }); continue; }
         if (text[0] === '{') {
           const parsedJson = JSON.parse(text);
           if (parsedJson.openapi || parsedJson.swagger) {
@@ -844,11 +866,23 @@ function createCollectionFeature(deps) {
             }
           }
         }
+        intentos.push({
+          url: candidate,
+          resultado: 'respondio, pero no es un documento Swagger/OpenAPI (' +
+                     (text[0] === '{' ? 'JSON sin campo "openapi" ni "swagger"' : 'no es JSON') + ')'
+        });
       } catch (e) {
-        lastError = e;
+        intentos.push({ url: candidate, resultado: e.message });
       }
     }
-    throw lastError || new Error('No se pudo resolver el documento Swagger.');
+
+    const detalle = intentos.map(function(i) { return '  - ' + i.url + ' -> ' + i.resultado; }).join('\n');
+    const error = new Error('No se encontro el documento Swagger. Se probaron ' +
+                            intentos.length + ' rutas:\n' + detalle);
+    // El detalle estructurado tambien va en la excepcion, para que la ruta
+    // lo pueda devolver al frontend sin volver a parsear el mensaje.
+    error.intentos = intentos;
+    throw error;
   }
 
   function resolveSwaggerRef(doc, schema) {
