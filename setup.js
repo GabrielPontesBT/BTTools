@@ -384,14 +384,53 @@ async function queryInputParams(platform, db, service, method) {
   }
 }
 
-const DB_HISTORY_FILE = path.join(ROOT, 'db_history.json');
+// El historial de conexiones guarda passwords de base y de API, asi que NO
+// vive mas en la carpeta del proyecto: antes era path.join(ROOT, ...) y
+// ROOT, en modo dev, es el repo, con lo cual la app escribia credenciales
+// de ambientes Bantotal adentro de git (y terminaron publicadas). Ahora va
+// a la carpeta de datos del usuario y las passwords van encriptadas.
+// Ver scripts/common/secret-store/README.md.
+//
+// read/write devuelven el mismo shape de siempre, asi que las rutas de
+// /sg/api/db-history y el frontend no cambian.
+const { createSecretStore } = require('./scripts/common/secret-store');
+
+const dbHistoryStore = createSecretStore({
+  legacyFile: path.join(ROOT, 'db_history.json'),
+});
+const DB_HISTORY_FILE = dbHistoryStore.file;
 
 function readDbHistory() {
-  try { if (fs.existsSync(DB_HISTORY_FILE)) return JSON.parse(fs.readFileSync(DB_HISTORY_FILE, 'utf8')); } catch(e) {}
-  return [];
+  try { return dbHistoryStore.read(); } catch(e) { return []; }
 }
 function writeDbHistory(list) {
-  try { fs.writeFileSync(DB_HISTORY_FILE, JSON.stringify(list, null, 2), 'utf8'); } catch(e) {}
+  try { dbHistoryStore.write(list); } catch(e) {
+    console.error('[db-history] no se pudo guardar el historial:', e.message);
+  }
+}
+
+// El db_history.json viejo, en claro y dentro del repo, no se borra solo:
+// esta trackeado en git y hay que destrackearlo, y borrar archivos del
+// usuario sin permiso no corresponde. Se avisa en cada arranque hasta que
+// no queden passwords ahi, porque un aviso que se ve una sola vez se
+// pierde entre el resto del output.
+function avisarDbHistoryViejo() {
+  let pendiente = null;
+  try { pendiente = dbHistoryStore.legacyLeftover(); } catch(e) { return; }
+  if (!pendiente) return;
+
+  console.log('  ' + '='.repeat(68));
+  console.log('  ATENCION: quedan ' + pendiente.conPassword + ' password(s) en texto plano en');
+  console.log('    ' + pendiente.file);
+  console.log('');
+  console.log('  Ya se copiaron encriptadas a:');
+  console.log('    ' + dbHistoryStore.file);
+  console.log('');
+  console.log('  Ese archivo esta dentro del repo. Para sacarlo:');
+  console.log('    git rm --cached db_history.json');
+  console.log('    del db_history.json          (Windows)');
+  console.log('  Y si estuvo en un repo remoto, hay que rotar esas passwords.');
+  console.log('  ' + '='.repeat(68) + '\n');
 }
 
 function parseEnvFile(content) {
@@ -2021,6 +2060,7 @@ http.createServer(async (req, res) => {
   const url = 'http://localhost:' + PORT;
   console.log('\n  Generador MD - Configuracion inicial');
   console.log('  -> Abriendo ' + url + '\n');
+  avisarDbHistoryViejo();
   console.log('  Presiona Ctrl+C para cerrar\n');
   // Bajo Electron la ventana nativa abre la URL (ver electron/main.js);
   // abrir tambien el navegador del sistema duplicaria la UI.
