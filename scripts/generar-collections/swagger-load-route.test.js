@@ -350,3 +350,158 @@ test('cada candidato tiene timeout: un host que dropea no deja la herramienta co
                'httpGetText perdio el timeout por candidato');
   assert.match(src, /const SWAGGER_TIMEOUT_MS = \d+/);
 });
+
+// ── La cadena del swagger-ui ─────────────────────────────────
+//
+// Replica la topologia exacta del ambiente Bantotal medido
+// (10.0.0.7:5101, springdoc + swagger-ui-dist):
+//
+//   /api/publicapi/swagger-ui/index.html          -> HTML sin config
+//   /api/publicapi/swagger-ui/swagger-initializer.js -> "configUrl": ...
+//   /api/publicapi/v1/api-docs/swagger-config     -> {"url": ...}
+//   /api/publicapi/v1/api-docs                    -> el documento
+//
+// Es el caso que fallaba en uso real y que costo tres vueltas encontrar.
+
+function servidorSwaggerUiCompleto() {
+  const pedidos = [];
+  const server = http.createServer((req, res) => {
+    pedidos.push(req.url);
+    const raiz = 'http://127.0.0.1:' + server.address().port;
+
+    if (req.url === '/api/publicapi/swagger-ui/index.html') {
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      // index.html de swagger-ui-dist 4+: NO lleva la config adentro.
+      res.end('<!-- HTML for static distribution bundle build -->\n<!DOCTYPE html>' +
+              '<html><head><title>Swagger UI</title></head><body><div id="swagger-ui"></div>' +
+              '<script src="./swagger-ui-bundle.js"></script>' +
+              '<script src="./swagger-initializer.js"></script></body></html>');
+      return;
+    }
+    if (req.url === '/api/publicapi/swagger-ui/swagger-initializer.js') {
+      res.writeHead(200, { 'Content-Type': 'application/javascript' });
+      // Con el url: de fabrica que apunta a petstore, igual que el real.
+      res.end('window.onload = function() {\n  window.ui = SwaggerUIBundle({\n' +
+              '    url: "https://petstore.swagger.io/v2/swagger.json",\n' +
+              '    dom_id: \'#swagger-ui\',\n' +
+              '  "configUrl" : "/api/publicapi/v1/api-docs/swagger-config",\n' +
+              '  "validatorUrl" : ""\n  });\n};');
+      return;
+    }
+    if (req.url === '/api/publicapi/v1/api-docs/swagger-config') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        configUrl: '/api/publicapi/v1/api-docs/swagger-config',
+        url: '/api/publicapi/v1/api-docs',
+        validatorUrl: '',
+      }));
+      return;
+    }
+    if (req.url === '/api/publicapi/v1/api-docs') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(swaggerDoc(raiz + '/api/publicapi')));
+      return;
+    }
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('404');
+  });
+  return new Promise((resolve) => {
+    server.listen(0, '127.0.0.1', () => resolve({
+      raiz: 'http://127.0.0.1:' + server.address().port,
+      pedidos,
+      cerrar: () => new Promise((r) => server.close(r)),
+    }));
+  });
+}
+
+test('sigue la cadena index.html -> initializer -> swagger-config -> documento', async () => {
+  const sw = await servidorSwaggerUiCompleto();
+  try {
+    const r = await cargarSwagger(feature(), {
+      // Con el fragmento #/ incluido, como lo copia el usuario del navegador.
+      swaggerUrl: sw.raiz + '/api/publicapi/swagger-ui/index.html#/',
+      api: {},
+    });
+    assert.equal(r.ok, true, 'fallo con: ' + r.message);
+    assert.equal(r.resolvedUrl, sw.raiz + '/api/publicapi/v1/api-docs');
+    assert.equal(totalOps(r), 5);
+
+    // Los 4 saltos, en orden.
+    const esperados = [
+      '/api/publicapi/swagger-ui/index.html',
+      '/api/publicapi/swagger-ui/swagger-initializer.js',
+      '/api/publicapi/v1/api-docs/swagger-config',
+      '/api/publicapi/v1/api-docs',
+    ];
+    esperados.forEach(function (u) {
+      assert.ok(sw.pedidos.includes(u), 'no pidio ' + u + '; pidio: ' + sw.pedidos.join(' '));
+    });
+  } finally { await sw.cerrar(); }
+});
+
+test('NUNCA carga el spec de petstore que trae el initializer de fabrica', async () => {
+  // El fallo silencioso mas peligroso: si el orden de precedencia se
+  // rompiera, la herramienta generaria una collection de la tienda de
+  // mascotas de ejemplo sin dar ningun error.
+  const sw = await servidorSwaggerUiCompleto();
+  try {
+    const r = await cargarSwagger(feature(), {
+      swaggerUrl: sw.raiz + '/api/publicapi/swagger-ui/index.html',
+      api: {},
+    });
+    assert.equal(r.ok, true, r.message);
+    assert.ok(!/petstore/i.test(r.resolvedUrl), 'resolvio al señuelo: ' + r.resolvedUrl);
+    assert.ok(!r.services.includes('pet'), 'cargo el spec de petstore: ' + r.services.join(', '));
+  } finally { await sw.cerrar(); }
+});
+
+test('/v1/api-docs esta entre los candidatos: el ambiente real lo usa', async () => {
+  // Sin este sufijo, el ambiente medido daba 404 en las 5 rutas probadas.
+  const sw = await servidorSwaggerUiCompleto();
+  try {
+    const r = await cargarSwagger(feature(), { swaggerUrl: sw.raiz + '/api/publicapi', api: {} });
+    assert.equal(r.ok, true, 'fallo con: ' + r.message);
+    assert.equal(r.resolvedUrl, sw.raiz + '/api/publicapi/v1/api-docs');
+  } finally { await sw.cerrar(); }
+});
+
+test('una cadena que se apunta a si misma corta por ciclo, no cuelga', async () => {
+  const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    // Un config que apunta a si mismo.
+    res.end(JSON.stringify({ url: req.url }));
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  try {
+    const raiz = 'http://127.0.0.1:' + server.address().port;
+    const r = await cargarSwagger(feature(), { swaggerUrl: raiz + '/config.json', api: {} });
+    assert.equal(r.ok, false);
+    assert.match(r.message, /ciclo|demasiado larga/i, 'dijo: ' + r.message);
+  } finally { await new Promise((r) => server.close(r)); }
+});
+
+test('el error lista los saltos de la cadena, no solo el ultimo', async () => {
+  // Un swagger-ui cuyo initializer apunta a un config que no existe.
+  const server = http.createServer((req, res) => {
+    if (/index\.html$/.test(req.url)) {
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end('<!DOCTYPE html><html><body><script src="./swagger-initializer.js"></script></body></html>');
+      return;
+    }
+    if (/swagger-initializer\.js$/.test(req.url)) {
+      res.writeHead(200, { 'Content-Type': 'application/javascript' });
+      res.end('SwaggerUIBundle({ "configUrl" : "/no-existe/swagger-config" });');
+      return;
+    }
+    res.writeHead(404); res.end('404');
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  try {
+    const raiz = 'http://127.0.0.1:' + server.address().port;
+    const r = await cargarSwagger(feature(), { swaggerUrl: raiz + '/swagger-ui/index.html', api: {} });
+    assert.equal(r.ok, false);
+    assert.match(r.message, /swagger-initializer\.js/, 'no menciona el initializer: ' + r.message);
+    assert.match(r.message, /no-existe\/swagger-config/, 'no menciona el config roto');
+    assert.match(r.message, /HTTP 404/, 'no dice el motivo final');
+  } finally { await new Promise((r) => server.close(r)); }
+});

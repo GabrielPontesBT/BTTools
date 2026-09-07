@@ -91,8 +91,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .pw{position:relative}.pw input{padding-right:36px}
 .pw-btn{position:absolute;right:9px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:var(--fs-md);padding:2px;line-height:1}
 
-.cres{display:none;padding:10px 13px;border-radius:0.7em;font-size:var(--fs-sm);margin-bottom:var(--sp-4);align-items:flex-start;gap:var(--sp-2);line-height:1.5}
-.cres.show{display:flex}.cres.ok{background:var(--green-l);color:var(--green)}.cres.err{background:var(--red-l);color:var(--red)}
+/* Bloque de aviso inline: el patron de feedback de todas las herramientas.
+   white-space:pre-wrap para que un mensaje de varias lineas se lea completo
+   (ej. el error de lectura de Swagger lista cada ruta probada y su motivo).
+   Sin esto los saltos se colapsan y el detalle queda ilegible en un parrafo. */
+.cres{display:none;padding:10px 13px;border-radius:0.7em;font-size:var(--fs-sm);margin-bottom:var(--sp-4);align-items:flex-start;gap:var(--sp-2);line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+.cres.show{display:flex}
+.cres.warn{background:var(--warn-l);color:var(--warn-d)}
+.cres.info{background:var(--bg);color:var(--text-2)}
+.cres-body{flex:1;min-width:0}
+.cres-title{display:block;font-weight:600;margin-bottom:var(--sp-1)}
+.cres-text{display:block}
+/* Los mensajes largos (el detalle de rutas probadas) no empujan el layout:
+   el bloque scrollea por dentro en vez de crecer sin limite. */
+.cres-text{max-height:40vh;overflow-y:auto}
+.cres-close{flex:0 0 auto;border:none;background:transparent;color:inherit;font-size:var(--fs-lg);line-height:1;cursor:pointer;padding:0 var(--sp-1);opacity:.7}
+.cres-close:hover{opacity:1}.cres.ok{background:var(--green-l);color:var(--green)}.cres.err{background:var(--red-l);color:var(--red)}
 .vf-item{padding:6px 12px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:var(--sp-2)}
 .vf-item:last-child{border-bottom:none}
 .vf-item.ok{color:var(--green)}

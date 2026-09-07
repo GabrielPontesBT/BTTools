@@ -32,6 +32,11 @@
 // APIs viejas /api-docs, y los .NET /swagger/v1/swagger.json.
 const SUFIJOS_SWAGGER = [
   '/v3/api-docs',
+  // /v1/api-docs es el que usa el ambiente Bantotal medido (10.0.0.7:5101):
+  // springdoc con la version en la ruta. Sin este sufijo, ese ambiente daba
+  // 404 en las 5 rutas y el error era "no se pudo leer el swagger".
+  '/v1/api-docs',
+  '/v2/api-docs',
   '/api-docs',
   '/swagger/v1/swagger.json',
   '/swagger.json',

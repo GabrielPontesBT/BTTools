@@ -9,9 +9,13 @@
         <!-- Vive fuera de collection-config/collection-services a proposito: ambos
              bloques se ocultan segun el stage (setup/builder), pero el feedback
              debe verse en cualquiera de los dos (ver collection-feedback-manager.js).
-             position:fixed => flota en la esquina superior derecha de toda la
-             pantalla, nunca tapa ni desplaza la barra de acciones. -->
-        <div id="collection-toast-stack" class="collection-toast-stack" aria-live="polite" aria-atomic="false"></div>
+
+             Usa .cres, el bloque inline de aviso del resto de las herramientas
+             (styles.css), en vez de las tarjetas flotantes que tenia antes:
+             era la unica herramienta con avisos flotantes, y esos truncaban el
+             mensaje a 3 lineas en 300px de ancho, con lo cual un error que
+             lista varias rutas probadas era imposible de leer. -->
+        <div id="collection-status" class="cres" aria-live="polite" aria-atomic="true"></div>
 
         <div id="collection-config" class="collection-block" style="display:none">
           <div class="collection-setup-head">

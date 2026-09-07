@@ -5,6 +5,7 @@ const path = require('path');
 const { resolveCollectionRequestData } = require('./request-data-resolver');
 const { suggestChains } = require('./chain-suggestion');
 const { buildSwaggerCandidateUrls, SUFIJOS_SWAGGER } = require('./swagger-candidates');
+const extract = require('./swagger-candidates/extract-spec-url');
 
 function loadAsset(fileName) {
   return fs.readFileSync(path.join(__dirname, fileName), 'utf8');
@@ -792,37 +793,6 @@ function createCollectionFeature(deps) {
     });
   }
 
-  function extractSwaggerUrlFromHtml(html, sourceUrl) {
-    const configMatch = html.match(/configUrl:\s*["']([^"']+)["']/i);
-    if (configMatch && configMatch[1]) {
-      return new URL(configMatch[1], sourceUrl).toString();
-    }
-    const directMatch = html.match(/url:\s*["']([^"']+)["']/i);
-    if (directMatch && directMatch[1]) {
-      return new URL(directMatch[1], sourceUrl).toString();
-    }
-    const urlsMatch = html.match(/urls:\s*\[\s*\{[^\}]*url:\s*["']([^"']+)["']/i);
-    if (urlsMatch && urlsMatch[1]) {
-      return new URL(urlsMatch[1], sourceUrl).toString();
-    }
-    return '';
-  }
-
-  function extractSwaggerUrlFromConfig(configText, sourceUrl) {
-    try {
-      const parsed = JSON.parse(configText);
-      if (parsed.url) {
-        return new URL(parsed.url, sourceUrl).toString();
-      }
-      if (Array.isArray(parsed.urls) && parsed.urls.length && parsed.urls[0] && parsed.urls[0].url) {
-        return new URL(parsed.urls[0].url, sourceUrl).toString();
-      }
-    } catch (e) {
-      return '';
-    }
-    return '';
-  }
-
   async function loadSwaggerDocument(swaggerUrl, api, opciones) {
     const candidates = buildSwaggerCandidateUrls(swaggerUrl, api, opciones);
     if (!candidates.length) {
@@ -834,43 +804,88 @@ function createCollectionFeature(deps) {
     // fallo del ultimo, que es el menos informativo de todos: no habia forma
     // de saber si el problema era TLS, un 401, un 404 o un timeout.
     const intentos = [];
+
+    // Maximo de saltos de una cadena. La mas larga vista en un ambiente
+    // Bantotal real tiene 4: index.html -> swagger-initializer.js ->
+    // swagger-config -> el documento. El limite evita un ciclo si un config
+    // se apunta a si mismo.
+    const MAX_SALTOS = 5;
+
+    // Sigue la cadena desde una URL hasta el documento OpenAPI.
+    // Devuelve {doc, resolvedUrl} o null, y deja anotado en `intentos` que
+    // paso en cada salto.
+    async function seguirCadena(url, saltos, visitadas) {
+      if (saltos > MAX_SALTOS) {
+        intentos.push({ url, resultado: 'cadena de configuracion demasiado larga (' + MAX_SALTOS + ' saltos)' });
+        return null;
+      }
+      if (visitadas.has(url)) {
+        intentos.push({ url, resultado: 'ciclo: esta URL ya se habia pedido' });
+        return null;
+      }
+      visitadas.add(url);
+
+      const response = await httpGetText(url);
+      const text = String(response.body || '').trim();
+      if (!text) { intentos.push({ url, resultado: 'respondio vacio' }); return null; }
+
+      // 1. Es el documento?
+      if (text[0] === '{' || text[0] === '[') {
+        let parsed = null;
+        try { parsed = JSON.parse(text); } catch (e) {
+          intentos.push({ url, resultado: 'JSON invalido: ' + e.message });
+          return null;
+        }
+        if (extract.esDocumentoOpenApi(parsed)) {
+          intentos.push({ url, resultado: 'DOCUMENTO OpenAPI' });
+          return { doc: parsed, resolvedUrl: url };
+        }
+        // 2. Es un swagger-config que apunta al documento.
+        const siguiente = extract.extraerUrlDeConfigJson(text, url);
+        if (siguiente) {
+          intentos.push({ url, resultado: 'config JSON, apunta a ' + siguiente.url + ' (via ' + siguiente.clave + ')' });
+          return seguirCadena(siguiente.url, saltos + 1, visitadas);
+        }
+        intentos.push({ url, resultado: 'JSON sin campo "openapi" ni "swagger", y sin url de config' });
+        return null;
+      }
+
+      // 3. Es HTML o JS: puede traer la URL adentro.
+      const enTexto = extract.extraerUrlDeTexto(text, url);
+      if (enTexto) {
+        intentos.push({ url, resultado: (/\.js(\?|$)/i.test(url) ? 'JS' : 'HTML') +
+                                        ', apunta a ' + enTexto.url + ' (via ' + enTexto.clave + ')' });
+        return seguirCadena(enTexto.url, saltos + 1, visitadas);
+      }
+
+      // 4. Es la pagina del swagger-ui pero sin la config adentro: en
+      //    swagger-ui-dist 4+ la config vive en swagger-initializer.js.
+      const initializers = extract.urlsDeInitializer(url);
+      if (initializers.length && /<html|<!doctype/i.test(text)) {
+        intentos.push({ url, resultado: 'HTML del swagger-ui sin config adentro; se busca el initializer' });
+        for (const init of initializers) {
+          try {
+            const r = await seguirCadena(init, saltos + 1, visitadas);
+            if (r) return r;
+          } catch (e) {
+            intentos.push({ url: init, resultado: e.message });
+          }
+        }
+        return null;
+      }
+
+      intentos.push({
+        url,
+        resultado: 'respondio, pero no es un documento Swagger/OpenAPI (' +
+                   (text[0] === '{' ? 'JSON sin campo "openapi" ni "swagger"' : 'no es JSON') + ')'
+      });
+      return null;
+    }
+
     for (const candidate of candidates) {
       try {
-        const response = await httpGetText(candidate);
-        const text = String(response.body || '').trim();
-        if (!text) { intentos.push({ url: candidate, resultado: 'respondio vacio' }); continue; }
-        if (text[0] === '{') {
-          const parsedJson = JSON.parse(text);
-          if (parsedJson.openapi || parsedJson.swagger) {
-            return { doc: parsedJson, resolvedUrl: candidate };
-          }
-          const nestedFromConfig = extractSwaggerUrlFromConfig(text, candidate);
-          if (nestedFromConfig) {
-            const nested = await httpGetText(nestedFromConfig);
-            return { doc: JSON.parse(nested.body), resolvedUrl: nestedFromConfig };
-          }
-        }
-        const nestedUrl = extractSwaggerUrlFromHtml(text, candidate);
-        if (nestedUrl) {
-          const nested = await httpGetText(nestedUrl);
-          const nestedText = String(nested.body || '').trim();
-          if (nestedText[0] === '{') {
-            const nestedJson = JSON.parse(nestedText);
-            if (nestedJson.openapi || nestedJson.swagger) {
-              return { doc: nestedJson, resolvedUrl: nestedUrl };
-            }
-            const nestedFromConfig = extractSwaggerUrlFromConfig(nestedText, nestedUrl);
-            if (nestedFromConfig) {
-              const deepNested = await httpGetText(nestedFromConfig);
-              return { doc: JSON.parse(deepNested.body), resolvedUrl: nestedFromConfig };
-            }
-          }
-        }
-        intentos.push({
-          url: candidate,
-          resultado: 'respondio, pero no es un documento Swagger/OpenAPI (' +
-                     (text[0] === '{' ? 'JSON sin campo "openapi" ni "swagger"' : 'no es JSON') + ')'
-        });
+        const r = await seguirCadena(candidate, 1, new Set());
+        if (r) return r;
       } catch (e) {
         intentos.push({ url: candidate, resultado: e.message });
       }

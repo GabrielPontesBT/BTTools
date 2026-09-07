@@ -30,7 +30,12 @@ process.on('unhandledRejection', (reason) => {
   console.error('[unhandledRejection] El proceso no se cae, pero esto es un bug real:', reason);
 });
 
-const PORT = 3777;
+// 3777 por defecto (electron/main.js abre la ventana en ese puerto). BTAPI_PORT
+// permite levantar una segunda instancia sin cerrar la app: hace falta para
+// poder verificar un cambio del front mientras la app esta abierta, y para
+// dos worktrees en paralelo. El frontend usa rutas relativas, asi que no hay
+// nada mas que ajustar.
+const PORT = Number(process.env.BTAPI_PORT) || 3777;
 // La app de Electron empaquetada (ver electron/first-run.js) copia la app
 // una sola vez, en el primer arranque, a una carpeta persistente elegida
 // por el usuario, y pasa esa ruta aca via BTAPI_ROOT, para que

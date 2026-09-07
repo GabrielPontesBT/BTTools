@@ -1,128 +1,125 @@
 (function bootstrapCollectionFeedbackManager(global) {
   'use strict';
 
-  // Metadata visual por tipo de aviso. `autoDismissMs: null` = permanece
-  // visible hasta que el usuario lo cierra a mano (errores y advertencias:
-  // son mas importantes de leer que para dejarlos desaparecer solos).
-  var TOAST_META = {
-    ok:   { title: 'Listo',         icon: '&#10003;', autoDismissMs: 4200 },
-    err:  { title: 'Error',         icon: '&#10005;', autoDismissMs: null },
-    warn: { title: 'Advertencia',   icon: '&#9888;',  autoDismissMs: null },
-    info: { title: 'Informacion',  icon: '&#8505;',  autoDismissMs: 4200 }
+  // Metadata por tipo de aviso.
+  var AVISO_META = {
+    ok:   { titulo: 'Listo',        clase: 'ok',   autoDismissMs: 4200 },
+    err:  { titulo: 'Error',        clase: 'err',  autoDismissMs: null },
+    warn: { titulo: 'Advertencia',  clase: 'warn', autoDismissMs: null },
+    info: { titulo: 'Informacion',  clase: 'info', autoDismissMs: 4200 }
   };
 
+  var ID_CONTENEDOR = 'collection-status';
+
   /**
-   * Administra los bloques de feedback visual del builder.
-   * Los avisos se muestran como notificaciones flotantes ("toast") apiladas
-   * en la esquina superior derecha de la pantalla — nunca como un banner de
-   * ancho completo que tape o desplace la barra de acciones. Cada llamada a
-   * showStatus() agrega una tarjeta nueva a la pila; no reemplaza avisos
-   * anteriores que el usuario todavia no cerro o que no llegaron a
-   * autodescartarse.
+   * Administra el feedback visual del builder.
+   *
+   * Antes esto mostraba tarjetas flotantes ("toast") apiladas en la esquina
+   * superior derecha. Se cambio por el bloque inline `.cres`, que es el
+   * patron que usa el resto de las herramientas del proyecto (ver
+   * .cres/.cres.ok/.cres.err en styles.css, y el uso en wizard-doc.js para
+   * el resultado de probar una conexion). Dos razones:
+   *
+   * 1. Consistencia: era la unica herramienta con avisos flotantes.
+   * 2. Los toast truncaban el mensaje y eso impedia diagnosticar. La pila
+   *    media 300px de ancho y .collection-toast-text tenia
+   *    -webkit-line-clamp:3, asi que un error de varias lineas se cortaba
+   *    con puntos suspensivos. Un error real de lectura de Swagger lista
+   *    cada ruta probada y su motivo: sin poder leerlo completo, el mensaje
+   *    no sirve para nada.
+   *
+   * El bloque inline no trunca: respeta los saltos de linea (white-space:
+   * pre-wrap en .cres) y crece con el contenido.
+   *
+   * La API (showStatus/dismissToast/clearStatus/resetResult) no cambio:
+   * hay 65 llamadas a showStatus repartidas por el builder.
    */
   class CollectionFeedbackManager {
     constructor() {
-      this.toastSeq = 0;
-      this.toastTimers = {};
+      this.timer = null;
+    }
+
+    contenedor() {
+      return document.getElementById(ID_CONTENEDOR);
     }
 
     /**
-     * Agrega una notificacion a la pila.
-     * `kind`: 'ok' | 'err' | 'warn' | 'info' (define color, icono y si se
-     * autodescarta). `title` es opcional: si no se pasa, usa el titulo
-     * generico del tipo (ver TOAST_META). `text` es la descripcion (una
-     * linea) del aviso.
+     * Muestra un aviso. `kind`: 'ok' | 'err' | 'warn' | 'info'.
+     * `title` es opcional; si no viene, usa el titulo generico del tipo.
+     *
+     * A diferencia de la version con toast, esto REEMPLAZA el aviso
+     * anterior en vez de apilar. Es lo que hace el resto de las
+     * herramientas, y evita el problema de la pila: con avisos que no se
+     * autodescartan (err y warn), tres errores seguidos tapaban la pantalla.
      */
     showStatus(kind, text, title) {
-      var stack = document.getElementById('collection-toast-stack');
-      if (!stack) return;
+      var el = this.contenedor();
+      if (!el) return;
 
-      stack.style.top = this.computeStackTop() + 'px';
+      var meta = AVISO_META[kind] || AVISO_META.info;
+      var texto = String(text == null ? '' : text);
 
-      var meta = TOAST_META[kind] || TOAST_META.info;
-      var safeKind = TOAST_META[kind] ? kind : 'info';
-      var id = 'collection-toast-' + (++this.toastSeq);
+      if (this.timer) { clearTimeout(this.timer); this.timer = null; }
 
-      var toast = document.createElement('div');
-      toast.id = id;
-      toast.className = 'collection-toast collection-toast-' + safeKind;
-      toast.setAttribute('role', safeKind === 'err' ? 'alert' : 'status');
-      toast.innerHTML =
-        '<span class="collection-toast-icon" aria-hidden="true">' + meta.icon + '</span>' +
-        '<span class="collection-toast-body">' +
-          '<span class="collection-toast-title">' + collectionEscapeHtml(title || meta.title) + '</span>' +
-          '<span class="collection-toast-text">' + collectionEscapeHtml(text || '') + '</span>' +
+      el.className = 'cres show ' + meta.clase;
+      el.setAttribute('role', meta.clase === 'err' ? 'alert' : 'status');
+      el.innerHTML =
+        '<span class="cres-body">' +
+          '<strong class="cres-title">' + collectionEscapeHtml(title || meta.titulo) + '</strong>' +
+          '<span class="cres-text">' + collectionEscapeHtml(texto) + '</span>' +
         '</span>' +
-        '<button type="button" class="collection-status-close" onclick="collectionDismissToast(' + "'" + id + "'" + ')" aria-label="Cerrar aviso">&times;</button>';
+        '<button type="button" class="cres-close" aria-label="Cerrar aviso">&times;</button>';
 
-      // La mas nueva arriba: se inserta como primer hijo, no al final.
-      stack.insertBefore(toast, stack.firstChild);
+      var self = this;
+      var cerrar = el.querySelector('.cres-close');
+      if (cerrar) cerrar.onclick = function () { self.clearStatus(); };
 
+      // Los avisos de error y advertencia no se autodescartan: son mas
+      // importantes de leer que de sacar del camino.
       if (meta.autoDismissMs) {
-        this.toastTimers[id] = setTimeout(this.dismissToast.bind(this, id), meta.autoDismissMs);
+        this.timer = setTimeout(function () { self.clearStatus(); }, meta.autoDismissMs);
+      }
+
+      // Si el aviso quedo fuera de la vista (el builder puede scrollear
+      // bastante), se lo trae. Sin esto, un error al final de una operacion
+      // larga se muestra donde el usuario no lo ve, que era otra forma del
+      // mismo problema: el mensaje existe pero no se lee.
+      if (typeof el.scrollIntoView === 'function') {
+        var rect = el.getBoundingClientRect();
+        var visible = rect.top >= 0 && rect.bottom <= (window.innerHeight || 0);
+        if (!visible) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       }
     }
 
     /**
-     * Calcula, en cada aviso nuevo, la distancia minima al borde superior de
-     * la pantalla para que la pila nunca tape la barra de acciones (Nombre/
-     * Cadena/Probar/Generar collection). Esa barra (.collection-builder-top)
-     * solo existe una vez que el builder esta en la etapa "builder" y puede
-     * ocupar mas de una fila (envuelve en pantallas angostas), asi que un
-     * numero fijo en CSS no alcanza — se mide su borde inferior real y se
-     * flota justo debajo. Si todavia no existe (etapa "setup"/"define") usa
-     * un margen chico fijo, que es seguro porque ahi no hay barra de acciones.
-     */
-    computeStackTop() {
-      var DEFAULT_TOP = 16;
-      var header = document.querySelector('.collection-builder-top');
-      if (!header) return DEFAULT_TOP;
-
-      var rect = header.getBoundingClientRect();
-      if (!rect.height) return DEFAULT_TOP;
-
-      return Math.max(DEFAULT_TOP, Math.round(rect.bottom) + 12);
-    }
-
-    /**
-     * Cierra una notificacion puntual (por su id) con una animacion breve de
-     * salida antes de sacarla del DOM. Cancela su timer de autodescarte si
-     * todavia estaba pendiente (ej. el usuario la cerro a mano antes de tiempo).
+     * Se mantiene por compatibilidad: la version con toast cerraba un aviso
+     * puntual por id, y `collectionDismissToast` sigue expuesto en
+     * collection-manager-registry.js. Con un solo bloque inline, cerrar
+     * cualquier aviso es cerrar el aviso.
      */
     dismissToast(id) {
-      var toast = document.getElementById(id);
-      if (!toast) return;
-
-      if (this.toastTimers[id]) {
-        clearTimeout(this.toastTimers[id]);
-        delete this.toastTimers[id];
-      }
-
-      toast.classList.add('collection-toast-leaving');
-      setTimeout(function removeToastNode() {
-        if (toast.parentElement) toast.parentElement.removeChild(toast);
-      }, 180);
+      void id;
+      this.clearStatus();
     }
 
     /**
-     * Descarta de inmediato todas las notificaciones visibles (sin esperar
-     * la animacion de salida). Se usa cuando el contexto cambia de golpe
-     * (ej. el usuario cambia de Fuente/Formato) y el feedback viejo ya no aplica.
+     * Oculta el aviso visible. Se usa cuando el contexto cambia de golpe
+     * (ej. el usuario cambia de Fuente/Formato) y el feedback viejo ya no
+     * aplica.
      */
     clearStatus() {
-      var stack = document.getElementById('collection-toast-stack');
-      if (!stack) return;
-
-      Object.keys(this.toastTimers).forEach(function cancelTimer(id) {
-        clearTimeout(this.toastTimers[id]);
-      }, this);
-      this.toastTimers = {};
-      stack.innerHTML = '';
+      if (this.timer) { clearTimeout(this.timer); this.timer = null; }
+      var el = this.contenedor();
+      if (!el) return;
+      el.className = 'cres';
+      el.removeAttribute('role');
+      el.innerHTML = '';
     }
 
     /**
-     * Limpia el panel donde hoy se muestra el resultado de exportar la collection.
-     * Se usa antes de recalcular una generación para no dejar información vieja.
+     * Limpia el panel donde se muestra el resultado de exportar la
+     * collection. Se usa antes de recalcular una generación para no dejar
+     * información vieja.
      */
     resetResult() {
       var resultElement = document.getElementById('collection-result');
