@@ -1,17 +1,19 @@
 ---
 title: Verify Existence
+type: POST
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para verificar la existencia de una contraparte.
+::: note
+Método para verificar la existencia de una contraparte.
 
 **Nombre publicación:** PublicCustomers.verifyExistence
-
-**Módulo:** Customers
 
 **Programa:** PublicAPI.BTCPPA0013
 
 **Alcance:** Global
+
+**Endpoint:** /public/Customers/v1/verifyExistence
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -20,24 +22,25 @@ title: Verify Existence
 
 @tab Datos de Entrada
 
-Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-counterpartyId | Int $<(Length: 9)>$ | Identificador de contraparte.
+No aplica.
 
+@tab Body
+
+Nombre | Tipo | Comentarios
+:--------- | :--------- | :---------
+counterpartyId | Int $<(Length: 9)>$ | Identificador de la contraparte.
 
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-exists | Boolean | Existe?
+:--------- | :--------- | :---------
+exists | Boolean | ¿Existe la contraparte?
 
 @tab Errores
 
 Código | Descripción
-:--------- | :-----------
-40020012 | El número de contraparte no existe
+:--------- | :---------
 40050100 | Debe ingresar el GUID de contraparte.
-
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -46,51 +49,34 @@ Código | Descripción
 <!-- ABRE EJEMPLO DE INVOCACIÓN -->
 ::: details Ejemplo de Invocación
 ::: code-tabs #Formato
-@tab JSON
-```json
-{
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "444B674391BCA7676279700A"
-  },
+
+@tab cURL
+```bash
+curl -X POST \
+  '{{baseUrl}}/public/Customers/v1/verifyExistence' \
+  -H 'Device: {{device}}' \
+  -H 'Usuario: {{usuario}}' \
+  -H 'Requerimiento: {{requerimiento}}' \
+  -H 'Canal: {{canal}}' \
+  -H 'Token: {{token}}' \
+  -H 'Content-Type: application/json' \
+  -d '{
   "counterpartyId": 5090
 }'
 ```
+
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
 
 <!-- ABRE EJEMPLO DE RESPUESTA -->
 ::: details Ejemplo de Respuesta
 ::: code-tabs #Formato
+
 @tab JSON
 ```json
 {
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "444B674391BCA7676279700A"
-  },
-  "exists": true,
-  "BusinessErrors": {
-    "BusinessError": []
-  },
-  "Btoutreq": {
-    "Estado": "OK",
-    "Fecha": "2026-05-14",
-    "Hora": "16:15:08",
-    "Numero": 13468833,
-    "Servicio": "PublicCustomers.verifyExistence",
-    "Requerimiento": "1",
-    "Canal": "BTDIGITAL"
-  }
+  "exists": true
 }
 ```
 :::
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
-
-

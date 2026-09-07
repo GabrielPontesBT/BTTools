@@ -8,6 +8,7 @@ const { exec, spawn } = require('child_process');
 const { createCollectionFeature } = require('./scripts/generar-collections');
 const { createSdtGenFeature } = require('./scripts/generar-sdt');
 const { createParamEditFeature } = require('./scripts/editar-parametria');
+const { sgToOracleBti014, sgToOracleBti019, sgToOracleBti026 } = require('./scripts/sg-cache-shape');
 
 // Red de seguridad global: sin esto, CUALQUIER excepcion no capturada o
 // promesa rechazada sin catch en cualquier parte del proceso (no solo en el
@@ -59,38 +60,8 @@ function docCacheGet(key, service, method) {
   return entry.entries.get(service + ':' + method) || null;
 }
 
-// Convierte el formato sg_ al formato de columnas Oracle que usa generar_md.js
-function sgToOracleBti014(detail) {
-  return { BTIMTDDSC: detail.dsc || '', BTIMTDPGMNOM: detail.pgmnom || '' };
-}
-function sgToOracleBti019(params) {
-  return params.map(p => ({
-    BTISRVPARNOM:  p.nom    || '',
-    BTISRVVARTIPO: p.tipo   || '',
-    BTISRVPARDIR:  p.dir    || 'I',
-    BTISRVPARDSC:  p.dsc    || '',
-    BTISRVPARLARGO: p.largo || '0',
-    BTISRVPARDECI:  p.deci  || '0',
-    BTISRVCATIT:   p.catit  || 'B',
-    BTISRVPARITTIPO: p.ittipo || '',
-    BTISRVPARITNOM:  p.itnom  || '',
-  }));
-}
-function sgToOracleBti026(sdts) {
-  const result = {};
-  for (const sdt of sdts) {
-    result[sdt.nom] = (sdt.bti026 || []).map(f => ({
-      BTISDTELEMNOM:   f.elemnom   || '',
-      BTISDTELEMTIPO:  f.elemtipo  || '',
-      BTISDTELEMLARGO: f.elemlargo || '0',
-      BTISDTELEMDECI:  f.elemdeci  || '0',
-      BTISDTELEMCAT:   f.elemcat   || '',
-      BTISDTELEMDSC:   f.elemdsc   || '',
-      BTISDTELEMSDT:   f.elemsdt   || '',
-    }));
-  }
-  return result;
-}
+// sgToOracleBti014/019/026 (conversion sg_ -> columnas Oracle para el
+// `cachedData` de generarMd) viven en ./scripts/sg-cache-shape (importadas arriba).
 
 // -- helpers -------------------------------------------
 
@@ -316,40 +287,7 @@ async function queryMethods(platform, db, service, apiMode) {
   }
 }
 
-function valorEjemploSetup(tipo) {
-  const t = (tipo || '').toUpperCase();
-  if (t === 'N') return 0;
-  if (t === 'D') return '2026-01-01';
-  if (t === 'B') return false;
-  if (t === 'F') return 0.0;
-  return '';
-}
-
-async function buildSdtObj(queryFn, sdtType, isCollection, cache, visited) {
-  if (!sdtType || visited.has(sdtType)) return isCollection ? [] : {};
-  const vis = new Set(visited);
-  vis.add(sdtType);
-  if (!cache.has(sdtType)) cache.set(sdtType, await queryFn(sdtType));
-  const fields = cache.get(sdtType);
-  const obj = {};
-  for (const f of fields) {
-    if (f.sdt) {
-      obj[f.name] = await buildSdtObj(queryFn, f.sdt, f.cat === 'C', cache, vis);
-    } else if (f.cat === 'C') {
-      obj[f.name] = [];
-    } else {
-      obj[f.name] = valorEjemploSetup(f.type);
-    }
-  }
-  return isCollection ? [obj] : obj;
-}
-
-function mapBti026Row(row) {
-  const sdt = (row.BTISDTELEMSDT && row.BTISDTELEMSDT.trim()) ||
-              (row.BTISDTELEMTIPO && row.BTISDTELEMTIPO.trim().startsWith('Sdt') ? row.BTISDTELEMTIPO.trim() : '');
-  return { name: (row.BTISDTELEMNOM || '').trim(), type: (row.BTISDTELEMTIPO || '').trim(),
-           cat: (row.BTISDTELEMCAT || '').trim(), sdt };
-}
+const { wrapColeccion, mapBti026Row, buildSdtObj } = require('./scripts/input-params-example');
 
 async function queryInputParams(platform, db, service, method) {
   if (platform === 'sqlserver') {
@@ -366,8 +304,11 @@ async function queryInputParams(platform, db, service, method) {
       const r = await pool.request()
         .input('svc', mssql.VarChar(100), service)
         .input('mtd', mssql.VarChar(100), method)
-        .query("SELECT BTISRVPARNOM,BTISRVVARTIPO,BTISRVPARLARGO,BTISRVCATIT,BTISRVPARITTIPO FROM BTI019 WHERE BTISRVNOM=@svc AND BTIMTDNOM=@mtd AND BTISRVPARDIR='I' ORDER BY BTISRVPARPOSI");
+        .query("SELECT BTISRVPARNOM,BTISRVVARTIPO,BTISRVPARLARGO,BTISRVCATIT,BTISRVPARITTIPO,BTISRVPARITNOM FROM BTI019 WHERE BTISRVNOM=@svc AND BTIMTDNOM=@mtd AND BTISRVPARDIR='I' ORDER BY BTISRVPARPOSI");
       const sdtCache = new Map();
+      // V3/BTI026 no tiene columna de nombre de item para campos anidados
+      // (a diferencia de V4/BTISDTELEMNOMIT, ver sg_queryBti026): una
+      // coleccion anidada dentro de un SDT cae a array suelto en V3.
       const queryFn = async (sdtType) => {
         const r26 = await pool.request()
           .input('sdt', mssql.VarChar(100), sdtType)
@@ -380,12 +321,16 @@ async function queryInputParams(platform, db, service, method) {
         const type     = (row.BTISRVVARTIPO   || '').trim();
         const cat      = (row.BTISRVCATIT     || '').trim();
         const itemType = (row.BTISRVPARITTIPO || '').trim();
-        const p = { name, type, label: cat, itemType };
+        const itemName = (row.BTISRVPARITNOM  || '').trim();
+        const p = { name, type, label: cat, itemType, itemName };
         const sdtType = itemType || (type.startsWith('Sdt') ? type : '');
         if (sdtType) {
           p.isComplex = true;
-          try { p.example = JSON.stringify(await buildSdtObj(queryFn, sdtType, !!itemType, sdtCache, new Set()), null, 2); }
-          catch(e) { p.example = itemType ? '[]' : '{}'; }
+          try {
+            const built = await buildSdtObj(queryFn, sdtType, sdtCache, new Set());
+            p.example = JSON.stringify(itemType ? wrapColeccion(built, itemName) : built, null, 2);
+          }
+          catch(e) { p.example = itemType ? (itemName ? `{"${itemName}":[]}` : '[]') : '{}'; }
         }
         params.push(p);
       }
@@ -402,13 +347,13 @@ async function queryInputParams(platform, db, service, method) {
     });
     try {
       const r = await conn.execute(
-        "SELECT BTISRVPARNOM,BTISRVVARTIPO,BTISRVPARLARGO,BTISRVCATIT,BTISRVPARITTIPO FROM BTI019 WHERE BTISRVNOM=:1 AND BTIMTDNOM=:2 AND BTISRVPARDIR='I' ORDER BY BTISRVPARPOSI",
+        "SELECT BTISRVPARNOM,BTISRVVARTIPO,BTISRVPARLARGO,BTISRVCATIT,BTISRVPARITTIPO,BTISRVPARITNOM FROM BTI019 WHERE BTISRVNOM=:1 AND BTIMTDNOM=:2 AND BTISRVPARDIR='I' ORDER BY BTISRVPARPOSI",
         [service, method], { outFormat: oracledb.OUT_FORMAT_OBJECT }
       );
       const sdtCache = new Map();
       const queryFn = async (sdtType) => {
         const r26 = await conn.execute(
-          'SELECT BTISDTELEMNOM,BTISDTELEMTIPO,BTISDTELEMCAT,BTISDTELEMSDT FROM BTI026 WHERE BTISDTNOM=:1 ORDER BY BTISDTELEMNOM',
+          'SELECT BTISDTELEMNOM,BTISDTELEMTIPO,BTISDTELEMCAT,BTISDTELEMSDT,BTISDTELEMNOMIT FROM BTI026 WHERE BTISDTNOM=:1 ORDER BY BTISDTELEMNOM',
           [sdtType], { outFormat: oracledb.OUT_FORMAT_OBJECT }
         );
         return r26.rows.map(mapBti026Row).filter(f => f.name);
@@ -419,12 +364,16 @@ async function queryInputParams(platform, db, service, method) {
         const type     = (row.BTISRVVARTIPO   || '').trim();
         const cat      = (row.BTISRVCATIT     || '').trim();
         const itemType = (row.BTISRVPARITTIPO || '').trim();
-        const p = { name, type, label: cat, itemType };
+        const itemName = (row.BTISRVPARITNOM  || '').trim();
+        const p = { name, type, label: cat, itemType, itemName };
         const sdtType = itemType || (type.startsWith('Sdt') ? type : '');
         if (sdtType) {
           p.isComplex = true;
-          try { p.example = JSON.stringify(await buildSdtObj(queryFn, sdtType, !!itemType, sdtCache, new Set()), null, 2); }
-          catch(e) { p.example = itemType ? '[]' : '{}'; }
+          try {
+            const built = await buildSdtObj(queryFn, sdtType, sdtCache, new Set());
+            p.example = JSON.stringify(itemType ? wrapColeccion(built, itemName) : built, null, 2);
+          }
+          catch(e) { p.example = itemType ? (itemName ? `{"${itemName}":[]}` : '[]') : '{}'; }
         }
         params.push(p);
       }

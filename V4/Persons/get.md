@@ -4,11 +4,10 @@ type: GET
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para obtener los datos de una persona.
+::: note
+Método para obtener los datos de una persona.
 
 **Nombre publicación:** PublicPersons.get
-
-**Módulo:** Customers
 
 **Programa:** PublicAPI.BTPEPA0032
 
@@ -21,57 +20,29 @@ type: GET
 <!-- ABRE TABLA DE DATOS -->
 ::: tabs #Datos
 
-@tab Headers
-
-Header | Descripción
-:--------- | :-----------
-Device | Identificador del dispositivo o canal de origen.
-Usuario | Usuario que realiza la solicitud.
-Requerimiento | Número de requerimiento.
-Canal | Canal de comunicación utilizado.
-Token | Token de sesión activo.
-
 @tab Datos de Entrada
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+:--------- | :--------- | :---------
 personGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la persona.
 
 @tab Body
 
-Completar manualmente
+No aplica.
 
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-naturalPerson | [SdtsBTPEWNaturalPerson](#sdtsbtpewnaturalperson) | Datos de persona natural.
+:--------- | :--------- | :---------
+naturalPerson | [naturalPerson](#naturalperson) | Datos de persona natural.
 
 @tab Errores
 
-Código | Descripción | Programas
-:--------- | :----------- | :-----------
-500 |  | BTPEPA0032
-40010004 | La persona no existe | BTPEA00000, BTPEA00003
-40010063 | Compañía de teléfono incorrecta | BTPEA00010
-40010141 | Código de vínculo no existe | BTPEA00020
-40010151 | La actividad no existe | BTPEA00750
-40010184 | El Cargo no existe | BTPEA00023
-40010219 | El Estado Civil no existe | BTPEA00025
-40010234 | La ocupación no existe | BTPEA00004
-40010251 | El Tipo de Vivienda no existe | BTPEA00022
-40010304 | El Tipo de Establecimiento no existe | BTPEA00013
-40050001 | Debe ingresar el GUID de persona. | BTPEPA0032
-50020018 | El país no se encuentra registrado | BTCNA00000
-50020021 | No existe el Id de primer nivel ingresado | BTCNA00001
-50020028 | No existe el Id de segundo nivel ingresado | BTCNA00001
-50020034 | No existe el Id de tercer nivel ingresado | BTCNA00001
-50030001 | Debe ingresar un tipo de documento válido | BTDTA00000
-50040005 | No existe la sucursal ingresada | BTBRA00000
-50050003 | No existe la empresa ingresada | BTA0000017
-50120009 | No existe el estado ingresado | BTSTA00001
-99990010006 | No se pudo resolver el usuario | BTSCA00006
-
+Código | Descripción
+:--------- | :---------
+500 | 
+40010004 | La persona no existe
+40050001 | Debe ingresar el GUID de persona.
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -80,188 +51,219 @@ Código | Descripción | Programas
 <!-- ABRE EJEMPLO DE INVOCACIÓN -->
 ::: details Ejemplo de Invocación
 ::: code-tabs #Formato
-@tab JSON
-```json
-{}
-```
-@tab HEADERS
+
+@tab cURL
 ```bash
 curl -X GET \
-  'http://10.0.0.7:5101/api/publicapi/public/Persons/v1/get?personGUID=b51b92ac-47e2-42df-8e68-c41bbe6257ce' \
-  -H 'Device: POC' \
-  -H 'Usuario: INSTALADOR' \
-  -H 'Requerimiento: 1' \
-  -H 'Canal: BTMOBILE' \
-  -H 'Token: 942D8D6A84BB6CDC21B68D9B'
+  '{{baseUrl}}/public/Persons/v1/get?personGUID=d742016d-f0fc-4fff-be0e-3ff1dd7015a4' \
+  -H 'Device: {{device}}' \
+  -H 'Usuario: {{usuario}}' \
+  -H 'Requerimiento: {{requerimiento}}' \
+  -H 'Canal: {{canal}}' \
+  -H 'Token: {{token}}'
 ```
+
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
 
 <!-- ABRE EJEMPLO DE RESPUESTA -->
 ::: details Ejemplo de Respuesta
 ::: code-tabs #Formato
+
 @tab JSON
 ```json
 {
   "naturalPerson": {
-    "InstructionLevelId": 0,
-    "CitizenshipCountryId": 858,
-    "BirthPlaceFirstLevelId": 5,
-    "ChildrenNumber": 0,
-    "BirthPlace": "",
-    "BirthCountryDescription": "URUGUAY",
-    "Deceased": false,
-    "Occupations": {
-      "SdtsBTPEWOccupation": [
+    "addresses": {
+      "address": [
         {
-          "EconomicActivityTypeId": 65,
-          "OccupationTypeId": 1,
-          "OccupationDescription": "EMPLEADO",
-          "EconomicActivityId": 97000,
-          "CompanyDocument": "",
-          "Income": 0,
-          "EconomicActivityTypeDescription": "FAMILIAS",
-          "Imports": false,
-          "EstablishmentTypeDescription": "",
-          "Exports": false,
-          "EstablishmentTypeId": 0,
-          "JobTitleId": 0,
-          "CompanyName": "",
-          "OccupationTypeDescription": "DEPENDIENTE",
-          "Correlative": 1,
-          "MainOccupation": true,
-          "EconomicActivityDescription": "FAMILIAS",
-          "OccupationId": 1,
-          "Multilateral": false,
-          "JobTitleDescription": ""
+          "address": "AVENIDA JOSE BENITO LAMAS NO. PUERTA 2233 APTO 14",
+          "addressCorrelative": 1,
+          "addressTypeDescription": "RESIDENCIA",
+          "addressTypeId": 1,
+          "cityDescription": "Aguascalientes",
+          "cityId": 1,
+          "colonyId": 0,
+          "countryDescription": "México",
+          "countryId": 484,
+          "departmentDescription": "AGUASCALIENTES",
+          "departmentId": 1,
+          "districtDescription": "Aguascalientes",
+          "districtId": 1,
+          "geographicalUbication": "",
+          "housingTypeDescription": "FAMILIAR",
+          "housingTypeId": 5,
+          "isABusiness": true,
+          "latitude": 0,
+          "level1Data": "JOSE BENITO LAMAS",
+          "level1Description": "AVENIDA",
+          "level1Id": 1,
+          "level2Data": "2233",
+          "level2Description": "NO. PUERTA",
+          "level2Id": 1,
+          "level3Data": "14",
+          "level3Description": "APTO",
+          "level3Id": 1,
+          "level4Data": "",
+          "level4Description": "",
+          "level4Id": 0,
+          "longitude": 0,
+          "mainAddress": true,
+          "postalCode": "9999",
+          "references": "",
+          "settlementType": 0,
+          "sinceDate": "2022-01-01",
+          "statusId": "H"
         }
       ]
     },
-    "Gender": "F",
-    "RequiresSpouse": false,
-    "WorthStatus": false,
-    "BirthPlaceSecondLevelDescription": "",
-    "CountryDescription": "URUGUAY",
-    "Worth": 0,
-    "Addresses": {
-      "SdtsBTPEWAddress": []
-    },
-    "Relationships": {
-      "SdtsBTPEWRelationship": []
-    },
-    "DependentsNumber": 0,
-    "CountryId": 858,
-    "FirstLastname": "BENAVENTE",
-    "BirthCountryId": 858,
-    "MaritalStatusId": 1,
-    "BirthPlaceSecondLevelId": 1142,
-    "FirstName": "YADIRA",
-    "CitizenshipCountryDescription": "URUGUAY",
-    "DocumentNumber": "71336785",
-    "SecondName": "",
-    "MaritalStatusDescription": "SOLTERO/A",
-    "DocumentTypeId": 1,
-    "InstructionLevelDescription": "",
-    "CustomFields": {
-      "customFieldsItem": []
-    },
-    "BirthPlaceFirstLevelDescription": "",
-    "Contacts": {
-      "SdtsBTPEWContact": [
+    "birthCountryDescription": "México",
+    "birthCountryId": 484,
+    "birthDate": "1996-12-04",
+    "birthPlace": "",
+    "birthPlaceFirstLevelDescription": "",
+    "birthPlaceFirstLevelId": 8,
+    "birthPlaceSecondLevelDescription": "",
+    "birthPlaceSecondLevelId": 4,
+    "birthPlaceThirdLevelDescription": "",
+    "birthPlaceThirdLevelId": 0,
+    "childrenNumber": 3,
+    "citizenshipCountryDescription": "México",
+    "citizenshipCountryId": 484,
+    "contacts": {
+      "contact": [
         {
-          "AssociatedToAnAddress": false,
-          "Comment": "",
-          "AddressCorrelative": 0,
-          "Validated": false,
-          "Priority": 0,
-          "Enabled": true,
-          "Text": "YBG@YAHOO.COM",
-          "TelephoneCompanyDescription": "",
-          "EndTimeRange2": "",
-          "EndTimeRange1": "",
-          "Correlative": 1,
-          "ContactTypeId": 3,
-          "TelephoneCompanyId": 0,
-          "StartTimeRange2": "",
-          "AddressId": "",
-          "ContactTypeDescription": "",
-          "ReceivesMails": false,
-          "StartTimeRange1": ""
+          "addressCorrelative": 0,
+          "addressId": "",
+          "associatedToAnAddress": false,
+          "comment": "CORREO",
+          "contactTypeDescription": "",
+          "contactTypeId": 3,
+          "correlative": 1,
+          "enabled": true,
+          "endTimeRange1": "",
+          "endTimeRange2": "",
+          "priority": 3,
+          "startTimeRange1": "",
+          "startTimeRange2": "",
+          "telephoneCompanyDescription": "ANTEL",
+          "telephoneCompanyId": 1,
+          "text": "GPONTES@GMAIL.COM",
+          "validated": true
         },
         {
-          "AssociatedToAnAddress": false,
-          "Comment": "",
-          "AddressCorrelative": 0,
-          "Validated": false,
-          "Priority": 0,
-          "Enabled": false,
-          "Text": "twitter",
-          "TelephoneCompanyDescription": "",
-          "EndTimeRange2": "",
-          "EndTimeRange1": "",
-          "Correlative": 1,
-          "ContactTypeId": 4,
-          "TelephoneCompanyId": 0,
-          "StartTimeRange2": "",
-          "AddressId": "",
-          "ContactTypeDescription": "",
-          "ReceivesMails": false,
-          "StartTimeRange1": ""
+          "addressCorrelative": 0,
+          "addressId": "",
+          "associatedToAnAddress": false,
+          "comment": "TELEFONO CELULAR",
+          "contactTypeDescription": "",
+          "contactTypeId": 1,
+          "correlative": 1,
+          "enabled": true,
+          "endTimeRange1": "",
+          "endTimeRange2": "",
+          "priority": 1,
+          "startTimeRange1": "",
+          "startTimeRange2": "",
+          "telephoneCompanyDescription": "ANTEL",
+          "telephoneCompanyId": 1,
+          "text": "0952659560",
+          "validated": true
         },
         {
-          "AssociatedToAnAddress": false,
-          "Comment": "",
-          "AddressCorrelative": 0,
-          "Validated": false,
-          "Priority": 0,
-          "Enabled": false,
-          "Text": "096223663",
-          "TelephoneCompanyDescription": "CLARO",
-          "EndTimeRange2": "",
-          "EndTimeRange1": "",
-          "Correlative": 1,
-          "ContactTypeId": 1,
-          "TelephoneCompanyId": 2,
-          "StartTimeRange2": "",
-          "AddressId": "",
-          "ContactTypeDescription": "",
-          "ReceivesMails": false,
-          "StartTimeRange1": ""
-        },
-        {
-          "AssociatedToAnAddress": false,
-          "Comment": "",
-          "AddressCorrelative": 0,
-          "Validated": false,
-          "Priority": 0,
-          "Enabled": false,
-          "Text": "26110236",
-          "TelephoneCompanyDescription": "CLARO",
-          "EndTimeRange2": "",
-          "EndTimeRange1": "",
-          "Correlative": 1,
-          "ContactTypeId": 2,
-          "TelephoneCompanyId": 2,
-          "StartTimeRange2": "",
-          "AddressId": "",
-          "ContactTypeDescription": "",
-          "ReceivesMails": false,
-          "StartTimeRange1": ""
+          "addressCorrelative": 0,
+          "addressId": "",
+          "associatedToAnAddress": false,
+          "comment": "TELEFONO FIJO",
+          "contactTypeDescription": "",
+          "contactTypeId": 2,
+          "correlative": 1,
+          "enabled": true,
+          "endTimeRange1": "",
+          "endTimeRange2": "",
+          "priority": 2,
+          "startTimeRange1": "",
+          "startTimeRange2": "",
+          "telephoneCompanyDescription": "ANTEL",
+          "telephoneCompanyId": 1,
+          "text": "2514876500",
+          "validated": true
         }
       ]
     },
-    "DocumentTypeDescription": "Cédula de Identidad",
-    "BirthPlaceThirdLevelDescription": "",
-    "CustomerAcquisitionSource": 0,
-    "References": {
-      "SdtsBTPEWReference": []
+    "countryDescription": "México",
+    "countryId": 484,
+    "customFields": {
+      "customField": [
+        {
+          "correlative": 1,
+          "description": "",
+          "id": "Afición",
+          "value": "0"
+        },
+        {
+          "correlative": 1,
+          "description": "",
+          "id": "Profesión",
+          "value": "0"
+        }
+      ]
     },
-    "PEP": true,
-    "BirthPlaceThirdLevelId": 0,
-    "SecondLastname": "GARCIA",
-    "LegalCitizen": false,
-    "CustomerAcquisitionSourceDescription": "",
-    "BirthDate": "1992-07-21"
+    "customerAcquisitionSource": 8,
+    "customerAcquisitionSourceDescription": "COMERCIALIZADORA",
+    "deceased": false,
+    "dependentsNumber": 0,
+    "documentNumber": "HADR821023HHGFQS74",
+    "documentTypeDescription": "CURP",
+    "documentTypeId": 1,
+    "expirationDate": "2030-12-31",
+    "firstLastname": "PONTES",
+    "firstName": "GABRIEL",
+    "gender": "M",
+    "instructionLevelDescription": "",
+    "instructionLevelId": 0,
+    "isPEP": false,
+    "legalCitizen": false,
+    "maritalStatusDescription": "SOLTERO/A",
+    "maritalStatusId": 1,
+    "occupations": {
+      "occupation": [
+        {
+          "companyDocument": "",
+          "companyName": "DIENTE LOPEZ",
+          "correlative": 1,
+          "economicActivityDescription": "FAMILIAS",
+          "economicActivityId": 97000,
+          "economicActivityTypeDescription": "FAMILIAS",
+          "economicActivityTypeId": 65,
+          "establishmentTypeDescription": "ESTABLECIMIENTO / LOCAL",
+          "establishmentTypeId": 2,
+          "exports": false,
+          "imports": false,
+          "income": 90000,
+          "jobTitleDescription": "ACCIONISTA",
+          "jobTitleId": 19,
+          "mainOccupation": true,
+          "multilateral": false,
+          "occupationDescription": "EMPLEADO",
+          "occupationId": 1,
+          "occupationTypeDescription": "DEPENDIENTE",
+          "occupationTypeId": 1,
+          "startDate": "2024-01-01"
+        }
+      ]
+    },
+    "references": {
+      "reference": []
+    },
+    "relationships": {
+      "relationship": []
+    },
+    "requiresSpouse": false,
+    "secondLastname": "SILVA",
+    "secondName": "",
+    "worth": 0,
+    "worthStatus": false
   }
 }
 ```
@@ -271,227 +273,224 @@ curl -X GET \
 ## **Tipos de Dato Estructurado**
 
 <!-- ABRE SDT -->
-::: details SdtsBTPEWNaturalPerson
+::: details naturalPerson
 
-### SdtsBTPEWNaturalPerson
+### naturalPerson
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTPEWNaturalPerson son los siguientes:
+Los campos del tipo de dato estructurado naturalPerson son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-Addresses | [SdtsBTPEWAddress](#sdtsbtpewaddress) | Direcciones.
-BirthCountryId | Short | Identificador del país de nacimiento.
-BirthCountryDescription | String $<(Length: 30)>$ | Descripción del país de nacimiento.
-BirthDate | Date $<(Length: 8)>$ | Fecha de nacimiento.
-BirthPlace | String $<(Length: 20)>$ | Lugar de nacimiento.
-BirthPlaceFirstLevelId | Int $<(Length: 5)>$ | Identificador del primer nivel del lugar de nacimiento.
-BirthPlaceFirstLevelDescription | String $<(Length: 20)>$ | Descripción del primer nivel del lugar de nacimiento.
-BirthPlaceSecondLevelId | Int $<(Length: 5)>$ | Identificador del segundo nivel del lugar de nacimiento.
-BirthPlaceSecondLevelDescription | String $<(Length: 20)>$ | Descripción del segundo nivel del lugar de nacimiento.
-BirthPlaceThirdLevelId | Int $<(Length: 9)>$ | Identificador del tercer nivel del lugar de nacimiento.
-BirthPlaceThirdLevelDescription | String $<(Length: 20)>$ | Descripción del tercer nivel del lugar de nacimiento.
-ChildrenNumber | Short $<(Length: 3)>$ | Número de hijos.
-CitizenshipCountryId | Short | Identificador del país de ciudadanía.
-CitizenshipCountryDescription | String $<(Length: 30)>$ | Descripción del país de ciudadanía.
-Contacts | [SdtsBTPEWContact](#sdtsbtpewcontact) | Contactos.
-CountryId | Short | Identificador del país.
-CountryDescription | String $<(Length: 30)>$ | Descripción del país.
-CustomerAcquisitionSource | Int $<(Length: 5)>$ | Fuente de adquisición del cliente.
-CustomerAcquisitionSourceDescription | String $<(Length: 30)>$ | Descripción de la fuente de adquisición del cliente.
-CustomFields | [SdtsBTPAWCustomField](#sdtsbtpawcustomfield) | Campos personalizados.
-DateOfDeath | Date $<(Length: 8)>$ | Fecha de fallecimiento.
-Deceased | Boolean $<(Length: 1)>$ | Fallecido.
-DependentsNumber | Short $<(Length: 3)>$ | Número de dependientes.
-DocumentNumber | String $<(Length: 25)>$ | Número de documento.
-DocumentTypeId | Short | Identificador del tipo de documento.
-DocumentTypeDescription | String $<(Length: 30)>$ | Descripción del tipo de documento.
-ExpirationDate | Date $<(Length: 8)>$ | Fecha de vencimiento.
-FirstLastname | String $<(Length: 30)>$ | Primer apellido.
-FirstName | String $<(Length: 25)>$ | Primer nombre.
-Gender | String $<(Length: 1)>$ | Género.
-InstructionLevelId | Short | Identificador del nivel de instrucción.
-InstructionLevelDescription | String $<(Length: 30)>$ | Descripción del nivel de instrucción.
-LegalCitizen | Boolean $<(Length: 1)>$ | Ciudadano legal.
-MaritalStatusId | Byte $<(Length: 2)>$ | Identificador del estado civil.
-MaritalStatusDescription | String $<(Length: 20)>$ | Descripción del estado civil.
-Occupations | [SdtsBTPEWOccupation](#sdtsbtpewoccupation) | Ocupaciones.
-PEP | Boolean $<(Length: 1)>$ | PEP (Persona Expuesta Políticamente).
-References | [SdtsBTPEWReference](#sdtsbtpewreference) | Referencias.
-Relationships | [SdtsBTPEWRelationship](#sdtsbtpewrelationship) | Relaciones.
-RequiresSpouse | Boolean $<(Length: 1)>$ | Requiere cónyuge.
-SecondLastname | String $<(Length: 30)>$ | Segundo apellido.
-SecondName | String $<(Length: 25)>$ | Segundo nombre.
-Worth | Double $<(Length: 18.2)>$ | Patrimonio.
-WorthStatus | Boolean $<(Length: 2)>$ | Estado patrimonial.
-WorthSubmissionDate | Date $<(Length: 8)>$ | Fecha de presentación del patrimonio.
+:--------- | :--------- | :---------
+addresses | [address](#address) | Listado de domicilios.
+birthCountryId | Short $<(Length: 3)>$ | Identificador del país de nacimiento.
+birthCountryDescription | String $<(Length: 30)>$ | Descripción del país de nacimiento.
+birthDate | Date $<(Length: 8)>$ | Fecha de nacimiento.
+birthPlace | String $<(Length: 20)>$ | Lugar de nacimiento.
+birthPlaceFirstLevelId | Int $<(Length: 5)>$ | Identificador del primer nivel del lugar de nacimiento.
+birthPlaceFirstLevelDescription | String $<(Length: 20)>$ | Descripción del primer nivel del lugar de nacimiento.
+birthPlaceSecondLevelId | Int $<(Length: 5)>$ | Identificador del segundo nivel del lugar de nacimiento.
+birthPlaceSecondLevelDescription | String $<(Length: 20)>$ | Descripción del segundo nivel del lugar de nacimiento.
+birthPlaceThirdLevelId | Int $<(Length: 9)>$ | Identificador del tercer nivel del lugar de nacimiento.
+birthPlaceThirdLevelDescription | String $<(Length: 20)>$ | Descripción del tercer nivel del lugar de nacimiento.
+childrenNumber | Short $<(Length: 3)>$ | Número de hijos.
+citizenshipCountryId | Short $<(Length: 3)>$ | Identificador del país de ciudadanía.
+citizenshipCountryDescription | String $<(Length: 30)>$ | Descripción del país de ciudadanía.
+contacts | [contact](#contact) | Listado de datos de contacto.
+countryId | Short $<(Length: 3)>$ | Identificador del país.
+countryDescription | String $<(Length: 30)>$ | Descripción del país.
+customerAcquisitionSource | Int $<(Length: 5)>$ | Fuente de adquisición del cliente.
+customerAcquisitionSourceDescription | String $<(Length: 30)>$ | Descripción de la fuente de adquisición del cliente.
+customFields | [customField](#customfield) | Listado de campos personalizados.
+dateOfDeath | Date $<(Length: 8)>$ | Fecha de fallecimiento.
+deceased | Boolean | ¿Está fallecido?
+dependentsNumber | Short $<(Length: 3)>$ | Número de dependientes.
+documentNumber | String $<(Length: 25)>$ | Número de documento.
+documentTypeId | Short $<(Length: 4)>$ | Identificador del tipo de documento.
+documentTypeDescription | String $<(Length: 30)>$ | Descripción del tipo de documento.
+expirationDate | Date $<(Length: 8)>$ | Fecha de vencimiento.
+firstLastname | String $<(Length: 30)>$ | Primer apellido.
+firstName | String $<(Length: 25)>$ | Primer nombre.
+gender | String $<(Length: 1)>$ | Género.
+instructionLevelId | Short $<(Length: 3)>$ | Identificador del nivel de instrucción.
+instructionLevelDescription | String $<(Length: 30)>$ | Descripción del nivel de instrucción.
+isPEP | Boolean | ¿Es Persona Políticamente Expuesta?
+legalCitizen | Boolean | ¿Es ciudadano legal?
+maritalStatusId | Byte $<(Length: 2)>$ | Identificador del estado civil.
+maritalStatusDescription | String $<(Length: 20)>$ | Descripción del estado civil.
+occupations | [occupation](#occupation) | Listado de ocupaciones.
+references | [reference](#reference) | Listado de referencias.
+relationships | [relationship](#relationship) | Listado de vínculos.
+requiresSpouse | Boolean | ¿Requiere cónyuge?
+secondLastname | String $<(Length: 30)>$ | Segundo apellido.
+secondName | String $<(Length: 25)>$ | Segundo nombre.
+worth | Double $<(Length: 18.2)>$ | Patrimonio.
+worthStatus | Boolean $<(Length: 2)>$ | Estado patrimonial.
+worthSubmissionDate | Date $<(Length: 8)>$ | Fecha de presentación del patrimonio.
 :::
 
-::: details SdtsBTPEWAddress
+::: details address
 
-### SdtsBTPEWAddress
+### address
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTPEWAddress son los siguientes:
+Los campos del tipo de dato estructurado address son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-Address | String | Dirección.
-AddressCorrelative | Short | Correlativo de dirección.
-AddressTypeId | Byte | Identificador del tipo de dirección.
-AddressTypeDescription | String | Descripción del tipo de dirección.
-CityId | Int | Identificador de ciudad.
-CityDescription | String | Descripción de ciudad.
-ColonyId | Int | Identificador de colonia.
-CountryId | Short | Identificador del país.
-CountryDescription | String | Descripción del país.
-DepartmentId | Int | Identificador del departamento.
-DepartmentDescription | String | Descripción del departamento.
-DistrictId | Int | Identificador del distrito.
-DistrictDescription | String | Descripción del distrito.
-GeographicalUbication | String | Ubicación geográfica.
-HousingTypeId | Byte | Identificador del tipo de vivienda.
-HousingTypeDescription | String | Descripción del tipo de vivienda.
-IsABusiness | Boolean | Es una empresa.
-Latitude | Double | Latitud.
-Level1Data | String | Dato de nivel 1.
-Level1Id | Short | Identificador de nivel 1.
-Level1Description | String | Descripción de nivel 1.
-Level2Data | String | Dato de nivel 2.
-Level2Id | Short | Identificador de nivel 2.
-Level2Description | String | Descripción de nivel 2.
-Level3Data | String | Dato de nivel 3.
-Level3Id | Short | Identificador de nivel 3.
-Level3Description | String | Descripción de nivel 3.
-Level4Data | String | Dato de nivel 4.
-Level4Id | Short | Identificador de nivel 4.
-Level4Description | String | Descripción de nivel 4.
-Longitude | Double | Longitud.
-MainAddress | Boolean | Dirección principal.
-PostalCode | String | Código postal.
-References | String | Referencias.
-SettlementType | Short | Tipo de liquidación.
-SinceDate | Date | Fecha desde.
-StatusId | String | Identificador de estado.
+:--------- | :--------- | :---------
+address | String $<(Length: 140)>$ | Dirección.
+addressCorrelative | Short $<(Length: 3)>$ | Correlativo de dirección.
+addressTypeId | Byte $<(Length: 2)>$ | Identificador del tipo de dirección.
+addressTypeDescription | String $<(Length: 20)>$ | Descripción del tipo de dirección.
+cityId | Int $<(Length: 5)>$ | Identificador de ciudad.
+cityDescription | String $<(Length: 40)>$ | Descripción de ciudad.
+colonyId | Int $<(Length: 9)>$ | Identificador de colonia.
+countryId | Short $<(Length: 3)>$ | Identificador del país.
+countryDescription | String $<(Length: 40)>$ | Descripción del país.
+departmentId | Int $<(Length: 5)>$ | Identificador del departamento.
+departmentDescription | String $<(Length: 40)>$ | Descripción del departamento.
+districtId | Int $<(Length: 9)>$ | Identificador del distrito.
+districtDescription | String $<(Length: 40)>$ | Descripción del distrito.
+geographicalUbication | String $<(Length: 6)>$ | Ubicación geográfica.
+housingTypeId | Byte $<(Length: 2)>$ | Identificador del tipo de vivienda.
+housingTypeDescription | String $<(Length: 40)>$ | Descripción del tipo de vivienda.
+isABusiness | Boolean | ¿Es una empresa?
+latitude | Double $<(Length: 10.6)>$ | Latitud.
+level1Data | String $<(Length: 30)>$ | Dato de nivel 1.
+level1Id | Short $<(Length: 3)>$ | Identificador de nivel 1.
+level1Description | String $<(Length: 35)>$ | Descripción de nivel 1.
+level2Data | String $<(Length: 30)>$ | Dato de nivel 2.
+level2Id | Short $<(Length: 3)>$ | Identificador de nivel 2.
+level2Description | String $<(Length: 35)>$ | Descripción de nivel 2.
+level3Data | String $<(Length: 30)>$ | Dato de nivel 3.
+level3Id | Short $<(Length: 3)>$ | Identificador de nivel 3.
+level3Description | String $<(Length: 35)>$ | Descripción de nivel 3.
+level4Data | String $<(Length: 30)>$ | Dato de nivel 4.
+level4Id | Short $<(Length: 3)>$ | Identificador de nivel 4.
+level4Description | String $<(Length: 35)>$ | Descripción de nivel 4.
+longitude | Double $<(Length: 10.6)>$ | Longitud.
+mainAddress | Boolean | ¿Es dirección principal?
+postalCode | String $<(Length: 8)>$ | Código postal.
+references | String $<(Length: 140)>$ | Referencias.
+settlementType | Short $<(Length: 3)>$ | Tipo de liquidación.
+sinceDate | Date $<(Length: 8)>$ | Fecha desde.
+statusId | String $<(Length: 1)>$ | Identificador de estado.
 :::
 
-::: details SdtsBTPEWContact
+::: details contact
 
-### SdtsBTPEWContact
+### contact
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTPEWContact son los siguientes:
+Los campos del tipo de dato estructurado contact son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-AddressCorrelative | Short | Correlativo de dirección.
-AddressId | String | Identificador de dirección.
-AssociatedToAnAddress | Boolean | Asociado a una dirección.
-Comment | String | Comentario.
-ContactTypeId | Byte | Identificador del tipo de contacto.
-ContactTypeDescription | String | Descripción del tipo de contacto.
-Correlative | Byte | Correlativo.
-Enabled | Boolean | Habilitado.
-EndTimeRange1 | String | Hora de fin del rango 1.
-EndTimeRange2 | String | Hora de fin del rango 2.
-Priority | Byte | Prioridad.
-ReceivesMails | Boolean | Recibe correos.
-StartTimeRange1 | String | Hora de inicio del rango 1.
-StartTimeRange2 | String | Hora de inicio del rango 2.
-TelephoneCompanyId | Short | Identificador de la compañía telefónica.
-TelephoneCompanyDescription | String | Descripción de la compañía telefónica.
-Text | String | Texto.
-Validated | Boolean | Validado.
+:--------- | :--------- | :---------
+addressCorrelative | Short $<(Length: 3)>$ | Correlativo del domicilio.
+addressId | String $<(Length: 140)>$ | Identificador del domicilio.
+associatedToAnAddress | Boolean | ¿Está asociado a un domicilio?
+comment | String $<(Length: 250)>$ | Comentario.
+contactTypeId | Byte $<(Length: 2)>$ | Identificador del tipo de contacto.
+contactTypeDescription | String $<(Length: 50)>$ | Descripción del tipo de contacto.
+correlative | Byte $<(Length: 2)>$ | Correlativo del contacto.
+enabled | Boolean | ¿Está habilitado?
+endTimeRange1 | String $<(Length: 5)>$ | Fin del rango horario 1.
+endTimeRange2 | String $<(Length: 5)>$ | Fin del rango horario 2.
+priority | Byte $<(Length: 2)>$ | Prioridad.
+startTimeRange1 | String $<(Length: 5)>$ | Inicio del rango horario 1.
+startTimeRange2 | String $<(Length: 5)>$ | Inicio del rango horario 2.
+telephoneCompanyId | Short $<(Length: 3)>$ | Identificador de la compañía telefónica.
+telephoneCompanyDescription | String $<(Length: 50)>$ | Descripción de la compañía telefónica.
+text | String $<(Length: 250)>$ | Texto.
+validated | Boolean | ¿Está validado?
 :::
 
-::: details SdtsBTPAWCustomField
+::: details customField
 
-### SdtsBTPAWCustomField
+### customField
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTPAWCustomField son los siguientes:
+Los campos del tipo de dato estructurado customField son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-Correlative | Short | Correlativo.
-Id | String | Identificador del campo personalizado.
-Description | String | Descripción del campo personalizado.
-Value | String | Valor del campo personalizado.
+:--------- | :--------- | :---------
+correlative | Short $<(Length: 4)>$ | Correlativo del campo adicional.
+id | String $<(Length: 30)>$ | Identificador del campo adicional.
+description | String $<(Length: 50)>$ | Descripción de campo adicional.
+value | String $<(Length: 250)>$ | Valor del campo adicional.
 :::
 
-::: details SdtsBTPEWOccupation
+::: details occupation
 
-### SdtsBTPEWOccupation
+### occupation
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTPEWOccupation son los siguientes:
+Los campos del tipo de dato estructurado occupation son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-CompanyDocument | String $<(Length: 25)>$ | Documento de empresa.
-CompanyName | String $<(Length: 70)>$ | Nombre de empresa.
-Correlative | Byte $<(Length: 2)>$ | Correlativo.
-EconomicActivityId | Long $<(Length: 11)>$ | Identificador de actividad económica.
-EconomicActivityDescription | String $<(Length: 80)>$ | Descripción de actividad económica.
-EconomicActivityTypeId | Long $<(Length: 15)>$ | Identificador del tipo de actividad económica.
-EconomicActivityTypeDescription | String $<(Length: 60)>$ | Descripción del tipo de actividad económica.
-EndDate | Date $<(Length: 8)>$ | Fecha de fin.
-EstablishmentTypeId | Int $<(Length: 6)>$ | Identificador del tipo de establecimiento.
-EstablishmentTypeDescription | String $<(Length: 50)>$ | Descripción del tipo de establecimiento.
-Exports | Boolean $<(Length: 1)>$ | Exporta.
-Imports | Boolean $<(Length: 1)>$ | Importa.
-Income | Double $<(Length: 18.2)>$ | Ingresos.
-JobTitleId | Short $<(Length: 4)>$ | Identificador del cargo.
-JobTitleDescription | String $<(Length: 30)>$ | Descripción del cargo.
-MainOccupation | Boolean $<(Length: 1)>$ | Ocupación principal.
-Multilateral | Boolean $<(Length: 1)>$ | Multilateral.
-OccupationId | Int $<(Length: 5)>$ | Identificador de ocupación.
-OccupationDescription | String $<(Length: 30)>$ | Descripción de la ocupación.
-OccupationTypeId | Short | Identificador del tipo de ocupación.
-OccupationTypeDescription | String $<(Length: 30)>$ | Descripción del tipo de ocupación.
-StartDate | Date $<(Length: 8)>$ | Fecha de inicio.
+:--------- | :--------- | :---------
+companyDocument | String $<(Length: 25)>$ | Documento de la empresa.
+companyName | String $<(Length: 70)>$ | Nombre de la empresa.
+correlative | Byte $<(Length: 4)>$ | Correlativo de ocupación.
+economicActivityId | Long $<(Length: 11)>$ | Identificador de actividad.
+economicActivityDescription | String $<(Length: 80)>$ | Descripción de actividad económica.
+economicActivityTypeId | Long $<(Length: 15)>$ | Identificador de tipo de actividad económica.
+economicActivityTypeDescription | String $<(Length: 60)>$ | Descripción de tipo de actividad económica.
+endDate | Date $<(Length: 8)>$ | Fecha de fin.
+establishmentTypeId | Int $<(Length: 6)>$ | Identificador de tipo de establecimiento.
+establishmentTypeDescription | String $<(Length: 50)>$ | Descripción de tipo de establecimiento.
+exports | Boolean | ¿Es negocio de exportación?
+imports | Boolean | ¿Es negocio de importación?
+income | Double $<(Length: 18.2)>$ | Ingresos.
+jobTitleId | Short $<(Length: 4)>$ | Identificador del cargo.
+jobTitleDescription | String $<(Length: 30)>$ | Descripción del cargo.
+mainOccupation | Boolean | ¿Es ocupación principal?
+multilateral | Boolean | ¿Es multilateral?
+occupationId | Int $<(Length: 5)>$ | Identificador de ocupación.
+occupationDescription | String $<(Length: 30)>$ | Descripción de ocupación.
+occupationTypeId | Short $<(Length: 4)>$ | Identificador de tipo de ocupación.
+occupationTypeDescription | String $<(Length: 30)>$ | Descripción de tipo de ocupación.
+startDate | Date $<(Length: 8)>$ | Fecha de inicio.
 :::
 
-::: details SdtsBTPEWReference
+::: details reference
 
-### SdtsBTPEWReference
+### reference
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTPEWReference son los siguientes:
+Los campos del tipo de dato estructurado reference son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-Address1 | String | Dirección 1.
-Address2 | String | Dirección 2.
-Address3 | String | Dirección 3.
-BondOrJobTitle | String | Vínculo o cargo.
-Correlative | Short | Correlativo.
-EnterpriceJobTitleDescription | String | Descripción del cargo empresarial.
-EnterpriseJobTitleId | Short | Identificador del cargo empresarial.
-Name | String | Nombre de la referencia.
-PersonType | String | Tipo de persona.
-ReferenceTypeId | Byte | Identificador del tipo de referencia.
-ReferenceTypeDescription | String | Descripción del tipo de referencia.
-RelationshipId | Short | Identificador del vínculo.
-RelationshipDescription | String | Descripción del vínculo.
-Telephone | String | Teléfono.
+:--------- | :--------- | :---------
+address1 | String $<(Length: 50)>$ | Dirección 1.
+address2 | String $<(Length: 50)>$ | Dirección 2.
+address3 | String $<(Length: 50)>$ | Dirección 3.
+correlative | Short $<(Length: 3)>$ | Correlativo de referencia.
+enterpriceJobTitleDescription | String $<(Length: 30)>$ | Descripción del cargo en la empresa.
+enterpriseJobTitleId | Short $<(Length: 4)>$ | Identificador del cargo en la empresa.
+name | String $<(Length: 50)>$ | Nombre de referencia.
+personType | String $<(Length: 1)>$ | Tipo de persona (F: Física, J: Jurídica, A: Ambas).
+referenceTypeId | Byte $<(Length: 2)>$ | Identificador de tipo de referencia.
+referenceTypeDescription | String $<(Length: 30)>$ | Descripción de tipo de referencia.
+relationshipId | Short $<(Length: 4)>$ | Identificador de vínculo.
+relationshipDescription | String $<(Length: 30)>$ | Descripción de vínculo.
+telephone | String $<(Length: 50)>$ | Teléfono.
 :::
 
-::: details SdtsBTPEWRelationship
+::: details relationship
 
-### SdtsBTPEWRelationship
+### relationship
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTPEWRelationship son los siguientes:
+Los campos del tipo de dato estructurado relationship son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-Bidirectional | Boolean | Bidireccional.
-BondId | Short | Identificador del vínculo.
-BondDescription | String | Descripción del vínculo.
-IntegrantName | String | Nombre del integrante.
-JobTitleId | Short | Identificador del cargo.
-Percentage | Double | Porcentaje.
-PersonGUID | String | GUID (identificador único global) de persona.
+:--------- | :--------- | :---------
+bidirectional | Boolean | ¿Es bidireccional?
+integrantName | String | Nombre del integrante.
+percentage | Double $<(Length: 11)>$ | Porcentaje.
+personGUID | String $<(Length: 10)>$ | GUID (identificador único global) de la persona.
+relationshipId | Short $<(Length: 4)>$ | Identificador de vínculo.
+relationshipDescription | String $<(Length: 30)>$ | Descripción de vínculo.
 :::
 <!-- CIERRA SDT -->

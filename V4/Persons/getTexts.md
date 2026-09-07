@@ -1,17 +1,19 @@
 ---
-title: Get Texts
+title: Texts
+type: GET
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para obtener un listado de los textos de una persona.
+::: note
+Método para obtener un listado de los textos de una persona.
 
-**Nombre publicación:** PublicPersons.getTexts
-
-**Módulo:** Customers
+**Nombre publicación:** PublicPersons.texts
 
 **Programa:** PublicAPI.BTPEPA0020
 
 **Alcance:** Global
+
+**Endpoint:** /public/Persons/v1/texts
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -21,23 +23,25 @@ title: Get Texts
 @tab Datos de Entrada
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+:--------- | :--------- | :---------
 personGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la persona.
 
+@tab Body
+
+No aplica.
 
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-texts | [SdtsBTPAWText](#sdtsbtpawtext) | Listado de textos.
+:--------- | :--------- | :---------
+texts | [text](#text) | Listado de textos.
 
 @tab Errores
 
 Código | Descripción
-:--------- | :-----------
+:--------- | :---------
 40010004 | La persona no existe
 40050001 | Debe ingresar el GUID de persona.
-
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -46,49 +50,36 @@ Código | Descripción
 <!-- ABRE EJEMPLO DE INVOCACIÓN -->
 ::: details Ejemplo de Invocación
 ::: code-tabs #Formato
-@tab JSON
-```json
-{
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "0F262E85182DF86F9CA30F0E"
-  },
-  "personGUID": "a542ed11-a4e4-4ead-83b6-b3530961c2b9"
-}'
+
+@tab cURL
+```bash
+curl -X GET \
+  '{{baseUrl}}/public/Persons/v1/texts?personGUID=d742016d-f0fc-4fff-be0e-3ff1dd7015a4' \
+  -H 'Device: {{device}}' \
+  -H 'Usuario: {{usuario}}' \
+  -H 'Requerimiento: {{requerimiento}}' \
+  -H 'Canal: {{canal}}' \
+  -H 'Token: {{token}}'
 ```
+
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
 
 <!-- ABRE EJEMPLO DE RESPUESTA -->
 ::: details Ejemplo de Respuesta
 ::: code-tabs #Formato
+
 @tab JSON
 ```json
 {
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "0F262E85182DF86F9CA30F0E"
-  },
   "texts": {
-    "text": []
-  },
-  "BusinessErrors": {
-    "BusinessError": []
-  },
-  "Btoutreq": {
-    "Estado": "OK",
-    "Fecha": "2026-05-14",
-    "Hora": "18:55:28",
-    "Numero": 13469362,
-    "Servicio": "PublicPersons.getTexts",
-    "Requerimiento": "1",
-    "Canal": "BTDIGITAL"
+    "text": [
+      {
+        "description": "",
+        "id": "1",
+        "text": "TEXTO DE PRUEBA"
+      }
+    ]
   }
 }
 ```
@@ -98,17 +89,17 @@ Código | Descripción
 ## **Tipos de Dato Estructurado**
 
 <!-- ABRE SDT -->
-::: details SdtsBTPAWText
+::: details text
 
-### SdtsBTPAWText
+### text
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTPAWText son los siguientes:
+Los campos del tipo de dato estructurado text son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-Id | Int $<(Length: 5)>$ | Identificador.
-Description | String $<(Length: 60)>$ | Descripción.
-Text | String | Texto.
+:--------- | :--------- | :---------
+id | Int $<(Length: 5)>$ | Identificador del texto.
+description | String $<(Length: 60)>$ | Descripción del texto.
+text | String $<(Length: 5000)>$ | Texto.
 :::
 <!-- CIERRA SDT -->

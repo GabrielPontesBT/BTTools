@@ -105,6 +105,17 @@ function showSplash(message) {
 }
 
 async function ensureInstall() {
+  // En modo dev (npm start / electron . corriendo desde el repo, no desde un
+  // .exe empaquetado) SOURCE_DIR YA es una carpeta persistente -- copiarla a
+  // otro lado no tiene sentido, y hacerlo rompe el ciclo normal de desarrollo:
+  // el "camino rapido" de abajo solo revisa marker.version === app.getVersion(),
+  // y version nunca cambia entre corridas de npm start (queda fija en
+  // package.json), asi que una vez creada la copia NUNCA se refresca, sin
+  // importar cuantos cambios se hagan en public/scripts/etc. Confirmado el
+  // 2026-08-26: una copia de hace dos semanas (sin la feature de Editar
+  // Parametria) quedaba sirviendose para siempre en cada `npm start`.
+  if (!app.isPackaged) return SOURCE_DIR;
+
   const marker = readMarker();
 
   if (marker && isValidInstall(marker.installDir) && marker.version === app.getVersion()) {

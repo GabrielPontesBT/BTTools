@@ -1,17 +1,19 @@
 ---
-title: Get Detail
+title: Detail
+type: GET
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para obtener el detalle del préstamo.
+::: note
+Método para obtener el detalle del préstamo.
 
-**Nombre publicación:** PublicLoans.getDetail
-
-**Módulo:** Loans
+**Nombre publicación:** PublicLoans.detail
 
 **Programa:** PublicAPI.BTLOPA0005
 
 **Alcance:** Global
+
+**Endpoint:** /public/Loans/v1/detail
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -21,26 +23,23 @@ title: Get Detail
 @tab Datos de Entrada
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+:--------- | :--------- | :---------
 loanGUID | String $<(Length: 36)>$ | GUID (identificador único global) del préstamo.
+queryDate | Date | Fecha de consulta.
 
 @tab Body
 
-Nombre | Tipo | Comentarios
-:--------- | :--------- | :---------
-queryDate | Date | Fecha de consulta. Si no se recibe, se toma la fecha del día.
+No aplica.
 
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-loanDetail | [SdtsBTLOWLoanDetail](#sdtsbtlowloandetail) | Datos del préstamo.
+:--------- | :--------- | :---------
+loanDetail | [loanDetail](#loandetail) | Datos del préstamo.
 
 @tab Errores
 
-Código | Descripción
-:--------- | :-----------
-40050001 | Debe ingresar el GUID de persona.
+No aplica.
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -49,114 +48,96 @@ Código | Descripción
 <!-- ABRE EJEMPLO DE INVOCACIÓN -->
 ::: details Ejemplo de Invocación
 ::: code-tabs #Formato
-@tab JSON
-```json
-{
-  "Btinreq": {
-    "Canal": "BTMOBILE",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": 1,
-    "Token": "229E7557863E8FC9C64DFECC"
-  },
-  "loanGUID": "4f9b92dc-ca6f-4ab7-9650-2ac67d8c420f",
-  "queryDate": ""
-}
+
+@tab cURL
+```bash
+curl -X GET \
+  '{{baseUrl}}/public/Loans/v1/detail?loanGUID=4f9b92dc-ca6f-4ab7-9650-2ac67d8c420f&queryDate=' \
+  -H 'Device: {{device}}' \
+  -H 'Usuario: {{usuario}}' \
+  -H 'Requerimiento: {{requerimiento}}' \
+  -H 'Canal: {{canal}}' \
+  -H 'Token: {{token}}'
 ```
+
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
 
 <!-- ABRE EJEMPLO DE RESPUESTA -->
 ::: details Ejemplo de Respuesta
 ::: code-tabs #Formato
+
 @tab JSON
 ```json
 {
-  "Btinreq": {
-    "Canal": "BTMOBILE",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": 1,
-    "Token": "229E7557863E8FC9C64DFECC"
-  },
   "loanDetail": {
-    "AccountBalance": -12000.0,
-    "AccountingAccountId": 163302001,
-    "AccountingAccountDescription": "",
-    "AccruedArrearInterest": 0.0,
-    "AccruedInterest": 0.0,
-    "AccruedInterestResult": 0.0,
-    "AmortizationTypeId": 3,
-    "AmortizationTypeDescription": "",
-    "ArrearDays": 603,
-    "ArrearsRateTypeId": 0,
-    "ArrearsRateTypeDescription": "",
-    "AverageDaysInArrears": 498,
-    "BranchId": 1,
-    "BranchDescription": "Sucursal Beta",
-    "DateOfLastTotalPayment": "",
-    "DayTypeId": 1,
-    "DayTypeDescription": "",
-    "Debt": 25459.07,
-    "DebtToDate": 28820.66,
-    "EconomicActivityId": 97000,
-    "EconomicActivityDescription": "",
-    "ExpirationDate": "2026-06-12",
-    "FirstPaymentDate": "2025-11-12",
-    "FirstUnpaidDate": "2025-11-12",
-    "InstallmentPeriodicity": 30,
-    "InstallmentValue": 2390.0,
-    "InterestRate": 20.0,
-    "IVACoefficient": 0.0,
-    "LoanGUID": "4f9b92dc-ca6f-4ab7-9650-2ac67d8c420f",
-    "NextExpirationDate": "2025-11-12",
-    "NumberOfInstallments": 0,
-    "OriginalAmount": 12000.0,
-    "OriginalRate": 20.0,
-    "PlusRate": 0.0,
-    "Product": {
-      "ProductDescription": "",
-      "CurrencyId": 0,
-      "CurrencyDescription": "Pesos Uruguayos",
-      "KindId": 0,
-      "KindDescription": "Billete",
-      "CurrencySign": "$",
-      "ProductGUID": "3b5af2fb-f6dc-42b6-8bd0-a112629868bb"
+    "accountBalance": -12000,
+    "accountingAccountId": 163302001,
+    "accountingAccountDescription": "",
+    "accruedArrearInterest": 0,
+    "accruedInterest": 0,
+    "accruedInterestResult": 0,
+    "amortizationTypeId": 3,
+    "amortizationTypeDescription": "",
+    "arrearDays": 603,
+    "arrearsRateTypeId": 0,
+    "arrearsRateTypeDescription": "",
+    "averageDaysInArrears": 498,
+    "branchId": 1,
+    "branchDescription": "Sucursal Beta",
+    "dateOfLastTotalPayment": "",
+    "dayTypeId": 1,
+    "dayTypeDescription": "",
+    "debt": 25459.07,
+    "debtToDate": 28820.66,
+    "economicActivityId": 97000,
+    "economicActivityDescription": "",
+    "expirationDate": "2026-06-12",
+    "firstPaymentDate": "2025-11-12",
+    "firstUnpaidDate": "2025-11-12",
+    "installmentPeriodicity": 30,
+    "installmentValue": 2390,
+    "interestRate": 20,
+    "iVACoefficient": 0,
+    "loanGUID": "4f9b92dc-ca6f-4ab7-9650-2ac67d8c420f",
+    "nextExpirationDate": "2025-11-12",
+    "numberOfInstallments": 0,
+    "originalAmount": 12000,
+    "originalRate": 20,
+    "plusRate": 0,
+    "product": {
+      "currencyId": 0,
+      "currencyDescription": "Pesos Uruguayos",
+      "currencySign": "$",
+      "kindId": 0,
+      "kindDescription": "Billete",
+      "productDescription": "",
+      "productGUID": "3b5af2fb-f6dc-42b6-8bd0-a112629868bb"
     },
-    "RateClassId": 0,
-    "RateClassDescription": "",
-    "RateTypeId": 1,
-    "RateTypeDescription": "",
-    "ReviewDays": 0,
-    "StatusId": 0,
-    "StatusDescription": "",
-    "SuspendedInterest": 0.0,
-    "Term": 263,
-    "TotalExpiredDebt": 25459.07,
-    "TotalExpiredInstallments": 8,
-    "TotalFinancedCost": 0.0,
-    "TotalMissedPaymentInstallments": 0,
-    "TotalOfInstallmentFees": 9555.84,
-    "TotalOfInsurances": 420.0,
-    "TotalOfInterest": 768.4,
-    "TotalOfInterestArrear": 6125.47,
-    "TotalOfPunitiveInterest": 0.0,
-    "TotalOfTaxes": 1347.61,
-    "TotalPaidInstallments": 0,
-    "TotalUnpaidInstallments": 8,
-    "ValueDate": "2025-09-19",
-    "YearTypeId": 1,
-    "YearTypeDescription": ""
-  },
-  "BusinessErrors": [],
-  "Btoutreq": {
-    "Estado": "OK",
-    "Fecha": "2026-06-09",
-    "Hora": "15:52:40",
-    "Numero": 13545804,
-    "Servicio": "PublicLoans.getDetail",
-    "Requerimiento": 1,
-    "Canal": "BTMOBILE"
+    "rateClassId": 0,
+    "rateClassDescription": "",
+    "rateTypeId": 1,
+    "rateTypeDescription": "",
+    "reviewDays": 0,
+    "statusId": 0,
+    "statusDescription": "",
+    "suspendedInterest": 0,
+    "term": 263,
+    "totalExpiredDebt": 25459.07,
+    "totalExpiredInstallments": 8,
+    "totalFinancedCost": 0,
+    "totalMissedPaymentInstallments": 0,
+    "totalOfInstallmentFees": 9555.84,
+    "totalOfInsurances": 420,
+    "totalOfInterest": 768.4,
+    "totalOfInterestArrear": 6125.47,
+    "totalOfPunitiveInterest": 0,
+    "totalOfTaxes": 1347.61,
+    "totalPaidInstallments": 0,
+    "totalUnpaidInstallments": 8,
+    "valueDate": "2025-09-19",
+    "yearTypeId": 1,
+    "yearTypeDescription": ""
   }
 }
 ```
@@ -166,91 +147,94 @@ Código | Descripción
 ## **Tipos de Dato Estructurado**
 
 <!-- ABRE SDT -->
-::: details SdtsBTLOWLoanDetail
+::: details loanDetail
 
-### SdtsBTLOWLoanDetail
+### loanDetail
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTLOWLoanDetail son los siguientes:
+Los campos del tipo de dato estructurado loanDetail son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-AccountBalance | Double $<(Length: 18.2)>$ | Saldo de cuenta.
-AccountingAccountId | Long $<(Length: 16)>$ | Identificador de cuenta contable.
-AccountingAccountDescription | String | Descripción de cuenta contable.
-AccruedArrearInterest | Double $<(Length: 18.2)>$ | Interés de mora acumulado.
-AccruedInterest | Double $<(Length: 18.2)>$ | Interés acumulado.
-AccruedInterestResult | Double $<(Length: 18.2)>$ | Resultado de interés acumulado.
-AmortizationTypeId | Byte $<(Length: 2)>$ | Identificador del tipo de amortización.
-AmortizationTypeDescription | String $<(Length: 256)>$ | Descripción del tipo de amortización.
-ArrearDays | Int $<(Length: 9)>$ | Días de mora.
-ArrearsRateTypeId | Byte $<(Length: 1)>$ | Identificador del tipo de tasa de mora.
-ArrearsRateTypeDescription | String $<(Length: 20)>$ | Descripción del tipo de tasa de mora.
-AverageDaysInArrears | Int $<(Length: 5)>$ | Días promedio en mora.
-BranchId | Int $<(Length: 5)>$ | Identificador de sucursal.
-BranchDescription | String $<(Length: 30)>$ | Descripción de sucursal.
-DateOfLastTotalPayment | Date | Fecha del último pago total.
-DayTypeId | Byte $<(Length: 1)>$ | Identificador del tipo de día.
-DayTypeDescription | String $<(Length: 40)>$ | Descripción del tipo de día.
-Debt | Double $<(Length: 18.2)>$ | Deuda.
-DebtToDate | Double | Deuda a la fecha.
-EconomicActivityId | Long $<(Length: 11)>$ | Identificador de actividad económica.
-EconomicActivityDescription | String $<(Length: 80)>$ | Descripción de actividad económica.
-ExpirationDate | Date | Fecha de vencimiento.
-FirstPaymentDate | Date | Fecha del primer pago.
-FirstUnpaidDate | Date | Fecha del primer pago impago.
-InstallmentPeriodicity | Int $<(Length: 5)>$ | Periodicidad de cuotas.
-InstallmentValue | Double $<(Length: 18.2)>$ | Valor cuota.
-InterestRate | Double $<(Length: 11.6)>$ | Tasa de interés.
-IVACoefficient | Double $<(Length: 11.6)>$ | Coeficiente IVA.
-LoanGUID | String $<(Length: 36)>$ | GUID (identificador único global) del préstamo.
-NextExpirationDate | Date | Fecha del próximo vencimiento.
-NumberOfInstallments | Int $<(Length: 5)>$ | Número de cuotas.
-OriginalAmount | Double $<(Length: 18.2)>$ | Monto original.
-OriginalRate | Double $<(Length: 11.6)>$ | Tasa original.
-PlusRate | Double $<(Length: 11.6)>$ | Tasa adicional.
-Product | [SdtsBTPHWProduct](#sdtsbtphwproduct) | Producto.
-RateClassId | Int $<(Length: 5)>$ | Identificador de clase de tasa.
-RateClassDescription | String $<(Length: 20)>$ | Descripción de la clase de tasa.
-RateTypeId | Byte $<(Length: 1)>$ | Identificador del tipo de tasa.
-RateTypeDescription | String $<(Length: 20)>$ | Descripción del tipo de tasa.
-ReviewDays | Int $<(Length: 5)>$ | Días de revisión.
-StatusId | Short $<(Length: 4)>$ | Identificador de estado.
-StatusDescription | String | Descripción del estado.
-SuspendedInterest | Double $<(Length: 18.2)>$ | Interés suspendido.
-Term | Int $<(Length: 5)>$ | Plazo.
-TotalExpiredDebt | Double | Deuda vencida total.
-TotalExpiredInstallments | Int $<(Length: 5)>$ | Cuotas vencidas totales.
-TotalFinancedCost | Double $<(Length: 11.6)>$ | Costo financiado total.
-TotalMissedPaymentInstallments | Int $<(Length: 5)>$ | Cuotas sin pago total.
-TotalOfInstallmentFees | Double | Total de comisiones de cuotas.
-TotalOfInsurances | Double | Total de seguros.
-TotalOfInterest | Double $<(Length: 18.2)>$ | Total de intereses.
-TotalOfInterestArrear | Double $<(Length: 18.2)>$ | Total de interés de mora.
-TotalOfPunitiveInterest | Double $<(Length: 18.2)>$ | Total de interés punitorio.
-TotalOfTaxes | Double $<(Length: 18.2)>$ | Total de impuestos.
-TotalPaidInstallments | Int $<(Length: 5)>$ | Cuotas pagadas totales.
-TotalUnpaidInstallments | Int $<(Length: 5)>$ | Cuotas impagas totales.
-ValueDate | Date | Fecha valor.
-YearTypeId | Byte $<(Length: 1)>$ | Identificador del tipo de año.
-YearTypeDescription | String $<(Length: 40)>$ | Descripción del tipo de año.
+:--------- | :--------- | :---------
+accountBalance | Double | accountBalance
+accountingAccountId | Long | accountingAccountId
+accountingAccountDescription | String | accountingAccountDescription
+accruedArrearInterest | Double | accruedArrearInterest
+accruedInterest | Double | accruedInterest
+accruedInterestResult | Double | accruedInterestResult
+amortizationTypeId | Byte | amortizationTypeId
+amortizationTypeDescription | String | amortizationTypeDescription
+arrearDays | Int | arrearDays
+arrearsRateTypeId | Byte | arrearsRateTypeId
+arrearsRateTypeDescription | String | arrearsRateTypeDescription
+averageDaysInArrears | Int | averageDaysInArrears
+branchId | Int | branchId
+branchDescription | String | branchDescription
+dateOfLastTotalPayment | Date | dateOfLastTotalPayment
+dayTypeId | Byte | dayTypeId
+dayTypeDescription | String | dayTypeDescription
+debt | Double | debt
+debtToDate | Double | debtToDate
+economicActivityId | Long | economicActivityId
+economicActivityDescription | String | economicActivityDescription
+expirationDate | Date | expirationDate
+firstPaymentDate | Date | firstPaymentDate
+firstUnpaidDate | Date | firstUnpaidDate
+installmentPeriodicity | Int | installmentPeriodicity
+installmentValue | Double | installmentValue
+interestRate | Double | interestRate
+iVACoefficient | Double | iVACoefficient
+loanGUID | String | loanGUID
+nextExpirationDate | Date | nextExpirationDate
+numberOfInstallments | Int | numberOfInstallments
+originalAmount | Double | originalAmount
+originalRate | Double | originalRate
+plusRate | Double | plusRate
+product | [product](#product) | product
+rateClassId | Int | rateClassId
+rateClassDescription | String | rateClassDescription
+rateTypeId | Byte | rateTypeId
+rateTypeDescription | String | rateTypeDescription
+reviewDays | Int | reviewDays
+statusId | Short | statusId
+statusDescription | String | statusDescription
+suspendedInterest | Double | suspendedInterest
+tasaEfectiva_REVISAR | Double | tasaEfectiva_REVISAR
+tasaMoraOriginal_REVISAR | Double | tasaMoraOriginal_REVISAR
+tasaMoraVigente_REVISAR | Double | tasaMoraVigente_REVISAR
+term | Int | term
+totalExpiredDebt | Double | totalExpiredDebt
+totalExpiredInstallments | Int | totalExpiredInstallments
+totalFinancedCost | Double | totalFinancedCost
+totalMissedPaymentInstallments | Int | totalMissedPaymentInstallments
+totalOfInstallmentFees | Double | totalOfInstallmentFees
+totalOfInsurances | Double | totalOfInsurances
+totalOfInterest | Double | totalOfInterest
+totalOfInterestArrear | Double | totalOfInterestArrear
+totalOfPunitiveInterest | Double | totalOfPunitiveInterest
+totalOfTaxes | Double | totalOfTaxes
+totalPaidInstallments | Int | totalPaidInstallments
+totalUnpaidInstallments | Int | totalUnpaidInstallments
+valueDate | Date | valueDate
+yearTypeId | Byte | yearTypeId
+yearTypeDescription | String | yearTypeDescription
 :::
 
-::: details SdtsBTPHWProduct
+::: details product
 
-### SdtsBTPHWProduct
+### product
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTPHWProduct son los siguientes:
+Los campos del tipo de dato estructurado product son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+:--------- | :--------- | :---------
 CurrencyId | Short $<(Length: 4)>$ | Identificador de moneda.
 CurrencyDescription | String $<(Length: 30)>$ | Descripción de la moneda.
 CurrencySign | String $<(Length: 4)>$ | Símbolo de la moneda.
 KindId | Int $<(Length: 6)>$ | Identificador del tipo.
 KindDescription | String $<(Length: 30)>$ | Descripción del tipo.
 ProductDescription | String | Descripción del producto.
-ProductGUID | String $<(Length: 36)>$ | GUID (identificador único global) del producto.
+ProductGUID | String $<(Length: 36)>$ | GUID del producto.
 :::
 <!-- CIERRA SDT -->

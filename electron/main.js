@@ -6,6 +6,7 @@ const { app, BrowserWindow, Menu, dialog } = require('electron');
 const path = require('path');
 const http = require('http');
 const { ensureInstall } = require('./first-run');
+const { createTabManager } = require('./tabs');
 
 const PORT = 3777;
 const SERVER_URL = 'http://127.0.0.1:' + PORT;
@@ -24,6 +25,7 @@ function waitForServer(onReady) {
 
 function createWindow() {
   const win = new BrowserWindow({
+    title: 'Herramienta Bantotal',
     width: 1320,
     height: 880,
     minWidth: 980,
@@ -31,14 +33,8 @@ function createWindow() {
     show: false,
     icon: path.join(__dirname, '..', 'icon.ico'),
     autoHideMenuBar: true,
-    webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
   });
-  win.once('ready-to-show', () => win.show());
-  win.loadURL(SERVER_URL);
+  createTabManager(win, SERVER_URL, () => win.show());
 }
 
 app.whenReady().then(async () => {

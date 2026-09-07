@@ -2310,5 +2310,127 @@
     "BTPartners_ObtenerPuntosDeVenta_sdtPuntosVenta_item_sucursal": [
       "0"
     ]
+  },
+  "V4::oracle::10.0.0.4:1521/btv4db::http://10.0.0.7:5110": {
+    "limit": [
+      "10"
+    ],
+    "channel": [
+      "BTMOBILE"
+    ],
+    "username": [
+      "INSTALADOR"
+    ],
+    "device": [
+      "POC"
+    ],
+    "requirement": [
+      "1"
+    ],
+    "token": [
+      "4F695EE9A46C864591A29615"
+    ],
+    "statusDescription": [
+      "INHABILITADA"
+    ],
+    "statusId": [
+      "2"
+    ],
+    "CustomerParameters_statuses_statuses_status_item_statusDescription": [
+      "ACTIVA"
+    ],
+    "CustomerParameters_statuses_statuses_status_item_statusId": [
+      "1"
+    ],
+    "reasonDescription": [
+      "EMBARGO"
+    ],
+    "reasonId": [
+      "1"
+    ],
+    "CustomerParameters_statusUpdateReasons_reasonsForStatusChange_reasonForStatusChange_item_reasonDescription": [
+      "EMBARGO"
+    ],
+    "CustomerParameters_statusUpdateReasons_reasonsForStatusChange_reasonForStatusChange_item_statusDescription": [
+      "INHABILITADA"
+    ],
+    "CustomerParameters_statusUpdateReasons_reasonsForStatusChange_reasonForStatusChange_item_statusId": [
+      "2"
+    ],
+    "CustomerParameters_statusUpdateReasons_reasonsForStatusChange_reasonForStatusChange_item_reasonId": [
+      "1"
+    ],
+    "segmentDescription": [
+      "DEPENDIENTE"
+    ],
+    "segmentId": [
+      "1"
+    ],
+    "CustomerParameters_segments_segments_segment_item_segmentId": [
+      "1"
+    ],
+    "CustomerParameters_segments_segments_segment_item_segmentDescription": [
+      "DEPENDIENTE"
+    ],
+    "hasNext": [
+      "true"
+    ],
+    "sectorDescription": [
+      "Privado no Financieros"
+    ],
+    "sectorId": [
+      "1"
+    ],
+    "CustomerParameters_sectors_sectors_sector_item_sectorId": [
+      "1"
+    ],
+    "CustomerParameters_sectors_sectors_sector_item_sectorDescription": [
+      "Privado no Financieros"
+    ],
+    "CustomerParameters_sectors_hasNext": [
+      "false"
+    ],
+    "ownershipTypeDescription": [
+      "TITULAR REPRESENTAT."
+    ],
+    "ownershipTypeId": [
+      "1"
+    ],
+    "CustomerParameters_ownershipTypes_ownershipTypes_ownershipType_item_ownershipTypeDescription": [
+      "TITULAR REPRESENTAT."
+    ],
+    "CustomerParameters_ownershipTypes_ownershipTypes_ownershipType_item_ownershipTypeId": [
+      "1"
+    ],
+    "CustomerParameters_ownershipTypes_hasNext": [
+      "false"
+    ],
+    "internalClassificationDescription": [
+      "PERSONA FÍSICA"
+    ],
+    "internalClassificationId": [
+      "1"
+    ],
+    "CustomerParameters_internalClassifications_internalClassifications_internalClassification_item_internalClassificationId": [
+      "1"
+    ],
+    "CustomerParameters_internalClassifications_internalClassifications_internalClassification_item_internalClassificationDescription": [
+      "PERSONA FÍSICA"
+    ],
+    "executiveDescription": [
+      "PRUEBA 45"
+    ],
+    "executiveId": [
+      "45"
+    ],
+    "CustomerParameters_executives_executives_executive_item_executiveId": [
+      "45"
+    ],
+    "CustomerParameters_executives_executives_executive_item_executiveDescription": [
+      "PRUEBA 45"
+    ],
+    "CustomerParameters_executives_hasNext": [
+      "true"
+    ]
   }
 }

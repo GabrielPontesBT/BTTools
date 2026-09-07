@@ -36,15 +36,14 @@ No aplica.
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-administrativeLevels | [SdtsBTCNPAAdministrativeLevel](#sdtsbtcnpaadministrativelevel) | Listado de niveles administrativos.
+administrativeLevels | [administrativeLevel](#administrativelevel) | Listado de niveles administrativos.
 
 @tab Errores
 
 Código | Descripción
 :--------- | :---------
-500 | 
-50020018 | El país no se encuentra registrado
-
+50020018 | El país no se encuentra registrado.
+99990010002 | Datos de Paginación Incorrectos.
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -219,12 +218,12 @@ curl -X GET \
 ## **Tipos de Dato Estructurado**
 
 <!-- ABRE SDT -->
-::: details SdtsBTCNPAAdministrativeLevel
+::: details administrativeLevel
 
-### SdtsBTCNPAAdministrativeLevel
+### administrativeLevel
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTCNPAAdministrativeLevel son los siguientes:
+Los campos del tipo de dato estructurado administrativeLevel son los siguientes:
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------

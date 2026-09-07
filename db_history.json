@@ -4,13 +4,40 @@
     "key": "V4|ora|10.0.0.4:1521/btv4db|BTDESAV23CPA",
     "version": "V4",
     "platform": "oracle",
-    "label": "POC",
+    "label": "COMPARTAMOS - POC TIERRA",
     "db": {
       "user": "BTDESAV23CPA",
       "password": "CPAbtv23",
       "connectString": "10.0.0.4:1521/btv4db"
     },
-    "savedAt": "2026-08-06T12:57:24.566Z"
+    "api": {
+      "publica": {
+        "BASE_URL": "http://10.0.0.7:5101/api/publicapi",
+        "API_BASE_URL": "",
+        "API_AUTH_URL": "",
+        "API_USER": "INSTALADOR",
+        "API_PASSWORD": "Bantotal2015",
+        "API_CANAL": "BTMOBILE",
+        "API_DEVICE": "GP",
+        "API_REQUERIMIENTO": "1",
+        "DOC_ERRORES_MODELOS": ""
+      }
+    },
+    "savedAt": "2026-08-26T17:56:54.115Z"
+  },
+  {
+    "id": "1786557719467",
+    "key": "V4|ora|10.0.0.4:1521/btv4db|btdesav23",
+    "version": "V4",
+    "platform": "oracle",
+    "label": "COMPARTAMOS - DESA",
+    "db": {
+      "user": "btdesav23",
+      "password": "Bantotal$2020",
+      "connectString": "10.0.0.4:1521/btv4db"
+    },
+    "api": {},
+    "savedAt": "2026-08-12T19:51:25.865Z"
   },
   {
     "id": "1785960924098",

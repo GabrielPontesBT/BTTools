@@ -14,6 +14,7 @@ const os = require('os');
 const path = require('path');
 const { tituloDesdeMetodo, nombreCortoMetodo } = require('./method-name');
 const { buildExecPayload, buildExampleQuery, buildExampleBody } = require('./exec-payload');
+const { adaptarValoresTopLevel } = require('./migrate-legacy-value');
 const { leerEjemplosExistentes } = require('./existing-examples');
 const { nombreVisibleParam, nombreVisibleCampo } = require('./sdt-display-name');
 const { toFolderName } = require('./folder-name');
@@ -67,7 +68,7 @@ const DB_CONFIG = {
 };
 
 // ── MAPEO DE TIPOS ────────────────────────────────────────────
-const TIPO_MAP = { C: 'String', N: 'Integer', D: 'Date', B: 'Boolean', F: 'Decimal' };
+const { TIPO_MAP, valorEjemplo, construirObjeto } = require('./sdt-example');
 
 function capitalizarTipo(tipo) {
   if (!tipo) return 'String';
@@ -423,37 +424,7 @@ function sortSdtFields(rows) {
 }
 
 // ── GENERACION DE JSON DE EJEMPLO ────────────────────────────
-
-function valorEjemplo(tipo) {
-  const t = (TIPO_MAP[tipo] || tipo || 'String').toLowerCase().split(' ')[0];
-  if (t === 'boolean' || t === 'bool') return false;
-  if (t === 'date') return '2026-01-01';
-  if (t === 'datetime') return '2026-01-01T00:00:00';
-  if (t === 'decimal' || t === 'float' || t === 'double') return 0.0;
-  if (['integer', 'int', 'long', 'short'].includes(t)) return 0;
-  return '';
-}
-
-function construirObjeto(sdtNom, sdtCache, visitados = new Set()) {
-  if (visitados.has(sdtNom)) return {};
-  visitados.add(sdtNom);
-  const campos = sdtCache.get(sdtNom);
-  if (!campos) return {};
-  const obj = {};
-  for (const c of campos) {
-    const sdtRef = (c.BTISDTELEMSDT && c.BTISDTELEMSDT.trim()) ||
-                   (c.BTISDTELEMTIPO && c.BTISDTELEMTIPO.startsWith('Sdt') ? c.BTISDTELEMTIPO.trim() : null);
-    if (sdtRef && sdtCache.has(sdtRef)) {
-      const nested = construirObjeto(sdtRef, sdtCache, new Set(visitados));
-      obj[c.BTISDTELEMNOM] = c.BTISDTELEMCAT === 'C' ? [nested] : nested;
-    } else if (c.BTISDTELEMCAT === 'C') {
-      obj[c.BTISDTELEMNOM] = [];
-    } else {
-      obj[c.BTISDTELEMNOM] = valorEjemplo(c.BTISDTELEMTIPO);
-    }
-  }
-  return obj;
-}
+// valorEjemplo y construirObjeto viven en ./sdt-example (importados arriba).
 
 function construirJsonParams(params, sdtCache) {
   const obj = {};
@@ -660,7 +631,7 @@ async function generarMd(servicio, metodo, carpeta, ejecutar = false, inputParam
       visitados.add(sdtNomDB);
       const tq = Date.now();
       const r26 = await conn.execute(
-        `SELECT BTISDTELEMNOM, BTISDTELEMTIPO, BTISDTELEMLARGO, BTISDTELEMDECI, BTISDTELEMCAT, BTISDTELEMDSC, BTISDTELEMSDT
+        `SELECT BTISDTELEMNOM, BTISDTELEMTIPO, BTISDTELEMLARGO, BTISDTELEMDECI, BTISDTELEMCAT, BTISDTELEMDSC, BTISDTELEMSDT, BTISDTELEMNOMIT
          FROM BTI026 WHERE BTISDTNOM = :1 ORDER BY BTISDTELEMNOM`,
         [sdtNomDB],
         { outFormat: oracledb.OUT_FORMAT_OBJECT }
@@ -734,7 +705,6 @@ ${tabla}
 
     // ── Ejemplos JSON (body sin Btinreq) ──
     const entradaNombres = new Set(entrada.map(r => r.BTISRVPARNOM));
-    const salidaNombres  = new Set(salida.map(r => r.BTISRVPARNOM));
     const nombreArchivo  = `${carpeta}\\${metodo}.md`;
 
     // Si no se va a ejecutar la API real, se lee el .md existente para no
@@ -742,17 +712,21 @@ ${tabla}
     // formato viejo (un único @tab JSON envuelto en Btinreq, de una
     // version anterior del script), no se preserva tal cual -eso lo
     // clavaría en el formato viejo para siempre- sino que se migran sus
-    // valores reales a la plantilla actual (cURL + JSON Body limpio).
+    // valores reales a la plantilla actual (cURL + JSON Body limpio),
+    // adaptando nombres de campo (a veces PascalCase en el formato viejo,
+    // el actual es camelCase) y colecciones (a veces envueltas con el
+    // nombre interno de la SDT, ahora van con el nombre de item actual) -
+    // ver migrate-legacy-value.js.
     const ejemplosPrevios = (!ejecutar && fs.existsSync(nombreArchivo))
       ? leerEjemplosExistentes(fs.readFileSync(nombreArchivo, 'utf8'))
       : null;
     const esLegado = ejemplosPrevios && ejemplosPrevios.formato === 'v4-legado';
 
     const valoresMigradosEntrada = esLegado
-      ? Object.fromEntries(Object.entries(ejemplosPrevios.valoresEntrada).filter(([k]) => entradaNombres.has(k)))
+      ? adaptarValoresTopLevel(ejemplosPrevios.valoresEntrada, entrada, sdtCache)
       : {};
     const valoresMigradosSalida = esLegado
-      ? Object.fromEntries(Object.entries(ejemplosPrevios.valoresSalida).filter(([k]) => salidaNombres.has(k)))
+      ? adaptarValoresTopLevel(ejemplosPrevios.valoresSalida, salida, sdtCache)
       : {};
 
     const filteredParamsInput = inputParams
@@ -771,7 +745,6 @@ ${tabla}
 
     const exPayloadQuery = buildExampleQuery(filteredParams, entradaQuery);
     const exPayloadBody  = buildExampleBody(filteredParams, entradaBody, construirJsonParams(entradaBody, sdtCache));
-    let jsonEjemplo  = Object.keys(exPayloadBody).length > 0 ? JSON.stringify(exPayloadBody, null, 2) : null;
     let curlCmd      = buildCurlCmdPlaceholder(httpMethod, endpointPath, exPayloadQuery, exPayloadBody);
     let responseJson = JSON.stringify(responsePayload, null, 2);
 
@@ -799,7 +772,6 @@ ${tabla}
       console.log('  🔄 Ejemplos migrados del formato viejo al formato actual (no se llamó a la API)');
     } else if (ejemplosPrevios) {
       if (ejemplosPrevios.curlCmd) curlCmd = ejemplosPrevios.curlCmd;
-      if (ejemplosPrevios.requestJson) jsonEjemplo = ejemplosPrevios.requestJson;
       if (ejemplosPrevios.responseJson) responseJson = ejemplosPrevios.responseJson;
       console.log('  ♻️  Ejemplos preservados del documento existente (no se llamó a la API)');
     }
@@ -851,9 +823,9 @@ ${tabla}
     const tablaQueryParams = generarTabla(entradaQuery);
     const tablaBody        = generarTabla(entradaBody);
 
-    const invocacionTabs = jsonEjemplo
-      ? `@tab cURL\n\`\`\`bash\n${curlCmd}\n\`\`\`\n\n@tab JSON Body\n\`\`\`json\n${jsonEjemplo}\n\`\`\``
-      : `@tab cURL\n\`\`\`bash\n${curlCmd}\n\`\`\``;
+    // El body va embebido en el -d del cURL (buildCurlCmdPlaceholder), no
+    // hace falta una pestaña "JSON Body" aparte con el mismo contenido.
+    const invocacionTabs = `@tab cURL\n\`\`\`bash\n${curlCmd}\n\`\`\``;
 
     const md = `---
 title: ${titulo}

@@ -1,17 +1,19 @@
 ---
-title: Update Members
+title: Members
+type: PUT
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para actualizar los miembros de una contraparte.
+::: note
+Método para actualizar los miembros de una contraparte.
 
-**Nombre publicación:** PublicCustomers.updateMembers
-
-**Módulo:** Customers
+**Nombre publicación:** PublicCustomers.members
 
 **Programa:** PublicAPI.BTCPPA0017
 
 **Alcance:** Global
+
+**Endpoint:** /public/Customers/v1/members
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -21,15 +23,14 @@ title: Update Members
 @tab Datos de Entrada
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+:--------- | :--------- | :---------
 counterpartyGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la contraparte.
-
 
 @tab Body
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-members | [SdtsBTCPWCounterpartyIntegration](#sdtsbtcpwcounterpartyintegration) | Listado de miembros.
+members | [member](#member) | Listado de integrantes a actualizar.
 
 @tab Datos de Salida
 
@@ -38,22 +39,12 @@ No aplica.
 @tab Errores
 
 Código | Descripción
-:--------- | :-----------
-40020009 | Debe ingresar número de contraparte
-40020015 | La persona ya se encuentra integrada con el nro. de contraparte ingresado
+:--------- | :---------
 40020017 | La persona ingresada no existe
 40020018 | Código de titularidad Incorrecto
-40020026 | Se requiere un integrante como titular representativo
-40020027 | No se permite más de un integrante como titular representativo
 40020028 | Se ingresó la misma persona más de una vez
-40020068 | El estado de la contraparte no admite cambios
-40020080 | Existe inconsistencia de datos con el campo ? en la RNG ??
-40050001 | Debe ingresar el GUID de persona.
 40050100 | Debe ingresar el GUID de contraparte.
-50050003 | No se encuentra la empresa
-99990010006 | No se pudo resolver el usuario
-99990010007 | No se pudo resolver la empresa
-
+50050003 | No existe la empresa ingresada
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -62,61 +53,44 @@ Código | Descripción
 <!-- ABRE EJEMPLO DE INVOCACIÓN -->
 ::: details Ejemplo de Invocación
 ::: code-tabs #Formato
-@tab JSON
-```json
-{
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "444B674391BCA7676279700A"
-  },
-  "counterpartyGUID": "45399742-1326-4d8d-b7c8-10eb4cf976b0",
+
+@tab cURL
+```bash
+curl -X PUT \
+  '{{baseUrl}}/public/Customers/v1/members?counterpartyGUID=45399742-1326-4d8d-b7c8-10eb4cf976b0' \
+  -H 'Device: {{device}}' \
+  -H 'Usuario: {{usuario}}' \
+  -H 'Requerimiento: {{requerimiento}}' \
+  -H 'Canal: {{canal}}' \
+  -H 'Token: {{token}}' \
+  -H 'Content-Type: application/json' \
+  -d '{
   "members": {
     "member": [
       {
-        "PersonGUID": "f43a3946-4ae1-4a27-861d-c1c2d9cee87d",
-        "PersonName": "PEDRO CRAMPET",
-        "PersonType": "F",
-        "OwnershipTypeId": 1,
-        "DocumentTypeId": 0,
-        "DocumentNumber": "",
-        "CountryId": 0
+        "countryId": 0,
+        "documentNumber": "",
+        "documentTypeId": 0,
+        "ownershipTypeId": 1,
+        "personGUID": "f43a3946-4ae1-4a27-861d-c1c2d9cee87d",
+        "personName": "PEDRO CRAMPET",
+        "personType": "F"
       }
     ]
   }
 }'
 ```
+
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
 
 <!-- ABRE EJEMPLO DE RESPUESTA -->
 ::: details Ejemplo de Respuesta
 ::: code-tabs #Formato
+
 @tab JSON
 ```json
-{
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "444B674391BCA7676279700A"
-  },
-  "BusinessErrors": {
-    "BusinessError": []
-  },
-  "Btoutreq": {
-    "Estado": "OK",
-    "Fecha": "2026-05-14",
-    "Hora": "16:14:51",
-    "Numero": 13468826,
-    "Servicio": "PublicCustomers.updateMembers",
-    "Requerimiento": "1",
-    "Canal": "BTDIGITAL"
-  }
-}
+{}
 ```
 :::
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
@@ -124,24 +98,24 @@ Código | Descripción
 ## **Tipos de Dato Estructurado**
 
 <!-- ABRE SDT -->
-::: details SdtsBTCPWCounterpartyIntegration
+::: details member
 
-### SdtsBTCPWCounterpartyIntegration
+### member
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTCPWCounterpartyIntegration son los siguientes:
+Los campos del tipo de dato estructurado member son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-CountryId | Short | Identificador del país.
-CountryDescription | String $<(Length: 30)>$ | Descripción del país.
-DocumentNumber | String $<(Length: 25)>$ | Número de documento.
-DocumentTypeId | Short | Identificador del tipo de documento.
-DocumentTypeDescription | String $<(Length: 30)>$ | Descripción del tipo de documento.
-OwnershipTypeId | Byte $<(Length: 2)>$ | Identificador del tipo de propiedad.
-OwnershipTypeDescription | String | Descripción del tipo de propiedad.
-PersonGUID | String $<(Length: 36)>$ | GUID (identificador único global) de persona.
-PersonName | String $<(Length: 70)>$ | Nombre de persona.
-PersonType | String $<(Length: 1)>$ | Tipo de persona.
+:--------- | :--------- | :---------
+countryId | Short $<(Length: 3)>$ | Identificador del país.
+countryDescription | String $<(Length: 30)>$ | Descripción del país.
+documentNumber | String $<(Length: 25)>$ | Número de documento.
+documentTypeId | Short $<(Length: 4)>$ | Identificador del tipo de documento.
+documentTypeDescription | String $<(Length: 30)>$ | Descripción del tipo de documento.
+ownershipTypeId | Byte $<(Length: 2)>$ | Identificador de tipo de titularidad.
+ownershipTypeDescription | String $<(Length: 20)>$ | Descripción de tipo de titularidad.
+personGUID | String $<(Length: 10)>$ | GUID (identificador único global) de la persona.
+personName | String $<(Length: 70)>$ | Nombre de persona.
+personType | String $<(Length: 1)>$ | Tipo de persona (F: Física, J: Jurídica, A: Ambas).
 :::
 <!-- CIERRA SDT -->

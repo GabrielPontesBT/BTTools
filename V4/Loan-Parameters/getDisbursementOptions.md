@@ -40,14 +40,6 @@ disbursementOptions | [disbursementOption](#disbursementoption) | Listado de opc
 
 Código | Descripción
 :--------- | :---------
-500 | 
-90031 | El código contable no existe
-980083 | La moneda y/o papel no está asociada al producto
-990070 | El sistema no se encuentra definido
-990071 | El parámetro no se encuentra definido
-5015010 | El tipo de numerador no existe
-50040005 | No existe la sucursal ingresada
-50050003 | No existe la empresa ingresada
 120050009 | Debe ingresar el GUID de producto.
 120050013 | El producto no pertenece al sistema de préstamos.
 
@@ -118,11 +110,11 @@ Los campos del tipo de dato estructurado disbursementOption son los siguientes:
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-asksBranch | Boolean | Requiere ingresar sucursal.
-asksCounterparty | Boolean | Requiere ingresar contraparte.
-asksCurrency | Boolean | Requiere ingresar moneda.
-asksSavingAccount | Boolean | Requiere ingresar cuenta vista.
+asksBranch | Boolean | ¿Requiere ingresar sucursal?
+asksCounterparty | Boolean | ¿Requiere ingresar contraparte?
+asksCurrency | Boolean | ¿Requiere ingresar moneda?
+asksSavingAccount | Boolean | ¿Requiere ingresar cuenta vista?
 description | String $<(Length: 40)>$ | Descripción de la opción de desembolso.
-optionId | Short $<(Length: 3)>$ | Identificador.
+optionId | Short $<(Length: 3)>$ | Identificador de la opción de desembolso.
 :::
 <!-- CIERRA SDT -->

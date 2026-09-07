@@ -35,21 +35,14 @@ No aplica.
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
 defaultRate | Double $<(Length: 11.6)>$ | Tasa por defecto.
-rateType | Byte $<(Length: 1)>$ | Tipo de tasa.
+rateType | Byte $<(Length: 1)>$ | Identificador de tipo de tasa.
 rateTypeDescription | String $<(Length: 20)>$ | Descripción del tipo de tasa.
 
 @tab Errores
 
 Código | Descripción
 :--------- | :---------
-500 | 
-980083 | La moneda y/o papel no está asociada al producto
-990070 | El sistema no se encuentra definido
-990071 | El parámetro no se encuentra definido
-20010014 | No existe el tipo de tasa ingresado
-50050003 | No existe la empresa ingresada
 120050009 | Debe ingresar el GUID de producto.
-
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -87,5 +80,3 @@ curl -X GET \
 ```
 :::
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
-
-

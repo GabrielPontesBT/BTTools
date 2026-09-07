@@ -41,9 +41,7 @@ maximumMembers | Short $<(Length: 3)>$ | Número máximo de integrantes.
 
 Código | Descripción
 :--------- | :---------
-50050003 | No existe la empresa ingresada
-120060126 | No existe configuración para el ciclo
-
+120060126 | No existe configuración para el ciclo.
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -80,5 +78,3 @@ curl -X GET \
 ```
 :::
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
-
-

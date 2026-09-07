@@ -1,17 +1,19 @@
 ---
 title: Get
+type: GET
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para obtener los datos de una contraparte.
+::: note
+Método para obtener los datos de una contraparte.
 
 **Nombre publicación:** PublicCustomers.get
-
-**Módulo:** Customers
 
 **Programa:** PublicAPI.BTCPPA0002
 
 **Alcance:** Global
+
+**Endpoint:** /public/Customers/v1/get
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -21,23 +23,25 @@ title: Get
 @tab Datos de Entrada
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+:--------- | :--------- | :---------
 counterpartyGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la contraparte.
 
+@tab Body
+
+No aplica.
 
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-counterparty | [SdtsBTCPWCounterpartyQuery](#sdtsbtcpwcounterpartyquery) | Datos de la contraparte.
+:--------- | :--------- | :---------
+counterparty | [counterparty](#counterparty) | Datos de la contraparte.
 
 @tab Errores
 
 Código | Descripción
-:--------- | :-----------
-40020012 | El número de contraparte no existe
+:--------- | :---------
+40020006 | Contraparte no existe
 40050100 | Debe ingresar el GUID de contraparte.
-
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -46,124 +50,103 @@ Código | Descripción
 <!-- ABRE EJEMPLO DE INVOCACIÓN -->
 ::: details Ejemplo de Invocación
 ::: code-tabs #Formato
-@tab JSON
-```json
-{
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "444B674391BCA7676279700A"
-  },
-  "counterpartyGUID": "45399742-1326-4d8d-b7c8-10eb4cf976b0"
-}'
+
+@tab cURL
+```bash
+curl -X GET \
+  '{{baseUrl}}/public/Customers/v1/get?counterpartyGUID=45399742-1326-4d8d-b7c8-10eb4cf976b0' \
+  -H 'Device: {{device}}' \
+  -H 'Usuario: {{usuario}}' \
+  -H 'Requerimiento: {{requerimiento}}' \
+  -H 'Canal: {{canal}}' \
+  -H 'Token: {{token}}'
 ```
+
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
 
 <!-- ABRE EJEMPLO DE RESPUESTA -->
 ::: details Ejemplo de Respuesta
 ::: code-tabs #Formato
+
 @tab JSON
 ```json
 {
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "444B674391BCA7676279700A"
-  },
   "counterparty": {
-    "Integration": {
-      "SdtsBTCPWCounterpartyIntegration": [
+    "contacts": {
+      "contact": []
+    },
+    "members": {
+      "member": [
         {
-          "PersonGUID": "f43a3946-4ae1-4a27-861d-c1c2d9cee87d",
-          "CountryId": 604,
-          "CountryDescription": "Perú",
-          "DocumentTypeId": 11,
-          "DocumentTypeDescription": "D.N.I.",
-          "DocumentNumber": "47078632",
-          "PersonName": "PONTES SILVA GABRIEL",
-          "OwnershipTypeId": 1,
-          "OwnershipTypeDescription": "TITULAR REPRESENTAT.",
-          "PersonType": "F"
+          "personGUID": "f43a3946-4ae1-4a27-861d-c1c2d9cee87d",
+          "countryId": 604,
+          "countryDescription": "Perú",
+          "documentTypeId": 11,
+          "documentTypeDescription": "D.N.I.",
+          "documentNumber": "47078632",
+          "personName": "PONTES SILVA GABRIEL",
+          "ownershipTypeId": 1,
+          "ownershipTypeDescription": "TITULAR REPRESENTAT.",
+          "personType": "F"
         }
       ]
-    },
-    "Texts": {
-      "SdtsBTPAWText": []
-    },
-    "FinancialInstitution": {
-      "CompanyId": 0,
-      "IsCorrespondentAccount": false,
-      "Type": 0,
-      "CustomFields": {
-        "SdtsBTPAWCustomField": []
+    }, 
+    "counterparty": {
+      "branchId": 1,
+      "branchDescription": "",
+      "cancellationDate": "",
+      "companyId": 1,
+      "companyDescription": "",
+      "counterpartyDescription": "PONTES SILVA GABRIEL",
+      "creationDate": "2027-04-30",
+      "customFields": {
+        "customField": []
       },
-      "DocumentTypeId": 0,
-      "EntryStatusId": 0,
-      "EstablishmentCountryId": 0,
-      "DocumentTypeDescription": "",
-      "DocumentNumber": "",
-      "Name": "",
-      "EntryStatusDescription": "",
-      "TypeDescription": "",
-      "SwiftKey": "",
-      "HasSwiftKey": false,
-      "PersonId": 0,
-      "EstablishmentCountryDescription": "",
-      "CounterpartyId": 0
+      "economicActivityId": 1113,
+      "economicActivityDescription": "",
+      "employee": false,
+      "executiveId": 1957,
+      "executiveDescription": "",
+      "financialInstitution": false,
+      "internalClassificationId": 1,
+      "internalClassificationDescription": "",
+      "resident": true,
+      "sectorId": 1,
+      "sectorDescription": "",
+      "segmentId": 1,
+      "segmentDescription": "",
+      "statusId": 0,
+      "statusDescription": ""
     },
-    "Counterparty": {
-      "CompanyDescription": "",
-      "Resident": true,
-      "StatusId": 0,
-      "SegmentId": 1,
-      "InternalClassificationId": 1,
-      "EconomicActivityId": 1113,
-      "ExecutiveId": 1957,
-      "SegmentDescription": "",
-      "CancellationDate": "",
-      "Employee": false,
-      "CompanyId": 1,
-      "StatusDescription": "",
-      "BranchId": 1,
-      "CreationDate": "2027-04-30",
-      "ExecutiveDescription": "",
-      "FinancialInstitution": false,
-      "CustomFields": {
-        "SdtsBTPAWCustomField": []
+    "customFields": {
+      "customField": []
+    },
+    "economicGroups": {
+      "economicGroup": []
+    },
+    "financialInstitution": {
+      "companyId": 0,
+      "counterpartyId": 0,
+      "customFields": {
+        "customField": []
       },
-      "InternalClassificationDescription": "",
-      "EconomicActivityDescription": "",
-      "SectorId": 1,
-      "BranchDescription": "",
-      "SectorDescription": "",
-      "CounterpartyDescription": "PONTES SILVA GABRIEL"
+      "documentNumber": "",
+      "documentTypeId": 0,
+      "documentTypeDescription": "",
+      "entryStatusId": 0,
+      "entryStatusDescription": "",
+      "establishmentCountryId": 0,
+      "establishmentCountryDescription": "",
+      "hasSwiftKey": false,
+      "isCorrespondentAccount": false,
+      "name": "",
+      "swiftKey": "",
+      "typeDescription": ""
     },
-    "EconomicGroups": {
-      "SdtsBTEGWEconomicGroup": []
-    },
-    "Contacts": {
-      "SdtsBTPEWContact": []
-    },
-    "CustomFields": {
-      "SdtsBTPAWCustomField": []
+    "texts": {
+      "text": []
     }
-  },
-  "BusinessErrors": {
-    "BusinessError": []
-  },
-  "Btoutreq": {
-    "Estado": "OK",
-    "Fecha": "2026-05-14",
-    "Hora": "16:14:17",
-    "Numero": 13468813,
-    "Servicio": "PublicCustomers.get",
-    "Requerimiento": "1",
-    "Canal": "BTDIGITAL"
   }
 }
 ```
@@ -173,178 +156,179 @@ Código | Descripción
 ## **Tipos de Dato Estructurado**
 
 <!-- ABRE SDT -->
-::: details SdtsBTCPWCounterpartyQuery
+::: details counterparty
 
-### SdtsBTCPWCounterpartyQuery
+### counterparty
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTCPWCounterpartyQuery son los siguientes:
+Los campos del tipo de dato estructurado counterparty son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-Contacts | [SdtsBTPEWContact](#sdtsbtpewcontact) | Contactos.
-Counterparty | [SdtsBTCPWCounterparty](#sdtsbtcpwcounterparty) | Contraparte.
-CustomFields | [SdtsBTPAWCustomField](#sdtsbtpawcustomfield) | Campos personalizados.
-EconomicGroups | [SdtsBTEGWEconomicGroup](#sdtsbtegweconomicgroup) | Grupos económicos.
-FinancialInstitution | [SdtsBTPEWFinancialInstitution](#sdtsbtpewfinancialinstitution) | Institución financiera.
-Integration | [SdtsBTCPWCounterpartyIntegration](#sdtsbtcpwcounterpartyintegration) | Integración.
-Texts | [SdtsBTPAWText](#sdtsbtpawtext) | Textos.
+:--------- | :--------- | :---------
+contacts | [contact](#contact) | Listado de contactos.
+counterparty | [counterparty](#counterparty) | Datos de la contraparte.
+customFields | [customField](#customfield) | Listado de campos personalizados.
+economicGroups | [economicGroup](#economicgroup) | Listado de grupos económicos.
+financialInstitution | [financialInstitution](#financialinstitution) | Institución financiera.
+members | [member](#member) | Listado de miembros.
+texts | [text](#text) | Listado de textos.
 :::
 
-::: details SdtsBTPEWContact
+::: details contact
 
-### SdtsBTPEWContact
+### contact
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTPEWContact son los siguientes:
+Los campos del tipo de dato estructurado contact son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-AddressCorrelative | Short $<(Length: 3)>$ | Correlativo de dirección.
-AddressId | String $<(Length: 140)>$ | Identificador de dirección.
-AssociatedToAnAddress | Boolean | Asociado a una dirección.
-Comment | String $<(Length: 250)>$ | Comentario.
-ContactTypeId | Byte $<(Length: 2)>$ | Identificador del tipo de contacto.
-ContactTypeDescription | String $<(Length: 50)>$ | Descripción del tipo de contacto.
-Correlative | Byte $<(Length: 2)>$ | Correlativo.
-Enabled | Boolean | Habilitado.
-EndTimeRange1 | String $<(Length: 5)>$ | Fin del rango horario 1.
-EndTimeRange2 | String $<(Length: 5)>$ | Fin del rango horario 2.
-Priority | Byte $<(Length: 2)>$ | Prioridad.
-ReceivesMails | Boolean | Recibe correos.
-StartTimeRange1 | String $<(Length: 5)>$ | Inicio del rango horario 1.
-StartTimeRange2 | String $<(Length: 5)>$ | Inicio del rango horario 2.
-TelephoneCompanyId | Short $<(Length: 3)>$ | Identificador de compañía telefónica.
-TelephoneCompanyDescription | String $<(Length: 50)>$ | Descripción de la compañía telefónica.
-Text | String $<(Length: 250)>$ | Texto.
-Validated | Boolean | Validado.
+:--------- | :--------- | :---------
+addressCorrelative | Short $<(Length: 3)>$ | Correlativo del domicilio.
+addressId | String $<(Length: 140)>$ | Identificador del domicilio.
+associatedToAnAddress | Boolean | ¿Está asociado a un domicilio?
+comment | String $<(Length: 250)>$ | Comentario.
+contactTypeId | Byte $<(Length: 2)>$ | Identificador del tipo de contacto.
+contactTypeDescription | String $<(Length: 50)>$ | Descripción del tipo de contacto.
+correlative | Byte $<(Length: 2)>$ | Correlativo del contacto.
+enabled | Boolean | ¿Habilitado?
+endTimeRange1 | String $<(Length: 5)>$ | Fin del rango horario 1.
+endTimeRange2 | String $<(Length: 5)>$ | Fin del rango horario 2.
+priority | Byte $<(Length: 2)>$ | Prioridad.
+receivesMails | Boolean | ¿Recibe correos?
+startTimeRange1 | String $<(Length: 5)>$ | Inicio del rango horario 1.
+startTimeRange2 | String $<(Length: 5)>$ | Inicio del rango horario 2.
+telephoneCompanyId | Short $<(Length: 3)>$ | Identificador de la compañía telefónica.
+telephoneCompanyDescription | String $<(Length: 50)>$ | Descripción de la compañía telefónica.
+text | String $<(Length: 250)>$ | Texto.
+validated | Boolean | ¿Está validado?
 :::
 
-::: details SdtsBTCPWCounterparty
+::: details counterparty
 
-### SdtsBTCPWCounterparty
+### counterparty
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTCPWCounterparty son los siguientes:
+Los campos del tipo de dato estructurado counterparty son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-BranchId | Int | Identificador de sucursal.
-BranchDescription | String $<(Length: 30)>$ | Descripción de sucursal.
-CancellationDate | Date $<(Length: 8)>$ | Fecha de cancelación.
-CompanyId | Short $<(Length: 3)>$ | Identificador de empresa.
-CompanyDescription | String $<(Length: 50)>$ | Descripción de empresa.
-CounterpartyDescription | String $<(Length: 70)>$ | Descripción de contraparte.
-CreationDate | Date $<(Length: 8)>$ | Fecha de creación.
-CustomFields | [SdtsBTPAWCustomField](#sdtsbtpawcustomfield) | Campos personalizados.
-EconomicActivityId | Long | Identificador de actividad económica.
-EconomicActivityDescription | String $<(Length: 80)>$ | Descripción de actividad económica.
-Employee | Boolean | ¿Es empleado?.
-ExecutiveId | Int $<(Length: 5)>$ | Identificador del ejecutivo.
-ExecutiveDescription | String $<(Length: 30)>$ | Descripción del ejecutivo.
-FinancialInstitution | Boolean | Institución financiera.
-InternalClassificationId | Short | Identificador de clasificación interna.
-InternalClassificationDescription | String $<(Length: 30)>$ | Descripción de clasificación interna.
-Resident | Boolean | ¿Es residente?.
-SectorId | Short | Identificador de sector.
-SectorDescription | String $<(Length: 30)>$ | Descripción del sector.
-SegmentId | Byte $<(Length: 2)>$ | Identificador del segmento.
-SegmentDescription | String $<(Length: 30)>$ | Descripción del segmento.
-StatusId | Byte $<(Length: 2)>$ | Identificador de estado.
-StatusDescription | String $<(Length: 30)>$ | Descripción del estado.
+:--------- | :--------- | :---------
+branchId | Int $<(Length: 5)>$ | Identificador de sucursal.
+branchDescription | String $<(Length: 30)>$ | Descripción de sucursal.
+cancellationDate | Date | Fecha de cancelación.
+companyId | Short $<(Length: 3)>$ | Identificador de empresa.
+companyDescription | String $<(Length: 50)>$ | Descripción de empresa.
+counterpartyDescription | String $<(Length: 70)>$ | Nombre de la subcuenta.
+creationDate | Date | Fecha de creación.
+customFields | [customField](#customfield) | Listado de campos personalizados.
+economicActivityId | Long $<(Length: 11)>$ | Identificador de actividad.
+economicActivityDescription | String $<(Length: 80)>$ | Descripción de actividad económica.
+employee | Boolean | ¿Es empleado?
+executiveId | Int $<(Length: 5)>$ | Identificador de ejecutivo.
+executiveDescription | String $<(Length: 30)>$ | Descripción del ejecutivo.
+financialInstitution | Boolean | ¿Es institución financiera?
+internalClassificationId | Short $<(Length: 4)>$ | Identificador de clasificación interna.
+internalClassificationDescription | String $<(Length: 30)>$ | Descripción de clasificación interna.
+resident | Boolean | ¿Es residente?
+sectorId | Short $<(Length: 3)>$ | Identificador de sector.
+sectorDescription | String $<(Length: 30)>$ | Descripción de sector.
+segmentId | Byte $<(Length: 2)>$ | Identificador de segmento.
+segmentDescription | String $<(Length: 30)>$ | Descripción de segmento.
+statusId | Byte $<(Length: 2)>$ | Identificador de estado.
+statusDescription | String $<(Length: 40)>$ | Descripción del estado.
 :::
 
-::: details SdtsBTPAWCustomField
+::: details customField
 
-### SdtsBTPAWCustomField
+### customField
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTPAWCustomField son los siguientes:
+Los campos del tipo de dato estructurado customField son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-Correlative | Short | Correlativo.
-Id | String $<(Length: 30)>$ | Identificador.
-Description | String $<(Length: 50)>$ | Descripción.
-Value | String $<(Length: 250)>$ | Value.
+:--------- | :--------- | :---------
+correlative | Short $<(Length: 4)>$ | Correlativo del campo adicional.
+id | String $<(Length: 30)>$ | Identificador del campo adicional.
+description | String $<(Length: 50)>$ | Descripción de campo adicional.
+value | String $<(Length: 250)>$ | Valor del campo adicional.
 :::
 
-::: details SdtsBTEGWEconomicGroup
+::: details economicGroup
 
-### SdtsBTEGWEconomicGroup
+### economicGroup
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTEGWEconomicGroup son los siguientes:
+Los campos del tipo de dato estructurado economicGroup son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-GroupId | Int $<(Length: 7)>$ | Identificador del grupo.
-GroupName | String $<(Length: 30)>$ | Nombre del grupo.
-GroupTypeId | Byte $<(Length: 2)>$ | Identificador del tipo de grupo.
-GroupTypeDescription | String $<(Length: 20)>$ | Descripción del tipo de grupo.
-MemberTypeId | Short $<(Length: 3)>$ | Identificador del tipo de miembro.
+:--------- | :--------- | :---------
+groupId | Int $<(Length: 7)>$ | Identificador del grupo.
+groupName | String $<(Length: 30)>$ | Nombre del grupo.
+groupTypeId | Byte $<(Length: 2)>$ | Identificador del tipo de grupo.
+groupTypeDescription | String $<(Length: 20)>$ | Descripción del tipo de grupo.
+memberTypeId | Short $<(Length: 3)>$ | Identificador del tipo de miembro.
+memberTypeDescription | String $<(Length: 30)>$ | Descripción del tipo de miembro.
 :::
 
-::: details SdtsBTPEWFinancialInstitution
+::: details financialInstitution
 
-### SdtsBTPEWFinancialInstitution
+### financialInstitution
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTPEWFinancialInstitution son los siguientes:
+Los campos del tipo de dato estructurado financialInstitution son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-CompanyId | Short $<(Length: 3)>$ | CompanyId
-CounterpartyId | Int $<(Length: 9)>$ | CounterpartyId
-CustomFields | [SdtsBTPAWCustomField](#sdtsbtpawcustomfield) | CustomFields
-DocumentNumber | String $<(Length: 25)>$ | DocumentNumber
-DocumentTypeId | Short $<(Length: 4)>$ | DocumentTypeId
-DocumentTypeDescription | String $<(Length: 30)>$ | DocumentTypeDescription
-EntryStatusId | Byte $<(Length: 2)>$ | EntryStatusId
-EntryStatusDescription | String $<(Length: 30)>$ | EntryStatusDescription
-EstablishmentCountryId | Short $<(Length: 3)>$ | EstablishmentCountryId
-EstablishmentCountryDescription | String $<(Length: 30)>$ | EstablishmentCountryDescription
-HasSwiftKey | Boolean | HasSwiftKey
-IsCorrespondentAccount | Boolean | IsCorrespondentAccount
-Name | String $<(Length: 60)>$ | Name
-PersonId | Long $<(Length: 10)>$ | PersonId
-SwiftKey | String $<(Length: 16)>$ | SwiftKey
-Type | Int $<(Length: 5)>$ | Type
-TypeDescription | String $<(Length: 20)>$ | TypeDescription
+:--------- | :--------- | :---------
+companyId | Short $<(Length: 3)>$ | Identificador de empresa.
+counterpartyId | Int $<(Length: 9)>$ | Identificador de contraparte.
+customFields | [customField](#customfield) | Listado de campos personalizados.
+documentNumber | String $<(Length: 25)>$ | Número de documento.
+documentTypeId | Short $<(Length: 4)>$ | Identificador del tipo de documento.
+documentTypeDescription | String $<(Length: 30)>$ | Descripción del tipo de documento.
+entryStatusId | Byte $<(Length: 2)>$ | Identificador del estado de ingreso.
+entryStatusDescription | String $<(Length: 30)>$ | Descripción del estado de ingreso.
+establishmentCountryId | Short $<(Length: 3)>$ | Identificador del país de establecimiento.
+establishmentCountryDescription | String $<(Length: 30)>$ | Descripción del país de establecimiento.
+hasSwiftKey | Boolean | ¿Tiene clave Swift?
+isCorrespondentAccount | Boolean | ¿Es cuenta corresponsal?
+name | String $<(Length: 60)>$ | Nombre de institución financiera.
+personGUID | Long $<(Length: 10)>$ | GUID (identificador único global) de la persona.
+swiftKey | String $<(Length: 16)>$ | Clave Swift.
+typeId | Int $<(Length: 5)>$ | Identificador del tipo de institución financiera.
+typeDescription | String $<(Length: 20)>$ | Descripción del tipo de institución financiera.
 :::
 
-::: details SdtsBTCPWCounterpartyIntegration
+::: details member
 
-### SdtsBTCPWCounterpartyIntegration
+### member
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTCPWCounterpartyIntegration son los siguientes:
+Los campos del tipo de dato estructurado member son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-CountryId | Short | Identificador del país.
-CountryDescription | String $<(Length: 30)>$ | Descripción del país.
-DocumentNumber | String $<(Length: 25)>$ | Número de documento.
-DocumentTypeId | Short | Identificador del tipo de documento.
-DocumentTypeDescription | String $<(Length: 30)>$ | Descripción del tipo de documento.
-OwnershipTypeId | Byte $<(Length: 2)>$ | Identificador del tipo de propiedad.
-OwnershipTypeDescription | String | Descripción del tipo de propiedad.
-PersonGUID | String $<(Length: 36)>$ | GUID (identificador único global) de persona.
-PersonName | String $<(Length: 70)>$ | Nombre de persona.
-PersonType | String $<(Length: 1)>$ | Tipo de persona.
+:--------- | :--------- | :---------
+countryId | Short $<(Length: 3)>$ | Identificador del país.
+countryDescription | String $<(Length: 30)>$ | Descripción del país.
+documentNumber | String $<(Length: 25)>$ | Número de documento.
+documentTypeId | Short $<(Length: 4)>$ | Identificador del tipo de documento.
+documentTypeDescription | String $<(Length: 30)>$ | Descripción del tipo de documento.
+ownershipTypeId | Byte $<(Length: 2)>$ | Identificador de tipo de titularidad.
+ownershipTypeDescription | String $<(Length: 20)>$ | Descripción de tipo de titularidad.
+personGUID | String $<(Length: 10)>$ | GUID (identificador único global) de la persona.
+personName | String $<(Length: 70)>$ | Nombre de persona.
+personType | String $<(Length: 1)>$ | Tipo de persona (F: Física, J: Jurídica, A: Ambas).
 :::
 
-::: details SdtsBTPAWText
+::: details text
 
-### SdtsBTPAWText
+### text
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTPAWText son los siguientes:
+Los campos del tipo de dato estructurado text son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-Id | Int $<(Length: 5)>$ | Identificador.
-Description | String $<(Length: 60)>$ | Descripción.
-Text | String | Texto.
+:--------- | :--------- | :---------
+id | Int $<(Length: 5)>$ | Identificador del texto.
+description | String $<(Length: 60)>$ | Descripción del texto.
+text | String $<(Length: 5000)>$ | Texto.
 :::
 <!-- CIERRA SDT -->

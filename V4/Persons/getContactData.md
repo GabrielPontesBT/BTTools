@@ -1,17 +1,19 @@
 ---
-title: Get Contact Data
+title: Contact Data
+type: GET
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para obtener un listado de los datos de contacto de una persona.
+::: note
+Método para obtener un listado de los datos de contacto de una persona.
 
-**Nombre publicación:** PublicPersons.getContactData
-
-**Módulo:** Customers
+**Nombre publicación:** PublicPersons.contactData
 
 **Programa:** PublicAPI.BTPEPA0011
 
 **Alcance:** Global
+
+**Endpoint:** /public/Persons/v1/contactData
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -21,23 +23,25 @@ title: Get Contact Data
 @tab Datos de Entrada
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+:--------- | :--------- | :---------
 personGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la persona.
 
+@tab Body
+
+No aplica.
 
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-contacts | [SdtsBTPEWContact](#sdtsbtpewcontact) | Listado de contactos.
+:--------- | :--------- | :---------
+contacts | [contact](#contact) | Listado de datos de contacto.
 
 @tab Errores
 
 Código | Descripción
-:--------- | :-----------
+:--------- | :---------
 40010004 | La persona no existe
 40050001 | Debe ingresar el GUID de persona.
-
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -46,110 +50,88 @@ Código | Descripción
 <!-- ABRE EJEMPLO DE INVOCACIÓN -->
 ::: details Ejemplo de Invocación
 ::: code-tabs #Formato
-@tab JSON
-```json
-{
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "0F262E85182DF86F9CA30F0E"
-  },
-  "personGUID": "a542ed11-a4e4-4ead-83b6-b3530961c2b9"
-}'
+
+@tab cURL
+```bash
+curl -X GET \
+  '{{baseUrl}}/public/Persons/v1/contactData?personGUID=d742016d-f0fc-4fff-be0e-3ff1dd7015a4' \
+  -H 'Device: {{device}}' \
+  -H 'Usuario: {{usuario}}' \
+  -H 'Requerimiento: {{requerimiento}}' \
+  -H 'Canal: {{canal}}' \
+  -H 'Token: {{token}}'
 ```
+
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
 
 <!-- ABRE EJEMPLO DE RESPUESTA -->
 ::: details Ejemplo de Respuesta
 ::: code-tabs #Formato
+
 @tab JSON
 ```json
 {
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "0F262E85182DF86F9CA30F0E"
-  },
   "contacts": {
     "contact": [
       {
-        "Correlative": 1,
-        "ContactTypeId": 3,
-        "ContactTypeDescription": "CORREO ELECTRÓNICO",
-        "Text": "GPONTES@GMAIL.COM",
-        "Comment": "CORREO",
-        "TelephoneCompanyId": 1,
-        "TelephoneCompanyDescription": "",
-        "Enabled": true,
-        "AssociatedToAnAddress": false,
-        "AddressCorrelative": 0,
-        "AddressId": "",
-        "Validated": true,
-        "ReceivesMails": false,
-        "StartTimeRange1": "",
-        "EndTimeRange1": "",
-        "StartTimeRange2": "",
-        "EndTimeRange2": "",
-        "Priority": 3
+        "addressCorrelative": 0,
+        "addressId": "",
+        "associatedToAnAddress": false,
+        "comment": "CORREO",
+        "contactTypeDescription": "CORREO ELECTRÓNICO",
+        "contactTypeId": 3,
+        "correlative": 1,
+        "enabled": true,
+        "endTimeRange1": "",
+        "endTimeRange2": "",
+        "priority": 3,
+        "startTimeRange1": "",
+        "startTimeRange2": "",
+        "telephoneCompanyDescription": "",
+        "telephoneCompanyId": 1,
+        "text": "GPONTES@GMAIL.COM",
+        "validated": true
       },
       {
-        "Correlative": 1,
-        "ContactTypeId": 1,
-        "ContactTypeDescription": "TELEFONO MÓVIL",
-        "Text": "095265956",
-        "Comment": "TELEFONO CELULAR",
-        "TelephoneCompanyId": 1,
-        "TelephoneCompanyDescription": "",
-        "Enabled": true,
-        "AssociatedToAnAddress": false,
-        "AddressCorrelative": 0,
-        "AddressId": "",
-        "Validated": true,
-        "ReceivesMails": false,
-        "StartTimeRange1": "",
-        "EndTimeRange1": "",
-        "StartTimeRange2": "",
-        "EndTimeRange2": "",
-        "Priority": 1
+        "addressCorrelative": 0,
+        "addressId": "",
+        "associatedToAnAddress": false,
+        "comment": "TELEFONO CELULAR",
+        "contactTypeDescription": "TELEFONO MÓVIL",
+        "contactTypeId": 1,
+        "correlative": 1,
+        "enabled": true,
+        "endTimeRange1": "",
+        "endTimeRange2": "",
+        "priority": 1,
+        "startTimeRange1": "",
+        "startTimeRange2": "",
+        "telephoneCompanyDescription": "",
+        "telephoneCompanyId": 1,
+        "text": "0952659560",
+        "validated": true
       },
       {
-        "Correlative": 1,
-        "ContactTypeId": 2,
-        "ContactTypeDescription": "TELEFONO FIJO",
-        "Text": "25148765",
-        "Comment": "TELEFONO FIJO",
-        "TelephoneCompanyId": 1,
-        "TelephoneCompanyDescription": "",
-        "Enabled": true,
-        "AssociatedToAnAddress": false,
-        "AddressCorrelative": 0,
-        "AddressId": "",
-        "Validated": true,
-        "ReceivesMails": false,
-        "StartTimeRange1": "",
-        "EndTimeRange1": "",
-        "StartTimeRange2": "",
-        "EndTimeRange2": "",
-        "Priority": 2
+        "addressCorrelative": 0,
+        "addressId": "",
+        "associatedToAnAddress": false,
+        "comment": "TELEFONO FIJO",
+        "contactTypeDescription": "TELEFONO FIJO",
+        "contactTypeId": 2,
+        "correlative": 1,
+        "enabled": true,
+        "endTimeRange1": "",
+        "endTimeRange2": "",
+        "priority": 2,
+        "startTimeRange1": "",
+        "startTimeRange2": "",
+        "telephoneCompanyDescription": "",
+        "telephoneCompanyId": 1,
+        "text": "2514876500",
+        "validated": true
       }
     ]
-  },
-  "BusinessErrors": {
-    "BusinessError": []
-  },
-  "Btoutreq": {
-    "Estado": "OK",
-    "Fecha": "2026-05-14",
-    "Hora": "18:55:09",
-    "Numero": 13469353,
-    "Servicio": "PublicPersons.getContactData",
-    "Requerimiento": "1",
-    "Canal": "BTDIGITAL"
   }
 }
 ```
@@ -159,32 +141,31 @@ Código | Descripción
 ## **Tipos de Dato Estructurado**
 
 <!-- ABRE SDT -->
-::: details SdtsBTPEWContact
+::: details contact
 
-### SdtsBTPEWContact
+### contact
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTPEWContact son los siguientes:
+Los campos del tipo de dato estructurado contact son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-AddressCorrelative | Short $<(Length: 3)>$ | Correlativo de dirección.
-AddressId | String $<(Length: 140)>$ | Identificador de dirección.
-AssociatedToAnAddress | Boolean | Asociado a una dirección.
-Comment | String $<(Length: 250)>$ | Comentario.
-ContactTypeId | Byte $<(Length: 2)>$ | Identificador del tipo de contacto.
-ContactTypeDescription | String $<(Length: 50)>$ | Descripción del tipo de contacto.
-Correlative | Byte $<(Length: 2)>$ | Correlativo.
-Enabled | Boolean | Habilitado.
-EndTimeRange1 | String $<(Length: 5)>$ | Fin del rango horario 1.
-EndTimeRange2 | String $<(Length: 5)>$ | Fin del rango horario 2.
-Priority | Byte $<(Length: 2)>$ | Prioridad.
-ReceivesMails | Boolean | Recibe correos.
-StartTimeRange1 | String $<(Length: 5)>$ | Inicio del rango horario 1.
-StartTimeRange2 | String $<(Length: 5)>$ | Inicio del rango horario 2.
-TelephoneCompanyId | Short $<(Length: 3)>$ | Identificador de compañía telefónica.
-TelephoneCompanyDescription | String $<(Length: 50)>$ | Descripción de la compañía telefónica.
-Text | String $<(Length: 250)>$ | Texto.
-Validated | Boolean | Validado.
+:--------- | :--------- | :---------
+addressCorrelative | Short $<(Length: 3)>$ | Correlativo del domicilio.
+addressId | String $<(Length: 140)>$ | Identificador del domicilio.
+associatedToAnAddress | Boolean | ¿Está asociado a un domicilio?
+comment | String $<(Length: 250)>$ | Comentario.
+contactTypeId | Byte $<(Length: 2)>$ | Identificador del tipo de contacto.
+contactTypeDescription | String $<(Length: 50)>$ | Descripción del tipo de contacto.
+correlative | Byte $<(Length: 2)>$ | Correlativo del contacto.
+enabled | Boolean | ¿Está habilitado?
+endTimeRange1 | String $<(Length: 5)>$ | Fin del rango horario 1.
+endTimeRange2 | String $<(Length: 5)>$ | Fin del rango horario 2.
+priority | Byte $<(Length: 2)>$ | Prioridad.
+startTimeRange1 | String $<(Length: 5)>$ | Inicio del rango horario 1.
+startTimeRange2 | String $<(Length: 5)>$ | Inicio del rango horario 2.
+telephoneCompanyId | Short $<(Length: 3)>$ | Identificador de la compañía telefónica.
+telephoneCompanyDescription | String $<(Length: 50)>$ | Descripción de la compañía telefónica.
+text | String $<(Length: 250)>$ | Texto.
+validated | Boolean | ¿Está validado?
 :::
 <!-- CIERRA SDT -->

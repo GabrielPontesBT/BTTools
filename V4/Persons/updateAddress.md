@@ -1,17 +1,19 @@
 ---
-title: Update Address
+title: Address
+type: PUT
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para actualizar los datos del domicilio de una persona.
+::: note
+Método para actualizar los datos del domicilio de una persona.
 
-**Nombre publicación:** PublicPersons.updateAddress
-
-**Módulo:** Customers
+**Nombre publicación:** PublicPersons.address
 
 **Programa:** PublicAPI.BTPEPA0015
 
 **Alcance:** Global
+
+**Endpoint:** /public/Persons/v1/address
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -21,15 +23,14 @@ title: Update Address
 @tab Datos de Entrada
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+:--------- | :--------- | :---------
 personGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la persona.
-
 
 @tab Body
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-address | [SdtsBTPEWAddress](#sdtsbtpewaddress) | Domicilio.
+address | [address](#address) | Datos del domicilio.
 
 @tab Datos de Salida
 
@@ -38,36 +39,21 @@ No aplica.
 @tab Errores
 
 Código | Descripción
-:--------- | :-----------
+:--------- | :---------
 40010004 | La persona no existe
-40010008 | País incorrecto
-40010043 | No existe el domicilio ingresado
 40010046 | La fecha de ubicación no puede ser mayor a la fecha de apertura
 40010047 | Debe ingresar un país para el domicilio
 40010048 | Debe ingresar un departamento para el domicilio
 40010049 | Debe ingresar una ciudad para el domicilio
 40010053 | La latitud debe ser un valor entre -90 y 90
 40010054 | La longitud debe ser un valor entre -90 y 90
-40010055 | Tercer nivel de división administrativa inexistente
-40010056 | Segundo nivel de división administrativa inexistente
-40010057 | Primer nivel de división administrativa inexistente
-40010067 | Cuarto nivel de agrupación inexistente
-40010068 | Tercer nivel de agrupación inexistente
-40010069 | Segundo nivel de agrupación inexistente
-40010070 | Primer nivel de agrupación inexistente
-40010092 | Debe ingresar un correlativo de domicilio
-40010237 | Debe ingresar un código de Tipo de Domicilio comprendido entre 1 y 99
 40010241 | El Tipo de Domicilio no existe
 40010251 | El Tipo de Vivienda no existe
-40010353 | Existe inconsistencia de datos con el campo ? en la RNG ??
-40020012 | El número de contraparte no existe
-40020017 | La persona ingresada no existe
 40050001 | Debe ingresar el GUID de persona.
-40050100 | Debe ingresar el GUID de contraparte.
-50050003 | No se encuentra la empresa
-99990010006 | No se pudo resolver el usuario
-99990010007 | No se pudo resolver la empresa
-
+50020018 | El país no se encuentra registrado
+50020021 | No existe el Id de primer nivel ingresado
+50020028 | No existe el Id de segundo nivel ingresado
+50020034 | No existe el Id de tercer nivel ingresado
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -76,87 +62,70 @@ Código | Descripción
 <!-- ABRE EJEMPLO DE INVOCACIÓN -->
 ::: details Ejemplo de Invocación
 ::: code-tabs #Formato
-@tab JSON
-```json
-{
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "0F262E85182DF86F9CA30F0E"
-  },
-  "personGUID": "a542ed11-a4e4-4ead-83b6-b3530961c2b9",
+
+@tab cURL
+```bash
+curl -X PUT \
+  '{{baseUrl}}/public/Persons/v1/address?personGUID=d742016d-f0fc-4fff-be0e-3ff1dd7015a4' \
+  -H 'Device: {{device}}' \
+  -H 'Usuario: {{usuario}}' \
+  -H 'Requerimiento: {{requerimiento}}' \
+  -H 'Canal: {{canal}}' \
+  -H 'Token: {{token}}' \
+  -H 'Content-Type: application/json' \
+  -d '{
   "address": {
-    "AddressCorrelative": 1,
-    "AddressTypeId": 1,
-    "AddressTypeDescription": "RESIDENCIA",
-    "HousingTypeId": 5,
-    "HousingTypeDescription": "FAMILIAR",
-    "IsABusiness": true,
-    "SinceDate": "2022-01-01",
-    "Level1Id": 1,
-    "Level1Description": "AVENIDA",
-    "Level1Data": "JOSE BENITO LAMAS",
-    "Level2Id": 1,
-    "Level2Description": "NO. PUERTA",
-    "Level2Data": "2233",
-    "Level3Id": 1,
-    "Level3Description": "APTO",
-    "Level3Data": "14",
-    "Level4Id": 1,
-    "Level4Description": "X",
-    "Level4Data": "",
-    "Address": "AVENIDA JOSE BENITO LAMAS NO. PUERTA 2233 APTO 14 X",
-    "References": "",
-    "Latitude": "0.000000",
-    "Longitude": "0.000000",
-    "CountryId": 604,
-    "CountryDescription": "México",
-    "DepartmentId": 1,
-    "DepartmentDescription": "Amazonas",
-    "CityId": 101,
-    "CityDescription": "Chachapoyas",
-    "DistrictId": 10119,
-    "DistrictDescription": "San Isidro de Maino",
-    "ColonyId": 0,
-    "GeographicalUbication": "",
-    "PostalCode": "9999",
-    "SettlementType": 0,
-    "StatusId": "H",
-    "MainAddress": true
+    "address": "AVENIDA JOSE BENITO LAMAS NO. PUERTA 2233 APTO 14",
+    "addressCorrelative": 1,
+    "addressTypeDescription": "RESIDENCIA",
+    "addressTypeId": 1,
+    "cityDescription": "Aguascalientes",
+    "cityId": 1,
+    "colonyId": 0,
+    "countryDescription": "México",
+    "countryId": 484,
+    "departmentDescription": "AGUASCALIENTES",
+    "departmentId": 1,
+    "districtDescription": "Aguascalientes",
+    "districtId": 1,
+    "geographicalUbication": "",
+    "housingTypeDescription": "FAMILIAR",
+    "housingTypeId": 5,
+    "isABusiness": true,
+    "latitude": 0,
+    "level1Data": "JOSE BENITO LAMAS",
+    "level1Description": "AVENIDA",
+    "level1Id": 1,
+    "level2Data": "2233",
+    "level2Description": "NO. PUERTA",
+    "level2Id": 1,
+    "level3Data": "14",
+    "level3Description": "APTO",
+    "level3Id": 1,
+    "level4Data": "",
+    "level4Description": "",
+    "level4Id": 0,
+    "longitude": 0,
+    "mainAddress": true,
+    "postalCode": "7777",
+    "references": "",
+    "settlementType": 0,
+    "sinceDate": "2022-01-01",
+    "statusId": "H"
   }
 }'
 ```
+
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
 
 <!-- ABRE EJEMPLO DE RESPUESTA -->
 ::: details Ejemplo de Respuesta
 ::: code-tabs #Formato
+
 @tab JSON
 ```json
-{
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "0F262E85182DF86F9CA30F0E"
-  },
-  "BusinessErrors": {
-    "BusinessError": []
-  },
-  "Btoutreq": {
-    "Estado": "OK",
-    "Fecha": "2026-05-14",
-    "Hora": "18:56:07",
-    "Numero": 13469379,
-    "Servicio": "PublicPersons.updateAddress",
-    "Requerimiento": "1",
-    "Canal": "BTDIGITAL"
-  }
-}
+{}
 ```
 :::
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
@@ -164,51 +133,51 @@ Código | Descripción
 ## **Tipos de Dato Estructurado**
 
 <!-- ABRE SDT -->
-::: details SdtsBTPEWAddress
+::: details address
 
-### SdtsBTPEWAddress
+### address
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTPEWAddress son los siguientes:
+Los campos del tipo de dato estructurado address son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-Address | String $<(Length: 140)>$ | Dirección.
-AddressCorrelative | Short $<(Length: 3)>$ | Correlativo de dirección.
-AddressTypeId | Byte $<(Length: 2)>$ | Identificador del tipo de dirección.
-AddressTypeDescription | String $<(Length: 20)>$ | Descripción del tipo de dirección.
-CityId | Int $<(Length: 5)>$ | Identificador de la ciudad.
-CityDescription | String | Descripción de la ciudad.
-ColonyId | Int $<(Length: 9)>$ | Identificador de la colonia.
-CountryId | Short $<(Length: 3)>$ | Identificador del país.
-CountryDescription | String | Descripción del país.
-DepartmentId | Int $<(Length: 5)>$ | Identificador del departamento.
-DepartmentDescription | String | Descripción del departamento.
-DistrictId | Int $<(Length: 9)>$ | Identificador del distrito.
-DistrictDescription | String | Descripción del distrito.
-GeographicalUbication | String $<(Length: 6)>$ | Ubicación geográfica.
-HousingTypeId | Byte $<(Length: 2)>$ | Identificador del tipo de vivienda.
-HousingTypeDescription | String | Descripción del tipo de vivienda.
-IsABusiness | Boolean | ¿Es un negocio?.
-Latitude | Double $<(Length: 10)>$ | Latitud.
-Level1Data | String $<(Length: 30)>$ | Datos del nivel 1.
-Level1Id | Short $<(Length: 3)>$ | Identificador del nivel 1.
-Level1Description | String $<(Length: 35)>$ | Descripción del nivel 1.
-Level2Data | String $<(Length: 30)>$ | Datos del nivel 2.
-Level2Id | Short $<(Length: 3)>$ | Identificador del nivel 2.
-Level2Description | String $<(Length: 35)>$ | Descripción del nivel 2.
-Level3Data | String $<(Length: 30)>$ | Datos del nivel 3.
-Level3Id | Short $<(Length: 3)>$ | Identificador del nivel 3.
-Level3Description | String $<(Length: 35)>$ | Descripción del nivel 3.
-Level4Data | String $<(Length: 30)>$ | Datos del nivel 4.
-Level4Id | Short $<(Length: 3)>$ | Identificador del nivel 4.
-Level4Description | String $<(Length: 35)>$ | Descripción del nivel 4.
-Longitude | Double $<(Length: 10)>$ | Longitud.
-MainAddress | Boolean | Dirección principal.
-PostalCode | String $<(Length: 8)>$ | Código postal.
-References | String $<(Length: 140)>$ | Referencias.
-SettlementType | Short $<(Length: 3)>$ | Tipo de asentamiento.
-SinceDate | Date $<(Length: 8)>$ | Fecha desde.
-StatusId | String $<(Length: 1)>$ | Identificador de estado.
+:--------- | :--------- | :---------
+address | String $<(Length: 140)>$ | Dirección.
+addressCorrelative | Short $<(Length: 3)>$ | Correlativo de dirección.
+addressTypeId | Byte $<(Length: 2)>$ | Identificador del tipo de dirección.
+addressTypeDescription | String $<(Length: 20)>$ | Descripción del tipo de dirección.
+cityId | Int $<(Length: 5)>$ | Identificador de ciudad.
+cityDescription | String $<(Length: 40)>$ | Descripción de ciudad.
+colonyId | Int $<(Length: 9)>$ | Identificador de colonia.
+countryId | Short $<(Length: 3)>$ | Identificador del país.
+countryDescription | String $<(Length: 40)>$ | Descripción del país.
+departmentId | Int $<(Length: 5)>$ | Identificador del departamento.
+departmentDescription | String $<(Length: 40)>$ | Descripción del departamento.
+districtId | Int $<(Length: 9)>$ | Identificador del distrito.
+districtDescription | String $<(Length: 40)>$ | Descripción del distrito.
+geographicalUbication | String $<(Length: 6)>$ | Ubicación geográfica.
+housingTypeId | Byte $<(Length: 2)>$ | Identificador del tipo de vivienda.
+housingTypeDescription | String $<(Length: 40)>$ | Descripción del tipo de vivienda.
+isABusiness | Boolean | ¿Es una empresa?
+latitude | Double $<(Length: 10.6)>$ | Latitud.
+level1Data | String $<(Length: 30)>$ | Dato de nivel 1.
+level1Id | Short $<(Length: 3)>$ | Identificador de nivel 1.
+level1Description | String $<(Length: 35)>$ | Descripción de nivel 1.
+level2Data | String $<(Length: 30)>$ | Dato de nivel 2.
+level2Id | Short $<(Length: 3)>$ | Identificador de nivel 2.
+level2Description | String $<(Length: 35)>$ | Descripción de nivel 2.
+level3Data | String $<(Length: 30)>$ | Dato de nivel 3.
+level3Id | Short $<(Length: 3)>$ | Identificador de nivel 3.
+level3Description | String $<(Length: 35)>$ | Descripción de nivel 3.
+level4Data | String $<(Length: 30)>$ | Dato de nivel 4.
+level4Id | Short $<(Length: 3)>$ | Identificador de nivel 4.
+level4Description | String $<(Length: 35)>$ | Descripción de nivel 4.
+longitude | Double $<(Length: 10.6)>$ | Longitud.
+mainAddress | Boolean | ¿Es dirección principal?
+postalCode | String $<(Length: 8)>$ | Código postal.
+references | String $<(Length: 140)>$ | Referencias.
+settlementType | Short $<(Length: 3)>$ | Tipo de liquidación.
+sinceDate | Date $<(Length: 8)>$ | Fecha desde.
+statusId | String $<(Length: 1)>$ | Identificador de estado.
 :::
 <!-- CIERRA SDT -->

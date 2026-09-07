@@ -36,11 +36,7 @@ systemDate | Date | Fecha del sistema.
 
 @tab Errores
 
-Código | Descripción
-:--------- | :---------
-500 | 
-50050003 | No existe la empresa ingresada
-
+No aplica.
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -76,5 +72,3 @@ curl -X GET \
 ```
 :::
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
-
-

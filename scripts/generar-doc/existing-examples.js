@@ -56,8 +56,13 @@ function sinEnvelope(obj) {
 
 // Devuelve null si el .md no tiene ninguna sección de ejemplos reconocible
 // (archivo vacío, corrupto, o de un formato distinto al esperado).
-function leerEjemplosExistentes(mdContenido) {
-  if (!mdContenido) return null;
+function leerEjemplosExistentes(mdContenidoRaw) {
+  if (!mdContenidoRaw) return null;
+  // Los `\n` literales de extraerTab no matchean CRLF: en Windows, un .md
+  // recien traido con `git checkout` (core.autocrlf) viene en CRLF y esto
+  // hacia que la deteccion de formato fallara siempre (devolvia null), sin
+  // ningun error visible - la migracion quedaba deshabilitada en silencio.
+  const mdContenido = mdContenidoRaw.replace(/\r\n/g, '\n');
 
   const invocacion = extraerSeccion(mdContenido, '<!-- ABRE EJEMPLO DE INVOCACIÓN -->', '<!-- CIERRA EJEMPLO DE INVOCACIÓN -->');
   const respuesta = extraerSeccion(mdContenido, '<!-- ABRE EJEMPLO DE RESPUESTA -->', '<!-- CIERRA EJEMPLO DE RESPUESTA -->');

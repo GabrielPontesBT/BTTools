@@ -36,14 +36,13 @@ No aplica.
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
 hasNext | Boolean | Indica si existen más páginas disponibles.
-branches | [SdtsBTBRBranch](#sdtsbtbrbranch) | Listado de sucursales.
+branches | [branch](#branch) | Listado de sucursales.
 
 @tab Errores
 
 Código | Descripción
 :--------- | :---------
-99990010002 | Datos de Paginación Incorrectos
-
+99990010002 | Datos de Paginación Incorrectos.
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -327,12 +326,12 @@ curl -X GET \
 ## **Tipos de Dato Estructurado**
 
 <!-- ABRE SDT -->
-::: details SdtsBTBRBranch
+::: details branch
 
-### SdtsBTBRBranch
+### branch
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTBRBranch son los siguientes:
+Los campos del tipo de dato estructurado branch son los siguientes:
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------

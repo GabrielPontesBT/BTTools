@@ -1,17 +1,19 @@
 ---
-title: Get Relationships
+title: Relationships
+type: GET
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para obtener un listado de las relaciones de una persona.
+::: note
+Método para obtener un listado de las relaciones de una persona.
 
-**Nombre publicación:** PublicPersons.getRelationships
-
-**Módulo:** Customers
+**Nombre publicación:** PublicPersons.relationships
 
 **Programa:** PublicAPI.BTPEPA0036
 
 **Alcance:** Global
+
+**Endpoint:** /public/Persons/v1/relationships
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -21,23 +23,25 @@ title: Get Relationships
 @tab Datos de Entrada
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+:--------- | :--------- | :---------
 personGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la persona.
 
+@tab Body
+
+No aplica.
 
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-relationships | [SdtsBTPEWRelationship](#sdtsbtpewrelationship) | Listado de relaciones.
+:--------- | :--------- | :---------
+relationships | [relationship](#relationship) | Listado de vínculos.
 
 @tab Errores
 
 Código | Descripción
-:--------- | :-----------
+:--------- | :---------
 40010004 | La persona no existe
 40050001 | Debe ingresar el GUID de persona.
-
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -46,49 +50,39 @@ Código | Descripción
 <!-- ABRE EJEMPLO DE INVOCACIÓN -->
 ::: details Ejemplo de Invocación
 ::: code-tabs #Formato
-@tab JSON
-```json
-{
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "0F262E85182DF86F9CA30F0E"
-  },
-  "personGUID": "a542ed11-a4e4-4ead-83b6-b3530961c2b9"
-}'
+
+@tab cURL
+```bash
+curl -X GET \
+  '{{baseUrl}}/public/Persons/v1/relationships?personGUID=d742016d-f0fc-4fff-be0e-3ff1dd7015a4' \
+  -H 'Device: {{device}}' \
+  -H 'Usuario: {{usuario}}' \
+  -H 'Requerimiento: {{requerimiento}}' \
+  -H 'Canal: {{canal}}' \
+  -H 'Token: {{token}}'
 ```
+
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
 
 <!-- ABRE EJEMPLO DE RESPUESTA -->
 ::: details Ejemplo de Respuesta
 ::: code-tabs #Formato
+
 @tab JSON
 ```json
 {
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "0F262E85182DF86F9CA30F0E"
-  },
   "relationships": {
-    "relationship": []
-  },
-  "BusinessErrors": {
-    "BusinessError": []
-  },
-  "Btoutreq": {
-    "Estado": "OK",
-    "Fecha": "2026-05-14",
-    "Hora": "18:55:25",
-    "Numero": 13469359,
-    "Servicio": "PublicPersons.getRelationships",
-    "Requerimiento": "1",
-    "Canal": "BTDIGITAL"
+    "relationship": [
+      {
+        "bidirectional": false,
+        "integrantName": "",
+        "percentage": 100,
+        "personGUID": "f43a3946-4ae1-4a27-861d-c1c2d9cee87d",
+        "relationshipId": 1,
+        "relationshipDescription": ""
+      }
+    ]
   }
 }
 ```
@@ -98,21 +92,20 @@ Código | Descripción
 ## **Tipos de Dato Estructurado**
 
 <!-- ABRE SDT -->
-::: details SdtsBTPEWRelationship
+::: details relationship
 
-### SdtsBTPEWRelationship
+### relationship
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTPEWRelationship son los siguientes:
+Los campos del tipo de dato estructurado relationship son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-Bidirectional | Boolean | Bidireccional.
-BondId | Short | Identificador del vínculo.
-BondDescription | String $<(Length: 30)>$ | Descripción del vínculo.
-IntegrantName | String $<(Length: 70)>$ | Nombre del integrante.
-JobTitleId | Short | Identificador del cargo.
-Percentage | Double $<(Length: 8)>$ | Porcentaje.
-PersonGUID | String $<(Length: 36)>$ | GUID (identificador único global) de persona.
+:--------- | :--------- | :---------
+bidirectional | Boolean | ¿Es bidireccional?
+integrantName | String | Nombre del integrante.
+percentage | Double $<(Length: 11)>$ | Porcentaje.
+personGUID | String $<(Length: 10)>$ | GUID (identificador único global) de la persona.
+relationshipId | Short $<(Length: 4)>$ | Identificador de vínculo.
+relationshipDescription | String $<(Length: 30)>$ | Descripción de vínculo.
 :::
 <!-- CIERRA SDT -->

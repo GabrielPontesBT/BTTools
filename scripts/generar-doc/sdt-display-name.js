@@ -8,9 +8,12 @@
 //   hay item nombrado.
 // - SDT simple (BTISRVVARTIPO es un SDT, sin item): se muestra el
 //   nombre del parámetro.
-// - Campo anidado dentro de un SDT (BTI026) que a su vez es SDT o
-//   colección: no tiene concepto de "item" propio en el schema,
-//   se muestra el nombre del campo.
+// - Campo anidado dentro de un SDT (BTI026) que a su vez es una
+//   colección (BTISDTELEMCAT === 'C'): se muestra el nombre del item
+//   (BTISDTELEMNOMIT), o el del campo si no hay item nombrado -
+//   mismo criterio que un parámetro de nivel superior.
+// - Campo anidado que es un SDT simple (sin colección): se muestra
+//   el nombre del campo.
 // El nombre visible se usa tanto para el link en la columna Tipo
 // como para el título de la sección de detalle del SDT, así el
 // anchor siempre coincide.
@@ -40,9 +43,12 @@ function nombreVisibleParam(row) {
 function nombreVisibleCampo(row) {
   const sdtRef = (row.BTISDTELEMSDT || '').trim();
   const tipo = (row.BTISDTELEMTIPO || '').trim();
+  const esColeccion = (row.BTISDTELEMCAT || '').trim() === 'C';
+  const itemNom = (row.BTISDTELEMNOMIT || '').trim();
+  const nombre = esColeccion && itemNom ? itemNom : row.BTISDTELEMNOM;
 
-  if (sdtRef) return { esSdt: true, nombre: row.BTISDTELEMNOM, sdtNomDB: sdtRef };
-  if (esSdt(tipo)) return { esSdt: true, nombre: row.BTISDTELEMNOM, sdtNomDB: tipo };
+  if (sdtRef) return { esSdt: true, nombre, sdtNomDB: sdtRef };
+  if (esSdt(tipo)) return { esSdt: true, nombre, sdtNomDB: tipo };
   return { esSdt: false };
 }
 

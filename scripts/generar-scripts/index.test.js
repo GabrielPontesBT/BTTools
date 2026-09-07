@@ -585,9 +585,41 @@ test('sg_generateFieldsUpdateScript V3 usa el prefijo N, columnas PascalCase y n
 test('sg_generateFieldsUpdateScript DELETEa por posicion los campos que sobran cuando se quita uno (sin INSERT: no se agregan campos nuevos)', () => {
   const script = sg_generateFieldsUpdateScript(fieldsData(), 3, 'V4', 'publica');
   const updateLines = script.split('\n').filter(l => l.startsWith('UPDATE'));
-  assert.equal(updateLines.length, 2, 'fase 0 (blanquear nombre) + fase 1 (UPDATE completo) para la unica posicion tocada');
+  // Fase 0 blanquea las 3 posiciones VIEJAS (1,2,3), no solo la que sobrevive
+  // (touched=min(3,1)=1): las posiciones 2 y 3 van a DELETE al final, pero
+  // hasta ese momento siguen existiendo con su nombre real -- si no se
+  // blanquean tambien, el UPDATE de fase 1 en la posicion 1 puede chocar
+  // (ORA-00001) contra el nombre real que todavia tiene la posicion 2 o 3.
+  assert.equal(updateLines.length, 4, 'fase 0 blanquea las 3 posiciones viejas + fase 1 escribe el UPDATE completo de la unica posicion que sobrevive');
+  assert.match(updateLines[0], /BTISDTELEMNOM='~TMP~1'.*BTISDTELEMPOSI=1;$/);
+  assert.match(updateLines[1], /BTISDTELEMNOM='~TMP~2'.*BTISDTELEMPOSI=2;$/);
+  assert.match(updateLines[2], /BTISDTELEMNOM='~TMP~3'.*BTISDTELEMPOSI=3;$/);
+  assert.ok(updateLines[3].includes("BTISDTELEMNOM='nombre'") && updateLines[3].includes('BTISDTELEMPOSI=1'));
   assert.match(script, /DELETE FROM BTI026 WHERE BTISDTNOM='SdtCliente' AND BTISDTELEMPOSI > 1;/);
   assert.doesNotMatch(script, /INSERT/);
+});
+
+test('sg_generateFieldsUpdateScript reproduce el ORA-00001 reportado: una posicion eliminada con el mismo nombre que una posicion reordenada/editada', () => {
+  // Reproduce el caso real: 14 campos existentes, se edita la lista a 13 (se
+  // quita 1), y el nombre final de la posicion 7 coincide con el nombre que
+  // TODAVIA tiene la posicion 14 (la que se va a borrar) hasta que la fase 0
+  // la blanquee. Sin blanquear tambien las posiciones > newCount, el UPDATE
+  // de la posicion 7 chocaria contra la fila 14 (ORA-00001 real).
+  const base = fieldsData().bti026[0];
+  const bti026 = Array.from({ length: 13 }, (_, i) => Object.assign({}, base, { elemnom: 'campo' + (i + 1) }));
+  bti026[6].elemnom = 'referenceTypeId'; // posicion 7 (indice 6): nombre que choca con la posicion 14 vieja
+  const script = sg_generateFieldsUpdateScript({ nom: 'SdtsBTPEPAReference', bti026 }, 14, 'V4', 'publica');
+  const lines = script.split('\n');
+  // Fase 0 tiene que blanquear las 14 posiciones viejas, incluida la 14 (la
+  // que se borra), ANTES de que la fase 1 escriba 'referenceTypeId' en la
+  // posicion 7 -- si no, la fila 14 (todavia con su nombre real) colisiona.
+  const phase0Lines = lines.filter((l) => l.includes('~TMP~'));
+  assert.equal(phase0Lines.length, 14);
+  assert.ok(phase0Lines.some((l) => l.includes("'~TMP~14'") && l.includes('BTISDTELEMPOSI=14')), 'la posicion 14 (a eliminar) se blanquea ANTES de la fase 1, no se deja con su nombre real');
+  const phase0Idx = lines.findIndex((l) => l.includes("'~TMP~14'"));
+  const phase1Idx = lines.findIndex((l) => l.includes("BTISDTELEMNOM='referenceTypeId'") && l.includes('BTISDTELEMPOSI=7'));
+  assert.ok(phase0Idx >= 0 && phase1Idx >= 0 && phase0Idx < phase1Idx, 'la posicion 14 se blanquea ANTES de escribir el nombre que choca en la posicion 7');
+  assert.match(script, /DELETE FROM BTI026 WHERE BTISDTNOM='SdtsBTPEPAReference' AND BTISDTELEMPOSI > 13;/);
 });
 
 test('sg_generateFieldsUpdateScript (apiMode interna) UPDATEa BTCBS026, no BTI026', () => {
@@ -614,4 +646,21 @@ test('sg_generateFieldsUpdateScript (apiMode interna) tambien blanquea BSELMNAME
   assert.equal(lines.length, 4);
   assert.match(lines[0], /^UPDATE BTCBS026 SET BSELMNAME='~TMP~1' WHERE BSSDTNAME='SdtCliente' AND BSELMPOS=1;$/);
   assert.match(lines[1], /^UPDATE BTCBS026 SET BSELMNAME='~TMP~2' WHERE BSSDTNAME='SdtCliente' AND BSELMPOS=2;$/);
+});
+
+test('sg_generateFieldsUpdateScript (apiMode interna) tambien blanquea las posiciones que se van a DELETE, no solo las que sobreviven', () => {
+  // Mismo caso real que el test equivalente de la API publica: se quita un
+  // campo (oldCount > newCount) y el nombre final de una posicion que
+  // sobrevive coincide con el nombre que TODAVIA tiene la posicion a
+  // eliminar hasta que la fase 0 la blanquee.
+  const base = fieldsData().bti026[0];
+  const bti026 = [Object.assign({}, base, { elemnom: 'referenceTypeId' })]; // unica posicion que sobrevive (posi 1)
+  const script = sg_generateFieldsUpdateScript({ nom: 'SdtsBTPEPAReference', bti026 }, 3, 'V4', 'interna');
+  const lines = script.split('\n');
+  const phase0Lines = lines.filter((l) => l.includes('~TMP~'));
+  assert.equal(phase0Lines.length, 3, 'blanquea las 3 posiciones viejas (1,2,3), no solo la que sobrevive');
+  const phase0Idx3 = lines.findIndex((l) => l.includes("'~TMP~3'"));
+  const phase1Idx = lines.findIndex((l) => l.includes("BSELMNAME='referenceTypeId'") && l.includes('BSELMPOS=1'));
+  assert.ok(phase0Idx3 >= 0 && phase1Idx >= 0 && phase0Idx3 < phase1Idx, 'la posicion 3 (a eliminar) se blanquea ANTES de escribir el nombre que choca en la posicion 1');
+  assert.match(script, /DELETE FROM BTCBS026 WHERE BSSDTNAME='SdtsBTPEPAReference' AND BSELMPOS > 1;/);
 });

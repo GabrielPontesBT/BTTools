@@ -36,10 +36,7 @@ memberTypes | [memberType](#membertype) | Listado de tipos de integrantes de un 
 
 @tab Errores
 
-Código | Descripción
-:--------- | :---------
-50050003 | No existe la empresa ingresada
-
+No aplica.
 :::
 <!-- CIERRA TABLA DE DATOS -->
 

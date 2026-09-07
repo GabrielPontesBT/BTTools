@@ -1,66 +1,53 @@
 ---
-title: Get G U I D
+title: GUID
 type: GET
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para obtener el GUID de una persona.
+::: note
+Método para obtener el GUID de una persona.
 
-**Nombre publicación:** PublicPersons.getGUID
-
-**Módulo:** Customers
+**Nombre publicación:** PublicPersons.guid
 
 **Programa:** PublicAPI.BTPEPA0002
 
 **Alcance:** Global
 
-**Endpoint:** /public/Persons/v1/getGUID
+**Endpoint:** /public/Persons/v1/guid
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
 <!-- ABRE TABLA DE DATOS -->
 ::: tabs #Datos
 
-@tab Headers
-
-Header | Descripción
-:--------- | :-----------
-Device | Identificador del dispositivo o canal de origen.
-Usuario | Usuario que realiza la solicitud.
-Requerimiento | Número de requerimiento.
-Canal | Canal de comunicación utilizado.
-Token | Token de sesión activo.
-
 @tab Datos de Entrada
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+:--------- | :--------- | :---------
 countryId | Short $<(Length: 3)>$ | Identificador de país.
-documentTypeId | Short $<(Length: 4)>$ | Tipo de documento.
+documentTypeId | Short $<(Length: 4)>$ | Identificador de tipo de documento.
 documentNumber | String $<(Length: 25)>$ | Número de documento.
 
 @tab Body
 
-Completar manualmente
+No aplica.
 
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+:--------- | :--------- | :---------
 personGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la persona.
 
 @tab Errores
 
-Código | Descripción | Programas
-:--------- | :----------- | :-----------
-500 |  | BTPEPA0002
-40010004 | La persona no existe | BTPEA00000
-40050002 | Debe ingresar el identificador de país. | BTPEPA0002
-40050003 | Debe ingresar el identificador de tipo de documento. | BTPEPA0002
-40050004 | Debe ingresar el número de documento. | BTPEPA0002
-50020018 | El país no se encuentra registrado | BTCNA00000
-50030001 | Debe ingresar un tipo de documento válido | BTDTA00000
-
+Código | Descripción
+:--------- | :---------
+40010004 | La persona no existe
+40050002 | Debe ingresar el identificador de país.
+40050003 | Debe ingresar el identificador de tipo de documento.
+40050004 | Debe ingresar el número de documento.
+50020018 | El país no se encuentra registrado
+50030001 | Debe ingresar un tipo de documento válido
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -69,30 +56,29 @@ Código | Descripción | Programas
 <!-- ABRE EJEMPLO DE INVOCACIÓN -->
 ::: details Ejemplo de Invocación
 ::: code-tabs #Formato
-@tab JSON
-```json
-{}
-```
-@tab HEADERS
+
+@tab cURL
 ```bash
 curl -X GET \
-  'http://10.0.0.7:5101/api/publicapi/public/Persons/v1/getGUID?countryId=858&documentTypeId=1&documentNumber=71336785' \
-  -H 'Device: POC' \
-  -H 'Usuario: INSTALADOR' \
-  -H 'Requerimiento: 1' \
-  -H 'Canal: BTMOBILE' \
-  -H 'Token: 03C72DF200D462B6CD7DE909'
+  '{{baseUrl}}/public/Persons/v1/guid?countryId=484&documentTypeId=1&documentNumber=HADR821023HHGFQS74' \
+  -H 'Device: {{device}}' \
+  -H 'Usuario: {{usuario}}' \
+  -H 'Requerimiento: {{requerimiento}}' \
+  -H 'Canal: {{canal}}' \
+  -H 'Token: {{token}}'
 ```
+
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
 
 <!-- ABRE EJEMPLO DE RESPUESTA -->
 ::: details Ejemplo de Respuesta
 ::: code-tabs #Formato
+
 @tab JSON
 ```json
 {
-  "personGUID": "b51b92ac-47e2-42df-8e68-c41bbe6257ce"
+  "personGUID": "d742016d-f0fc-4fff-be0e-3ff1dd7015a4"
 }
 ```
 :::

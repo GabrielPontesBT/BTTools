@@ -110,3 +110,15 @@ test('formato v4 actual: no se confunde con legado (tiene tab cURL)', () => {
   assert.equal(ejemplos.formato, 'v4-actual');
   assert.ok(ejemplos.curlCmd.includes('administrativeLevels'));
 });
+
+test('CRLF (como lo deja `git checkout` en Windows) no rompe la deteccion de formato', () => {
+  // Sin normalizar CRLF->LF, los `\n` literales de extraerTab no matchean
+  // y esto devolvia null siempre en un checkout de Windows - la migracion
+  // quedaba deshabilitada en silencio, sin ningun error visible.
+  const md = mdV4({ curl: 'curl -X POST https://api/x -d \'{"a":1}\'', jsonBody: '{\n  "a": 1\n}', responseJson: '{\n  "ok": true\n}' })
+    .replace(/\n/g, '\r\n');
+  const ejemplos = leerEjemplosExistentes(md);
+  assert.equal(ejemplos.formato, 'v4-actual');
+  assert.equal(ejemplos.curlCmd, 'curl -X POST https://api/x -d \'{"a":1}\'');
+  assert.equal(ejemplos.requestJson, '{\n  "a": 1\n}');
+});

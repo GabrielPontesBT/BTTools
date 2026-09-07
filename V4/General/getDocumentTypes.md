@@ -37,13 +37,13 @@ No aplica.
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
 hasNext | Boolean | Indica si existen más páginas disponibles.
-documentTypes | [SdtsBTDTPADocumentType](#sdtsbtdtpadocumenttype) | Listados de tipos de documento.
+documentTypes | [documentType](#documenttype) | Listados de tipos de documento.
 
 @tab Errores
 
 Código | Descripción
 :--------- | :---------
-99990010002 | Datos de Paginación Incorrectos
+99990010002 | Datos de Paginación Incorrectos.
 
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -198,12 +198,12 @@ curl -X GET \
 ## **Tipos de Dato Estructurado**
 
 <!-- ABRE SDT -->
-::: details SdtsBTDTPADocumentType
+::: details documentType
 
-### SdtsBTDTPADocumentType
+### documentType
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTDTPADocumentType son los siguientes:
+Los campos del tipo de dato estructurado documentType son los siguientes:
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------

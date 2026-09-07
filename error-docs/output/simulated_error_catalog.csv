@@ -1,8 +1,10 @@
 ﻿root_program,program,model,part,line,code,message,catalog_program,catalog_model,reason,condition,source_line,returning_programs
-BTLOPA0021,BTLOPA0021,BTV4Loans3,Procedure,58,500,,,,invalid_params:&productguid,&productGUID = NullValue(&productGUID),&errorCode = 500,BTLOPA0021
-BTLOPA0021,BTPHA00003,BTV4Core3,ProcedureSource,54,980083,La moneda y/o papel no está asociada al producto,BTERAPHES,BTV4Core3,when_none,when none,&errId = 980083,BTPHA00003
-BTLOPA0021,BTCFA02000,BTV4Core3,ProcedureSource,85,990070,El sistema no se encuentra definido,BTERACFES,BTV4Core3,when_none,when none,&errId  = 990070,"BTCFA01000, BTCFA02000"
-BTLOPA0021,BTCFA02000,BTV4Core3,ProcedureSource,321,990071,El parámetro no se encuentra definido,BTERACFES,BTV4Core3,when_none,when none,if &errId = 990071 or &errId = 990070,"BTCFA01000, BTCFA02000"
-BTLOPA0021,BTA0000017,BTV4Core3,ProcedureSource,36,50050003,No existe la empresa ingresada,BTERACYES,BTV4Core3,when_none,when none,&ErrId = 50050003,BTA0000017
-BTLOPA0021,BTLOPA0021,BTV4Loans3,Procedure,35,120050009,Debe ingresar el GUID de producto.,BTERAPALOES,BTV4Loans3,invalid_params:&productguid,&productGUID = NullValue(&productGUID),&errorCode = 120050009,BTLOPA0021
-BTLOPA0021,BTSCA00006,BTV4Core3,ProcedureSource,34,99990010006,No se pudo resolver el usuario,BTERAPAES,BTV4Core3,when_none,when none,&ErrId = 99990010006,BTSCA00006
+BTLOPA0058,BTLOPA0058,BTV4Loans,DataProviderSource,32,500,,,,invalid_params:&groupid,&groupId = 0,&errorCode 			= 500,BTLOPA0058
+BTLOPA0058,BTCFA02000,BTV4Core,ProcedureSource,85,990070,El sistema no se encuentra definido,BTERACFES,BTV4Core3,when_none,when none,&errId  = 990070,"BTCFA01000, BTCFA02000"
+BTLOPA0058,BTCFA02000,BTV4Core,ProcedureSource,322,990071,El parámetro no se encuentra definido,BTERACFES,BTV4Core3,when_none,when none,if &errId = 990071 or &errId = 990070,"BTCFA01000, BTCFA02000"
+BTLOPA0058,BTCPA00000,BTV4Customers,ProcedureSource,149,40020012,El número de contraparte no existe,BTERACPES,BTV4Customers2,when_none,when none,&errId 	= 40020012,BTCPA00000
+BTLOPA0058,BTA0000017,BTV4Core,ProcedureSource,36,50050003,No existe la empresa ingresada,BTERACYES,BTV4Core3,when_none,when none,&ErrId = 50050003,BTA0000017
+BTLOPA0058,BTLOA00105,BTV4Loans,DataProviderSource,59,120020044,Operación inválida,BTERALOHES,BTV4Loans3,when_none,when none,&errId = 120020044,BTLOA00105
+BTLOPA0058,BTLOPA0058,BTV4Loans,DataProviderSource,14,120050001,Debe ingresar el GUID de préstamo.,BTERAPALOES,BTV4Loans3,invalid_params:&loanguid,&loanGUID.IsEmpty(),&errorCode = 120050001,BTLOPA0058
+BTLOPA0058,BTLOPA0058,BTV4Loans,DataProviderSource,9,120050010,Debe ingresar el GUID de grupo.,BTERAPALOES,BTV4Loans3,invalid_params:&groupid,&groupId = 0,&errorCode = 120050010,BTLOPA0058
+BTLOPA0058,BTMGA00015,BTV4Loans,DataProviderSource,91,120060101,El grupo no existe,BTERALOGES,BTV4Loans3,invalid_params:&logroupid,where MGGroupId = &LOGroupId,&errId = 120060101,BTMGA00015

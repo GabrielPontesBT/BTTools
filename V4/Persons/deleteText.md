@@ -1,17 +1,19 @@
 ---
-title: Delete Text
+title: Text
+type: DELETE
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para eliminar un texto de una persona.
+::: note
+Método para eliminar un texto de una persona.
 
-**Nombre publicación:** PublicPersons.deleteText
-
-**Módulo:** Customers
+**Nombre publicación:** PublicPersons.text
 
 **Programa:** PublicAPI.BTPEPA0022
 
 **Alcance:** Global
+
+**Endpoint:** /public/Persons/v1/text
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -21,10 +23,13 @@ title: Delete Text
 @tab Datos de Entrada
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+:--------- | :--------- | :---------
 personGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la persona.
-id | Int $<(Length: 5)>$ | Identificador de texto.
+textId | Int $<(Length: 5)>$ | Identificador del texto.
 
+@tab Body
+
+No aplica.
 
 @tab Datos de Salida
 
@@ -33,20 +38,11 @@ No aplica.
 @tab Errores
 
 Código | Descripción
-:--------- | :-----------
-40020012 | El número de contraparte no existe
-40020017 | La persona ingresada no existe
+:--------- | :---------
+40010004 | La persona no existe
 40050001 | Debe ingresar el GUID de persona.
-40050100 | Debe ingresar el GUID de contraparte.
-50050003 | No se encuentra la empresa
 50090006 | Código de texto incorrecto
 50090007 | Debe ingresar un texto
-50090008 | Se ingresó el código de texto más de una vez
-50090009 | No existe API de texto asociado al namespace ingresado
-99990010006 | No se pudo resolver el usuario
-99990010007 | No se pudo resolver la empresa
-
-
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -55,49 +51,30 @@ Código | Descripción
 <!-- ABRE EJEMPLO DE INVOCACIÓN -->
 ::: details Ejemplo de Invocación
 ::: code-tabs #Formato
-@tab JSON
-```json
-{
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "0F262E85182DF86F9CA30F0E"
-  },
-  "personGUID": "a542ed11-a4e4-4ead-83b6-b3530961c2b9",
-  "id": 1
-}'
+
+@tab cURL
+```bash
+curl -X DELETE \
+  '{{baseUrl}}/public/Persons/v1/text?personGUID=d742016d-f0fc-4fff-be0e-3ff1dd7015a4&textId=1' \
+  -H 'Device: {{device}}' \
+  -H 'Usuario: {{usuario}}' \
+  -H 'Requerimiento: {{requerimiento}}' \
+  -H 'Canal: {{canal}}' \
+  -H 'Token: {{token}}'
 ```
+
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
 
 <!-- ABRE EJEMPLO DE RESPUESTA -->
 ::: details Ejemplo de Respuesta
 ::: code-tabs #Formato
+
 @tab JSON
 ```json
-{
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "0F262E85182DF86F9CA30F0E"
-  },
-  "BusinessErrors": {
-    "BusinessError": []
-  },
-  "Btoutreq": {
-    "Estado": "OK",
-    "Fecha": "2026-05-14",
-    "Hora": "18:56:43",
-    "Numero": 13469393,
-    "Servicio": "PublicPersons.deleteText",
-    "Requerimiento": "1",
-    "Canal": "BTDIGITAL"
-  }
-}
+{}
 ```
 :::
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
+
+

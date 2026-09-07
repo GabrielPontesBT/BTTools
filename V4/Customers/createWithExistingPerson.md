@@ -1,17 +1,19 @@
 ---
 title: Create With Existing Person
+type: POST
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para crear una contraparte a partir de una persona existente.
+::: note
+Método para crear una contraparte a partir de una persona existente.
 
 **Nombre publicación:** PublicCustomers.createWithExistingPerson
-
-**Módulo:** Customers
 
 **Programa:** PublicAPI.BTCPPA0001
 
 **Alcance:** Global
+
+**Endpoint:** /public/Customers/v1/createWithExistingPerson
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -21,65 +23,42 @@ title: Create With Existing Person
 @tab Datos de Entrada
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+:--------- | :--------- | :---------
 personGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la persona.
-
 
 @tab Body
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-counterpartyData | [SdtsBTCPWCounterparty](#sdtsbtcpwcounterparty) | Datos de la contraparte.
+counterpartyData | [counterpartyData](#counterpartydata) | Datos de la contraparte.
 
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+:--------- | :--------- | :---------
 counterpartyGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la contraparte.
 
 @tab Errores
 
 Código | Descripción
-:--------- | :-----------
-40010004 | La persona no existe
-40010010 | País de nacimiento incorrecto
-40010012 | País de ciudadanía incorrecto
-40010019 | Debe ingresar primer nombre
-40010020 | Primer nombre contiene caracteres no válidos
-40010021 | Segundo nombre contiene caracteres no válidos
-40010022 | Debe ingresar primer apellido
-40010023 | Primer apellido contiene caracteres no válidos
-40010024 | Descripción no encontrada
-40010025 | Debe ingresar género Femenino (F), Masculino (M) o No Binario (X)
-40010026 | Debe ingresar fecha de nacimiento
-40010027 | Fecha de nacimiento no puede ser igual o posterior a la fecha de apertura
-40010029 | Debe ingresar fecha de fallecimiento
-40010032 | Debe ingresar fecha de presentación de patrimonio
-40010034 | Debe ingresar patrimonio
-40010091 | Descripción no encontrada
-40010099 | La persona a relacionar ya tiene un vínculo existente con otra persona
-40010100 | No puede relacionarse a sí mismo
-40010210 | Debe ingresar un código de Nivel de Instrucción comprendido entre 1 y 999
-40010212 | El Nivel de Instrucción no existe
-40010215 | Debe ingresar un código de Estado Civil comprendido entre 1 y 26
-40010219 | El Estado Civil no existe
-40010229 | El Origen de Captación no existe
-40010329 | La persona no puede ser eliminada, tiene registro asociado a contrapartes
-40010335 | Debe ingresar un nombre no mayor de 70 caracteres
-40010340 | No puede ser eliminado, tiene referencias con ? en la tabla de Relaciones entre Personas
-40010341 | No puede ser eliminado, tiene referencias con ? en la tabla de Integrantes de personas jurídicas
-40010347 | La persona con número de documento ? ya existe
-40010349 | Primer nivel asociado al país de nacimiento incorrecto
-40010350 | Segundo nivel asociado al país de nacimiento incorrecto
-40010353 | Existe inconsistencia de datos con el campo ? en la RNG ??
-40010359 | La persona ingresada como cónyugue no existe
-40010360 | La fecha de fallecimiento debe ser posterior a la fecha de nacimiento
-40010361 | La fecha de fallecimiento no puede ser posterior o igual a la fecha de apertura
+:--------- | :---------
+40020010 | El nombre no debe superar los 70 caracteres
 40020017 | La persona ingresada no existe
+40020018 | Código de titularidad Incorrecto
+40020019 | Código de sucursal Incorrecto
+40020020 | Código de ejecutivo Incorrecto
+40020021 | Código de segmento Incorrecto
+40020022 | Código de clasificación interna Incorrecto
+40020023 | Código de Sector Económico Incorrecto
+40020024 | Código de Actividad Económica Incorrecto
+40020028 | Se ingresó la misma persona más de una vez
+40020072 | Debe ingresar al menos un contacto para la contraparte N° ?
+40020073 | Debe ingresar un tipo de contacto para la contraparte N° ?
+40020074 | Tipo de contacto incorrecto para la contraparte N° ?
+40020075 | Debe ingresar el contacto para la contraparte N° ?
+40020076 | Compañía de teléfono incorrecta para la contraparte N° ?
+40020077 | Debe ingresar un nombre para la contraparte
 40050001 | Debe ingresar el GUID de persona.
-50050003 | No se encuentra la empresa
-99990010006 | No se pudo resolver el usuario
-99990010007 | No se pudo resolver la empresa
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -88,58 +67,42 @@ Código | Descripción
 <!-- ABRE EJEMPLO DE INVOCACIÓN -->
 ::: details Ejemplo de Invocación
 ::: code-tabs #Formato
-@tab JSON
-```json
-{
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "444B674391BCA7676279700A"
-  },
-  "personGUID": "f43a3946-4ae1-4a27-861d-c1c2d9cee87d",
+
+@tab cURL
+```bash
+curl -X POST \
+  '{{baseUrl}}/public/Customers/v1/createWithExistingPerson?personGUID=f43a3946-4ae1-4a27-861d-c1c2d9cee87d' \
+  -H 'Device: {{device}}' \
+  -H 'Usuario: {{usuario}}' \
+  -H 'Requerimiento: {{requerimiento}}' \
+  -H 'Canal: {{canal}}' \
+  -H 'Token: {{token}}' \
+  -H 'Content-Type: application/json' \
+  -d '{
   "counterpartyData": {
-    "BranchId": 1,
-    "CompanyId": 1,
-    "EconomicActivityId": 1113,
-    "ExecutiveId": 1957,
-    "InternalClassificationId": 1,
-    "Resident": true,
-    "SectorId": 1,
-    "SegmentId": 1
+    "branchId": 1,
+    "companyId": 1,
+    "economicActivityId": 1113,
+    "executiveId": 1957,
+    "internalClassificationId": 1,
+    "resident": true,
+    "sectorId": 1,
+    "segmentId": 1
   }
 }'
 ```
+
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
 
 <!-- ABRE EJEMPLO DE RESPUESTA -->
 ::: details Ejemplo de Respuesta
 ::: code-tabs #Formato
+
 @tab JSON
 ```json
 {
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "444B674391BCA7676279700A"
-  },
-  "counterpartyGUID": "45399742-1326-4d8d-b7c8-10eb4cf976b0",
-  "BusinessErrors": {
-    "BusinessError": []
-  },
-  "Btoutreq": {
-    "Estado": "OK",
-    "Fecha": "2026-05-14",
-    "Hora": "16:14:13",
-    "Numero": 13468812,
-    "Servicio": "PublicCustomers.createWithExistingPerson",
-    "Requerimiento": "1",
-    "Canal": "BTDIGITAL"
-  }
+  "counterpartyGUID": "45399742-1326-4d8d-b7c8-10eb4cf976b0"
 }
 ```
 :::
@@ -148,52 +111,52 @@ Código | Descripción
 ## **Tipos de Dato Estructurado**
 
 <!-- ABRE SDT -->
-::: details SdtsBTCPWCounterparty
+::: details counterpartyData
 
-### SdtsBTCPWCounterparty
+### counterpartyData
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTCPWCounterparty son los siguientes:
+Los campos del tipo de dato estructurado counterpartyData son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-BranchId | Int | Identificador de sucursal.
-BranchDescription | String $<(Length: 30)>$ | Descripción de sucursal.
-CancellationDate | Date $<(Length: 8)>$ | Fecha de cancelación.
-CompanyId | Short $<(Length: 3)>$ | Identificador de empresa.
-CompanyDescription | String $<(Length: 50)>$ | Descripción de empresa.
-CounterpartyDescription | String $<(Length: 70)>$ | Descripción de contraparte.
-CreationDate | Date $<(Length: 8)>$ | Fecha de creación.
-CustomFields | [SdtsBTPAWCustomField](#sdtsbtpawcustomfield) | Campos personalizados.
-EconomicActivityId | Long | Identificador de actividad económica.
-EconomicActivityDescription | String $<(Length: 80)>$ | Descripción de actividad económica.
-Employee | Boolean | ¿Es empleado?.
-ExecutiveId | Int $<(Length: 5)>$ | Identificador del ejecutivo.
-ExecutiveDescription | String $<(Length: 30)>$ | Descripción del ejecutivo.
-FinancialInstitution | Boolean | Institución financiera.
-InternalClassificationId | Short | Identificador de clasificación interna.
-InternalClassificationDescription | String $<(Length: 30)>$ | Descripción de clasificación interna.
-Resident | Boolean | ¿Es residente?.
-SectorId | Short | Identificador de sector.
-SectorDescription | String $<(Length: 30)>$ | Descripción del sector.
-SegmentId | Byte $<(Length: 2)>$ | Identificador del segmento.
-SegmentDescription | String $<(Length: 30)>$ | Descripción del segmento.
-StatusId | Byte $<(Length: 2)>$ | Identificador de estado.
-StatusDescription | String $<(Length: 30)>$ | Descripción del estado.
+:--------- | :--------- | :---------
+branchId | Int $<(Length: 5)>$ | Identificador de sucursal.
+branchDescription | String $<(Length: 30)>$ | Descripción de sucursal.
+cancellationDate | Date | Fecha de cancelación.
+companyId | Short $<(Length: 3)>$ | Identificador de empresa.
+companyDescription | String $<(Length: 50)>$ | Descripción de empresa.
+counterpartyDescription | String $<(Length: 70)>$ | Nombre de la subcuenta.
+creationDate | Date | Fecha de creación.
+customFields | [customField](#customfield) | Listado de campos personalizados.
+economicActivityId | Long $<(Length: 11)>$ | Identificador de actividad.
+economicActivityDescription | String $<(Length: 80)>$ | Descripción de actividad económica.
+employee | Boolean | ¿Es empleado?
+executiveId | Int $<(Length: 5)>$ | Identificador de ejecutivo.
+executiveDescription | String $<(Length: 30)>$ | Descripción del ejecutivo.
+financialInstitution | Boolean | ¿Es institución financiera?
+internalClassificationId | Short $<(Length: 4)>$ | Identificador de clasificación interna.
+internalClassificationDescription | String $<(Length: 30)>$ | Descripción de clasificación interna.
+resident | Boolean | ¿Es residente?
+sectorId | Short $<(Length: 3)>$ | Identificador de sector.
+sectorDescription | String $<(Length: 30)>$ | Descripción de sector.
+segmentId | Byte $<(Length: 2)>$ | Identificador de segmento.
+segmentDescription | String $<(Length: 30)>$ | Descripción de segmento.
+statusId | Byte $<(Length: 2)>$ | Identificador de estado.
+statusDescription | String $<(Length: 40)>$ | Descripción del estado.
 :::
 
-::: details SdtsBTPAWCustomField
+::: details customField
 
-### SdtsBTPAWCustomField
+### customField
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTPAWCustomField son los siguientes:
+Los campos del tipo de dato estructurado customField son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-Correlative | Short | Correlativo.
-Id | String $<(Length: 30)>$ | Identificador.
-Description | String $<(Length: 50)>$ | Descripción.
-Value | String $<(Length: 250)>$ | Value.
+:--------- | :--------- | :---------
+correlative | Short $<(Length: 4)>$ | Correlativo del campo adicional.
+id | String $<(Length: 30)>$ | Identificador del campo adicional.
+description | String $<(Length: 50)>$ | Descripción de campo adicional.
+value | String $<(Length: 250)>$ | Valor del campo adicional.
 :::
 <!-- CIERRA SDT -->

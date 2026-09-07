@@ -1,17 +1,19 @@
 ---
-title: Update Occupations
+title: Occupations
+type: PUT
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para actualizar las ocupaciones de una persona.
+::: note
+Método para actualizar las ocupaciones de una persona.
 
-**Nombre publicación:** PublicPersons.updateOccupations
-
-**Módulo:** Customers
+**Nombre publicación:** PublicPersons.occupations
 
 **Programa:** PublicAPI.BTPEPA0034
 
 **Alcance:** Global
+
+**Endpoint:** /public/Persons/v1/occupations
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -21,15 +23,14 @@ title: Update Occupations
 @tab Datos de Entrada
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+:--------- | :--------- | :---------
 personGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la persona.
-
 
 @tab Body
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-occupations | [SdtsBTPEWOccupation](#sdtsbtpewoccupation) | Listado de ocupaciones.
+occupations | [occupation](#occupation) | Listado de ocupaciones.
 
 @tab Datos de Salida
 
@@ -38,24 +39,19 @@ No aplica.
 @tab Errores
 
 Código | Descripción
-:--------- | :-----------
+:--------- | :---------
 40010004 | La persona no existe
+40010031 | Debe ingresar ocupaciones
+40010037 | Debe ingresar un tipo de actividad comprendido entre 1 y 999999999999999
 40010038 | No se ingresó una ocupación principal
-40010039 | Se ingresó más de una ocupación principal
-40010078 | Se ingresó más de una actividad principal
-40010079 | Debe seleccionar al menos una actividad económica como principal
 40010081 | La actividad no corresponde al tipo seleccionado
 40010084 | Ocupación incorrecta
-40010087 | Vínculo incorrecto
 40010088 | Actividad económica incorrecta
+40010151 | La actividad no existe
+40010300 | Debe ingresar un código de Tipo de Establecimiento comprendido 1 y 999999
 40010304 | El Tipo de Establecimiento no existe
-40020012 | El número de contraparte no existe
-40020017 | La persona ingresada no existe
+40010336 | Debe ingresar una actividad y el código debe estar comprendido entre 1 y 999999999
 40050001 | Debe ingresar el GUID de persona.
-50050003 | No se encuentra la empresa
-99990010006 | No se pudo resolver el usuario
-99990010007 | No se pudo resolver la empresa
-
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -64,65 +60,58 @@ Código | Descripción
 <!-- ABRE EJEMPLO DE INVOCACIÓN -->
 ::: details Ejemplo de Invocación
 ::: code-tabs #Formato
-@tab JSON
-```json
-{
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "0F262E85182DF86F9CA30F0E"
-  },
-  "personGUID": "a542ed11-a4e4-4ead-83b6-b3530961c2b9",
+
+@tab cURL
+```bash
+curl -X PUT \
+  '{{baseUrl}}/public/Persons/v1/occupations?personGUID=d742016d-f0fc-4fff-be0e-3ff1dd7015a4' \
+  -H 'Device: {{device}}' \
+  -H 'Usuario: {{usuario}}' \
+  -H 'Requerimiento: {{requerimiento}}' \
+  -H 'Canal: {{canal}}' \
+  -H 'Token: {{token}}' \
+  -H 'Content-Type: application/json' \
+  -d '{
   "occupations": {
     "occupation": [
       {
-        "Correlative": 1,
-        "OccupationId": 1,
-        "OccupationTypeId": 1,
-        "EconomicActivityId": 1113,
-        "JobTitleId": 1,
-        "MainOccupation": true,
-        "StartDate": "2020-01-01",
-        "Income": 50000,
-        "Exports": false,
-        "Imports": false,
-        "Multilateral": false
+        "companyDocument": "",
+        "companyName": "EMPRESA 1",
+        "correlative": 1,
+        "economicActivityDescription": "FAMILIAS",
+        "economicActivityId": 97000,
+        "economicActivityTypeDescription": "FAMILIAS",
+        "economicActivityTypeId": 65,
+        "establishmentTypeDescription": "ESTABLECIMIENTO / LOCAL",
+        "establishmentTypeId": 2,
+        "exports": false,
+        "imports": false,
+        "income": 80000,
+        "jobTitleDescription": "ACCIONISTA",
+        "jobTitleId": 19,
+        "mainOccupation": true,
+        "multilateral": false,
+        "occupationDescription": "EMPLEADO",
+        "occupationId": 1,
+        "occupationTypeDescription": "DEPENDIENTE",
+        "occupationTypeId": 1,
+        "startDate": "2024-01-01"
       }
     ]
   }
 }'
 ```
+
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
 
 <!-- ABRE EJEMPLO DE RESPUESTA -->
 ::: details Ejemplo de Respuesta
 ::: code-tabs #Formato
+
 @tab JSON
 ```json
-{
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "0F262E85182DF86F9CA30F0E"
-  },
-  "BusinessErrors": {
-    "BusinessError": []
-  },
-  "Btoutreq": {
-    "Estado": "OK",
-    "Fecha": "2026-05-14",
-    "Hora": "18:56:11",
-    "Numero": 13469381,
-    "Servicio": "PublicPersons.updateOccupations",
-    "Requerimiento": "1",
-    "Canal": "BTDIGITAL"
-  }
-}
+{}
 ```
 :::
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
@@ -130,36 +119,36 @@ Código | Descripción
 ## **Tipos de Dato Estructurado**
 
 <!-- ABRE SDT -->
-::: details SdtsBTPEWOccupation
+::: details occupation
 
-### SdtsBTPEWOccupation
+### occupation
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTPEWOccupation son los siguientes:
+Los campos del tipo de dato estructurado occupation son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-CompanyDocument | String $<(Length: 25)>$ | Documento de empresa.
-CompanyName | String $<(Length: 70)>$ | Nombre de empresa.
-Correlative | Byte $<(Length: 2)>$ | Correlativo.
-EconomicActivityId | Long $<(Length: 11)>$ | Identificador de actividad económica.
-EconomicActivityDescription | String $<(Length: 80)>$ | Descripción de actividad económica.
-EconomicActivityTypeId | Long $<(Length: 15)>$ | Identificador del tipo de actividad económica.
-EconomicActivityTypeDescription | String $<(Length: 60)>$ | Descripción del tipo de actividad económica.
-EndDate | Date $<(Length: 8)>$ | Fecha de fin.
-EstablishmentTypeId | Int $<(Length: 6)>$ | Identificador del tipo de establecimiento.
-EstablishmentTypeDescription | String $<(Length: 50)>$ | Descripción del tipo de establecimiento.
-Exports | Boolean | Exporta.
-Imports | Boolean | Importa.
-Income | Double $<(Length: 18)>$ | Ingresos.
-JobTitleId | Short $<(Length: 4)>$ | Identificador del cargo.
-JobTitleDescription | String $<(Length: 30)>$ | Descripción del cargo.
-MainOccupation | Boolean | Ocupación principal.
-Multilateral | Boolean | Multilateral.
-OccupationId | Int $<(Length: 5)>$ | Identificador de ocupación.
-OccupationDescription | String $<(Length: 30)>$ | Descripción de la ocupación.
-OccupationTypeId | Short | Identificador del tipo de ocupación.
-OccupationTypeDescription | String $<(Length: 30)>$ | Descripción del tipo de ocupación.
-StartDate | Date $<(Length: 8)>$ | Fecha de inicio.
+:--------- | :--------- | :---------
+companyDocument | String $<(Length: 25)>$ | Documento de la empresa.
+companyName | String $<(Length: 70)>$ | Nombre de la empresa.
+correlative | Byte $<(Length: 4)>$ | Correlativo de ocupación.
+economicActivityId | Long $<(Length: 11)>$ | Identificador de actividad.
+economicActivityDescription | String $<(Length: 80)>$ | Descripción de actividad económica.
+economicActivityTypeId | Long $<(Length: 15)>$ | Identificador de tipo de actividad económica.
+economicActivityTypeDescription | String $<(Length: 60)>$ | Descripción de tipo de actividad económica.
+endDate | Date $<(Length: 8)>$ | Fecha de fin.
+establishmentTypeId | Int $<(Length: 6)>$ | Identificador de tipo de establecimiento.
+establishmentTypeDescription | String $<(Length: 50)>$ | Descripción de tipo de establecimiento.
+exports | Boolean | ¿Es negocio de exportación?
+imports | Boolean | ¿Es negocio de importación?
+income | Double $<(Length: 18.2)>$ | Ingresos.
+jobTitleId | Short $<(Length: 4)>$ | Identificador del cargo.
+jobTitleDescription | String $<(Length: 30)>$ | Descripción del cargo.
+mainOccupation | Boolean | ¿Es ocupación principal?
+multilateral | Boolean | ¿Es multilateral?
+occupationId | Int $<(Length: 5)>$ | Identificador de ocupación.
+occupationDescription | String $<(Length: 30)>$ | Descripción de ocupación.
+occupationTypeId | Short $<(Length: 4)>$ | Identificador de tipo de ocupación.
+occupationTypeDescription | String $<(Length: 30)>$ | Descripción de tipo de ocupación.
+startDate | Date $<(Length: 8)>$ | Fecha de inicio.
 :::
 <!-- CIERRA SDT -->

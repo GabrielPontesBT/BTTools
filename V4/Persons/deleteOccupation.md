@@ -1,17 +1,19 @@
 ---
-title: Delete Occupation
+title: Occupation
+type: DELETE
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para eliminar la ocupación de una persona.
+::: note
+Método para eliminar la ocupación de una persona.
 
-**Nombre publicación:** PublicPersons.deleteOccupation
-
-**Módulo:** Customers
+**Nombre publicación:** PublicPersons.occupation
 
 **Programa:** PublicAPI.BTPEPA0035
 
 **Alcance:** Global
+
+**Endpoint:** /public/Persons/v1/occupation
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -21,10 +23,13 @@ title: Delete Occupation
 @tab Datos de Entrada
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+:--------- | :--------- | :---------
 personGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la persona.
-correlative | Byte $<(Length: 2)>$ | Correlativo.
+occupationCorrelative | Byte $<(Length: 2)>$ | Correlativo de la ocupación.
 
+@tab Body
+
+No aplica.
 
 @tab Datos de Salida
 
@@ -33,25 +38,11 @@ No aplica.
 @tab Errores
 
 Código | Descripción
-:--------- | :-----------
+:--------- | :---------
 40010004 | La persona no existe
-40010038 | No se ingresó una ocupación principal
-40010039 | Se ingresó más de una ocupación principal
-40010078 | Se ingresó más de una actividad principal
-40010079 | Debe seleccionar al menos una actividad económica como principal
-40010081 | La actividad no corresponde al tipo seleccionado
+40010031 | Debe ingresar ocupaciones
 40010084 | Ocupación incorrecta
-40010087 | Vínculo incorrecto
-40010088 | Actividad económica incorrecta
-40010304 | El Tipo de Establecimiento no existe
-40020012 | El número de contraparte no existe
-40020017 | La persona ingresada no existe
 40050001 | Debe ingresar el GUID de persona.
-50050003 | No se encuentra la empresa
-99990010006 | No se pudo resolver el usuario
-99990010007 | No se pudo resolver la empresa
-
-
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -60,49 +51,28 @@ Código | Descripción
 <!-- ABRE EJEMPLO DE INVOCACIÓN -->
 ::: details Ejemplo de Invocación
 ::: code-tabs #Formato
-@tab JSON
-```json
-{
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "0F262E85182DF86F9CA30F0E"
-  },
-  "personGUID": "a542ed11-a4e4-4ead-83b6-b3530961c2b9",
-  "correlative": 1
-}'
+
+@tab cURL
+```bash
+curl -X DELETE \
+  '{{baseUrl}}/public/Persons/v1/occupation?personGUID=d742016d-f0fc-4fff-be0e-3ff1dd7015a4&occupationCorrelative=1' \
+  -H 'Device: {{device}}' \
+  -H 'Usuario: {{usuario}}' \
+  -H 'Requerimiento: {{requerimiento}}' \
+  -H 'Canal: {{canal}}' \
+  -H 'Token: {{token}}'
 ```
+
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
 
 <!-- ABRE EJEMPLO DE RESPUESTA -->
 ::: details Ejemplo de Respuesta
 ::: code-tabs #Formato
+
 @tab JSON
 ```json
-{
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "0F262E85182DF86F9CA30F0E"
-  },
-  "BusinessErrors": {
-    "BusinessError": []
-  },
-  "Btoutreq": {
-    "Estado": "OK",
-    "Fecha": "2026-05-14",
-    "Hora": "18:56:36",
-    "Numero": 13469390,
-    "Servicio": "PublicPersons.deleteOccupation",
-    "Requerimiento": "1",
-    "Canal": "BTDIGITAL"
-  }
-}
+{}
 ```
 :::
 <!-- CIERRA EJEMPLO DE RESPUESTA -->

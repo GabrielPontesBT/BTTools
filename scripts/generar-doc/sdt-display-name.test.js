@@ -58,3 +58,23 @@ test('nombreVisibleCampo: campo primitivo no es SDT', () => {
   const row = { BTISDTELEMNOM: 'id', BTISDTELEMSDT: null, BTISDTELEMTIPO: 'Int' };
   assert.deepEqual(nombreVisibleCampo(row), { esSdt: false });
 });
+
+test('nombreVisibleCampo: campo coleccion usa el nombre del item, no el del campo (ej. addresses -> address)', () => {
+  const row = { BTISDTELEMNOM: 'addresses', BTISDTELEMCAT: 'C', BTISDTELEMNOMIT: 'address', BTISDTELEMSDT: 'SdtBTPEAddress', BTISDTELEMTIPO: 'SdtBTPEAddress' };
+  const r = nombreVisibleCampo(row);
+  assert.equal(r.esSdt, true);
+  assert.equal(r.nombre, 'address');
+  assert.equal(r.sdtNomDB, 'SdtBTPEAddress');
+});
+
+test('nombreVisibleCampo: campo coleccion sin item nombrado cae al nombre del campo', () => {
+  const row = { BTISDTELEMNOM: 'items', BTISDTELEMCAT: 'C', BTISDTELEMNOMIT: '', BTISDTELEMSDT: 'SdtAlgo', BTISDTELEMTIPO: 'SdtAlgo' };
+  const r = nombreVisibleCampo(row);
+  assert.equal(r.nombre, 'items');
+});
+
+test('nombreVisibleCampo: campo SDT simple (no coleccion) ignora BTISDTELEMNOMIT aunque venga cargado', () => {
+  const row = { BTISDTELEMNOM: 'product', BTISDTELEMCAT: 'S', BTISDTELEMNOMIT: 'shouldNotBeUsed', BTISDTELEMSDT: 'SdtBTLOPAProduct', BTISDTELEMTIPO: 'SdtBTLOPAProduct' };
+  const r = nombreVisibleCampo(row);
+  assert.equal(r.nombre, 'product');
+});

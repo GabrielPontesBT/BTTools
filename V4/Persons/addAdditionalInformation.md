@@ -1,17 +1,19 @@
 ---
 title: Add Additional Information
+type: POST
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para agregar información adicional a una persona.
+::: note
+Método para agregar información adicional a una persona.
 
 **Nombre publicación:** PublicPersons.addAdditionalInformation
-
-**Módulo:** Customers
 
 **Programa:** PublicAPI.BTPEPA0026
 
 **Alcance:** Global
+
+**Endpoint:** /public/Persons/v1/addAdditionalInformation
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -21,15 +23,14 @@ title: Add Additional Information
 @tab Datos de Entrada
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+:--------- | :--------- | :---------
 personGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la persona.
-
 
 @tab Body
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-customFields | [SdtsBTPAWCustomField](#sdtsbtpawcustomfield) | Listado de campos personalizados.
+customFields | [customField](#customfield) | Listado de campos personalizados a agregar.
 
 @tab Datos de Salida
 
@@ -38,18 +39,9 @@ No aplica.
 @tab Errores
 
 Código | Descripción
-:--------- | :-----------
-
-90046 | El código de sector ingresado no existe
-40010151 | La actividad no existe
-40020006 | Contraparte no existe
-40020012 | El número de contraparte no existe
+:--------- | :---------
+40010004 | La persona no existe
 40050001 | Debe ingresar el GUID de persona.
-50020018 | El país no se encuentra registrado
-50050003 | No se encuentra la empresa
-99990010006 | No se pudo resolver el usuario
-99990010007 | No se pudo resolver la empresa
-
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -58,58 +50,41 @@ Código | Descripción
 <!-- ABRE EJEMPLO DE INVOCACIÓN -->
 ::: details Ejemplo de Invocación
 ::: code-tabs #Formato
-@tab JSON
-```json
-{
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "0F262E85182DF86F9CA30F0E"
-  },
-  "personGUID": "a542ed11-a4e4-4ead-83b6-b3530961c2b9",
+
+@tab cURL
+```bash
+curl -X POST \
+  '{{baseUrl}}/public/Persons/v1/addAdditionalInformation?personGUID=d742016d-f0fc-4fff-be0e-3ff1dd7015a4' \
+  -H 'Device: {{device}}' \
+  -H 'Usuario: {{usuario}}' \
+  -H 'Requerimiento: {{requerimiento}}' \
+  -H 'Canal: {{canal}}' \
+  -H 'Token: {{token}}' \
+  -H 'Content-Type: application/json' \
+  -d '{
   "customFields": {
     "customField": [
       {
-        "Correlative": 1,
-        "Id": "CAMPO1",
-        "Description": "DATO PRUEBA",
-        "Value": "VALOR PRUEBA"
+        "correlative": "3",
+        "description": "",
+        "id": "HOBBY",
+        "value": "Jugar fútbol"
       }
     ]
   }
 }'
 ```
+
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
 
 <!-- ABRE EJEMPLO DE RESPUESTA -->
 ::: details Ejemplo de Respuesta
 ::: code-tabs #Formato
+
 @tab JSON
 ```json
-{
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "0F262E85182DF86F9CA30F0E"
-  },
-  "BusinessErrors": {
-    "BusinessError": []
-  },
-  "Btoutreq": {
-    "Estado": "OK",
-    "Fecha": "2026-05-14",
-    "Hora": "18:56:27",
-    "Numero": 13469386,
-    "Servicio": "PublicPersons.addAdditionalInformation",
-    "Requerimiento": "1",
-    "Canal": "BTDIGITAL"
-  }
-}
+{}
 ```
 :::
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
@@ -117,18 +92,18 @@ Código | Descripción
 ## **Tipos de Dato Estructurado**
 
 <!-- ABRE SDT -->
-::: details SdtsBTPAWCustomField
+::: details customField
 
-### SdtsBTPAWCustomField
+### customField
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTPAWCustomField son los siguientes:
+Los campos del tipo de dato estructurado customField son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-Correlative | Short | Correlativo.
-Id | String $<(Length: 30)>$ | Identificador.
-Description | String $<(Length: 50)>$ | Descripción.
-Value | String $<(Length: 250)>$ | Value.
+:--------- | :--------- | :---------
+correlative | Short $<(Length: 4)>$ | Correlativo del campo adicional.
+id | String $<(Length: 30)>$ | Identificador del campo adicional.
+description | String $<(Length: 50)>$ | Descripción de campo adicional.
+value | String $<(Length: 250)>$ | Valor del campo adicional.
 :::
 <!-- CIERRA SDT -->

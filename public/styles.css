@@ -58,6 +58,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 #sg-service-groups{flex:1;min-height:0;display:flex;flex-direction:column;overflow-y:auto}
 #p5s.active{display:flex;flex-direction:column;flex:1;min-height:0}
 #p-sdtbase.active{display:flex;flex-direction:column;flex:1;min-height:0}
+#p-sdtresult.active{display:flex;flex-direction:column;flex:1;min-height:0}
+#p-paramresult.active{display:flex;flex-direction:column;flex:1;min-height:0}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 .ptitle{font-size:var(--fs-2xl);font-weight:600;margin-bottom:var(--sp-2)}
 .psub{font-size:var(--fs-base);color:var(--muted);margin-bottom:var(--sp-5);line-height:1.5}

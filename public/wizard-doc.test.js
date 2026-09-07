@@ -560,3 +560,167 @@ test('sdtEnvCaptureNext no hace nada si la conexion todavia no fue probada con e
   assert.equal(w.S.sdtEnv, null);
   assert.equal(shown, false);
 });
+
+// Regresion: el "Tipo" de un campo de SDT (BTI026/BTCBS026) vive en columnas
+// distintas segun BTISDTELEMCAT. Categoria Basico (B) lo tiene en elemtipo
+// (ej: "string", "boolean"); Categoria SDT (S) y Coleccion (C) lo dejan
+// vacio y el nombre real esta en elemsdt (ej: "SdtsBTEGWEconomicGroup").
+// Mostrar siempre field.elemtipo sin mirar elemcat dejaba el campo Tipo en
+// blanco para todo lo que no fuera Basico (reportado por el usuario:
+// Editar Parametria de SDT nunca mostraba el tipo).
+test('sdtFieldTipoDisplay muestra elemtipo para campos Basicos', () => {
+  const w = loadWizard();
+  assert.equal(w.sdtFieldTipoDisplay({ elemcat: 'B', elemtipo: 'boolean', elemsdt: '' }), 'boolean');
+});
+
+test('sdtFieldTipoDisplay muestra elemsdt (no elemtipo) para campos de categoria SDT', () => {
+  const w = loadWizard();
+  assert.equal(w.sdtFieldTipoDisplay({ elemcat: 'S', elemtipo: '', elemsdt: 'SdtCliente' }), 'SdtCliente');
+});
+
+test('sdtFieldTipoDisplay muestra elemsdt (no elemtipo) para campos de categoria Coleccion', () => {
+  const w = loadWizard();
+  assert.equal(w.sdtFieldTipoDisplay({ elemcat: 'C', elemtipo: '', elemsdt: 'SdtsBTEGWEconomicGroup' }), 'SdtsBTEGWEconomicGroup');
+});
+
+test('sdtFieldTipoDisplay no rompe con campos sin elemcat/elemsdt (fallback a elemtipo)', () => {
+  const w = loadWizard();
+  assert.equal(w.sdtFieldTipoDisplay({ elemtipo: 'int' }), 'int');
+  assert.equal(w.sdtFieldTipoDisplay({}), '');
+});
+
+// Editar Parametria -> editor de campos de SDT: para categoria S/C ahora se
+// puede reapuntar el campo a otro SDT (antes era de solo lectura siempre).
+// pgSdtFieldTipoHtml arma ese tramo del formulario; pgSdtFieldValidate exige
+// elegir un SDT real del catalogo (mismo criterio que el editor de BTI019
+// para su combo "SDT").
+test('pgSdtFieldTipoHtml arma un input editable con datalist de SDTs para categoria S', () => {
+  const w = loadWizard();
+  const html = w.pgSdtFieldTipoHtml({ elemcat: 'S', elemsdt: 'SdtCliente' });
+  assert.match(html, /pg-input-elemsdt/);
+  assert.match(html, /list="pg-sdt-list"/);
+  assert.match(html, /value="SdtCliente"/);
+  assert.doesNotMatch(html, /disabled/);
+});
+
+test('pgSdtFieldTipoHtml arma un input editable con datalist de SDTs para categoria C (coleccion)', () => {
+  const w = loadWizard();
+  const html = w.pgSdtFieldTipoHtml({ elemcat: 'C', elemsdt: 'SdtsBTEGWEconomicGroup' });
+  assert.match(html, /pg-input-elemsdt/);
+  assert.match(html, /list="pg-sdt-list"/);
+  assert.match(html, /value="SdtsBTEGWEconomicGroup"/);
+});
+
+test('pgSdtFieldTipoHtml sigue de solo lectura para categoria Basico', () => {
+  const w = loadWizard();
+  const html = w.pgSdtFieldTipoHtml({ elemcat: 'B', elemtipo: 'boolean' });
+  assert.match(html, /disabled/);
+  assert.match(html, /value="boolean"/);
+  assert.doesNotMatch(html, /pg-input-elemsdt/);
+});
+
+test('pgSdtFieldValidate exige elegir un SDT (nombre + version del catalogo) para categoria S', () => {
+  const w = loadWizard();
+  w.pgSdtOptions = [{ nom: 'SdtCliente', version: '3' }];
+  assert.equal(w.pgSdtFieldValidate({ elemnom: 'campo1', elemcat: 'S', elemsdt: '', sdtve: '', elemlargo: '0', elemdeci: '0' }), 'Elegí un SDT para este campo.');
+  assert.equal(w.pgSdtFieldValidate({ elemnom: 'campo1', elemcat: 'S', elemsdt: 'SdtNoExiste', sdtve: '', elemlargo: '0', elemdeci: '0' }), 'Elegí un SDT para este campo.', 'un nombre que no matchea el catalogo no tiene version -> sigue invalido');
+  assert.equal(w.pgSdtFieldValidate({ elemnom: 'campo1', elemcat: 'S', elemsdt: 'SdtCliente', sdtve: '3', elemlargo: '0', elemdeci: '0' }), null);
+});
+
+test('pgSdtFieldValidate exige elegir un SDT para categoria C (coleccion), no para Basico', () => {
+  const w = loadWizard();
+  assert.equal(w.pgSdtFieldValidate({ elemnom: 'campo1', elemcat: 'C', elemsdt: '', sdtve: '', elemlargo: '0', elemdeci: '0' }), 'Elegí un SDT para este campo.');
+  assert.equal(w.pgSdtFieldValidate({ elemnom: 'campo1', elemcat: 'B', elemtipo: 'boolean', elemlargo: '0', elemdeci: '0' }), null, 'Basico no requiere elemsdt/sdtve');
+});
+
+// Regresion: reportado por el usuario como "a veces no me deja escribir,
+// pero si me deja borrar" en el editor de parametros. Reproducido contra la
+// pagina real: pgRenderEditor/pgRenderSdtEditor/sdtgenRenderEditor reconstruyen
+// TODO el HTML de las tarjetas en cada render, asi que un input enfocado
+// pierde el foco (document.activeElement pasa a <body>). Eso es invisible la
+// mayoria de las veces, pero la sugerencia automatica por nombre (ver
+// pgLookupSuggestion) puede resolver DESPUES del debounce mientras el
+// usuario sigue escribiendo, disparando un re-render a mitad de tipear y
+// dejando las teclas siguientes sin destino. withFocusPreserved envuelve
+// esos renders para restaurar foco + cursor en el mismo campo logico
+// (mismo class name especifico + mismo indice) despues de reconstruir el DOM.
+//
+// No hay jsdom en el proyecto (loadWizard corre wizard-doc.js en un sandbox
+// de vm con un `document` minimo), asi que estos tests arman un DOM falso
+// a mano: lo unico que withFocusPreserved necesita es document.activeElement
+// (mutable, con foco real) y document.querySelectorAll filtrando por clase.
+function makeFakeDom() {
+  var state = { activeElement: null, registry: [] };
+  function makeInput(className, value) {
+    var el = { tagName: 'INPUT', className: className, value: value, selectionStart: value.length, selectionEnd: value.length };
+    el.focus = function() { state.activeElement = el; };
+    el.setSelectionRange = function(a, b) { el.selectionStart = a; el.selectionEnd = b; };
+    return el;
+  }
+  var doc = {
+    get activeElement() { return state.activeElement; },
+    querySelectorAll: function(sel) {
+      var cls = sel.replace(/^\./, '');
+      return state.registry.filter(function(el) { return el.className.split(/\s+/).indexOf(cls) !== -1; });
+    },
+  };
+  return { doc: doc, state: state, makeInput: makeInput };
+}
+
+test('withFocusPreserved restaura foco y cursor en el mismo campo logico despues de un render que reconstruye el DOM', () => {
+  const w = loadWizard();
+  const dom = makeFakeDom();
+  w.document = dom.doc;
+
+  dom.state.registry = [dom.makeInput('pg-input-nom', 'campoA'), dom.makeInput('pg-input-nom', 'existsX')];
+  dom.state.registry[1].focus();
+  dom.state.registry[1].setSelectionRange(7, 7); // cursor al final de "existsX", como si el usuario siguiera tipeando ahi
+
+  var renderRan = false;
+  w.withFocusPreserved(function() {
+    renderRan = true;
+    // Simula container.innerHTML = '' + reconstruccion: el nodo enfocado
+    // deja de existir (el foco se pierde) y aparecen nodos NUEVOS con la
+    // misma clase/orden pero distinta identidad -- igual que un re-render real.
+    dom.state.activeElement = null;
+    dom.state.registry = [dom.makeInput('pg-input-nom', 'campoA'), dom.makeInput('pg-input-nom', 'existsXY')];
+  });
+
+  assert.equal(renderRan, true);
+  assert.equal(dom.doc.activeElement, dom.state.registry[1], 'el foco vuelve al input logicamente equivalente (misma clase, mismo indice), no queda en <body>');
+  assert.equal(dom.doc.activeElement.value, 'existsXY');
+  assert.equal(dom.doc.activeElement.selectionStart, 7, 'el cursor no salta al final ni al principio');
+  assert.equal(dom.doc.activeElement.selectionEnd, 7);
+});
+
+test('withFocusPreserved no rompe si nada estaba enfocado antes del render', () => {
+  const w = loadWizard();
+  const dom = makeFakeDom();
+  w.document = dom.doc;
+  dom.state.registry = [dom.makeInput('pg-input-nom', 'campoA')];
+  // activeElement queda null (nada enfocado, ej. el render lo dispara un fetch en background).
+  var renderRan = false;
+  assert.doesNotThrow(function() {
+    w.withFocusPreserved(function() { renderRan = true; });
+  });
+  assert.equal(renderRan, true);
+  assert.equal(dom.doc.activeElement, null);
+});
+
+test('withFocusPreserved usa la clase mas especifica cuando el input tiene varias clases', () => {
+  const w = loadWizard();
+  const dom = makeFakeDom();
+  w.document = dom.doc;
+  // Mismo patron que las plantillas reales: "sdtgen-field-input pg-input-elemnom".
+  dom.state.registry = [dom.makeInput('sdtgen-field-input pg-input-elemnom', 'campoViejo')];
+  dom.state.registry[0].focus();
+  dom.state.registry[0].setSelectionRange(4, 4);
+
+  w.withFocusPreserved(function() {
+    dom.state.activeElement = null;
+    dom.state.registry = [dom.makeInput('sdtgen-field-input pg-input-elemnom', 'campoNuevo')];
+  });
+
+  assert.equal(dom.doc.activeElement, dom.state.registry[0]);
+  assert.equal(dom.doc.activeElement.selectionStart, 4);
+});

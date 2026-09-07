@@ -110,6 +110,17 @@ function sdtgenEscapeAttr(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+// El "tipo" de un campo de SDT (BTI026/BTCBS026) vive en columnas distintas
+// segun BTISDTELEMCAT: B (Basico) lo tiene en elemtipo (ej: "string",
+// "boolean"); S (SDT) y C (Coleccion) lo dejan vacio y el nombre real esta
+// en elemsdt (ej: "SdtsBTEGWEconomicGroup"). Mostrar siempre field.elemtipo
+// sin mirar elemcat deja el campo Tipo en blanco para todo lo que no sea
+// Basico (confirmado contra el esquema real de BTI026 por el usuario).
+function sdtFieldTipoDisplay(field) {
+  if (field.elemcat === 'S' || field.elemcat === 'C') return field.elemsdt || '';
+  return field.elemtipo || '';
+}
+
 // Misma regla que valida el server (buildSdtCopy) - da feedback inmediato
 // en el editor, pero la autoridad final sigue siendo el server.
 function sdtgenValidateField(f) {
@@ -154,7 +165,7 @@ async function sdtgenLookupSuggestion(field) {
     sdtgenSuggestedNames.set(field, nombre);
     field.elemlargo = d.suggestion.shape.largo;
     field.elemdsc = d.suggestion.shape.dsc;
-    sdtgenRenderEditor();
+    withFocusPreserved(sdtgenRenderEditor);
     sdtgenFlashSuggestion(field);
   } catch(e) { /* la sugerencia es solo una ayuda, no bloquea el flujo si falla */ }
 }
@@ -250,7 +261,7 @@ function sdtgenRenderExistingCopies() {
           var fields = d.bti026 || [];
           if (!fields.length) { body.innerHTML = '<span class="sdtgen-existing-loading">Sin campos.</span>'; return; }
           body.innerHTML = fields.map(function(f) {
-            return '<div class="sdtgen-existing-field"><span>' + sdtgenEscapeAttr(f.elemnom) + '</span><span>' + sdtgenEscapeAttr(f.elemtipo) + '</span><span>' + sdtgenEscapeAttr(f.elemdsc) + '</span></div>';
+            return '<div class="sdtgen-existing-field"><span>' + sdtgenEscapeAttr(f.elemnom) + '</span><span>' + sdtgenEscapeAttr(sdtFieldTipoDisplay(f)) + '</span><span>' + sdtgenEscapeAttr(f.elemdsc) + '</span></div>';
           }).join('');
         })
         .catch(function(e) { body.innerHTML = '<span class="sdtgen-existing-loading">Error: ' + sdtgenEscapeAttr(e.message) + '</span>'; });
@@ -287,7 +298,7 @@ function sdtgenRenderEditor() {
     item.draggable = true;
     item.innerHTML = '<span class="sdtgen-drag-handle">&#9776;</span>' +
       '<input type="text" class="sdtgen-field-input sdtgen-field-input-nom" value="' + sdtgenEscapeAttr(field.elemnom) + '">' +
-      '<span class="sdtgen-field-type">' + sdtgenEscapeAttr(field.elemtipo) + '</span>' +
+      '<span class="sdtgen-field-type">' + sdtgenEscapeAttr(sdtFieldTipoDisplay(field)) + '</span>' +
       '<input type="text" class="sdtgen-field-input sdtgen-field-input-largo" value="' + sdtgenEscapeAttr(field.elemlargo) + '">' +
       (showV4Extras ? '<input type="text" class="sdtgen-field-input sdtgen-field-input-deci" value="' + sdtgenEscapeAttr(field.elemdeci) + '">' : '') +
       '<input type="text" class="sdtgen-field-input sdtgen-field-input-dsc" value="' + sdtgenEscapeAttr(field.elemdsc) + '">' +
@@ -471,6 +482,42 @@ var PG_BUSINESS_ERRORS_SHAPE = {
 
 function pgEscapeAttr(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Los editores de tarjetas (pgRenderEditor, pgRenderSdtEditor, sdtgenRenderEditor)
+// reconstruyen TODO el HTML de los inputs en cada render (container.innerHTML
+// = nuevo contenido), asi que cualquier input enfocado pierde el foco y el
+// cursor. La mayoria de las veces es invisible (el render lo dispara el
+// usuario soltando el mouse en un <select>), pero cuando lo dispara una
+// sugerencia automatica que llega DESPUES del debounce de 500ms mientras el
+// usuario sigue escribiendo el Nombre (ver pgLookupSuggestion/
+// pgLookupSdtSuggestion/sdtgenLookupSuggestion), el foco se va a <body> a
+// mitad de tipear: las teclas que siga apretando no llegan a ningun lado
+// hasta que hace click de nuevo en el campo — se siente como "no me deja
+// escribir". Esta funcion envuelve un render para restaurar foco + posicion
+// del cursor en el MISMO input logico despues de reconstruir el DOM,
+// identificandolo por su clase mas especifica (la ultima del atributo
+// class, ej. "pg-input-nom") + su indice entre los inputs de esa clase.
+function withFocusPreserved(renderFn) {
+  var active = document.activeElement;
+  var isText = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') && typeof active.selectionStart === 'number';
+  var cls = null, idx = -1, selStart = null, selEnd = null;
+  if (isText && active.className) {
+    var candidate = active.className.trim().split(/\s+/).pop();
+    if (candidate) {
+      var all = document.querySelectorAll('.' + candidate);
+      var pos = Array.prototype.indexOf.call(all, active);
+      if (pos >= 0) { cls = candidate; idx = pos; selStart = active.selectionStart; selEnd = active.selectionEnd; }
+    }
+  }
+  renderFn();
+  if (cls && idx >= 0) {
+    var after = document.querySelectorAll('.' + cls)[idx];
+    if (after) {
+      after.focus();
+      if (typeof after.setSelectionRange === 'function') { try { after.setSelectionRange(selStart, selEnd); } catch (e) { /* input no soporta seleccion (ej. type=number en algunos navegadores) */ } }
+    }
+  }
 }
 
 // Cualquier cambio de accion/version/motor/API invalida la seleccion de
@@ -929,7 +976,7 @@ async function pgLookupSuggestion(field) {
     if ((field.nom || '').trim() !== nombre) return;
     pgSuggestedNames.set(field, nombre);
     Object.assign(field, d.suggestion.shape);
-    pgRenderEditor();
+    withFocusPreserved(pgRenderEditor);
     pgFlashSuggestion(field);
   } catch(e) { /* la sugerencia es solo una ayuda, no bloquea el flujo si falla */ }
 }
@@ -950,23 +997,42 @@ function pgAddParam() {
 }
 
 // ── Editor de campos de un SDT existente (BTI026/BTCBS026) ────
-// Mucho mas simple que el editor de parametros: solo Nombre, Largo,
-// Decimales, Descripcion e Iterador son editables (mismo criterio que
-// buildSdtCopy en Generar SDT); el Tipo se muestra de solo lectura porque
-// cambiarlo correctamente requeriria la misma logica en cascada de
-// Categoria/SDT que tiene el editor de BTI019, y esta herramienta esta
-// pensada para corregir datos (largo/descripcion), no para redefinir un
-// campo. No hay boton de "agregar campo": la posicion 1..N ya identifica
-// una fila real de la base (ver generateFieldsScript), asi que agregar uno
-// nuevo significaria elegirle un tipo — eso sigue siendo trabajo de
-// "Generar SDT".
+// Mas simple que el editor de parametros: solo Nombre, Largo, Decimales,
+// Descripcion, Iterador son editables (mismo criterio que buildSdtCopy en
+// Generar SDT), y el Tipo (BTISDTELEMTIPO/BTISDTELEMSDT segun categoria, ver
+// sdtFieldTipoDisplay) es de solo lectura PARA CAMPOS BASICOS: cambiar el
+// tipo basico de un campo requeriria la misma logica en cascada de
+// Categoria/Largo/Decimales que tiene el editor de BTI019, y esta
+// herramienta esta pensada para corregir datos (largo/descripcion), no para
+// redefinir un campo desde cero. Para campos de categoria SDT (S) o
+// Coleccion de SDT (C) SI se puede elegir a que SDT apunta (mismo input con
+// datalist que usa el editor de BTI019 para "SDT"/"SDT del Ítem"): es un
+// caso mas acotado -- no cambia la categoria ni el resto de la fila, solo
+// la referencia -- y es un pedido real (reapuntar un campo a otro SDT sin
+// tener que recrearlo). No hay boton de "agregar campo": la posicion 1..N
+// ya identifica una fila real de la base (ver generateFieldsScript), asi
+// que agregar uno nuevo significaria elegirle categoria/tipo desde cero —
+// eso sigue siendo trabajo de "Generar SDT".
 function pgSdtFieldValidate(f) {
   if (!PG_NAME_RE.test(f.elemnom || '')) return 'Nombre invalido: debe empezar con una letra y usar solo letras, numeros o guion bajo.';
+  if ((f.elemcat === 'S' || f.elemcat === 'C') && (!(f.elemsdt || '').trim() || !(f.sdtve || '').trim())) return 'Elegí un SDT para este campo.';
   if (!PG_DIGITS_RE.test(f.elemlargo != null ? String(f.elemlargo) : '')) return 'Largo invalido: debe ser un numero entero (0 o mayor).';
   if (!PG_DIGITS_RE.test(f.elemdeci != null ? String(f.elemdeci) : '0')) return 'Decimales invalidos: debe ser un numero entero (0 o mayor).';
   if (PG_FORBIDDEN_TEXT_RE.test(f.elemdsc || '')) return 'Descripcion invalida: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
   if (f.nomit && PG_FORBIDDEN_TEXT_RE.test(f.nomit)) return 'Nombre de iterador invalido: no puede tener comillas, punto y coma, barra invertida ni saltos de linea.';
   return null;
+}
+
+// Tramo "Tipo" del editor de campos de SDT: para S/C es un input con
+// datalist (igual que "SDT"/"SDT del Ítem" en pgDynamicFieldsHtml, BTI019)
+// atado a elemsdt; para B sigue de solo lectura mostrando elemtipo (ver
+// comentario de pgSdtFieldValidate sobre por que no se permite redefinirlo).
+function pgSdtFieldTipoHtml(field) {
+  if (field.elemcat === 'S' || field.elemcat === 'C') {
+    return '<div class="pg-fgroup pg-fgroup-grow"><label class="pg-flabel">SDT</label>' +
+      '<input type="text" class="sdtgen-field-input pg-input-elemsdt" list="pg-sdt-list" placeholder="Buscar SDT..." value="' + pgEscapeAttr(field.elemsdt) + '"></div>';
+  }
+  return '<div class="pg-fgroup"><label class="pg-flabel">Tipo</label><input type="text" class="sdtgen-field-input" value="' + pgEscapeAttr(field.elemtipo) + '" disabled></div>';
 }
 
 function pgSdtFieldsAllValid() {
@@ -997,7 +1063,7 @@ function pgRenderSdtEditor() {
         '<button type="button" class="sdtgen-field-rm" title="Quitar">&times;</button>' +
       '</div>' +
       '<div class="pg-param-fields">' +
-        '<div class="pg-fgroup"><label class="pg-flabel">Tipo</label><input type="text" class="sdtgen-field-input" value="' + pgEscapeAttr(field.elemtipo) + '" disabled></div>' +
+        pgSdtFieldTipoHtml(field) +
         '<div class="pg-fgroup"><label class="pg-flabel">Largo</label><input type="text" class="sdtgen-field-input pg-input-elemlargo" value="' + pgEscapeAttr(field.elemlargo) + '"></div>' +
         (showV4Extras ? '<div class="pg-fgroup"><label class="pg-flabel">Decimales</label><input type="text" class="sdtgen-field-input pg-input-elemdeci" value="' + pgEscapeAttr(field.elemdeci) + '"></div>' : '') +
         '<div class="pg-fgroup pg-fgroup-grow"><label class="pg-flabel">Descripción</label><input type="text" class="sdtgen-field-input pg-input-elemdsc" value="' + pgEscapeAttr(field.elemdsc) + '"></div>' +
@@ -1013,6 +1079,8 @@ function pgRenderSdtEditor() {
     }
 
     card.querySelector('.pg-input-elemnom').addEventListener('input', function() { field.elemnom = this.value; updateErr(); pgScheduleSdtSuggestion(field); });
+    var elemsdtInput = card.querySelector('.pg-input-elemsdt');
+    if (elemsdtInput) elemsdtInput.addEventListener('input', function() { field.elemsdt = this.value; field.sdtve = pgSdtVersionByName(this.value); updateErr(); });
     card.querySelector('.pg-input-elemlargo').addEventListener('input', function() { field.elemlargo = this.value; updateErr(); });
     card.querySelector('.pg-input-elemdsc').addEventListener('input', function() { field.elemdsc = this.value; updateErr(); });
     if (showV4Extras) {
@@ -1093,7 +1161,7 @@ async function pgLookupSdtSuggestion(field) {
     pgSdtSuggestedNames.set(field, nombre);
     field.elemlargo = d.suggestion.shape.largo;
     field.elemdsc = d.suggestion.shape.dsc;
-    pgRenderSdtEditor();
+    withFocusPreserved(pgRenderSdtEditor);
     pgFlashSdtSuggestion(field);
   } catch(e) { /* la sugerencia es solo una ayuda, no bloquea el flujo si falla */ }
 }
@@ -2468,7 +2536,7 @@ function buildWorkflowCard(service, workflow, uncovered) {
       html += '</label>';
       if (p.isComplex) {
         var lines = p.example ? Math.min(p.example.split('\\n').length, 12) : 3;
-        var exVal = p.example ? p.example.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : (p.itemType ? '[]' : '{}');
+        var exVal = p.example ? p.example.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : (p.itemType ? (p.itemName ? '{\\n  "' + p.itemName + '": []\\n}' : '[]') : '{}');
         html += '<textarea id="' + fid + '" rows="' + lines + '" data-example="' + exVal + '" style="flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:var(--fs-sm);font-family:Consolas,monospace;resize:vertical;outline:none">' + exVal + '</textarea>';
       } else {
         html += '<input type="text" id="' + fid + '" placeholder="Ingresar valor..." style="flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:var(--fs-sm);font-family:inherit;outline:none">';
@@ -2690,7 +2758,7 @@ async function toggleEjecutar() {
         html += '</label>';
         if (p.isComplex) {
           var lines = p.example ? Math.min(p.example.split('\\n').length, 12) : 3;
-          var exVal = p.example ? p.example.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : (p.itemType ? '[]' : '{}');
+          var exVal = p.example ? p.example.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : (p.itemType ? (p.itemName ? '{\\n  "' + p.itemName + '": []\\n}' : '[]') : '{}');
           html += '<textarea id="' + fid + '" rows="' + lines + '" data-example="' + exVal + '" style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:var(--fs-sm);font-family:Consolas,monospace;resize:vertical;outline:none">' + exVal + '</textarea>';
         } else {
           html += '<input type="text" id="' + fid + '" placeholder="' + (p.type || 'Varchar') + '">';

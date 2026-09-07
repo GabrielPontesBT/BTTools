@@ -1,17 +1,19 @@
 ---
 title: Validate Existence
+type: POST
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para validar la existencia de una persona.
+::: note
+Método para validar la existencia de una persona.
 
 **Nombre publicación:** PublicPersons.validateExistence
-
-**Módulo:** Customers
 
 **Programa:** PublicAPI.BTPEPA0001
 
 **Alcance:** Global
+
+**Endpoint:** /public/Persons/v1/validateExistence
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -19,33 +21,30 @@ title: Validate Existence
 ::: tabs #Datos
 
 @tab Datos de Entrada
-No aplica.
+
+Nombre | Tipo | Comentarios
+:--------- | :--------- | :---------
+countryId | Short $<(Length: 3)>$ | Identificador del país.
+documentTypeId | Short $<(Length: 4)>$ | Identificador del tipo de documento.
+documentNumber | String $<(Length: 25)>$ | Número de documento.
 
 @tab Body
-Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-countryId | Short $<(Length: 3)>$ | Identificador de país.
-documentTypeId | Short $<(Length: 4)>$ | Tipo de documento.
-documentNumber | String $<(Length: 25)>$ | Número de documento.
+
+No aplica.
 
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-exists | Boolean | Existe?
+:--------- | :--------- | :---------
+exists | Boolean | ¿La persona ingresada existe?
 
 @tab Errores
 
 Código | Descripción
-:--------- | :-----------
-40010004 | La persona no existe
-40020017 | La persona ingresada no existe
-40050001 | Debe ingresar el GUID de persona.
-50050003 | No se encuentra la empresa
-99990010006 | No se pudo resolver el usuario
-99990010007 | No se pudo resolver la empresa
-
-
+:--------- | :---------
+40050002 | Debe ingresar el identificador de país.
+40050003 | Debe ingresar el identificador de tipo de documento.
+40050004 | Debe ingresar el número de documento.
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -54,53 +53,30 @@ Código | Descripción
 <!-- ABRE EJEMPLO DE INVOCACIÓN -->
 ::: details Ejemplo de Invocación
 ::: code-tabs #Formato
-@tab JSON
-```json
-{
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "0F262E85182DF86F9CA30F0E"
-  },
-  "countryId": 1,
-  "documentTypeId": 1,
-  "documentNumber": "12345678"
-}'
+
+@tab cURL
+```bash
+curl -X POST \
+  '{{baseUrl}}/public/Persons/v1/validateExistence?countryId=484&documentTypeId=1&documentNumber=HADR821023HHGFQS74' \
+  -H 'Device: {{device}}' \
+  -H 'Usuario: {{usuario}}' \
+  -H 'Requerimiento: {{requerimiento}}' \
+  -H 'Canal: {{canal}}' \
+  -H 'Token: {{token}}'
 ```
+
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
 
 <!-- ABRE EJEMPLO DE RESPUESTA -->
 ::: details Ejemplo de Respuesta
 ::: code-tabs #Formato
+
 @tab JSON
 ```json
 {
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "0F262E85182DF86F9CA30F0E"
-  },
-  "exists": false,
-  "BusinessErrors": {
-    "BusinessError": []
-  },
-  "Btoutreq": {
-    "Estado": "OK",
-    "Fecha": "2026-05-14",
-    "Hora": "18:54:40",
-    "Numero": 13469346,
-    "Servicio": "PublicPersons.validateExistence",
-    "Requerimiento": "1",
-    "Canal": "BTDIGITAL"
-  }
+  "exists": true
 }
 ```
 :::
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
-
-

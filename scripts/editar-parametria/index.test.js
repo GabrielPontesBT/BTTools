@@ -685,9 +685,13 @@ test('executeFieldEdits (SQL Server) DELETEa por posicion cuando se quito un cam
     queryBti026: async () => sourceFields(),
   }));
   await feature.executeFieldEdits('sqlserver', {}, 'V4', 'SdtCliente', sourceFields().slice(0, 1), 'publica');
-  // fase 0 (blanquear nombre) + fase 1 (UPDATE completo) para la unica
-  // posicion tocada, ver ORA-00001 en sg_generateFieldsUpdateScript.
-  assert.equal(queriesRun.filter(q => q.startsWith('UPDATE BTI026')).length, 2);
+  // Fase 0 blanquea las 2 posiciones VIEJAS (no solo la que sobrevive): la
+  // posicion 2 se borra al final pero hasta ese momento sigue existiendo
+  // con su nombre real, y podria chocar (ORA-00001) contra el nombre final
+  // de la posicion 1 si no se blanquea tambien. Fase 1 solo escribe la
+  // unica posicion que sobrevive. Ver sg_generateFieldsUpdateScript.
+  assert.equal(queriesRun.filter(q => q.startsWith('UPDATE BTI026') && q.includes('~TMP~')).length, 2, 'blanquea ambas posiciones viejas (1 y 2)');
+  assert.equal(queriesRun.filter(q => q.startsWith('UPDATE BTI026') && !q.includes('~TMP~')).length, 1, 'solo la posicion que sobrevive recibe el UPDATE final');
   assert.ok(queriesRun.some(q => q.startsWith('DELETE FROM BTI026') && q.includes('BTISDTELEMPOSI > 1')));
 });
 

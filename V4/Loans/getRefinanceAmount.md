@@ -1,17 +1,19 @@
 ---
-title: Get Refinance Amount
+title: Refinance Amount
+type: GET
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para obtener el monto de refinanciación.
+::: note
+Método para obtener el monto de refinanciación.
 
-**Nombre publicación:** PublicLoans.getRefinanceAmount
-
-**Módulo:** Loans
+**Nombre publicación:** PublicLoans.refinanceAmount
 
 **Programa:** PublicAPI.BTLOPA0018
 
 **Alcance:** Global
+
+**Endpoint:** /public/Loans/v1/refinanceAmount
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -21,21 +23,25 @@ title: Get Refinance Amount
 @tab Datos de Entrada
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+:--------- | :--------- | :---------
 counterpartyGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la contraparte.
 refinancingGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la refinanciación.
-waivedConcepts | [SdtsBTLOWaivedConcepts](#sdtsbtlowaivedconcepts) | Conceptos a condonar.
+waivedConcepts | [waivedConcepts](#waivedconcepts) | Conceptos a condonar.
+
+@tab Body
+
+No aplica.
 
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+:--------- | :--------- | :---------
 newCapital | Double $<(Length: 18.2)>$ | Nuevo monto de capital.
 
 @tab Errores
 
 Código | Descripción
-:--------- | :-----------
+:--------- | :---------
 120050002 | Debe ingresar el GUID de contraparte.
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -45,58 +51,29 @@ Código | Descripción
 <!-- ABRE EJEMPLO DE INVOCACIÓN -->
 ::: details Ejemplo de Invocación
 ::: code-tabs #Formato
-@tab JSON
-```json
-{
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "23B342928917607ECECF65BD"
-  },
-  "counterpartyGUID": "3a7f2d91-bc14-4e58-9f3a-d2c18b450e77",
-  "refinancingGUID": "e7a3d240-91bc-4f82-b3e5-2a7c640d18f9",
-  "waivedConcepts": {
-    "arrearInterest": 215.60,
-    "capital": 0.00,
-    "fee1": 0.00,
-    "fees": 0.00,
-    "insurance1": 0.00,
-    "insurances": 0.00,
-    "interest": 0.00,
-    "interestArrearPayment": 215.60,
-    "others": 0.00
-  }
-}
+
+@tab cURL
+```bash
+curl -X GET \
+  '{{baseUrl}}/public/Loans/v1/refinanceAmount?counterpartyGUID=3a7f2d91-bc14-4e58-9f3a-d2c18b450e77&refinancingGUID=e7a3d240-91bc-4f82-b3e5-2a7c640d18f9&waivedConcepts={"arrearInterest":215.6,"capital":0,"fee1":0,"fees":0,"insurance1":0,"insurances":0,"interest":0,"interestArrearPayment":215.6,"others":0}' \
+  -H 'Device: {{device}}' \
+  -H 'Usuario: {{usuario}}' \
+  -H 'Requerimiento: {{requerimiento}}' \
+  -H 'Canal: {{canal}}' \
+  -H 'Token: {{token}}'
 ```
+
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
 
 <!-- ABRE EJEMPLO DE RESPUESTA -->
 ::: details Ejemplo de Respuesta
 ::: code-tabs #Formato
+
 @tab JSON
 ```json
 {
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "23B342928917607ECECF65BD"
-  },
-  "newCapital": 47250.75,
-  "BusinessErrors": "",
-  "Btoutreq": {
-    "Estado": "OK",
-    "Fecha": "2026-06-19",
-    "Hora": "10:41:05",
-    "Numero": "10048312",
-    "Servicio": "PublicLoans.getRefinanceAmount",
-    "Requerimiento": "1",
-    "Canal": "BTDIGITAL"
-  }
+  "newCapital": 47250.75
 }
 ```
 :::
@@ -105,15 +82,15 @@ Código | Descripción
 ## **Tipos de Dato Estructurado**
 
 <!-- ABRE SDT -->
-::: details SdtsBTLOWaivedConcepts
+::: details waivedConcepts
 
-### SdtsBTLOWaivedConcepts
+### waivedConcepts
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTLOWaivedConcepts son los siguientes:
+Los campos del tipo de dato estructurado waivedConcepts son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+:--------- | :--------- | :---------
 arrearInterest | Double $<(Length: 18.2)>$ | Interés de mora.
 capital | Double $<(Length: 18.2)>$ | Capital.
 fee1 | Double $<(Length: 18.5)>$ | Gasto 1.

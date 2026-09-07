@@ -1,17 +1,19 @@
 ---
-title: Get Additional Information
+title: Additional Information
+type: GET
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para obtener la información adicional de una persona.
+::: note
+Método para obtener la información adicional de una persona.
 
-**Nombre publicación:** PublicPersons.getAdditionalInformation
-
-**Módulo:** Customers
+**Nombre publicación:** PublicPersons.additionalInformation
 
 **Programa:** PublicAPI.BTPEPA0029
 
 **Alcance:** Global
+
+**Endpoint:** /public/Persons/v1/additionalInformation
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -21,23 +23,25 @@ title: Get Additional Information
 @tab Datos de Entrada
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+:--------- | :--------- | :---------
 personGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la persona.
 
+@tab Body
+
+No aplica.
 
 @tab Datos de Salida
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-customFields | [SdtsBTPAWCustomField](#sdtsbtpawcustomfield) | Listado de campos personalizados.
+:--------- | :--------- | :---------
+customFields | [customField](#customfield) | Listado de campos personalizados.
 
 @tab Errores
 
 Código | Descripción
-:--------- | :-----------
+:--------- | :---------
 40010004 | La persona no existe
 40050001 | Debe ingresar el GUID de persona.
-
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -46,62 +50,43 @@ Código | Descripción
 <!-- ABRE EJEMPLO DE INVOCACIÓN -->
 ::: details Ejemplo de Invocación
 ::: code-tabs #Formato
-@tab JSON
-```json
-{
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "0F262E85182DF86F9CA30F0E"
-  },
-  "personGUID": "a542ed11-a4e4-4ead-83b6-b3530961c2b9"
-}'
+
+@tab cURL
+```bash
+curl -X GET \
+  '{{baseUrl}}/public/Persons/v1/additionalInformation?personGUID=d742016d-f0fc-4fff-be0e-3ff1dd7015a4' \
+  -H 'Device: {{device}}' \
+  -H 'Usuario: {{usuario}}' \
+  -H 'Requerimiento: {{requerimiento}}' \
+  -H 'Canal: {{canal}}' \
+  -H 'Token: {{token}}'
 ```
+
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
 
 <!-- ABRE EJEMPLO DE RESPUESTA -->
 ::: details Ejemplo de Respuesta
 ::: code-tabs #Formato
+
 @tab JSON
 ```json
 {
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "0F262E85182DF86F9CA30F0E"
-  },
   "customFields": {
     "customField": [
       {
-        "Correlative": 1,
-        "Id": "Afición",
-        "Value": "0",
-        "Description": ""
+        "correlative": 1,
+        "description": "",
+        "id": "Afición",
+        "value": "0"
       },
       {
-        "Correlative": 1,
-        "Id": "Profesión",
-        "Value": "0",
-        "Description": ""
+        "correlative": 1,
+        "description": "",
+        "id": "Profesión",
+        "value": "0"
       }
     ]
-  },
-  "BusinessErrors": {
-    "BusinessError": []
-  },
-  "Btoutreq": {
-    "Estado": "OK",
-    "Fecha": "2026-05-14",
-    "Hora": "18:55:30",
-    "Numero": 13469364,
-    "Servicio": "PublicPersons.getAdditionalInformation",
-    "Requerimiento": "1",
-    "Canal": "BTDIGITAL"
   }
 }
 ```
@@ -111,18 +96,18 @@ Código | Descripción
 ## **Tipos de Dato Estructurado**
 
 <!-- ABRE SDT -->
-::: details SdtsBTPAWCustomField
+::: details customField
 
-### SdtsBTPAWCustomField
+### customField
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTPAWCustomField son los siguientes:
+Los campos del tipo de dato estructurado customField son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-Correlative | Short | Correlativo.
-Id | String $<(Length: 30)>$ | Identificador.
-Description | String $<(Length: 50)>$ | Descripción.
-Value | String $<(Length: 250)>$ | Value.
+:--------- | :--------- | :---------
+correlative | Short $<(Length: 4)>$ | Correlativo del campo adicional.
+id | String $<(Length: 30)>$ | Identificador del campo adicional.
+description | String $<(Length: 50)>$ | Descripción de campo adicional.
+value | String $<(Length: 250)>$ | Valor del campo adicional.
 :::
 <!-- CIERRA SDT -->

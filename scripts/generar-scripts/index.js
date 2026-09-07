@@ -426,8 +426,14 @@ function btcbs_generateFieldsUpdateScript(sdt, oldCount) {
   const touched = Math.min(oldCount, newCount);
   // Fase 0: blanquear BSELMNAME (unique por SDT) a un valor temporal antes de
   // reescribir filas por posicion. Ver comentario extenso en la version V4/V3
-  // (sg_generateFieldsUpdateScript) sobre por que hace falta esto.
-  for (let i = 0; i < touched; i++) {
+  // (sg_generateFieldsUpdateScript) sobre por que hace falta esto. Recorre
+  // oldCount COMPLETO (no solo touched=min(oldCount,newCount)): las
+  // posiciones > newCount van a DELETE al final, pero siguen existiendo con
+  // su nombre REAL hasta ese DELETE -- si un campo reordenado/editado toma
+  // ese mismo nombre en el medio (ORA-00001 real, reportado por el usuario:
+  // posicion eliminada "referenceTypeId" chocaba contra la posicion 7
+  // reordenada, tambien "referenceTypeId"), sin blanquearla antes.
+  for (let i = 0; i < oldCount; i++) {
     const posi = i + 1;
     lines.push('UPDATE BTCBS026 SET BSELMNAME='+q(sg_tempElemName(posi))+' WHERE BSSDTNAME='+q(nom)+' AND BSELMPOS='+posi+';');
   }
@@ -477,8 +483,15 @@ function sg_generateFieldsUpdateScript(sdt, oldCount, version, apiMode) {
   // resultado final del script sea perfectamente valido. Blanquear el nombre
   // a un valor temporal unico-por-posicion en una pasada aparte, ANTES de
   // reescribir las filas, elimina esa colision transitoria sin necesidad de
-  // detectar si hubo o no un cruce.
-  for (let i = 0; i < touched; i++) {
+  // detectar si hubo o no un cruce. Recorre oldCount COMPLETO (no solo
+  // touched=min(oldCount,newCount)): las posiciones > newCount van a DELETE
+  // al final de esta funcion, pero hasta ese momento siguen existiendo con
+  // su nombre REAL -- si un campo reordenado/editado toma justo ese nombre,
+  // el UPDATE de la fase 1 de abajo choca contra esa fila todavia no
+  // eliminada (ORA-00001 real, reportado por el usuario: la posicion
+  // eliminada "referenceTypeId" todavia no borrada colisionaba contra la
+  // posicion reordenada que tambien se llamaba "referenceTypeId").
+  for (let i = 0; i < oldCount; i++) {
     const posi = i + 1;
     lines.push('UPDATE BTI026 SET '+elemNomCol+'='+q(sg_tempElemName(posi))+' WHERE '+nomCol+'='+q(nom)+' AND '+posiCol+'='+posi+';');
   }

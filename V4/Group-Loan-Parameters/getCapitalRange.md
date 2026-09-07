@@ -42,11 +42,8 @@ maximumCapital | Double $<(Length: 18.2)>$ | Capital máximo.
 
 Código | Descripción
 :--------- | :---------
-500 | 
-50050003 | No existe la empresa ingresada
 120050009 | Debe ingresar el GUID de producto.
 120060126 | No existe configuración para el ciclo
-
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -83,5 +80,3 @@ curl -X GET \
 ```
 :::
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
-
-

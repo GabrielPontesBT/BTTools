@@ -1,17 +1,19 @@
 ---
-title: Update Reference
+title: Reference
+type: PUT
 ---
 
 <!-- ABRE DATOS DEL MÉTODO -->
-::: note Método para actualizar las referencias de una persona.
+::: note
+Método para actualizar las referencias de una persona.
 
-**Nombre publicación:** PublicPersons.updateReference
-
-**Módulo:** Customers
+**Nombre publicación:** PublicPersons.reference
 
 **Programa:** PublicAPI.BTPEPA0018
 
 **Alcance:** Global
+
+**Endpoint:** /public/Persons/v1/reference
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -21,15 +23,14 @@ title: Update Reference
 @tab Datos de Entrada
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
+:--------- | :--------- | :---------
 personGUID | String $<(Length: 36)>$ | GUID (identificador único global) de la persona.
-
 
 @tab Body
 
 Nombre | Tipo | Comentarios
 :--------- | :--------- | :---------
-references | [SdtsBTPEWReference](#sdtsbtpewreference) | Listado de referencias.
+references | [reference](#reference) | Listado de referencias.
 
 @tab Datos de Salida
 
@@ -38,20 +39,11 @@ No aplica.
 @tab Errores
 
 Código | Descripción
-:--------- | :-----------
+:--------- | :---------
 40010004 | La persona no existe
-40010106 | Parentesco Incorrecto
-40010111 | Cargo Incorrecto
-40010132 | No existe Referencia con el correlativo ingresado
-40010133 | Tipo de Referencia Incorrecto
-40010353 | Existe inconsistencia de datos con el campo ? en la RNG ??
-40020012 | El número de contraparte no existe
-40020017 | La persona ingresada no existe
+40010141 | Código de vínculo no existe
+40010143 | Debe ingresar un código de vínculo comprendido entre 1 y 9999
 40050001 | Debe ingresar el GUID de persona.
-50050003 | No se encuentra la empresa
-99990010006 | No se pudo resolver el usuario
-99990010007 | No se pudo resolver la empresa
-
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -60,61 +52,45 @@ Código | Descripción
 <!-- ABRE EJEMPLO DE INVOCACIÓN -->
 ::: details Ejemplo de Invocación
 ::: code-tabs #Formato
-@tab JSON
-```json
-{
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "0F262E85182DF86F9CA30F0E"
-  },
-  "personGUID": "a542ed11-a4e4-4ead-83b6-b3530961c2b9",
+
+@tab cURL
+```bash
+curl -X PUT \
+  '{{baseUrl}}/public/Persons/v1/reference?personGUID=d742016d-f0fc-4fff-be0e-3ff1dd7015a4' \
+  -H 'Device: {{device}}' \
+  -H 'Usuario: {{usuario}}' \
+  -H 'Requerimiento: {{requerimiento}}' \
+  -H 'Canal: {{canal}}' \
+  -H 'Token: {{token}}' \
+  -H 'Content-Type: application/json' \
+  -d '{
   "references": {
     "reference": [
       {
-        "Correlative": 1,
-        "Name": "REFERENCIA DE PRUEBA",
-        "ReferenceTypeId": 1,
-        "Telephone": "094111222",
-        "PersonType": "F",
-        "BondOrJobTitle": "J",
-        "RelationshipId": 1
+        "correlative": "1",
+        "name": "REFERENCIA DE PRUEBA",
+        "personType": "F",
+        "referenceTypeDescription": "",
+        "referenceTypeId": "1",
+        "relationshipDescription": "",
+        "relationshipId": "1",
+        "telephone": "094111222"
       }
     ]
   }
 }'
 ```
+
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
 
 <!-- ABRE EJEMPLO DE RESPUESTA -->
 ::: details Ejemplo de Respuesta
 ::: code-tabs #Formato
+
 @tab JSON
 ```json
-{
-  "Btinreq": {
-    "Canal": "BTDIGITAL",
-    "Usuario": "INSTALADOR",
-    "Device": "INSTALADOR",
-    "Requerimiento": "1",
-    "Token": "0F262E85182DF86F9CA30F0E"
-  },
-  "BusinessErrors": {
-    "BusinessError": []
-  },
-  "Btoutreq": {
-    "Estado": "OK",
-    "Fecha": "2026-05-14",
-    "Hora": "18:56:13",
-    "Numero": 13469382,
-    "Servicio": "PublicPersons.updateReference",
-    "Requerimiento": "1",
-    "Canal": "BTDIGITAL"
-  }
-}
+{}
 ```
 :::
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
@@ -122,28 +98,27 @@ Código | Descripción
 ## **Tipos de Dato Estructurado**
 
 <!-- ABRE SDT -->
-::: details SdtsBTPEWReference
+::: details reference
 
-### SdtsBTPEWReference
+### reference
 
 ::: center
-Los campos del tipo de dato estructurado SdtsBTPEWReference son los siguientes:
+Los campos del tipo de dato estructurado reference son los siguientes:
 
 Nombre | Tipo | Comentarios
-:--------- | :----------- | :-----------
-Address1 | String $<(Length: 50)>$ | Dirección 1.
-Address2 | String $<(Length: 50)>$ | Dirección 2.
-Address3 | String $<(Length: 50)>$ | Dirección 3.
-BondOrJobTitle | String $<(Length: 1)>$ | Vínculo o cargo.
-Correlative | Short $<(Length: 3)>$ | Correlativo.
-EnterpriceJobTitleDescription | String $<(Length: 30)>$ | Descripción del cargo en la empresa.
-EnterpriseJobTitleId | Short $<(Length: 4)>$ | Identificador del cargo empresarial.
-Name | String $<(Length: 50)>$ | Nombre.
-PersonType | String $<(Length: 1)>$ | Tipo de persona.
-ReferenceTypeId | Byte $<(Length: 2)>$ | Identificador del tipo de referencia.
-ReferenceTypeDescription | String $<(Length: 30)>$ | Descripción del tipo de referencia.
-RelationshipId | Short | Identificador de relación.
-RelationshipDescription | String $<(Length: 30)>$ | Descripción de la relación.
-Telephone | String $<(Length: 50)>$ | Teléfono.
+:--------- | :--------- | :---------
+address1 | String $<(Length: 50)>$ | Dirección 1.
+address2 | String $<(Length: 50)>$ | Dirección 2.
+address3 | String $<(Length: 50)>$ | Dirección 3.
+correlative | Short $<(Length: 3)>$ | Correlativo de referencia.
+enterpriceJobTitleDescription | String $<(Length: 30)>$ | Descripción del cargo en la empresa.
+enterpriseJobTitleId | Short $<(Length: 4)>$ | Identificador del cargo en la empresa.
+name | String $<(Length: 50)>$ | Nombre de referencia.
+personType | String $<(Length: 1)>$ | Tipo de persona (F: Física, J: Jurídica, A: Ambas).
+referenceTypeId | Byte $<(Length: 2)>$ | Identificador de tipo de referencia.
+referenceTypeDescription | String $<(Length: 30)>$ | Descripción de tipo de referencia.
+relationshipId | Short $<(Length: 4)>$ | Identificador de vínculo.
+relationshipDescription | String $<(Length: 30)>$ | Descripción de vínculo.
+telephone | String $<(Length: 50)>$ | Teléfono.
 :::
 <!-- CIERRA SDT -->

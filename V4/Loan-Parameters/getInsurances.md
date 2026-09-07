@@ -40,11 +40,6 @@ insurances | [insurance](#insurance) | Listado de seguros.
 
 Código | Descripción
 :--------- | :---------
-500 | 
-980083 | La moneda y/o papel no está asociada al producto
-990070 | El sistema no se encuentra definido
-990071 | El parámetro no se encuentra definido
-50050003 | No existe la empresa ingresada
 120050009 | Debe ingresar el GUID de producto.
 
 :::
@@ -79,14 +74,132 @@ curl -X GET \
 {
   "insurances": {
     "insurance": [
-      {},
-      {},
-      {},
-      {},
-      {},
-      {},
-      {},
-      {}
+      {
+        "insuranceId": 1,
+        "insuranceDescription": "SEGURO 1",
+        "enabled": true,
+        "insuranceTypeId": 1,
+        "insuranceTypeDescription": "VIDA",
+        "insuranceCompanyId": 12,
+        "insuranceCompanyDescription": "ASEGURADORA REGIONAL",
+        "allowsModification": true,
+        "usesBoard": false,
+        "boardId": 0,
+        "boardPercentage": "0.000000",
+        "boardFixedAmount": "0.00",
+        "fixedPercentage": "0.100000",
+        "fixedAmount": "0.00",
+        "managesExtraPremium": false,
+        "chargeType": "S"
+      },
+      {
+        "insuranceId": 2,
+        "insuranceDescription": "SEGURO VIDA",
+        "enabled": false,
+        "insuranceTypeId": 1,
+        "insuranceTypeDescription": "VIDA",
+        "insuranceCompanyId": 1,
+        "insuranceCompanyDescription": "BANCO DE SEGUROS DEL ESTADO",
+        "allowsModification": false,
+        "usesBoard": false,
+        "boardId": 0,
+        "boardPercentage": "0.000000",
+        "boardFixedAmount": "0.00",
+        "fixedPercentage": "0.200000",
+        "fixedAmount": "0.00",
+        "managesExtraPremium": false,
+        "chargeType": "S"
+      },
+      {
+        "insuranceId": 8,
+        "insuranceDescription": "SEGURO DE VIDA CUOTAS",
+        "enabled": false,
+        "insuranceTypeId": 1,
+        "insuranceTypeDescription": "VIDA",
+        "insuranceCompanyId": 5,
+        "insuranceCompanyDescription": "ALIANZA SEGUROS",
+        "allowsModification": true,
+        "usesBoard": true,
+        "boardId": 30,
+        "boardPercentage": "0.500000",
+        "boardFixedAmount": "10.00",
+        "fixedPercentage": "0.500000",
+        "fixedAmount": "10.00",
+        "managesExtraPremium": false,
+        "chargeType": "S"
+      },
+      {
+        "insuranceId": 5,
+        "insuranceDescription": "SEGURO DE VIDA EN DESEMBOLSO",
+        "enabled": false,
+        "insuranceTypeId": 1,
+        "insuranceTypeDescription": "VIDA",
+        "insuranceCompanyId": 1,
+        "insuranceCompanyDescription": "BANCO DE SEGUROS DEL ESTADO",
+        "allowsModification": true,
+        "usesBoard": true,
+        "boardId": 10,
+        "boardPercentage": "0.000000",
+        "boardFixedAmount": "0.00",
+        "fixedPercentage": "0.000000",
+        "fixedAmount": "0.00",
+        "managesExtraPremium": false,
+        "chargeType": "I"
+      },
+      {
+        "insuranceId": 50,
+        "insuranceDescription": "ALIANZA VIDA ANTICIPADO",
+        "enabled": false,
+        "insuranceTypeId": 1,
+        "insuranceTypeDescription": "VIDA",
+        "insuranceCompanyId": 5,
+        "insuranceCompanyDescription": "ALIANZA SEGUROS",
+        "allowsModification": true,
+        "usesBoard": false,
+        "boardId": 0,
+        "boardPercentage": "0.000000",
+        "boardFixedAmount": "0.00",
+        "fixedPercentage": "0.565000",
+        "fixedAmount": "45.00",
+        "managesExtraPremium": false,
+        "chargeType": "K"
+      },
+      {
+        "insuranceId": 3,
+        "insuranceDescription": "XXXVIDA",
+        "enabled": false,
+        "insuranceTypeId": 1,
+        "insuranceTypeDescription": "VIDA",
+        "insuranceCompanyId": 5,
+        "insuranceCompanyDescription": "ALIANZA SEGUROS",
+        "allowsModification": false,
+        "usesBoard": false,
+        "boardId": 0,
+        "boardPercentage": "0.000000",
+        "boardFixedAmount": "0.00",
+        "fixedPercentage": "0.050000",
+        "fixedAmount": "0.00",
+        "managesExtraPremium": false,
+        "chargeType": "S"
+      },
+      {
+        "insuranceId": 4,
+        "insuranceDescription": "SEGURO VIDA ALIANZA",
+        "enabled": false,
+        "insuranceTypeId": 1,
+        "insuranceTypeDescription": "VIDA",
+        "insuranceCompanyId": 5,
+        "insuranceCompanyDescription": "ALIANZA SEGUROS",
+        "allowsModification": true,
+        "usesBoard": false,
+        "boardId": 0,
+        "boardPercentage": "0.000000",
+        "boardFixedAmount": "0.00",
+        "fixedPercentage": "1.250000",
+        "fixedAmount": "100.00",
+        "managesExtraPremium": false,
+        "chargeType": "V"
+      }
     ]
   }
 }
@@ -94,4 +207,33 @@ curl -X GET \
 :::
 <!-- CIERRA EJEMPLO DE RESPUESTA -->
 
+## **Tipos de Dato Estructurado**
 
+<!-- ABRE SDT -->
+::: details insurance
+
+### insurance
+
+::: center
+Los campos del tipo de dato estructurado insurance son los siguientes:
+
+Nombre | Tipo | Comentarios
+:--------- | :--------- | :---------
+allowsModification | Boolean | ¿Permite modificación?
+boardFixedAmount | Double $<(Length: 18.2)>$ | Monto fijo de pizarra.
+boardId | Int $<(Length: 5)>$ | Identificador de pizarra.
+boardPercentage | Double $<(Length: 11.6)>$ | Porcentaje de pizarra.
+chargeType | String $<(Length: 1)>$ | Tipo de cargo (K: Porcentaje sobre capital inicial, I: Importe fijo, S: Porcentaje sobre saldo previsto de capital, V: Cálculo sobre valor comercial).
+enabled | Boolean | ¿Está habilitado?
+fixedAmount | Double $<(Length: 18.2)>$ | Monto fijo.
+fixedPercentage | Double $<(Length: 11.6)>$ | Porcentaje fijo.
+insuranceCompanyId | Int $<(Length: 5)>$ | Identificador de compañía aseguradora.
+insuranceCompanyDescription | String $<(Length: 40)>$ | Descripción de compañía aseguradora.
+insuranceId | Int $<(Length: 9)>$ | Identificador de seguro.
+insuranceDescription | String $<(Length: 40)>$ | Descripción del seguro.
+insuranceTypeId | Int $<(Length: 5)>$ | Identificador del tipo de seguro.
+insuranceTypeDescription | String $<(Length: 40)>$ | Descripción del tipo de seguro.
+managesExtraPremium | Boolean | ¿Gestiona prima adicional?
+usesBoard | Boolean | ¿Usa pizarra?
+:::
+<!-- CIERRA SDT -->

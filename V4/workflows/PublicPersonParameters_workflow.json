@@ -1,0 +1,40 @@
+{
+  "service": "PublicPersonParameters",
+  "folder": "Person-Parameters",
+  "steps": [
+    {
+      "method": "getEconomicActivityTypes",
+      "params": {
+        "offset": "0",
+        "limit": "10"
+      }
+    },
+    {
+      "method": "getEconomicActivities"
+    },
+    {
+      "method": "getContactTypes"
+    },
+    {
+      "method": "getEstablishmentTypes"
+    },
+    {
+      "method": "getHousingTypes"
+    },
+    {
+      "method": "getMaritalStatuses"
+    },
+    {
+      "method": "getOccupations"
+    },
+    {
+      "method": "getPositions"
+    },
+    {
+      "method": "getRelationshipTypes"
+    },
+    {
+      "method": "getTelephoneCompanies"
+    }
+  ]
+}
