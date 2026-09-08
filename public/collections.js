@@ -532,10 +532,12 @@ function collectionContextKey() {
 function collectionResolveV4AuthUrl(api) {
   var publicBaseUrl = String((api && api.BASE_URL) || '').trim().replace(/\/+$/g, '');
   var apiBaseUrl = String((api && api.API_BASE_URL) || '').trim().replace(/\/+$/g, '');
-  if (publicBaseUrl) return publicBaseUrl + '/Authenticate/v1/Execute';
+  // Minusculas: ver la nota en collections/shared/collection-utils.js y la
+  // fuente de verdad en scripts/common/bantotal-urls/index.js.
+  if (publicBaseUrl) return publicBaseUrl + '/authenticate/v1/execute';
   if (apiBaseUrl) {
     var normalized = apiBaseUrl.replace(/\/api\/publicapi$/i, '');
-    return normalized + '/api/publicapi/Authenticate/v1/Execute';
+    return normalized + '/api/publicapi/authenticate/v1/execute';
   }
   return 'sin URL de autenticacion';
 }

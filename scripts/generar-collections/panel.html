@@ -23,7 +23,15 @@
             <button type="button" class="btn btn-ghost" onclick="goBack()">&#8592; Volver</button>
           </div>
           <div class="collection-catalog-grid">
-          <div class="field" style="margin-bottom:var(--sp-4)">
+          <!-- La fuente ya se eligio en el paso de Accion del wizard
+               (#collection-source-section en index.html): de ella depende si
+               se pide la conexion a la base, asi que tiene que decidirse
+               antes. Este select queda oculto porque es el que leen los
+               managers del builder (CollectionEnvironmentManager.syncSourceUi
+               y compania); wizard-doc.js lo mantiene sincronizado via
+               syncCollectionSourceToPanel. Ofrecer la eleccion en los dos
+               lados seria justamente la inconsistencia que se saco. -->
+          <div class="field" style="display:none">
             <label>Fuente</label>
             <select id="collection-source-select" onchange="collectionUpdateServiceSource(this.value)">
               <option value="swagger" selected>Swagger</option>

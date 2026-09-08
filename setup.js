@@ -78,16 +78,10 @@ function readBody(req) {
   });
 }
 
-function resolveV4AuthUrl(api) {
-  const publicBaseUrl = String((api && api.BASE_URL) || '').replace(/\/+$/g, '');
-  const apiBaseUrl = String((api && api.API_BASE_URL) || '').replace(/\/+$/g, '');
-  if (publicBaseUrl) return `${publicBaseUrl}/Authenticate/v1/Execute`;
-  if (apiBaseUrl) {
-    const normalized = apiBaseUrl.replace(/\/api\/publicapi$/i, '');
-    return `${normalized}/api/publicapi/Authenticate/v1/Execute`;
-  }
-  return '/Authenticate/v1/Execute';
-}
+// El casing del endpoint de autenticacion REST cambio a minusculas y no
+// todos los ambientes se actualizaron, asi que se prueban las dos formas.
+// Ver scripts/common/bantotal-urls/index.js.
+const { authUrlCandidates, resolveV4AuthUrl, intentarCandidatos } = require('./scripts/common/bantotal-urls');
 
 async function testSqlServer(db) {
   const mod = path.join(ROOT, 'V3', 'node_modules', 'mssql');
@@ -1477,31 +1471,61 @@ http.createServer(async (req, res) => {
               UserId: api.API_USER,
               UserPassword: api.API_PASSWORD
             });
-      const parsed = new URL(authUrl);
-      const mod = parsed.protocol === 'https:' ? require('https') : require('http');
-      const raw = await new Promise((resolve, reject) => {
-        const btHeaders = isV4 ? {
-          Canal:        api.API_CANAL        || 'BTDIGITAL',
-          Device:       api.API_DEVICE       || 'INSTALADOR',
-          Usuario:      api.API_USER,
-          Requerimiento: api.API_REQUERIMIENTO || '1',
-          Token:        '',
-          'idempotency-key': '1'
-        } : {};
-        const options = {
-          hostname: parsed.hostname, port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-          path: parsed.pathname + parsed.search, method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), ...btHeaders },
-          rejectUnauthorized: false
-        };
-        const r = mod.request(options, res => {
-          let s = ''; res.on('data', c => s += c); res.on('end', () => resolve(s));
+      function postAuth(url) {
+        const parsed = new URL(url);
+        const mod = parsed.protocol === 'https:' ? require('https') : require('http');
+        return new Promise((resolve, reject) => {
+          const btHeaders = isV4 ? {
+            Canal:        api.API_CANAL        || 'BTDIGITAL',
+            Device:       api.API_DEVICE       || 'INSTALADOR',
+            Usuario:      api.API_USER,
+            Requerimiento: api.API_REQUERIMIENTO || '1',
+            Token:        '',
+            'idempotency-key': '1'
+          } : {};
+          const options = {
+            hostname: parsed.hostname, port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+            path: parsed.pathname + parsed.search, method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), ...btHeaders },
+            rejectUnauthorized: false
+          };
+          const r = mod.request(options, res => {
+            let s = '';
+            res.on('data', c => s += c);
+            // Se conserva el status: antes se descartaba, asi que un 404
+            // caia en el JSON.parse y salia como "Respuesta inesperada",
+            // sin decir que la ruta no existia.
+            res.on('end', () => resolve({ status: res.statusCode, raw: s }));
+          });
+          r.on('error', reject);
+          r.write(body); r.end();
         });
-        r.on('error', reject);
-        r.write(body); r.end();
-      });
+      }
+
+      // Candidatos: si el usuario no dio una URL explicita, se prueban las
+      // dos formas del path de autenticacion. El endpoint paso a ser todo
+      // en minusculas y los ambientes que no se actualizaron siguen con la
+      // forma vieja; probar en orden evita tener que preguntarselo.
+      const candidatos = (explicitAuthUrl || version === 'V3' || isSessionUserLogin)
+        ? [authUrl]
+        : authUrlCandidates(api);
+
+      const resultado = await intentarCandidatos(candidatos, postAuth);
+      const respuesta = resultado.respuesta;
+      const intentos = resultado.intentos;
+      authUrl = resultado.authUrl;
+
+      if (respuesta.status === 404) {
+        throw new Error('El endpoint de autenticacion no existe en ninguna de las formas conocidas:\n  ' +
+                        intentos.join('\n  ') +
+                        '\nRevisa la URL base del ambiente, o pega la URL de autenticacion a mano.');
+      }
+
       let parsed2;
-      try { parsed2 = JSON.parse(raw); } catch { throw new Error('Respuesta inesperada: ' + raw.slice(0, 200)); }
+      try { parsed2 = JSON.parse(respuesta.raw); } catch {
+        throw new Error('Respuesta inesperada de ' + authUrl + ' (HTTP ' + respuesta.status + '): ' +
+                        respuesta.raw.slice(0, 200));
+      }
       // Session.userLogin responde "sessionToken" en minuscula, y los errores
       // en BusinessErrors/messages.global, distinto de Authenticate/Execute.
       const token = isSessionUserLogin ? parsed2.sessionToken : parsed2.SessionToken;
@@ -1512,6 +1536,9 @@ http.createServer(async (req, res) => {
       json(200, {
         ok: true,
         token,
+        // Cual de las formas del endpoint respondio. El front la muestra:
+        // con dos casings posibles, saber cual anduvo evita adivinar.
+        authUrl,
         authContext: {
           channel: api.API_CANAL || 'BTDIGITAL',
           username: api.API_USER || '',

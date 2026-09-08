@@ -5,6 +5,7 @@ const path = require('path');
 const { resolveCollectionRequestData } = require('./request-data-resolver');
 const { suggestChains } = require('./chain-suggestion');
 const { buildSwaggerCandidateUrls, SUFIJOS_SWAGGER } = require('./swagger-candidates');
+const btUrls = require('../common/bantotal-urls');
 const extract = require('./swagger-candidates/extract-spec-url');
 
 function loadAsset(fileName) {
@@ -218,16 +219,10 @@ function createCollectionFeature(deps) {
     };
   }
 
-  function resolveV4AuthUrl(api) {
-    const publicBaseUrl = String(api.BASE_URL || '').replace(/\/+$/g, '');
-    const apiBaseUrl = String(api.API_BASE_URL || '').replace(/\/+$/g, '');
-    if (publicBaseUrl) return publicBaseUrl + '/Authenticate/v1/Execute';
-    if (apiBaseUrl) {
-      const normalized = apiBaseUrl.replace(/\/api\/publicapi$/i, '');
-      return normalized + '/api/publicapi/Authenticate/v1/Execute';
-    }
-    return '/Authenticate/v1/Execute';
-  }
+  // Delega en el modulo compartido: el casing del endpoint de autenticacion
+  // cambio a minusculas y la forma con mayusculas devuelve 404 (medido
+  // contra un ambiente real). Ver scripts/common/bantotal-urls/index.js.
+  const resolveV4AuthUrl = btUrls.resolveV4AuthUrl;
 
   // Sufijos que buildSwaggerCandidateUrls agrega para encontrar el documento.
   // Si la URL que efectivamente respondio termina en uno de estos, la raiz
@@ -305,7 +300,9 @@ function createCollectionFeature(deps) {
     if (authPath) {
       return joinSwaggerBaseAndPath(baseUrl || '', authPath);
     }
-    return joinSwaggerBaseAndPath(baseUrl || '', '/Authenticate/v1/Execute');
+    // El swagger no declara el path de autenticacion: se cae a la forma
+    // actual (minusculas), no a la vieja.
+    return joinSwaggerBaseAndPath(baseUrl || '', btUrls.AUTH_PATH);
   }
 
   /**

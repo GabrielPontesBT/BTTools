@@ -108,7 +108,7 @@
         durationLabel: this.formatDuration(durationMs),
         happenedAt: happenedAt.toISOString(),
         happenedAtLabel: this.formatTime(happenedAt),
-        requestUrl: String(state && state.swaggerAuthUrl || 'http://10.0.0.5:5101/api/Authenticate/v1/Execute'),
+        requestUrl: String(state && state.swaggerAuthUrl || 'http://10.0.0.5:5101/api/authenticate/v1/execute'),
         createdVariables: variables,
         requestHeaders: {
           Canal: authContext.channel || 'BTDIGITAL',

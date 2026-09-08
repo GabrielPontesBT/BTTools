@@ -2036,8 +2036,13 @@ function _setApiHints(apiUrl, baseUrl) {
   var b = _rtrim(baseUrl || '');
   if (S.version === 'V4') {
     if (hapi) hapi.textContent = '';
+    // Todo en minusculas: confirmado contra el swagger de un ambiente real,
+    // donde el path de autenticacion es /authenticate/v1/execute y los
+    // servicios son /public/{servicio}/v1/{metodo} en kebab-case
+    // (ej. /public/saving-accounts/v1/product). La forma con mayusculas
+    // devuelve 404. Ver scripts/common/bantotal-urls/index.js.
     if (hbase) hbase.textContent = b
-      ? 'Autenticacion: ' + b + '/Authenticate/v1/Execute  |  Servicios: ' + b + '/public/{Servicio}/v1/{Metodo}'
+      ? 'Autenticacion: ' + b + '/authenticate/v1/execute  |  Servicios: ' + b + '/public/{servicio}/v1/{metodo}'
       : '';
   } else {
     if (hapi) hapi.textContent = a ? 'Ej de llamada: ' + a + '/servlet/com.dlya.bantotal.ardwsbt_{Servicio}?{Metodo}' : '';
@@ -2446,7 +2451,12 @@ async function testAuth() {
     });
     var d = await r.json();
     res.className = 'cres show ' + (d.ok ? 'ok' : 'err');
-    res.textContent = d.ok ? 'Autenticacion exitosa — token obtenido correctamente' : ('Error: ' + d.message);
+    // Se muestra la URL que respondio: el endpoint de autenticacion cambio
+    // de casing y hay dos formas posibles (ver bantotal-urls), asi que saber
+    // cual anduvo ahorra adivinar cuando algo despues no cierra.
+    res.textContent = d.ok
+      ? 'Autenticacion exitosa — token obtenido correctamente' + (d.authUrl ? '\n' + d.authUrl : '')
+      : ('Error: ' + d.message);
     if (d.ok) await saveApiToActiveEntry();
   } catch(e) {
     res.className = 'cres show err';

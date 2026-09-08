@@ -71,10 +71,16 @@
       var publicBaseUrl = String((api && api.BASE_URL) || '').trim().replace(/\/+$/g, '');
       var apiBaseUrl = String((api && api.API_BASE_URL) || '').trim().replace(/\/+$/g, '');
 
-      if (publicBaseUrl) return publicBaseUrl + '/Authenticate/v1/Execute';
+      // Minusculas: el endpoint cambio y la forma con mayusculas devuelve
+      // 404 (medido contra un ambiente real). La fuente de verdad es
+      // scripts/common/bantotal-urls/index.js; aca se repite el literal
+      // porque el front se sirve como scripts planos, sin require.
+      // Igual esto es solo un fallback: cuando hay swagger, la URL de
+      // autenticacion sale del documento (findInternaAuthOperation).
+      if (publicBaseUrl) return publicBaseUrl + '/authenticate/v1/execute';
       if (apiBaseUrl) {
         var normalized = apiBaseUrl.replace(/\/api\/publicapi$/i, '');
-        return normalized + '/api/publicapi/Authenticate/v1/Execute';
+        return normalized + '/api/publicapi/authenticate/v1/execute';
       }
       return 'sin URL de autenticacion';
     }
