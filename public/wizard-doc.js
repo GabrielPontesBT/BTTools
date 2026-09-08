@@ -1476,6 +1476,13 @@ function pick(key, val, el) {
     // anterior, para no arrastrar credenciales viejas.
     S.sdtEnv = null;
     toggleApiModeSection(APIMODE_ACTIONS.has(val));
+    toggleCollectionSourceSection(val === 'collections');
+  }
+  if (key === 'collectionSource') {
+    syncCollectionSourceToPanel(val);
+    // needsDbConnection() cambia con esto, y de ella dependen el rotulo del
+    // tercer paso y la posicion en el stepper: hay que redibujarlo.
+    dots(S.step);
   }
   refreshNextBtn();
 }
@@ -1499,6 +1506,40 @@ function toggleApiModeSection(show) {
   S.apiMode = show ? null : 'publica';
 }
 
+/**
+ * La fuente de servicios de "Generar casos de prueba" (Swagger o base de
+ * datos) se elige aca, en el paso de Accion, y no dentro de la herramienta.
+ *
+ * Vivia dentro del panel (el select #collection-source-select), pero ahi se
+ * elegia DESPUES de la conexion, asi que el wizard no podia saber si la base
+ * hacia falta y la exigia siempre. Con fuente Swagger no se usa en ningun
+ * momento. Al subirla, needsDbConnection() puede decidir y saltear el paso.
+ *
+ * El select original sigue existiendo, oculto: es lo que leen los managers
+ * del builder (CollectionEnvironmentManager.syncSourceUi y compania). Se
+ * mantiene sincronizado desde aca en vez de tocar esos 40 archivos.
+ */
+function toggleCollectionSourceSection(show) {
+  var sec = document.getElementById('collection-source-section');
+  if (!sec) return;
+  sec.style.display = show ? 'block' : 'none';
+  sec.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
+  S.collectionSource = null;
+}
+
+// Baja la eleccion al select que leen los managers del builder.
+function syncCollectionSourceToPanel(val) {
+  var sel = document.getElementById('collection-source-select');
+  if (sel) sel.value = val;
+  if (typeof collectionUpdateServiceSource === 'function') {
+    try { collectionUpdateServiceSource(val); } catch (e) {
+      // Los managers del builder pueden no estar listos si el usuario elige
+      // la fuente antes de que collections-entry.js termine de cargar. No es
+      // grave: show() llama collectionToggleConfig() al entrar al panel.
+    }
+  }
+}
+
 function sectionVisible(id) {
   var sec = document.getElementById(id);
   return !!sec && sec.style.display !== 'none';
@@ -1515,43 +1556,93 @@ function versionReady() {
 function actionReady() {
   if (!S.action) return false;
   if (sectionVisible('apimode-section') && !S.apiMode) return false;
+  // Collections necesita saber la fuente ya en el paso de Accion: de eso
+  // depende si despues se pide la conexion a la base (ver needsDbConnection).
+  if (S.action === 'collections' && !S.collectionSource) return false;
+  return true;
+}
+
+/**
+ * Si la herramienta elegida necesita conexion a la base de datos.
+ *
+ * La unica que puede no necesitarla es "Generar casos de prueba" con fuente
+ * Swagger: en ese camino el catalogo sale del documento OpenAPI, la
+ * collection se arma con resolveCollectionRequestData y "Probar" ejecuta
+ * REST contra la API. Ninguno de los tres toca queryServicesWithMethods ni
+ * queryMethodSchema (verificado ruta por ruta en generar-collections/index.js).
+ *
+ * Con fuente "Base de datos" si hace falta: el catalogo se lee de BTI014
+ * (o BTCBS014 en API interna) y queryMethodSchema es lo que da la forma de
+ * cada request para poder armar el body. Swagger ya trae esa forma; la base
+ * es como se consigue cuando no hay Swagger.
+ *
+ * El resto de las herramientas (doc, scripts, validate, sdtgen, paramgen)
+ * leen metadata de la base siempre.
+ */
+function needsDbConnection() {
+  if (S.action === 'collections') return S.collectionSource !== 'swagger';
   return true;
 }
 
 function refreshNextBtn() {
   var nb = document.getElementById('btn-next');
   if (!nb) return;
-  if (S.step === 1) nb.disabled = !versionReady();
-  else if (S.step === 3) nb.disabled = !actionReady();
+  if (S.step === PASO_VERSION) nb.disabled = !versionReady();
+  else if (S.step === PASO_ACCION) nb.disabled = !actionReady();
   else nb.disabled = false;
 }
 
+// Rotulos de los pasos 4 y 5, que dependen de la herramienta.
+var ROTULOS_POR_ACCION = {
+  scripts:     ['Servicios', 'Script'],
+  collections: ['API', 'Collections'],
+  sdtgen:      ['SDT base', 'Editar'],
+  paramgen:    ['Servicio', 'Parámetros'],
+  // doc: el paso de servicios va antes que el de ambiente (ver panelId)
+  doc:         ['Servicios', 'API'],
+};
+
+/**
+ * Ubica los rotulos de los pasos 4 y 5 en el punto del stepper que les
+ * corresponde.
+ *
+ * No escribe fijo en lb4/lb5: cuando se saltea Conexion, el paso 4 pasa a
+ * ser el tercer punto y el 5 el cuarto (ver vizPos). Escribiendo fijo, los
+ * rotulos quedaban en 4 y 5 mientras el punto que se encendia era el 3, o
+ * sea un punto en blanco activo y dos rotulos apuntando a pasos que ya no
+ * existian ahi.
+ */
 function updateStepLabels(action) {
-  var lb4 = document.getElementById('lb4'), lb5 = document.getElementById('lb5');
-  if (action === 'scripts') {
-    if (lb4) lb4.textContent = 'Servicios';
-    if (lb5) lb5.textContent = 'Script';
-  } else if (action === 'collections') {
-    if (lb4) lb4.textContent = 'API';
-    if (lb5) lb5.textContent = 'Collections';
-  } else if (action === 'sdtgen') {
-    if (lb4) lb4.textContent = 'SDT base';
-    if (lb5) lb5.textContent = 'Editar';
-  } else if (action === 'paramgen') {
-    if (lb4) lb4.textContent = 'Servicio';
-    if (lb5) lb5.textContent = 'Parámetros';
-  } else {
-    // doc: paso de servicios va antes que el de ambiente (ver panelId)
-    if (lb4) lb4.textContent = 'Servicios';
-    if (lb5) lb5.textContent = 'API';
-  }
+  var acc = action || S.action;
+  // validate resume todo el flujo a 2 puntos con rotulos propios (Ambiente /
+  // Validar), que pone dots(). Ahi vizPos(4) y vizPos(5) valen los dos 2, asi
+  // que reubicar aca pisaria "Validar" con el rotulo del paso 5.
+  if (acc === 'validate') return;
+
+  var rotulos = ROTULOS_POR_ACCION[acc] || ROTULOS_POR_ACCION.doc;
+
+  // Se limpian 4 y 5 antes de reubicar: si no, al pasar de un flujo con
+  // Conexion a uno sin ella quedaba el rotulo viejo colgado en el 5.
+  [4, 5].forEach(function (n) {
+    var el = document.getElementById('lb' + n);
+    if (el) el.textContent = '';
+  });
+
+  [4, 5].forEach(function (paso, i) {
+    var el = document.getElementById('lb' + vizPos(paso));
+    if (el) el.textContent = rotulos[i];
+  });
 }
 
 function vizPos(step) {
   if (S.action === 'validate') {
-    return step <= 3 ? 1 : 2; // ambiente+accion→1, panel→2
+    return step <= PASO_CONEXION ? 1 : 2; // ambiente+accion→1, panel→2
   }
-  return step; // doc/scripts: 1-5 direct (step 6 success has no active dot)
+  // Cuando se saltea Conexion, los pasos posteriores corren un lugar hacia
+  // atras en el stepper. Sin esto, ir del paso 2 al 4 dejaba el punto 3
+  // apagado para siempre: un hueco en el camino que nunca se completa.
+  if (!needsDbConnection() && step > PASO_CONEXION) return step - 1;
+  return step; // 1-5 directo (el paso 6 de exito no tiene punto activo)
 }
 
 function dots(step) {
@@ -1563,30 +1654,66 @@ function dots(step) {
   var lb1 = document.getElementById('lb1');
   if (lb1) lb1.textContent = isSingle ? 'Ambiente' : 'Versión';
   var lb2 = document.getElementById('lb2');
-  if (lb2) lb2.textContent = isSingle ? 'Validar' : 'Conexión';
-  ['d3','d4','d5','l2','l3','l4'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) el.style.display = isSingle ? 'none' : '';
-  });
+  if (lb2) lb2.textContent = isSingle ? 'Validar' : 'Acción';
+  // El rotulo del tercer paso acompaña al reorden (Accion paso al 2). Cuando
+  // la herramienta no necesita conexion, ese paso no existe y el rotulo se
+  // vacia: los rotulos 4 y 5 ya vienen vacios de fabrica, asi que queda
+  // consistente. vizPos se encarga de que no quede un punto muerto.
+  var lb3 = document.getElementById('lb3');
+  if (lb3) lb3.textContent = (!isSingle && needsDbConnection()) ? 'Conexión' : '';
+  // El loop de mas abajo ya decide la visibilidad de cada punto y cada linea
+  // con maxDot, que cubre tanto el caso validate como el salteo de Conexion.
+  // Antes habia aca un segundo loop que hacia lo mismo solo para validate:
+  // dos lugares seteando el display del mismo elemento.
 
-  var maxDot = isSingle ? 2 : 5;
+  // Cuantos puntos tiene el camino: 2 para validate, 4 cuando se saltea
+  // Conexion, 5 normalmente. Sin ajustarlo, al saltear quedaba un quinto
+  // punto vacio al final que nunca se enciende.
+  var maxDot = isSingle ? 2 : (needsDbConnection() ? 5 : 4);
   [1,2,3,4,5].forEach(function(i) {
     var d = document.getElementById('d' + i);
     if (!d) return;
     d.classList.remove('active','done');
+    d.style.display = i <= maxDot ? '' : 'none';
     if (i <= maxDot) {
       if (i < pos) d.classList.add('done');
       else if (i === pos) d.classList.add('active');
       document.getElementById('dn' + i).innerHTML = i < pos ? '&#10003;' : String(i);
     }
-    if (i < 5) document.getElementById('l' + i).classList.toggle('done', i < pos);
+    if (i < 5) {
+      var linea = document.getElementById('l' + i);
+      if (linea) {
+        linea.classList.toggle('done', i < pos);
+        linea.style.display = i < maxDot ? '' : 'none';
+      }
+    }
   });
+
+  // Va al final a proposito: reubica los rotulos de los pasos 4 y 5 segun
+  // vizPos, y cuando se saltea Conexion escribe en lb3, que unas lineas
+  // arriba se vacio. Invertir el orden lo borraria.
+  updateStepLabels(S.action);
 }
 
+// Numeros de los tres primeros pasos, que son comunes a todas las
+// herramientas. Con nombre y no sueltos porque el orden cambio (Accion paso
+// a ir antes que Conexion) y un `step === 2` disperso por el archivo no dice
+// cual de los dos es.
+//
+// Por que Accion antes que Conexion: la conexion a la base no la necesitan
+// todas las herramientas. "Generar casos de prueba" con fuente Swagger no
+// toca la base en ningun momento (ni el catalogo, ni generar, ni Probar:
+// ver executeCollectionFlow, que ramifica por formato). Para poder saltear
+// ese paso hay que saber antes que herramienta y que fuente se eligieron, y
+// eso solo se sabe si Accion viene primero.
+var PASO_VERSION = 1;
+var PASO_ACCION = 2;
+var PASO_CONEXION = 3;
+
 function panelId(step) {
-  if (step === 1) return 'p1'; // versión
-  if (step === 2) return 'p2'; // conexión
-  if (step === 3) return 'p3'; // acción
+  if (step === PASO_VERSION) return 'p1';
+  if (step === PASO_ACCION) return 'p3';   // el panel p3 es el de Accion
+  if (step === PASO_CONEXION) return 'p2'; // el panel p2 es el de Conexion
   if (S.action === 'validate') return 'p4v';
   if (S.action === 'collections') return step === 4 ? 'p4' : 'p4c';
   if (S.action === 'scripts') return step === 4 ? 'p4s' : 'p5s';
@@ -1608,10 +1735,10 @@ function show(step) {
   S.step = step;
   dots(step);
   foot(step);
-  if (step === 1) { // versión + motor
+  if (step === PASO_VERSION) { // versión + motor
     markVersionCardsFromS();
   }
-  if (step === 2) { // conexión — ya NO se limpia automaticamente: los campos
+  if (step === PASO_CONEXION) { // conexión — ya NO se limpia automaticamente: los campos
     // reflejan lo que ya haya (ambiente activo si se esta editando, o lo que
     // el usuario ya tipeo si volvio de otro paso). Solo se limpian de forma
     // explicita (primer uso nunca tocado, o conexion especifica de sdtgen).
@@ -1634,6 +1761,43 @@ function show(step) {
       var isCollections = S.action === 'collections';
       document.getElementById('a-auth-wrap').style.display = isV4 ? 'none' : 'block';
       document.getElementById('a-api-wrap').style.display  = (isV4 && !isCollections) ? 'none' : 'block';
+
+      // Este panel es de Documentar y collections lo comparte. Documentar
+      // puede generar el .md SIN llamar a la API (de ahi el checkbox
+      // "Llamar a la API", que mientras esta destildado esconde las
+      // credenciales). Para "Generar casos de prueba" esa eleccion no
+      // existe: la herramienta necesita las credenciales para leer el
+      // swagger, para generar la collection y para el boton Probar. Dejar
+      // el checkbox ahi hacia que se entrara al paso con los campos
+      // ocultos y sin forma obvia de completarlos.
+      //
+      // Se ocultan tambien los dos bloques que solo son de Documentar y se
+      // colaban en el paso: los parametros de invocacion y la tabla de
+      // errores con la ruta a los modelos KB.
+      ['exec-toggle', 'doc-errores-section'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.style.display = isCollections ? 'none' : '';
+      });
+      // params-section solo se oculta: en el flujo doc su visibilidad la
+      // maneja toggleEjecutar segun el checkbox, y ponerla en '' aca la
+      // mostraria vacia.
+      if (isCollections) {
+        var params = document.getElementById('params-section');
+        if (params) params.style.display = 'none';
+      }
+      var creds = document.getElementById('api-creds-wrap');
+      if (creds) creds.style.display = isCollections ? 'block' : creds.style.display;
+      // Se deja tildado por coherencia con el resto del codigo que lo lee
+      // como "hay que usar la API", aunque en collections no se muestre.
+      var cbEjecutar = document.getElementById('cb-ejecutar');
+      if (cbEjecutar && isCollections) cbEjecutar.checked = true;
+
+      var subtitulo = document.querySelector('#p4 .psub');
+      if (subtitulo) {
+        subtitulo.textContent = isCollections
+          ? 'Completá las credenciales del ambiente: se usan para leer el Swagger, para generar la collection y para probarla desde acá.'
+          : 'Decidí si vas a llamar a la API real y, si es así, completá las credenciales.';
+      }
       var lbl = document.getElementById('a-base-label');
       if (lbl) {
         if (isCollections && isV4) {
@@ -1677,13 +1841,13 @@ function foot(step) {
   var back = document.getElementById('btn-back');
   back.style.display = step > 1 ? 'flex' : 'none';
   var ftr = document.getElementById('ft-r');
-  if (step === 1) { // versión
+  if (step === PASO_VERSION) {
     ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (versionReady() ? '' : ' disabled') + '>Siguiente &#8594;</button>';
-  } else if (step === 2) { // conexión
+  } else if (step === PASO_ACCION) {
+    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (actionReady() ? '' : ' disabled') + '>Siguiente &#8594;</button>';
+  } else if (step === PASO_CONEXION) {
     ftr.innerHTML = '<button class="btn btn-outline" id="btn-test" onclick="testConn()">Probar conexión</button>&nbsp;&nbsp;' +
       '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (connReady() ? '' : ' disabled') + '>Siguiente &#8594;</button>';
-  } else if (step === 3) { // acción
-    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (actionReady() ? '' : ' disabled') + '>Siguiente &#8594;</button>';
   } else if (step === 4 && S.action === 'validate') {
     ftr.innerHTML = '';
   } else if (step === 5 && S.action === 'collections') {
@@ -1719,14 +1883,18 @@ function foot(step) {
 async function goNext() {
   if (sdtEnvCaptureActive) { sdtEnvCaptureNext(); return; }
   var s = S.step;
-  if (s === 1) { if (!versionReady()) return; show(2); return; }
-  if (s === 2) { if (!connReady()) return; show(3); return; }
-  if (s === 3) {
+  if (s === PASO_VERSION) { if (!versionReady()) return; show(PASO_ACCION); return; }
+  if (s === PASO_ACCION) {
     if (!actionReady()) return;
     if (S.action === 'sdtgen') { sdtgenEnterOrCapture(); return; }
-    show(4);
+    // Se saltea Conexion cuando la herramienta elegida no usa la base.
+    // Si ya hay un ambiente activo confirmado, tampoco hace falta volver a
+    // pedirla: es el mismo criterio que ya usaba sdtgenEnterOrCapture.
+    if (!needsDbConnection()) { show(4); return; }
+    show(PASO_CONEXION);
     return;
   }
+  if (s === PASO_CONEXION) { if (!connReady()) return; show(4); return; }
   if (s === 4 && S.action === 'collections') { show(5); return; }
   if (s === 4 && S.action === 'scripts') {
     var grps = sgServiceGroups.filter(function(g) { return g.selected.size > 0; });
@@ -1745,6 +1913,9 @@ async function goNext() {
 function goBack() {
   if (sdtEnvCaptureActive) { sdtEnvCaptureCancel(); return; }
   var s = S.step;
+  // Volver desde el paso 4 tiene que saltear Conexion igual que la ida, si
+  // no el usuario cae en un paso que nunca vio y que no necesita.
+  if (s === 4 && !needsDbConnection()) { show(PASO_ACCION); return; }
   if (s > 1) show(s - 1);
 }
 
@@ -2068,7 +2239,7 @@ function connReady() {
 }
 
 function updateConnBtn() {
-  if (sdtEnvCaptureActive || S.step === 2) {
+  if (sdtEnvCaptureActive || S.step === PASO_CONEXION) {
     var btn = document.getElementById('btn-next');
     if (btn) btn.disabled = !_connOk;
   }
@@ -2142,7 +2313,7 @@ function openEnvSwitcher() {
     applyFieldsToDom(S.platform, S.activeEnv.fields);
     setVal('db-conn-name', S.activeEnv.connName || '');
   }
-  show(1);
+  show(PASO_VERSION);
 }
 
 // ── Reconexión automática al último ambiente activo (localStorage) ───────
@@ -2160,7 +2331,7 @@ function findMatchingHistEntry(saved) {
 
 async function initWizard() {
   var saved = loadActiveEnvFromStorage();
-  if (!saved || !saved.fields || !saved.version || !saved.platform) { show(1); return; }
+  if (!saved || !saved.fields || !saved.version || !saved.platform) { show(PASO_VERSION); return; }
   var testResult;
   try {
     var r = await fetch('/api/test', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: saved.platform, db: shapeDbApi(saved.platform, saved.fields) }) });
@@ -2176,11 +2347,11 @@ async function initWizard() {
     S.activeEnv = saved;
     try { await loadDbHistory(); var m = findMatchingHistEntry(saved); if (m) _activeDbHistEntry = m; } catch (e) {}
     renderEnvChip();
-    show(3); // ambiente ya activo: directo a elegir herramienta
+    show(PASO_ACCION); // ambiente ya activo: directo a elegir herramienta
   } else {
     _connOk = false;
     _pendingReconnectError = 'No se pudo reconectar automáticamente al último ambiente activo: ' + (testResult.message || 'error desconocido') + '. Revisá los datos.';
-    show(2); // ir directo a Conexión: ahí vive el banner de error y los campos a corregir
+    show(PASO_CONEXION); // ir directo a Conexión: ahí vive el banner de error y los campos a corregir
   }
 }
 
@@ -2243,7 +2414,7 @@ function sdtEnvCaptureNext() {
 function sdtEnvCaptureCancel() {
   S.action = null;
   sdtEnvCaptureExit();
-  show(3);
+  show(PASO_ACCION);
 }
 
 function sdtEnvCaptureExit() {

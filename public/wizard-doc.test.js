@@ -724,3 +724,389 @@ test('withFocusPreserved usa la clase mas especifica cuando el input tiene varia
   assert.equal(dom.doc.activeElement, dom.state.registry[0]);
   assert.equal(dom.doc.activeElement.selectionStart, 4);
 });
+
+// ── Orden de pasos y salteo de Conexión ──────────────────────
+//
+// El orden cambio: Accion paso a ir ANTES que Conexion, para que el wizard
+// pueda saber si la base hace falta antes de exigirla. "Generar casos de
+// prueba" con fuente Swagger no toca la base en ningun momento (verificado
+// ruta por ruta en generar-collections/index.js), asi que ese paso se
+// saltea.
+//
+// Estos tests son la red que cubre a las 5 herramientas: el mapeo de pasos
+// es deterministico y no necesita base, asi que se puede verificar entero
+// aca aunque los caminos que si usan Oracle no se puedan ejercitar.
+
+function wizardConDom() {
+  const w = loadWizard();
+  w.document = makeDomStub();
+  return w;
+}
+
+test('el panel 2 es Accion y el 3 es Conexion (el orden se invirtio)', () => {
+  const w = wizardConDom();
+  assert.equal(w.PASO_VERSION, 1);
+  assert.equal(w.PASO_ACCION, 2);
+  assert.equal(w.PASO_CONEXION, 3);
+  assert.equal(w.panelId(1), 'p1');
+  assert.equal(w.panelId(2), 'p3', 'el paso 2 tiene que mostrar el panel de Accion');
+  assert.equal(w.panelId(3), 'p2', 'el paso 3 tiene que mostrar el panel de Conexion');
+});
+
+test('el mapeo de paneles de las 5 herramientas no cambio despues del paso 3', () => {
+  const w = wizardConDom();
+  const esperado = {
+    collections: { 4: 'p4', 5: 'p4c' },
+    scripts:     { 4: 'p4s', 5: 'p5s' },
+    sdtgen:      { 4: 'p-sdtbase', 5: 'p-sdtedit', 6: 'p-sdtresult' },
+    paramgen:    { 4: 'p-paramsvc', 5: 'p-paramedit', 6: 'p-paramresult' },
+    doc:         { 4: 'p5', 5: 'p4', 6: 'p6' },
+  };
+  Object.keys(esperado).forEach(function (accion) {
+    w.S.action = accion;
+    Object.keys(esperado[accion]).forEach(function (paso) {
+      assert.equal(w.panelId(Number(paso)), esperado[accion][paso],
+                   accion + ' paso ' + paso);
+    });
+  });
+  w.S.action = 'validate';
+  assert.equal(w.panelId(4), 'p4v');
+});
+
+test('needsDbConnection: solo collections con Swagger puede prescindir de la base', () => {
+  const w = wizardConDom();
+
+  w.S.action = 'collections'; w.S.collectionSource = 'swagger';
+  assert.equal(w.needsDbConnection(), false);
+
+  w.S.collectionSource = 'database';
+  assert.equal(w.needsDbConnection(), true);
+
+  // Sin fuente elegida todavia, se asume que si: es lo seguro. Igual
+  // actionReady() no deja avanzar hasta que se elija.
+  w.S.collectionSource = null;
+  assert.equal(w.needsDbConnection(), true);
+
+  ['doc', 'scripts', 'validate', 'sdtgen', 'paramgen'].forEach(function (a) {
+    w.S.action = a;
+    w.S.collectionSource = 'swagger'; // no aplica, no tiene que influir
+    assert.equal(w.needsDbConnection(), true, a + ' siempre necesita base');
+  });
+});
+
+test('actionReady exige la fuente cuando la herramienta es collections', () => {
+  const w = wizardConDom();
+  // sectionVisible devuelve false con el stub (style.display no es 'none'
+  // pero tampoco esta seteado)... se fuerza el caso puntual.
+  w.document.getElementById = function (id) {
+    if (id === 'apimode-section') return { style: { display: 'none' }, querySelectorAll: function () { return []; } };
+    return stubEl();
+  };
+
+  w.S.action = 'collections';
+  w.S.collectionSource = null;
+  assert.equal(w.actionReady(), false, 'sin fuente no se puede avanzar');
+
+  w.S.collectionSource = 'swagger';
+  assert.equal(w.actionReady(), true);
+
+  w.S.action = 'doc';
+  w.S.collectionSource = null;
+  assert.equal(w.actionReady(), true, 'las otras herramientas no piden fuente');
+});
+
+test('vizPos comprime el stepper cuando se saltea Conexion', () => {
+  const w = wizardConDom();
+
+  w.S.action = 'collections'; w.S.collectionSource = 'database';
+  assert.equal(w.vizPos(4), 4, 'con base, el paso 4 es el cuarto punto');
+  assert.equal(w.vizPos(5), 5);
+
+  w.S.collectionSource = 'swagger';
+  assert.equal(w.vizPos(2), 2, 'los pasos previos no se mueven');
+  assert.equal(w.vizPos(3), 3);
+  assert.equal(w.vizPos(4), 3, 'sin Conexion, el paso 4 pasa a ser el tercer punto');
+  assert.equal(w.vizPos(5), 4);
+});
+
+test('vizPos de validate sigue colapsando a 2 puntos', () => {
+  const w = wizardConDom();
+  w.S.action = 'validate';
+  assert.equal(w.vizPos(1), 1);
+  assert.equal(w.vizPos(2), 1);
+  assert.equal(w.vizPos(3), 1);
+  assert.equal(w.vizPos(4), 2);
+});
+
+test('el stepper no deja puntos muertos: cada paso visitado tiene su posicion', () => {
+  const w = wizardConDom();
+  w.S.action = 'collections';
+
+  // Con Swagger los pasos visitados son 1, 2, 4, 5.
+  w.S.collectionSource = 'swagger';
+  const conSwagger = [1, 2, 4, 5].map(function (p) { return w.vizPos(p); });
+  assert.deepEqual(conSwagger, [1, 2, 3, 4], 'posiciones consecutivas, sin huecos');
+
+  // Con base son 1, 2, 3, 4, 5.
+  w.S.collectionSource = 'database';
+  const conBase = [1, 2, 3, 4, 5].map(function (p) { return w.vizPos(p); });
+  assert.deepEqual(conBase, [1, 2, 3, 4, 5]);
+});
+
+// ── Navegación: la ida y la vuelta tienen que saltear igual ──
+
+function wizardNavegable() {
+  const w = loadWizard();
+  w.document = makeDomStub();
+  // versionReady() y connReady() dependen de estado y de secciones visibles;
+  // se fijan directo para aislar el transito de pasos.
+  w.S.version = 'V4'; w.S.platform = 'oracle'; w.S.engine = 'oracle';
+  w.document.getElementById = function (id) {
+    if (id === 'apimode-section' || id === 'engine-section') {
+      return { style: { display: 'none' }, querySelectorAll: function () { return []; } };
+    }
+    return stubEl();
+  };
+  return w;
+}
+
+test('collections + Swagger: del paso 2 salta al 4, sin pasar por Conexion', async () => {
+  const w = wizardNavegable();
+  w.S.action = 'collections';
+  w.S.collectionSource = 'swagger';
+  w.S.step = w.PASO_ACCION;
+
+  await w.goNext();
+  assert.equal(w.S.step, 4, 'tenia que saltear el paso 3 (Conexion)');
+});
+
+test('collections + base de datos: del paso 2 va al 3 (Conexion)', async () => {
+  const w = wizardNavegable();
+  w.S.action = 'collections';
+  w.S.collectionSource = 'database';
+  w.S.step = w.PASO_ACCION;
+
+  await w.goNext();
+  assert.equal(w.S.step, w.PASO_CONEXION);
+});
+
+test('las otras herramientas siguen pasando por Conexion', async () => {
+  for (const accion of ['doc', 'scripts', 'validate', 'paramgen']) {
+    const w = wizardNavegable();
+    w.S.action = accion;
+    w.S.step = w.PASO_ACCION;
+    await w.goNext();
+    assert.equal(w.S.step, w.PASO_CONEXION, accion + ' tiene que ir a Conexion');
+  }
+});
+
+test('el paso 1 lleva a Accion, no a Conexion', async () => {
+  const w = wizardNavegable();
+  w.S.step = w.PASO_VERSION;
+  await w.goNext();
+  assert.equal(w.S.step, w.PASO_ACCION);
+  assert.equal(w.panelId(w.S.step), 'p3', 'y muestra el panel de Accion');
+});
+
+test('Conexion sin prueba OK no deja avanzar', async () => {
+  const w = wizardNavegable();
+  w.S.action = 'doc';
+  w.S.step = w.PASO_CONEXION;
+  // _connOk arranca en false
+  await w.goNext();
+  assert.equal(w.S.step, w.PASO_CONEXION, 'se queda donde estaba');
+});
+
+test('volver desde el paso 4 saltea Conexion si la ida la salteo', () => {
+  const w = wizardNavegable();
+  w.S.action = 'collections';
+  w.S.collectionSource = 'swagger';
+  w.S.step = 4;
+
+  w.goBack();
+  assert.equal(w.S.step, w.PASO_ACCION,
+               'no puede caer en un paso que nunca vio y que no necesita');
+});
+
+test('volver desde el paso 4 pasa por Conexion cuando si hace falta', () => {
+  const w = wizardNavegable();
+  w.S.action = 'collections';
+  w.S.collectionSource = 'database';
+  w.S.step = 4;
+
+  w.goBack();
+  assert.equal(w.S.step, w.PASO_CONEXION);
+});
+
+test('volver desde Conexion lleva a Accion, y desde Accion a Version', () => {
+  const w = wizardNavegable();
+  w.S.action = 'doc';
+
+  w.S.step = w.PASO_CONEXION;
+  w.goBack();
+  assert.equal(w.S.step, w.PASO_ACCION);
+
+  w.goBack();
+  assert.equal(w.S.step, w.PASO_VERSION);
+});
+
+test('elegir la herramienta resetea la fuente: no se arrastra de una vuelta anterior', () => {
+  const w = wizardNavegable();
+  const el = { closest: function () { return { querySelectorAll: function () { return []; } }; },
+               classList: { add: function () {}, remove: function () {} } };
+
+  w.S.collectionSource = 'swagger';
+  w.pick('action', 'collections', el);
+  assert.equal(w.S.collectionSource, null,
+               'cada eleccion de herramienta pide la fuente de nuevo');
+});
+
+test('elegir la fuente la baja al select que leen los managers del builder', () => {
+  const w = wizardNavegable();
+  let valorEnElSelect = null;
+  let avisado = null;
+  w.document.getElementById = function (id) {
+    if (id === 'collection-source-select') {
+      return { set value(v) { valorEnElSelect = v; }, get value() { return valorEnElSelect; } };
+    }
+    if (id === 'apimode-section') return { style: { display: 'none' }, querySelectorAll: function () { return []; } };
+    return stubEl();
+  };
+  w.collectionUpdateServiceSource = function (v) { avisado = v; };
+
+  const el = { closest: function () { return { querySelectorAll: function () { return []; } }; },
+               classList: { add: function () {}, remove: function () {} } };
+  w.pick('collectionSource', 'database', el);
+
+  assert.equal(valorEnElSelect, 'database', 'el select oculto quedo sincronizado');
+  assert.equal(avisado, 'database', 'y los managers se enteraron');
+});
+
+test('si los managers del builder no cargaron todavia, elegir la fuente no rompe', () => {
+  const w = wizardNavegable();
+  w.collectionUpdateServiceSource = undefined;
+  const el = { closest: function () { return { querySelectorAll: function () { return []; } }; },
+               classList: { add: function () {}, remove: function () {} } };
+  assert.doesNotThrow(function () { w.pick('collectionSource', 'swagger', el); });
+  assert.equal(w.S.collectionSource, 'swagger');
+});
+
+// ── Rótulos del stepper ──────────────────────────────────────
+//
+// Defecto real que aparecio al verificar en el navegador: los rotulos de los
+// pasos 4 y 5 se escribian fijo en lb4/lb5, pero al saltear Conexion el paso
+// 4 enciende el punto 3. Quedaba un punto en blanco activo y dos rotulos
+// apuntando a pasos que ahi ya no estaban.
+
+function wizardConRotulos() {
+  const w = loadWizard();
+  const lb = { lb1: '', lb2: '', lb3: '', lb4: '', lb5: '' };
+  const dotsEl = {};
+  w.document = {
+    getElementById: function (id) {
+      if (Object.prototype.hasOwnProperty.call(lb, id)) {
+        return { get textContent() { return lb[id]; }, set textContent(v) { lb[id] = v; } };
+      }
+      if (/^d\d$/.test(id) || /^l\d$/.test(id) || /^dn\d$/.test(id)) {
+        if (!dotsEl[id]) {
+          dotsEl[id] = { style: {}, innerHTML: '', clases: new Set(),
+            classList: {
+              add: function () { [].forEach.call(arguments, c => dotsEl[id].clases.add(c)); },
+              remove: function () { [].forEach.call(arguments, c => dotsEl[id].clases.delete(c)); },
+              toggle: function (c, on) { on ? dotsEl[id].clases.add(c) : dotsEl[id].clases.delete(c); },
+              contains: function (c) { return dotsEl[id].clases.has(c); },
+            } };
+        }
+        return dotsEl[id];
+      }
+      return stubEl();
+    },
+    querySelectorAll: function () { return []; },
+    querySelector: function () { return stubEl(); },
+    addEventListener: function () {},
+  };
+  return { w, lb, dotsEl };
+}
+
+test('con Conexion: los rotulos 4 y 5 van en lb4 y lb5', () => {
+  const { w, lb } = wizardConRotulos();
+  w.S.action = 'collections';
+  w.S.collectionSource = 'database';
+  w.dots(4);
+
+  assert.deepEqual([lb.lb1, lb.lb2, lb.lb3, lb.lb4, lb.lb5],
+                   ['Versión', 'Acción', 'Conexión', 'API', 'Collections']);
+});
+
+test('sin Conexion: los rotulos se corren a lb3 y lb4, y lb5 queda vacio', () => {
+  const { w, lb } = wizardConRotulos();
+  w.S.action = 'collections';
+  w.S.collectionSource = 'swagger';
+  w.dots(4);
+
+  assert.deepEqual([lb.lb1, lb.lb2, lb.lb3, lb.lb4, lb.lb5],
+                   ['Versión', 'Acción', 'API', 'Collections', ''],
+                   'los rotulos tienen que acompañar al punto que se enciende');
+});
+
+test('sin Conexion, el punto que se enciende en el paso 4 es el 3, y tiene rotulo', () => {
+  const { w, lb, dotsEl } = wizardConRotulos();
+  w.S.action = 'collections';
+  w.S.collectionSource = 'swagger';
+  w.dots(4);
+
+  assert.ok(dotsEl.d3.clases.has('active'), 'el punto 3 tiene que estar activo');
+  assert.equal(lb.lb3, 'API', 'y no puede ser un punto activo sin rotulo');
+  assert.ok(!dotsEl.d4.clases.has('active'));
+});
+
+test('sin Conexion el camino tiene 4 puntos: el quinto se oculta', () => {
+  const { w, dotsEl } = wizardConRotulos();
+  w.S.action = 'collections';
+  w.S.collectionSource = 'swagger';
+  w.dots(2);
+
+  assert.equal(dotsEl.d4.style.display, '', 'el cuarto punto existe');
+  assert.equal(dotsEl.d5.style.display, 'none', 'el quinto no, no hay quinto paso');
+});
+
+test('cambiar de fuente reubica los rotulos, no deja el viejo colgado', () => {
+  const { w, lb } = wizardConRotulos();
+  w.S.action = 'collections';
+
+  w.S.collectionSource = 'database';
+  w.dots(2);
+  assert.equal(lb.lb5, 'Collections');
+
+  w.S.collectionSource = 'swagger';
+  w.dots(2);
+  assert.equal(lb.lb5, '', 'el rotulo viejo del quinto punto tiene que limpiarse');
+  assert.equal(lb.lb4, 'Collections');
+});
+
+test('validate sigue mostrando 2 puntos y sus rotulos propios', () => {
+  const { w, lb, dotsEl } = wizardConRotulos();
+  w.S.action = 'validate';
+  w.dots(4);
+
+  assert.equal(lb.lb1, 'Ambiente');
+  assert.equal(lb.lb2, 'Validar');
+  assert.equal(dotsEl.d3.style.display, 'none');
+  assert.ok(dotsEl.d2.clases.has('active'), 'el paso 4 de validate es el segundo punto');
+});
+
+test('las otras herramientas conservan sus rotulos de siempre', () => {
+  const casos = {
+    scripts: ['Servicios', 'Script'],
+    sdtgen: ['SDT base', 'Editar'],
+    paramgen: ['Servicio', 'Parámetros'],
+    doc: ['Servicios', 'API'],
+  };
+  Object.keys(casos).forEach(function (accion) {
+    const { w, lb } = wizardConRotulos();
+    w.S.action = accion;
+    w.dots(4);
+    assert.deepEqual([lb.lb4, lb.lb5], casos[accion], accion);
+    assert.equal(lb.lb3, 'Conexión', accion + ' sigue teniendo el paso de Conexion');
+  });
+});

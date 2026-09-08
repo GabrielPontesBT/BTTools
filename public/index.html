@@ -175,6 +175,25 @@
         </div>
       </div>
 
+      <!-- Fuente de servicios de "Generar casos de prueba". Vive acá y no
+           dentro del panel de la herramienta porque de esta elección depende
+           si hace falta el paso de Conexión: con Swagger la herramienta no
+           toca la base en ningún momento (ver needsDbConnection en
+           wizard-doc.js). El select original quedó oculto dentro del panel,
+           es el que leen los managers del builder. -->
+      <div id="collection-source-section" style="display:none;margin-top:var(--sp-5)">
+        <div class="psub" style="margin-bottom:var(--sp-3)">¿De dónde saco los servicios?</div>
+        <div class="cards" style="grid-template-columns:repeat(2,1fr)">
+          <div class="ccard" id="collection-source-swagger" onclick="pick('collectionSource','swagger',this)">
+            <span class="ccard-title">Swagger</span>
+            <span class="ccard-desc">Lee el catálogo del documento OpenAPI del ambiente. No necesita conexión a la base de datos.</span>
+          </div>
+          <div class="ccard" id="collection-source-database" onclick="pick('collectionSource','database',this)">
+            <span class="ccard-title">Base de datos</span>
+            <span class="ccard-desc">Lee el catálogo de BTI014 (o BTCBS014 en API Interna). Necesita conexión a la base de datos.</span>
+          </div>
+        </div>
+      </div>
       <div id="apimode-section" style="display:none;margin-top:var(--sp-5)">
         <div class="psub" style="margin-bottom:var(--sp-3)">¿Con qué API vas a trabajar?</div>
         <div class="cards" style="grid-template-columns:repeat(2,1fr)">
@@ -254,7 +273,9 @@
 
       <div id="params-section" style="display:none;margin-bottom:var(--sp-4)"></div>
 
-      <div style="border-top:1px solid var(--border);margin-top:var(--sp-5);padding-top:14px">
+      <!-- Bloque propio de Documentar (tabla de errores en el .md). show() lo
+           oculta en el flujo de collections, que comparte este panel. -->
+      <div id="doc-errores-section" style="border-top:1px solid var(--border);margin-top:var(--sp-5);padding-top:var(--sp-4)">
         <label style="display:flex;align-items:center;gap:var(--sp-2);cursor:pointer;font-weight:600;font-size:var(--fs-sm)">
           <input type="checkbox" id="cb-doc-errores" onchange="toggleDocErrores()" style="width:15px;height:15px;cursor:pointer">
           Documentar errores posibles
