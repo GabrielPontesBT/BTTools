@@ -775,14 +775,14 @@ function wizardConDom() {
   return w;
 }
 
-test('el panel 2 es Accion y el 3 es Conexion (el orden se invirtio)', () => {
+test('el paso 1 es el Ambiente completo, el 2 Accion y el 3 la reconexion', () => {
   const w = wizardConDom();
-  assert.equal(w.PASO_VERSION, 1);
+  assert.equal(w.PASO_AMBIENTE, 1);
   assert.equal(w.PASO_ACCION, 2);
   assert.equal(w.PASO_CONEXION, 3);
-  assert.equal(w.panelId(1), 'p1');
+  assert.equal(w.panelId(1), 'p2', 'version + motor + conexion, todo en el panel del ambiente');
   assert.equal(w.panelId(2), 'p3', 'el paso 2 tiene que mostrar el panel de Accion');
-  assert.equal(w.panelId(3), 'p2', 'el paso 3 tiene que mostrar el panel de Conexion');
+  assert.equal(w.panelId(3), 'p2', 'reconectar a mitad de una herramienta usa el MISMO panel');
 });
 
 test('el mapeo de paneles de las 5 herramientas no cambio despues del paso 3', () => {
@@ -932,24 +932,31 @@ test('las otras herramientas siguen pasando por Conexion', async () => {
   }
 });
 
-test('con herramienta ya elegida, el paso 1 lleva a Accion (el reorden)', async () => {
+test('del paso de Ambiente se va a Accion, con las tres cosas listas', async () => {
+  // Version, motor y conexion son un solo paso: al terminarlo sigue elegir la
+  // herramienta.
   const w = wizardNavegable();
-  w.S.action = 'doc';               // fuera del gate de ambiente
-  w.S.step = w.PASO_VERSION;
+  w._connOk = true;
+  w.S.step = w.PASO_AMBIENTE;       // S.action null: gate
   await w.goNext();
   assert.equal(w.S.step, w.PASO_ACCION);
   assert.equal(w.panelId(w.S.step), 'p3', 'y muestra el panel de Accion');
 });
 
-test('en el gate de ambiente, el paso 1 lleva a Conexion', async () => {
-  // Version + conexion son las dos mitades del ambiente: en el gate van
-  // seguidas, y recien despues se elige la herramienta. Es lo que hace que
-  // el chip "Cambiar de ambiente" pueda llegar al paso de Conexion.
+test('el paso de Ambiente no deja avanzar sin la prueba de conexion', async () => {
   const w = wizardNavegable();
-  w.S.step = w.PASO_VERSION;        // S.action null: gate
+  w.S.step = w.PASO_AMBIENTE;       // _connOk arranca en false
   await w.goNext();
-  assert.equal(w.S.step, w.PASO_CONEXION);
-  assert.equal(w.panelId(w.S.step), 'p2', 'y muestra el panel de Conexion');
+  assert.equal(w.S.step, w.PASO_AMBIENTE, 'la conexion es parte del paso');
+});
+
+test('el paso de Ambiente no deja avanzar sin version', async () => {
+  const w = wizardNavegable();
+  w._connOk = true;
+  w.S.version = null;
+  w.S.step = w.PASO_AMBIENTE;
+  await w.goNext();
+  assert.equal(w.S.step, w.PASO_AMBIENTE);
 });
 
 test('Conexion sin prueba OK no deja avanzar', async () => {
@@ -982,7 +989,7 @@ test('volver desde el paso 4 pasa por Conexion cuando si hace falta', () => {
   assert.equal(w.S.step, w.PASO_CONEXION);
 });
 
-test('volver desde Conexion lleva a Accion, y desde Accion a Version', () => {
+test('volver desde Conexion lleva a Accion, y desde Accion al Ambiente', () => {
   const w = wizardNavegable();
   w.S.action = 'doc';
 
@@ -991,7 +998,7 @@ test('volver desde Conexion lleva a Accion, y desde Accion a Version', () => {
   assert.equal(w.S.step, w.PASO_ACCION);
 
   w.goBack();
-  assert.equal(w.S.step, w.PASO_VERSION);
+  assert.equal(w.S.step, w.PASO_AMBIENTE);
 });
 
 test('elegir la herramienta resetea la fuente: no se arrastra de una vuelta anterior', () => {
@@ -1079,7 +1086,7 @@ test('con Conexion: los rotulos 4 y 5 van en lb4 y lb5', () => {
   w.dots(4);
 
   assert.deepEqual([lb.lb1, lb.lb2, lb.lb3, lb.lb4, lb.lb5],
-                   ['Versión', 'Acción', 'Conexión', 'API', 'Collections']);
+                   ['Ambiente', 'Acción', 'Conexión', 'API', 'Collections']);
 });
 
 test('sin Conexion: los rotulos se corren a lb3 y lb4, y lb5 queda vacio', () => {
@@ -1089,7 +1096,7 @@ test('sin Conexion: los rotulos se corren a lb3 y lb4, y lb5 queda vacio', () =>
   w.dots(4);
 
   assert.deepEqual([lb.lb1, lb.lb2, lb.lb3, lb.lb4, lb.lb5],
-                   ['Versión', 'Acción', 'API', 'Collections', ''],
+                   ['Ambiente', 'Acción', 'API', 'Collections', ''],
                    'los rotulos tienen que acompañar al punto que se enciende');
 });
 
@@ -1449,14 +1456,7 @@ test('isEnvGate: hay gate mientras no se eligio herramienta', () => {
   assert.equal(w.isEnvGate(), false);
 });
 
-test('en el gate el stepper es Version -> Conexion, con dos puntos', () => {
-  const w = loadWizard();
-  // Sin herramienta elegida: Conexion es el punto 2, no el 3.
-  assert.equal(w.vizPos(w.PASO_VERSION), 1);
-  assert.equal(w.vizPos(w.PASO_CONEXION), 2);
-});
-
-test('en el gate el punto 2 se rotula Conexion, no Accion', () => {
+test('en el gate el stepper es Ambiente -> Accion, con dos puntos', () => {
   const w = loadWizard();
   const rotulos = {};
   const puntos = {};
@@ -1466,27 +1466,39 @@ test('en el gate el punto 2 se rotula Conexion, no Accion', () => {
     if (/^d\d$/.test(id)) { puntos[id] = puntos[id] || stubEl(); return puntos[id]; }
     return stubEl();
   };
-  w.dots(w.PASO_CONEXION);
-  assert.equal(rotulos.lb1.textContent, 'Versión');
-  assert.equal(rotulos.lb2.textContent, 'Conexión');
-  assert.equal(rotulos.lb3.textContent, '', 'no hay tercer punto todavia');
+  assert.equal(w.vizPos(w.PASO_AMBIENTE), 1);
+  w.dots(w.PASO_AMBIENTE);
+  assert.equal(rotulos.lb1.textContent, 'Ambiente');
+  assert.equal(rotulos.lb2.textContent, 'Acción');
+  assert.equal(rotulos.lb3.textContent, '', 'que viene despues de Accion lo define la herramienta');
   assert.equal(puntos.d3.style.display, 'none', 'solo dos puntos en el gate');
 });
 
-test('desde el gate de Conexion, Siguiente lleva a Accion (no al panel de una herramienta)', async () => {
-  const w = wizardNavegable();
-  w._connOk = true;
-  w.S.step = w.PASO_CONEXION;
-  // S.action sigue en null: es el arranque
-  await w.goNext();
-  assert.equal(w.S.step, w.PASO_ACCION, 'el paso 4 seria el panel de una herramienta que no se eligio');
+test('en el gate el punto de Accion queda pendiente, no completado', () => {
+  // La regresion vieja al revés: el punto 2 no puede mostrarse hecho cuando
+  // la herramienta todavia no se eligio.
+  const w = loadWizard();
+  const puntos = {};
+  w.document = makeDomStub();
+  w.document.getElementById = function (id) {
+    if (/^d\d$/.test(id)) { puntos[id] = puntos[id] || stubEl(); return puntos[id]; }
+    return stubEl();
+  };
+  w.dots(w.PASO_AMBIENTE);
+  assert.equal(puntos.d1.classList.contains('active'), true);
+  assert.equal(puntos.d2.classList.contains('done'), false);
+  assert.equal(puntos.d2.classList.contains('active'), false);
 });
 
-test('desde el gate de Conexion, Volver lleva a Version', () => {
-  const w = wizardNavegable();
-  w.S.step = w.PASO_CONEXION;
-  w.goBack();
-  assert.equal(w.S.step, w.PASO_VERSION, 'el otro componente del ambiente');
+test('en el paso de Ambiente no hay boton Volver: es el primero', () => {
+  const w = loadWizard();
+  const back = stubEl();
+  w.document = makeDomStub();
+  w.document.getElementById = function (id) { return id === 'btn-back' ? back : stubEl(); };
+  w.foot(w.PASO_AMBIENTE);
+  assert.equal(back.style.display, 'none');
+  w.foot(w.PASO_ACCION);
+  assert.equal(back.style.display, 'flex', 'de Accion si se puede volver');
 });
 
 test('fuera del gate, Conexion sigue yendo al panel de la herramienta', async () => {
@@ -1506,13 +1518,7 @@ test('fuera del gate, Volver desde Conexion sigue yendo a Accion', () => {
   assert.equal(w.S.step, w.PASO_ACCION);
 });
 
-test('el gate no deja avanzar sin una prueba de conexion OK', async () => {
-  const w = wizardNavegable();
-  w.S.step = w.PASO_CONEXION;
-  // _connOk arranca en false
-  await w.goNext();
-  assert.equal(w.S.step, w.PASO_CONEXION);
-});
+
 
 // ── La preseleccion se aplica en el render ──────────────────
 
@@ -1559,44 +1565,39 @@ test('renderDbHistory no consume la preseleccion si esa conexion no esta en la l
   assert.equal(w._pendingHistPreselect, '1', 'sigue pendiente');
 });
 
-test('el chip de cambiar ambiente llega al paso de Conexion', async () => {
-  // La regresion concreta: openEnvSwitcher lleva a Version con action en
-  // null y el ambiente activo intacto. Antes, de Version se iba a Accion y
-  // ahi el ambiente todavia servia, asi que Conexion se salteaba y no habia
-  // forma de cambiar la conexion.
+test('el chip de cambiar ambiente reabre el paso de Ambiente, con la conexion incluida', async () => {
+  // La regresion vieja: el chip llevaba a Version y de ahi a Accion, porque
+  // el ambiente activo todavia servia, asi que Conexion se salteaba y no
+  // habia forma de cambiar la conexion. Ahora los dos son el mismo paso.
   const w = wizardNavegable();
   w.S.activeEnv = envOracle();
   w.S.action = 'doc';
   w.S.step = 4;
 
   w.openEnvSwitcher();
-  assert.equal(w.S.step, w.PASO_VERSION, 'el chip reabre el paso de Version');
+  assert.equal(w.S.step, w.PASO_AMBIENTE);
+  assert.equal(w.panelId(w.S.step), 'p2', 'el panel con la version Y la conexion');
   assert.equal(w.S.action, null, 'y suelta la herramienta en curso');
-
-  await w.goNext();
-  assert.equal(w.S.step, w.PASO_CONEXION, 'de Version se llega a Conexion, no a Accion');
 });
 
 // ── isEnvGate necesita las dos condiciones ──────────────────
 
-test('isEnvGate: no alcanza con que no haya herramienta, tiene que ser un paso del ambiente', () => {
-  // Accion es el paso 2, justo entre Version (1) y Conexion (3), asi que
-  // "S.step <= PASO_CONEXION" lo incluiria. Sin esa precision, al confirmar
-  // el ambiente el gate seguia activo sobre el panel de Accion y el stepper
-  // mostraba dos puntos con "Versión" encendido estando en Accion.
+test('isEnvGate: no alcanza con que no haya herramienta, tiene que ser el paso de Ambiente', () => {
+  // Sin esa precision, al confirmar el ambiente el gate seguia activo sobre
+  // el panel de Accion y el stepper marcaba "Ambiente" estando en Accion.
   const w = loadWizard();
 
-  w.S.step = w.PASO_VERSION;  assert.equal(w.isEnvGate(), true);
-  w.S.step = w.PASO_CONEXION; assert.equal(w.isEnvGate(), true);
-  w.S.step = w.PASO_ACCION;   assert.equal(w.isEnvGate(), false, 'Accion no es un paso del ambiente');
+  w.S.step = w.PASO_AMBIENTE; assert.equal(w.isEnvGate(), true);
+  w.S.step = w.PASO_ACCION;   assert.equal(w.isEnvGate(), false, 'Accion no es el paso del ambiente');
+  w.S.step = w.PASO_CONEXION; assert.equal(w.isEnvGate(), false, 'la reconexion es a mitad de camino');
   w.S.step = 4;               assert.equal(w.isEnvGate(), false);
 
   // Y con herramienta elegida no hay gate en ningun paso.
   w.S.action = 'doc';
-  w.S.step = w.PASO_CONEXION; assert.equal(w.isEnvGate(), false);
+  w.S.step = w.PASO_AMBIENTE; assert.equal(w.isEnvGate(), false);
 });
 
-test('parado en Accion sin herramienta, el stepper marca Accion y no Version', () => {
+test('parado en Accion sin herramienta, el stepper marca Accion y no el Ambiente', () => {
   // Es el estado en el que te deja el gate al confirmar el ambiente.
   const w = loadWizard();
   w.S.activeEnv = envOracle();
@@ -1793,7 +1794,7 @@ test('el chip saca del modo sin base', () => {
   w.openEnvSwitcher();
   assert.equal(w.S.noDb, false);
   assert.equal(w.sessionStorage.getItem('bt_no_db'), null);
-  assert.equal(w.S.step, w.PASO_VERSION, 'y reabre la eleccion de ambiente');
+  assert.equal(w.S.step, w.PASO_AMBIENTE, 'y reabre la eleccion de ambiente');
 });
 
 test('confirmar un ambiente saca del modo sin base', () => {
@@ -1824,12 +1825,13 @@ test('el boton de trabajar sin base solo aparece en el gate de ambiente', () => 
   };
 
   // En el gate: aparece.
-  w.S.step = w.PASO_CONEXION;
-  w.foot(w.PASO_CONEXION);
+  w.S.step = w.PASO_AMBIENTE;
+  w.foot(w.PASO_AMBIENTE);
   assert.match(ftr.innerHTML, /btn-nodb/, 'en el gate tiene que estar');
 
   // A mitad de una herramienta que usa la base: no.
   w.S.action = 'doc';
+  w.S.step = w.PASO_CONEXION;
   w.foot(w.PASO_CONEXION);
   assert.doesNotMatch(ftr.innerHTML, /btn-nodb/, 'no tiene sentido con una herramienta ya elegida');
   assert.match(ftr.innerHTML, /btn-test/, 'pero Probar conexión sigue');
@@ -1880,9 +1882,17 @@ function wizardConexion() {
   sel.opciones = [];
   sel.appendChild = function (o) { sel.opciones.push(o); };
   els['db-hist-sel'] = sel;
+  // La seccion de motor, como en el HTML: arranca oculta y sus tarjetas son
+  // elementos del mismo registro, asi que se puede leer cual quedo marcada.
+  const motores = ['engine-oracle', 'engine-javasql', 'engine-as400', 'engine-postgresql'];
+  els['engine-section'] = stubEl();
+  els['engine-section'].style.display = 'none';
+  els['engine-section'].querySelectorAll = function () {
+    return motores.map(function (id) { els[id] = els[id] || stubEl(); return els[id]; });
+  };
   w.document = makeDomStub();
   w.document.getElementById = function (id) {
-    if (id === 'engine-section' || id === 'apimode-section') {
+    if (id === 'apimode-section') {
       return { style: { display: 'none' }, querySelectorAll: function () { return []; } };
     }
     els[id] = els[id] || stubEl();
@@ -1906,12 +1916,12 @@ test('platformFor / defaultEngineFor: V3 es SQL Server sin motor a elegir, V4 es
   assert.equal(w.defaultEngineFor('V4'), 'oracle', 'hoy es el unico motor habilitado de V4');
 });
 
-test('pickConnVersion cambia version, motor y campos visibles', () => {
+test('pickVersion cambia version, motor y campos visibles', () => {
   const w = wizardConexion();
   w.S.version = 'V4'; w.S.platform = 'oracle'; w.S.engine = 'oracle';
   w._dbHistory = [];
 
-  w.pickConnVersion('V3');
+  w.pickVersion('V3');
 
   assert.equal(w.S.version, 'V3');
   assert.equal(w.S.platform, 'sqlserver');
@@ -1922,7 +1932,7 @@ test('pickConnVersion cambia version, motor y campos visibles', () => {
   assert.equal(w.els['conn-ver-V4'].classList.contains('sel'), false, 'la otra se desmarca');
 });
 
-test('pickConnVersion carga solo las conexiones de esa version', () => {
+test('pickVersion carga solo las conexiones de esa version', () => {
   // El pedido concreto: eligiendo V3 se ven las bases V3, y con V4 las V4.
   const w = wizardConexion();
   w.S.version = 'V4'; w.S.platform = 'oracle';
@@ -1932,25 +1942,25 @@ test('pickConnVersion carga solo las conexiones de esa version', () => {
     { id: '3', version: 'V3', platform: 'sqlserver', label: 'Gx16 QA', db: { server: 'SQLSERVER2', port: '1433', database: 'Gx16QA', user: 'pg', password: 'p' } },
   ];
 
-  w.pickConnVersion('V3');
+  w.pickVersion('V3');
   assert.deepEqual(opcionesDelHistorial(w), ['ProductoGx16', 'Gx16 QA'], 'ninguna V4 en la lista');
   assert.equal(w.els['db-hist-wrap'].style.display, '', 'y el desplegable se muestra');
 
   w.histSel.opciones = [];
-  w.pickConnVersion('V4');
+  w.pickVersion('V4');
   assert.deepEqual(opcionesDelHistorial(w), ['POC TIERRA']);
 });
 
-test('pickConnVersion esconde el desplegable si esa version no tiene conexiones', () => {
+test('pickVersion esconde el desplegable si esa version no tiene conexiones', () => {
   const w = wizardConexion();
   w.S.version = 'V4'; w.S.platform = 'oracle';
   w._dbHistory = [{ id: '1', version: 'V4', platform: 'oracle', label: 'POC TIERRA', db: {} }];
-  w.pickConnVersion('V3');
+  w.pickVersion('V3');
   assert.deepEqual(opcionesDelHistorial(w), []);
   assert.equal(w.els['db-hist-wrap'].style.display, 'none', 'se tipea una conexion nueva');
 });
 
-test('pickConnVersion limpia la conexion anterior: es de otro motor', () => {
+test('pickVersion limpia la conexion anterior: es de otro motor', () => {
   const w = wizardConexion();
   w.S.version = 'V4'; w.S.platform = 'oracle';
   w._dbHistory = [];
@@ -1960,7 +1970,7 @@ test('pickConnVersion limpia la conexion anterior: es de otro motor', () => {
   w.els['db-host'] = stubEl(); w.els['db-host'].value = '10.0.0.4';
   w.els['db-conn-name'] = stubEl(); w.els['db-conn-name'].value = 'POC TIERRA';
 
-  w.pickConnVersion('V3');
+  w.pickVersion('V3');
 
   assert.equal(w.els['db-host'].value, '', 'los datos Oracle no aplican a SQL Server');
   assert.equal(w.els['db-conn-name'].value, '');
@@ -1969,60 +1979,63 @@ test('pickConnVersion limpia la conexion anterior: es de otro motor', () => {
   assert.equal(w._pendingHistPreselect, null, 'la preseleccion era de la otra version');
 });
 
-test('pickConnVersion con la misma version no borra lo que se tipeo', () => {
+test('pickVersion con la misma version no borra lo que se tipeo', () => {
   const w = wizardConexion();
   w.S.version = 'V4'; w.S.platform = 'oracle';
   w._connOk = true;
   w.els['db-host'] = stubEl(); w.els['db-host'].value = '10.0.0.4';
 
-  w.pickConnVersion('V4');
+  w.pickVersion('V4');
 
   assert.equal(w.els['db-host'].value, '10.0.0.4');
   assert.equal(w._connOk, true, 'la prueba OK sigue valiendo');
 });
 
-test('pickConnVersion deja el paso de Version diciendo lo mismo', () => {
-  // markVersionCardsFromS: volver atras no puede mostrar la version vieja.
+test('elegir V4 muestra el motor y lo deja marcado; V3 no pregunta motor', () => {
+  // El motor vive en el mismo panel que la version. Hoy V4 tiene uno solo
+  // habilitado, asi que queda marcado en vez de pedir un click sin
+  // alternativa (ver syncEngineSection y defaultEngineFor).
   const w = wizardConexion();
-  const p1 = stubEl();
-  const tarjetas = { V3: stubEl(), V4: stubEl() };
-  p1.querySelectorAll = function () { return [tarjetas.V3, tarjetas.V4]; };
-  p1.querySelector = function (sel) { return sel.indexOf('V4') >= 0 ? tarjetas.V4 : tarjetas.V3; };
-  const getById = w.document.getElementById;
-  w.document.getElementById = function (id) { return id === 'p1' ? p1 : getById(id); };
   w.S.version = 'V3'; w.S.platform = 'sqlserver';
   w._dbHistory = [];
 
-  w.pickConnVersion('V4');
+  w.pickVersion('V4');
+  assert.equal(w.S.engine, 'oracle');
+  assert.equal(w.els['engine-section'].style.display, 'block');
+  assert.equal(w.els['engine-oracle'].classList.contains('sel'), true);
+  assert.equal(w.els['engine-javasql'].classList.contains('sel'), false);
+  assert.equal(w.ambienteReady(), false, 'falta la prueba de conexion');
 
-  assert.equal(tarjetas.V4.classList.contains('sel'), true, 'el paso 1 marca V4');
-  assert.equal(tarjetas.V3.classList.contains('sel'), false);
-  assert.equal(w.S.engine, 'oracle', 'y el motor queda resuelto sin volver al paso 1');
+  w.pickVersion('V3');
+  assert.equal(w.S.engine, null);
+  assert.equal(w.els['engine-section'].style.display, 'none', 'V3 es SQL Server y punto');
+  assert.equal(w.els['engine-oracle'].classList.contains('sel'), false, 'no queda marcado de la vuelta anterior');
 });
 
-test('el selector de version solo aparece mientras se elige el ambiente', () => {
+test('version + motor solo aparecen cuando el panel es el paso de Ambiente', () => {
   const w = wizardConexion();
   w.S.version = 'V4';
 
-  w.toggleConnVersionPicker();
-  assert.equal(w.els['conn-version-wrap'].style.display, '', 'en el gate se muestra');
+  w.S.step = w.PASO_AMBIENTE;
+  w.toggleVersionPicker();
+  assert.equal(w.els['conn-version-wrap'].style.display, '', 'en el paso de Ambiente se muestran');
 
-  w.S.action = 'doc';
-  w.toggleConnVersionPicker();
-  assert.equal(w.els['conn-version-wrap'].style.display, 'none', 'a mitad de una herramienta no significa nada');
+  w.S.step = w.PASO_CONEXION;
+  w.toggleVersionPicker();
+  assert.equal(w.els['conn-version-wrap'].style.display, 'none', 'reconectando, la version ya esta decidida');
 
-  w.S.action = null;
+  w.S.step = w.PASO_AMBIENTE;
   w.sdtEnvCaptureActive = true;
-  w.toggleConnVersionPicker();
+  w.toggleVersionPicker();
   assert.equal(w.els['conn-version-wrap'].style.display, 'none', 'la conexion de Generar SDT es V4/Oracle por definicion');
 });
 
-test('entrar al paso de Conexion muestra el selector y los campos del motor', () => {
+test('entrar al paso de Ambiente muestra version, motor y los campos que van', () => {
   const w = wizardConexion();
   w.S.version = 'V3'; w.S.platform = 'sqlserver';
   w._dbHistory = [];
 
-  w.show(w.PASO_CONEXION);
+  w.show(w.PASO_AMBIENTE);
 
   assert.equal(w.els['conn-version-wrap'].style.display, '');
   assert.equal(w.els['conn-ver-V3'].classList.contains('sel'), true, 'con la version en uso marcada');
@@ -2030,56 +2043,18 @@ test('entrar al paso de Conexion muestra el selector y los campos del motor', ()
   assert.equal(w.els['ora-fields'].style.display, 'none');
 });
 
-test('cambiar de version en el paso 1 tambien invalida la conexion anterior', () => {
-  // Sin esto quedaba el nombre de la conexion V3 arriba y los campos Oracle
-  // vacios abajo: el panel decia una cosa y tenia otra.
+test('reconectar a mitad de una herramienta usa el mismo panel, sin la version', () => {
   const w = wizardConexion();
-  const tarjeta = stubEl();
-  tarjeta.closest = function () { return { querySelectorAll: function () { return []; } }; };
-  w.S.version = 'V3'; w.S.platform = 'sqlserver';
-  w._connOk = true;
-  w._pendingHistPreselect = '2';
-  w.els['db-conn-name'] = stubEl(); w.els['db-conn-name'].value = 'productogx16';
-  w.els['db-server'] = stubEl(); w.els['db-server'].value = 'SQLSERVER1';
-
-  w.pick('version', 'V4', tarjeta);
-
-  assert.equal(w.S.platform, 'oracle');
-  assert.equal(w.els['db-conn-name'].value, '', 'el nombre era de la conexion V3');
-  assert.equal(w.els['db-server'].value, '');
-  assert.equal(w._connOk, false);
-  assert.equal(w._pendingHistPreselect, null);
-});
-
-test('reclickear la misma version en el paso 1 no borra la conexion precargada', () => {
-  // openEnvSwitcher precarga el ambiente activo para editarlo: volver a
-  // clickear su misma version no puede vaciarlo.
-  const w = wizardConexion();
-  const tarjeta = stubEl();
-  tarjeta.closest = function () { return { querySelectorAll: function () { return []; } }; };
+  w.S.action = 'doc';
   w.S.version = 'V4'; w.S.platform = 'oracle';
-  w._connOk = true;
-  w.els['db-host'] = stubEl(); w.els['db-host'].value = '10.0.0.4';
+  w._dbHistory = [];
 
-  w.pick('version', 'V4', tarjeta);
+  w.show(w.PASO_CONEXION);
 
-  assert.equal(w.els['db-host'].value, '10.0.0.4');
-  assert.equal(w._connOk, true);
+  assert.equal(w.panelId(w.PASO_CONEXION), 'p2', 'es el mismo panel');
+  assert.equal(w.els['conn-version-wrap'].style.display, 'none', 'pero sin el bloque de version');
+  assert.equal(w.els['ora-fields'].style.display, 'block', 'y con los campos de la base');
 });
-
-test('elegir la primera version en el paso 1 (instalacion nueva) no resetea nada', () => {
-  const w = wizardConexion();
-  const tarjeta = stubEl();
-  tarjeta.closest = function () { return { querySelectorAll: function () { return []; } }; };
-  w.S.version = null;
-  w.els['db-host'] = stubEl(); w.els['db-host'].value = '10.0.0.4'; // lo que haya tipeado antes de elegir
-
-  w.pick('version', 'V4', tarjeta);
-
-  assert.equal(w.els['db-host'].value, '10.0.0.4', 'no habia version anterior que invalidar');
-});
-
-// ── La conexion que queda lista al elegir la version ────────
 
 test('pickEntryForVersion elige la ultima usada si es de esa version', () => {
   const w = loadWizard();
@@ -2110,7 +2085,7 @@ test('pickEntryForVersion sin conexiones de esa version devuelve null', () => {
   assert.equal(w.pickEntryForVersion('V4'), null);
 });
 
-test('pickConnVersion deja lista la conexion de la version elegida', () => {
+test('pickVersion deja lista la conexion de la version elegida', () => {
   // Un click: se elige V3 y queda cargada la base V3, como hace el arranque.
   const w = wizardConexion();
   w.S.version = 'V4'; w.S.platform = 'oracle';
@@ -2119,7 +2094,7 @@ test('pickConnVersion deja lista la conexion de la version elegida', () => {
     { id: '2', key: 'V3|ss|SQLSERVER1|ProductoGx16|pg', version: 'V3', platform: 'sqlserver', label: 'productogx16', db: { server: 'SQLSERVER1', port: '1433', database: 'ProductoGx16', user: 'pg', password: 'p' } },
   ];
 
-  w.pickConnVersion('V3');
+  w.pickVersion('V3');
 
   assert.equal(w.histSel.value, '2', 'el desplegable queda en la conexion V3');
   assert.equal(w._activeDbHistEntry.label, 'productogx16');
@@ -2128,14 +2103,151 @@ test('pickConnVersion deja lista la conexion de la version elegida', () => {
   assert.equal(w._pendingHistPreselect, null, 'la preseleccion se consumio en el render');
 });
 
-test('pickConnVersion sin conexiones de esa version no preselecciona nada', () => {
+test('pickVersion sin conexiones de esa version no preselecciona nada', () => {
   const w = wizardConexion();
   w.S.version = 'V4'; w.S.platform = 'oracle';
   w._dbHistory = [{ id: '1', key: 'k', version: 'V4', platform: 'oracle', label: 'POC TIERRA', db: {} }];
 
-  w.pickConnVersion('V3');
+  w.pickVersion('V3');
 
   assert.equal(w._pendingHistPreselect, null, 'no puede quedar pendiente y aplicarse despues');
   assert.equal(w._activeDbHistEntry, null);
   assert.equal(w.els['db-server'].value, '');
+});
+
+// ── Un solo paso para el ambiente ───────────────────────────
+//
+// Version, motor y conexion eran dos pasos (Version -> Conexion) que en el
+// arranque se recorrian siempre seguidos, y el primero se salteaba cuando ya
+// habia conexiones guardadas. Ahora son un solo panel (p2 = paso 1), que
+// ademas se reusa para reconectar a mitad de una herramienta (PASO_CONEXION).
+
+function wizardTitulos() {
+  const w = wizardConexion();
+  const t = stubEl(), sub = stubEl();
+  w.document.querySelector = function (sel) {
+    if (sel === '#p2 .ptitle') return t;
+    if (sel === '#p2 .psub') return sub;
+    return stubEl();
+  };
+  w.titulo = t;
+  w.subtitulo = sub;
+  return w;
+}
+
+test('el encabezado del panel dice para que se lo esta usando', () => {
+  const w = wizardTitulos();
+
+  w.S.step = w.PASO_AMBIENTE;
+  w.applyP2Titles();
+  assert.match(w.titulo.textContent, /ambiente/i, 'paso 1: se elige el ambiente entero');
+  assert.match(w.subtitulo.textContent, /versión/i);
+
+  w.S.step = w.PASO_CONEXION;
+  w.applyP2Titles();
+  assert.match(w.titulo.textContent, /conexión/i, 'reconexion: solo la base');
+  assert.doesNotMatch(w.subtitulo.textContent, /versión/i, 'la version ya esta decidida');
+});
+
+test('salir de la conexion de Generar SDT re-aplica el encabezado que va', () => {
+  // Antes se guardaba el texto del DOM en _p2OrigTitle para restaurarlo. Con
+  // dos variantes reales, la copia guardada podia ser la del otro caso: se
+  // volvia de Generar SDT y el panel de reconexion quedaba con el titulo del
+  // paso de Ambiente.
+  const w = wizardTitulos();
+  w.S.action = 'sdtgen';
+  w.S.step = w.PASO_CONEXION;
+  w.sdtEnvCaptureActive = true;
+  w.titulo.textContent = 'Conexión para Generar SDT (V4 / Oracle)';
+
+  w.sdtEnvCaptureExit();
+
+  assert.equal(w.sdtEnvCaptureActive, false);
+  assert.match(w.titulo.textContent, /conexión/i);
+  assert.doesNotMatch(w.titulo.textContent, /Generar SDT/, 'no puede quedar el titulo de la captura');
+});
+
+test('durante la captura de Generar SDT el encabezado no es el del Ambiente', () => {
+  const w = wizardTitulos();
+  w.S.step = w.PASO_AMBIENTE;
+  w.sdtEnvCaptureActive = true;
+  w.applyP2Titles();
+  assert.match(w.titulo.textContent, /conexión/i, 'ahi se pide una conexion, no un ambiente');
+});
+
+test('ambienteReady pide version, motor y prueba de conexion', () => {
+  const w = wizardConexion();
+  w._dbHistory = [];
+
+  assert.equal(w.ambienteReady(), false, 'sin nada elegido');
+
+  w.pickVersion('V4');
+  assert.equal(w.ambienteReady(), false, 'falta la prueba de conexion');
+
+  w._connOk = true;
+  assert.equal(w.ambienteReady(), true, 'V4 + Oracle + conexion OK');
+
+  w.S.engine = null; // V4 con la seccion de motor visible y nada elegido
+  assert.equal(w.ambienteReady(), false, 'la seccion de motor esta a la vista y sin marcar');
+});
+
+test('la prueba de conexion no habilita sola el paso de Ambiente', () => {
+  // updateConnBtn corre al terminar la prueba: en este paso el boton pide las
+  // tres cosas, no solo la prueba.
+  const w = wizardConexion();
+  const btn = stubEl();
+  w.els['btn-next'] = btn;
+  w.S.step = w.PASO_AMBIENTE;
+  w.S.version = null;
+  w._connOk = true;
+
+  w.updateConnBtn();
+  assert.equal(btn.disabled, true, 'sin version elegida no se avanza');
+
+  w._dbHistory = [];
+  w.pickVersion('V3');
+  w._connOk = true;
+  w.updateConnBtn();
+  assert.equal(btn.disabled, false);
+});
+
+test('reconectando a mitad de una herramienta alcanza la prueba de conexion', () => {
+  const w = wizardConexion();
+  const btn = stubEl();
+  w.els['btn-next'] = btn;
+  w.S.action = 'doc';
+  w.S.step = w.PASO_CONEXION;
+  w._connOk = true;
+
+  w.updateConnBtn();
+  assert.equal(btn.disabled, false, 'la version ya esta decidida, no se vuelve a pedir');
+});
+
+test('instalacion nueva: el arranque abre el paso de Ambiente sin version elegida', async () => {
+  // Antes esto abria el paso de Version, un panel aparte. Ahora es el mismo,
+  // con la version sin marcar y los campos vacios.
+  const w = wizardConexion();
+  w._dbHistory = [];
+
+  await w.askEnvForNewSession();
+
+  assert.equal(w.S.step, w.PASO_AMBIENTE);
+  assert.equal(w.S.version, null);
+  assert.equal(w.els['conn-version-wrap'].style.display, '', 'con la version a la vista para elegirla');
+  assert.equal(w.els['sql-fields'].style.display, 'none', 'y sin campos hasta que se elija');
+  assert.equal(w.els['ora-fields'].style.display, 'none');
+});
+
+test('sesion nueva con conexiones guardadas: mismo paso, con la ultima lista', async () => {
+  const w = wizardConexion();
+  w._dbHistory = [
+    { id: '1', key: 'V4|ora|10.0.0.4:1521/btv4db|bt', version: 'V4', platform: 'oracle', label: 'POC TIERRA', db: { connectString: '10.0.0.4:1521/btv4db', user: 'bt', password: 'p' } },
+  ];
+
+  await w.askEnvForNewSession();
+
+  assert.equal(w.S.step, w.PASO_AMBIENTE, 'un solo paso: no hay Version aparte');
+  assert.equal(w.S.version, 'V4');
+  assert.equal(w.S.engine, 'oracle');
+  assert.equal(w.els['db-host'].value, '10.0.0.4', 'la conexion queda cargada');
 });

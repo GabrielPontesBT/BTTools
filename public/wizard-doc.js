@@ -5,7 +5,7 @@
 // ambiente global activo no es V4/Oracle (ver sdtgenEnterOrCapture). No
 // reemplaza a activeEnv salvo que el usuario lo confirme explicitamente.
 // noDb = el usuario eligio trabajar sin base ("Trabajar sin base de datos" en
-// el paso de Conexion). Solo habilita las herramientas que no la tocan, hoy
+// el paso de Ambiente). Solo habilita las herramientas que no la tocan, hoy
 // nada mas que "Generar casos de prueba" con fuente Swagger.
 var S = { step: 1, version: null, platform: null, action: null, engine: null, apiMode: 'publica', activeEnv: null, sdtEnv: null, noDb: false };
 // Acciones que soportan trabajar contra la API Interna (tablas BTCBS);
@@ -25,13 +25,12 @@ var loadedEnv = null;
 var ACTIVE_ENV_STORAGE_KEY = 'bt_active_environment';
 var LAST_ENV_KEY_STORAGE_KEY = 'bt_last_env_key';
 // La decision de trabajar sin base tambien dura la sesion: un F5 no tiene que
-// devolverte al paso de Conexion que ya salteaste a proposito.
+// devolverte al paso de Ambiente que ya salteaste a proposito.
 var NO_DB_STORAGE_KEY = 'bt_no_db';
 var sdtEnvCaptureActive = false;
-var _p2OrigTitle = null, _p2OrigSub = null;
 var _pendingReconnectError = null;
 // Entrada del historial que hay que dejar seleccionada en cuanto se dibuje el
-// desplegable. Existe porque show(PASO_CONEXION) dispara su propio
+// desplegable. Existe porque show(PASO_AMBIENTE) dispara su propio
 // loadDbHistory() sin esperarlo: si la preseleccion se hiciera a mano despues,
 // el render de esa llamada podia llegar ultimo y borrarla.
 var _pendingHistPreselect = null;
@@ -1449,7 +1448,7 @@ function getDb() { return shapeDbApi(S.platform, effectiveFields()); }
 function getDbSG() { return shapeDbSG(S.platform, effectiveFields()); }
 
 // domDbShape()/domDbShapeSG(): variante que SI lee en vivo del DOM. Se usa
-// unicamente dentro del paso de Conexión (testConn/runAutoConnTest,
+// unicamente dentro del panel del ambiente (testConn/runAutoConnTest,
 // saveDbHistEntry) mientras el usuario todavia esta tipeando/probando una
 // conexion que no fue confirmada como ambiente activo.
 function domDbShape() { return shapeDbApi(S.platform, readFieldsFromDom(S.platform)); }
@@ -1482,18 +1481,9 @@ function sgInvalidateState() {
 function pick(key, val, el) {
   sgInvalidateState();
   pgInvalidateState();
-  var versionAnterior = S.version;
   S[key] = val;
   el.closest('.cards').querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
   el.classList.add('sel');
-  if (key === 'version') {
-    S.platform = platformFor(val);
-    // Solo si REALMENTE cambio: reclickear la misma tarjeta no puede borrar la
-    // conexion que openEnvSwitcher acaba de precargar para editar.
-    if (versionAnterior && versionAnterior !== val) resetConnForVersionChange();
-    tryLoadEnv(val);
-    toggleEngineSection(val === 'V4');
-  }
   if (key === 'action') {
     updateStepLabels(val);
     // Cada eleccion de herramienta es un pedido fresco de apiMode (si aplica)
@@ -1521,8 +1511,8 @@ function platformFor(version) {
 
 /**
  * Motor por defecto de una versión, para los caminos que eligen la versión
- * SIN pasar por las tarjetas de motor del paso 1 (el selector del paso de
- * Conexión y la preselección del arranque).
+ * SIN pasar por las tarjetas de motor (el selector de versión y la
+ * preselección del arranque).
  *
  * Hoy V4 tiene un solo motor habilitado (Oracle; Java SQL, AS400 y Postgre
  * están como "Próximamente" en #engine-section). Cuando se habilite un
@@ -1532,23 +1522,18 @@ function defaultEngineFor(version) {
   return version === 'V4' ? 'oracle' : null;
 }
 
-// ── Versión desde el paso de Conexión ─────────────────────────
+// ── Versión + motor (paso de Ambiente) ───────────────────────
 
 /**
- * Elegir la versión desde el panel de Conexión.
- *
- * En el arranque ese panel es la PRIMERA página que se ve: cuando hay
- * conexiones guardadas, askEnvForNewSession saltea el paso de Versión y
- * preselecciona la última usada. Sin este selector la lista de conexiones
- * quedaba clavada en la versión de esa entrada (renderDbHistory filtra por
- * S.version), así que para trabajar contra la otra versión había que adivinar
- * el botón Volver.
+ * Elegir la versión. Vive en el panel del ambiente (paso 1), junto al motor y
+ * a la conexión: las tres cosas son el mismo ambiente y ahora se eligen en una
+ * sola página.
  *
  * Cambiar de versión cambia de motor, así que la conexión anterior no aplica:
  * se limpian los campos, se baja la prueba OK y se recarga el .env legado de
  * la versión nueva (loadedEnv, del que dependen los defaults de la API).
  */
-function pickConnVersion(version) {
+function pickVersion(version) {
   if (version === S.version) return; // no borrar lo que ya se tipeó al re-clickear la misma
   S.version = version;
   S.platform = platformFor(version);
@@ -1562,8 +1547,8 @@ function pickConnVersion(version) {
   if (carga && typeof carga.then === 'function') {
     carga.then(function() { if (S.version === version) toggleConnPlatformFields(); });
   }
-  syncConnVersionCards();
-  markVersionCardsFromS(); // el paso 1 no puede quedar diciendo otra versión
+  syncVersionCards();
+  syncEngineSection();
   toggleConnPlatformFields();
   // Elegir la version deja lista la conexion de esa version, igual que hace el
   // arranque: un click y ya se sabe contra que base se va a trabajar. Se
@@ -1578,10 +1563,8 @@ function pickConnVersion(version) {
 /**
  * Cambiar de versión cambia de motor, así que la conexión anterior no aplica:
  * ni sus campos, ni su nombre, ni la prueba OK, ni la entrada del historial
- * que se venía a preseleccionar. Lo usan los DOS caminos que cambian de
- * versión (las tarjetas del paso 1 y el selector del paso de Conexión), para
- * que no queden mostrando el nombre de una conexión con los campos de la otra
- * versión vacíos.
+ * que se venía a preseleccionar. Sin esto quedaba el nombre de una conexión
+ * arriba y los campos del otro motor vacíos abajo.
  */
 function resetConnForVersionChange() {
   clearDbFields();
@@ -1591,8 +1574,8 @@ function resetConnForVersionChange() {
   if (res) { res.className = 'cres'; res.textContent = ''; }
 }
 
-/** Marca la tarjeta de versión del paso de Conexión según S.version. */
-function syncConnVersionCards() {
+/** Marca la tarjeta de versión del panel del ambiente según S.version. */
+function syncVersionCards() {
   ['V3', 'V4'].forEach(function(v) {
     var card = document.getElementById('conn-ver-' + v);
     if (card) card.classList.toggle('sel', S.version === v);
@@ -1608,25 +1591,65 @@ function toggleConnPlatformFields() {
 }
 
 /**
- * El selector de versión del panel de Conexión solo aplica mientras se está
- * eligiendo el ambiente. A mitad de una herramienta ya elegida, o en la
- * conexión dedicada de Generar SDT (que es V4/Oracle por definición), cambiar
- * la versión ahí no significaría nada.
+ * Versión + motor se muestran cuando el panel es el paso de Ambiente. En la
+ * reconexión a mitad de una herramienta (PASO_CONEXION) el panel es el mismo
+ * pero la versión ya está decidida, y en la conexión dedicada de Generar SDT
+ * es V4/Oracle por definición: en los dos casos cambiarla ahí no significaría
+ * nada, así que el bloque se esconde y solo quedan los campos de la base.
  */
-function toggleConnVersionPicker() {
+function toggleVersionPicker() {
+  var visible = S.step === PASO_AMBIENTE && !sdtEnvCaptureActive;
   var wrap = document.getElementById('conn-version-wrap');
-  if (wrap) wrap.style.display = (isEnvGate() && !sdtEnvCaptureActive) ? '' : 'none';
-  syncConnVersionCards();
+  if (wrap) wrap.style.display = visible ? '' : 'none';
+  syncVersionCards();
+  if (visible) syncEngineSection();
 }
 
-function toggleEngineSection(show) {
+/**
+ * La sección de motor, derivada de S.version y S.engine.
+ *
+ * Solo V4 pregunta motor (V3 es SQL Server y punto). Y hoy V4 tiene un solo
+ * motor habilitado, así que pickVersion ya lo resuelve con defaultEngineFor y
+ * acá queda marcado: las tarjetas dicen qué motor se va a usar y cuáles
+ * vienen, sin pedir un click que no tiene alternativa. Cuando se habilite el
+ * segundo motor, defaultEngineFor tiene que dejar de resolverlo y esto pasa a
+ * ser una elección de verdad.
+ */
+function syncEngineSection() {
   var sec = document.getElementById('engine-section');
   if (!sec) return;
-  sec.style.display = show ? 'block' : 'none';
+  var mostrar = S.version === 'V4';
+  sec.style.display = mostrar ? 'block' : 'none';
   sec.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
-  // Aparece sin nada marcado: el motor se elige a mano. V3 no pregunta motor,
-  // queda en null.
-  S.engine = null;
+  if (!mostrar) return;
+  var card = S.engine ? document.getElementById('engine-' + S.engine) : null;
+  if (card) card.classList.add('sel');
+}
+
+/**
+ * El panel p2 se usa para dos cosas y el encabezado lo dice: elegir el
+ * ambiente (paso 1) o reconectarse a mitad de una herramienta
+ * (PASO_CONEXION). Antes esto se resolvía guardando el texto original del DOM
+ * en _p2OrigTitle/_p2OrigSub para restaurarlo después de Generar SDT; con dos
+ * variantes reales, la copia guardada podía ser la del otro caso. Los textos
+ * viven acá y se re-aplican, no se restauran.
+ */
+var P2_TITULOS = {
+  ambiente: {
+    t: '¿Contra qué ambiente vas a trabajar?',
+    sub: 'Elegí la versión y la base de datos. Queda activo para todas las herramientas.',
+  },
+  conexion: {
+    t: 'Datos de conexión a la base de datos',
+    sub: 'Ingresá los datos del ambiente al que querés conectarte.',
+  },
+};
+
+function applyP2Titles() {
+  var v = (S.step === PASO_AMBIENTE && !sdtEnvCaptureActive) ? P2_TITULOS.ambiente : P2_TITULOS.conexion;
+  var t = document.querySelector('#p2 .ptitle'), sub = document.querySelector('#p2 .psub');
+  if (t) t.textContent = v.t;
+  if (sub) sub.textContent = v.sub;
 }
 
 function toggleApiModeSection(show) {
@@ -1677,7 +1700,16 @@ function sectionVisible(id) {
   return !!sec && sec.style.display !== 'none';
 }
 
-// Paso 1 (Versión): version -> motor.
+/**
+ * El paso de Ambiente (paso 1) se completa con las tres cosas: versión, motor
+ * (cuando esa sección aplica) y la prueba de conexión OK. Antes eran dos
+ * pasos con una condición cada uno.
+ */
+function ambienteReady() {
+  return versionReady() && connReady();
+}
+
+// Versión -> motor, la mitad "qué Bantotal" del ambiente.
 function versionReady() {
   if (!S.version) return false;
   if (sectionVisible('engine-section') && !S.engine) return false;
@@ -1780,7 +1812,7 @@ function mustAskForConnection() {
 function refreshNextBtn() {
   var nb = document.getElementById('btn-next');
   if (!nb) return;
-  if (S.step === PASO_VERSION) nb.disabled = !versionReady();
+  if (S.step === PASO_AMBIENTE) nb.disabled = !ambienteReady();
   else if (S.step === PASO_ACCION) nb.disabled = !actionReady();
   else nb.disabled = false;
 }
@@ -1833,31 +1865,24 @@ function updateStepLabels(action) {
 }
 
 /**
- * Al abrir la app se elige el ambiente ANTES de la herramienta, asi que el
- * camino visible en ese momento es Version -> Conexion y nada mas: cuantos
- * pasos siguen depende de la herramienta, que todavia no se eligio.
+ * Al abrir la app se elige el ambiente ANTES de la herramienta, y el ambiente
+ * entero (version, motor y conexion) es un solo paso. Asi que el camino
+ * visible en ese momento es Ambiente -> Accion y nada mas: cuantos pasos
+ * siguen depende de la herramienta, que todavia no se eligio.
  *
- * Dos condiciones, y las DOS hacen falta:
- *
- *  - no hay herramienta elegida, y
- *  - se esta en uno de los dos pasos del ambiente (Version o Conexion).
- *
- * El segundo no se puede escribir como `S.step <= PASO_CONEXION` porque
- * Accion es justo el paso 2, en medio de los otros dos. Sin esa precision,
- * al confirmar el ambiente el gate seguia activo sobre el panel de Accion y
- * el stepper mostraba dos puntos con "Versión" encendido estando en Accion.
+ * Las dos condiciones hacen falta. Sin la del paso, al confirmar el ambiente
+ * el gate seguia activo sobre el panel de Accion y el stepper marcaba
+ * "Ambiente" encendido estando en Accion.
  *
  * Mismo patron que validate, que tambien colapsa el stepper a dos puntos con
  * rotulos propios.
  */
 function isEnvGate() {
-  return !S.action && (S.step === PASO_VERSION || S.step === PASO_CONEXION);
+  return !S.action && S.step === PASO_AMBIENTE;
 }
 
 function vizPos(step) {
-  if (isEnvGate()) {
-    return step === PASO_CONEXION ? 2 : 1; // Version→1, Conexion→2
-  }
+  if (isEnvGate()) return 1; // solo se puede estar en Ambiente
   if (S.action === 'validate') {
     return step <= PASO_CONEXION ? 1 : 2; // ambiente+accion→1, panel→2
   }
@@ -1873,15 +1898,14 @@ function dots(step) {
   var isSingle = S.action === 'validate';
   var enGate = isEnvGate();
 
-  // Para validate el flujo se resume a 2 pasos visuales: elegir (ambiente +
-  // accion) y validar. Para el resto, d1/d2/d3 muestran su rotulo real.
+  // El paso 1 es el ambiente completo (version + motor + conexion), asi que
+  // el rotulo es el mismo para todos los flujos, validate incluido.
   var lb1 = document.getElementById('lb1');
-  if (lb1) lb1.textContent = isSingle ? 'Ambiente' : 'Versión';
-  // En el gate de ambiente el segundo punto es Conexion, no Accion: la
-  // herramienta se elige DESPUES de confirmar el ambiente. Marcar ahi
-  // "Acción" como completada seria mentir sobre un paso que no se hizo.
+  if (lb1) lb1.textContent = 'Ambiente';
+  // Para validate el flujo se resume a 2 pasos visuales: elegir (ambiente +
+  // accion) y validar.
   var lb2 = document.getElementById('lb2');
-  if (lb2) lb2.textContent = enGate ? 'Conexión' : (isSingle ? 'Validar' : 'Acción');
+  if (lb2) lb2.textContent = isSingle ? 'Validar' : 'Acción';
   // El rotulo del tercer paso acompaña al reorden (Accion paso al 2). Cuando
   // la herramienta no necesita conexion, ese paso no existe y el rotulo se
   // vacia: los rotulos 4 y 5 ya vienen vacios de fabrica, asi que queda
@@ -1896,8 +1920,8 @@ function dots(step) {
   // Cuantos puntos tiene el camino: 2 para validate, 4 cuando se saltea
   // Conexion, 5 normalmente. Sin ajustarlo, al saltear quedaba un quinto
   // punto vacio al final que nunca se enciende.
-  // En el gate son 2: Version y Conexion. Cuantos vienen despues lo define
-  // la herramienta, que se elige recien al confirmar el ambiente.
+  // En el gate son 2: Ambiente y Accion. Cuantos vienen despues de Accion lo
+  // define la herramienta, que se elige recien al confirmar el ambiente.
   var maxDot = (enGate || isSingle) ? 2 : (mustAskForConnection() ? 5 : 4);
   [1,2,3,4,5].forEach(function(i) {
     var d = document.getElementById('d' + i);
@@ -1935,14 +1959,19 @@ function dots(step) {
 // ver executeCollectionFlow, que ramifica por formato). Para poder saltear
 // ese paso hay que saber antes que herramienta y que fuente se eligieron, y
 // eso solo se sabe si Accion viene primero.
-var PASO_VERSION = 1;
+var PASO_AMBIENTE = 1;
 var PASO_ACCION = 2;
 var PASO_CONEXION = 3;
 
 function panelId(step) {
-  if (step === PASO_VERSION) return 'p1';
+  // p2 es el panel del ambiente y aparece dos veces en el camino: como paso 1
+  // (version + motor + conexion) y como PASO_CONEXION, cuando hay que
+  // reconectar a mitad de una herramienta. Lo que cambia entre los dos es el
+  // titulo y si se muestra el selector de version (ver applyP2Titles y
+  // toggleVersionPicker), no el panel.
+  if (step === PASO_AMBIENTE) return 'p2';
   if (step === PASO_ACCION) return 'p3';   // el panel p3 es el de Accion
-  if (step === PASO_CONEXION) return 'p2'; // el panel p2 es el de Conexion
+  if (step === PASO_CONEXION) return 'p2';
   if (S.action === 'validate') return 'p4v';
   if (S.action === 'collections') return step === 4 ? 'p4' : 'p4c';
   if (S.action === 'scripts') return step === 4 ? 'p4s' : 'p5s';
@@ -1964,20 +1993,22 @@ function show(step) {
   S.step = step;
   dots(step);
   foot(step);
-  if (step === PASO_VERSION) { // versión + motor
-    markVersionCardsFromS();
-  }
   // Cada vez que se entra a Accion, no solo al activar el modo: asi tambien
   // devuelve las tarjetas a su estado normal cuando se conecto una base.
   if (step === PASO_ACCION) {
     applyNoDbRestrictions();
   }
-  if (step === PASO_CONEXION) { // conexión — ya NO se limpia automaticamente: los campos
-    // reflejan lo que ya haya (ambiente activo si se esta editando, o lo que
-    // el usuario ya tipeo si volvio de otro paso). Solo se limpian de forma
-    // explicita (primer uso nunca tocado, o conexion especifica de sdtgen).
+  // El panel del ambiente, en sus dos usos: paso 1 (con version y motor) y
+  // reconexion a mitad de una herramienta (solo los campos de la base).
+  //
+  // Los campos ya NO se limpian automaticamente: reflejan lo que haya
+  // (ambiente activo si se esta editando, o lo que el usuario ya tipeo si
+  // volvio de otro paso). Solo se limpian de forma explicita (cambio de
+  // version, o la conexion especifica de sdtgen).
+  if (step === PASO_AMBIENTE || step === PASO_CONEXION) {
+    applyP2Titles();
     toggleConnPlatformFields();
-    toggleConnVersionPicker();
+    toggleVersionPicker();
     loadDbHistory();
     setTimeout(setupConnWatchers, 0);
     if (_pendingReconnectError) {
@@ -2075,11 +2106,13 @@ function foot(step) {
   var back = document.getElementById('btn-back');
   back.style.display = step > 1 ? 'flex' : 'none';
   var ftr = document.getElementById('ft-r');
-  if (step === PASO_VERSION) {
-    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (versionReady() ? '' : ' disabled') + '>Siguiente &#8594;</button>';
-  } else if (step === PASO_ACCION) {
+  if (step === PASO_ACCION) {
     ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (actionReady() ? '' : ' disabled') + '>Siguiente &#8594;</button>';
-  } else if (step === PASO_CONEXION) {
+  } else if (step === PASO_AMBIENTE || step === PASO_CONEXION) {
+    // Avanzar del paso de Ambiente pide las tres cosas (version, motor y la
+    // prueba OK); en la reconexion la version ya esta decidida y alcanza la
+    // prueba.
+    var listo = step === PASO_AMBIENTE ? ambienteReady() : connReady();
     // La salida sin base solo aparece mientras se esta eligiendo el ambiente:
     // a mitad de una herramienta que ya usa la base no tiene sentido.
     // Ghost, y primero, para no competir con la accion principal.
@@ -2087,7 +2120,7 @@ function foot(step) {
         ? '<button class="btn btn-ghost" id="btn-nodb" onclick="continueWithoutDb()" title="Solo habilita las herramientas que no necesitan la base">Trabajar sin base de datos</button>&nbsp;&nbsp;'
         : '') +
       '<button class="btn btn-outline" id="btn-test" onclick="testConn()">Probar conexión</button>&nbsp;&nbsp;' +
-      '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (connReady() ? '' : ' disabled') + '>Siguiente &#8594;</button>';
+      '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (listo ? '' : ' disabled') + '>Siguiente &#8594;</button>';
   } else if (step === 4 && S.action === 'validate') {
     ftr.innerHTML = '';
   } else if (step === 5 && S.action === 'collections') {
@@ -2123,16 +2156,8 @@ function foot(step) {
 async function goNext() {
   if (sdtEnvCaptureActive) { sdtEnvCaptureNext(); return; }
   var s = S.step;
-  if (s === PASO_VERSION) {
-    if (!versionReady()) return;
-    // En el gate de ambiente el camino es Version -> Conexion -> Accion: la
-    // conexion es parte del ambiente que se esta eligiendo.
-    //
-    // Sin esto, el chip del navbar ("Cambiar de ambiente") quedaba sin
-    // efecto: llevaba a Version, y de ahi a Accion, donde el ambiente activo
-    // todavia servia y el paso de Conexion se salteaba. O sea, no habia forma
-    // de cambiar la conexion salvo cambiando de version.
-    if (isEnvGate()) { show(PASO_CONEXION); return; }
+  if (s === PASO_AMBIENTE) {
+    if (!ambienteReady()) return;
     show(PASO_ACCION);
     return;
   }
@@ -2148,10 +2173,6 @@ async function goNext() {
   }
   if (s === PASO_CONEXION) {
     if (!connReady()) return;
-    // Gate de ambiente del arranque: se confirmo la conexion y todavia no
-    // hay herramienta elegida, asi que sigue Accion. Sin esto se caia en el
-    // paso 4, que es el panel de una herramienta que no existe.
-    if (isEnvGate()) { show(PASO_ACCION); return; }
     show(4);
     return;
   }
@@ -2176,9 +2197,8 @@ function goBack() {
   // Volver desde el paso 4 tiene que saltear Conexion igual que la ida, si
   // no el usuario cae en un paso que nunca vio y que no necesita.
   if (s === 4 && !mustAskForConnection()) { show(PASO_ACCION); return; }
-  // En el gate del arranque, atras de Conexion esta Version (el otro
-  // componente del ambiente), no Accion: la herramienta todavia no se eligio.
-  if (s === PASO_CONEXION && isEnvGate()) { show(PASO_VERSION); return; }
+  // Atras del paso de Ambiente no hay nada (es el primero): el boton Volver
+  // ni se muestra ahi (ver foot).
   if (s > 1) show(s - 1);
 }
 
@@ -2560,14 +2580,22 @@ function connReady() {
   return _connOk;
 }
 
+/**
+ * Habilita/deshabilita el Siguiente cuando la prueba de conexion cambia.
+ *
+ * En el paso de Ambiente el boton pide las tres cosas, no solo la prueba: con
+ * !_connOk solo, una conexion OK sin version elegida (imposible por la UI,
+ * pero el estado se puede arrastrar) habilitaba el paso.
+ */
 function updateConnBtn() {
-  if (sdtEnvCaptureActive || S.step === PASO_CONEXION) {
-    var btn = document.getElementById('btn-next');
-    if (btn) btn.disabled = !_connOk;
-  }
+  var btn = document.getElementById('btn-next');
+  if (!btn) return;
+  if (sdtEnvCaptureActive) { btn.disabled = !_connOk; return; }
+  if (S.step === PASO_AMBIENTE) { btn.disabled = !ambienteReady(); return; }
+  if (S.step === PASO_CONEXION) { btn.disabled = !_connOk; }
 }
 
-// Confirma los datos tipeados en el paso de Conexión como el ambiente activo
+// Confirma los datos tipeados en el panel del ambiente como el ambiente activo
 // global: a partir de aca todas las herramientas usan esta conexion sin
 // volver a pedirla (ver getDb()/getDbSG() / effectiveFields()).
 function commitActiveEnv() {
@@ -2607,31 +2635,10 @@ function renderEnvChip() {
   chip.style.display = 'flex';
 }
 
-// Marca las tarjetas de version/motor del paso 1 segun S.version/S.engine
-// (usado al reabrir ese paso: reconexion automatica fallida o cambio de
-// ambiente explicito desde el chip del navbar).
-function markVersionCardsFromS() {
-  var p1 = document.getElementById('p1');
-  if (!p1) return;
-  p1.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
-  if (!S.version) { var engSec = document.getElementById('engine-section'); if (engSec) engSec.style.display = 'none'; return; }
-  var verCard = p1.querySelector('.ccard[onclick="pick(\'version\',\'' + S.version + '\',this)"]');
-  if (verCard) verCard.classList.add('sel');
-  var engSec = document.getElementById('engine-section');
-  if (S.version === 'V4') {
-    if (engSec) engSec.style.display = 'block';
-    if (S.engine) {
-      var engCard = document.getElementById('engine-' + S.engine);
-      if (engCard) engCard.classList.add('sel');
-    }
-  } else if (engSec) {
-    engSec.style.display = 'none';
-  }
-}
-
-// Reabre el paso de Ambiente (version + conexión) para cambiarlo, con los
-// valores del ambiente activo precargados para editar. No se pierde nada de
-// forma destructiva: si hay una herramienta en curso se confirma antes.
+// Reabre el paso de Ambiente (version + motor + conexión, todo en un panel)
+// para cambiarlo, con los valores del ambiente activo precargados para
+// editar. No se pierde nada de forma destructiva: si hay una herramienta en
+// curso se confirma antes.
 function openEnvSwitcher() {
   if (S.action && !confirm('Vas a cambiar de ambiente. Esto reinicia la herramienta que tenías abierta (la conexión y el ambiente elegidos se mantienen hasta que confirmes uno nuevo). ¿Continuar?')) return;
   if (sdtEnvCaptureActive) sdtEnvCaptureExit(); // no dejar la conexion especial de sdtgen a medio armar
@@ -2653,7 +2660,7 @@ function openEnvSwitcher() {
     var actual = findMatchingHistEntry(S.activeEnv);
     if (actual) _pendingHistPreselect = actual.id;
   }
-  show(PASO_VERSION);
+  show(PASO_AMBIENTE);
 }
 
 // ── Reconexión automática al último ambiente activo (localStorage) ───────
@@ -2686,7 +2693,7 @@ async function initWizard() {
   migrateLegacyActiveEnv();
 
   // Se eligio trabajar sin base en esta sesion: un F5 no puede devolver al
-  // paso de Conexion que se salteo a proposito.
+  // paso de Ambiente que se salteo a proposito.
   if (loadNoDbFromSession()) {
     S.noDb = true;
     renderEnvChip();
@@ -2715,7 +2722,7 @@ async function initWizard() {
   } else {
     _connOk = false;
     _pendingReconnectError = 'No se pudo reconectar automáticamente al último ambiente activo: ' + (testResult.message || 'error desconocido') + '. Revisá los datos.';
-    show(PASO_CONEXION); // ir directo a Conexión: ahí vive el banner de error y los campos a corregir
+    show(PASO_AMBIENTE); // ahí viven el banner de error y los campos a corregir
   }
 }
 
@@ -2726,19 +2733,20 @@ async function initWizard() {
  * filtra por S.version, y la version sale justamente de la entrada que se va
  * a preseleccionar. Sin eso, la entrada quedaba fuera del desplegable.
  *
- * Si no hay ninguna conexion guardada (instalacion nueva) no hay nada que
- * preseleccionar: arranca el wizard desde Version, como antes.
+ * Instalacion nueva (sin conexiones guardadas): se muestra el mismo paso, con
+ * la version sin elegir y los campos vacios. Es un solo panel, asi que no hay
+ * un "empezar desde Version" distinto.
  */
 async function askEnvForNewSession() {
   await loadDbHistory();
   var entry = pickEntryForNewSession();
-  if (!entry) { show(PASO_VERSION); return; }
-
-  S.version = entry.version;
-  S.platform = entry.platform;
-  S.engine = defaultEngineFor(entry.version);
-  _pendingHistPreselect = entry.id;
-  show(PASO_CONEXION);
+  if (entry) {
+    S.version = entry.version;
+    S.platform = entry.platform;
+    S.engine = defaultEngineFor(entry.version);
+    _pendingHistPreselect = entry.id;
+  }
+  show(PASO_AMBIENTE);
   // show() dispara su propio loadDbHistory(); el render aplica la
   // preseleccion pendiente. Este render extra cubre el caso en que el
   // historial ya estaba en memoria y ese fetch no cambia nada.
@@ -2748,7 +2756,7 @@ async function askEnvForNewSession() {
 // ── Modo "sin base de datos" ─────────────────────────────────
 
 /**
- * Salida del paso de Conexion para trabajar sin base.
+ * Salida del paso de Ambiente para trabajar sin base.
  *
  * Existe porque "Generar casos de prueba" con fuente Swagger no toca la base
  * en ningun momento (verificado ruta por ruta en generar-collections: ni el
@@ -2813,7 +2821,7 @@ function applyNoDbRestrictions() {
 
 /**
  * La conexion a preseleccionar DENTRO de una version, para cuando la version
- * ya esta decidida (el selector del paso de Conexion).
+ * ya esta decidida (el selector de version del paso de Ambiente).
  *
  * Mismo criterio que pickEntryForNewSession, pero acotado: la ultima usada si
  * es de esa version y sigue en el historial, y si no la mas reciente de esa
@@ -2870,9 +2878,9 @@ function sdtgenEnterOrCapture() {
     return;
   }
 
-  // Todavia no hay ambiente activo: va al paso de Conexion NORMAL, que
-  // confirma el ambiente global y queda disponible para las otras
-  // herramientas.
+  // Todavia no hay ambiente activo: va al paso de Conexion NORMAL (el mismo
+  // panel del ambiente, sin el bloque de version), que confirma el ambiente
+  // global y queda disponible para las otras herramientas.
   //
   // La captura dedicada de abajo existe para no pisar un ambiente que ya
   // esta en uso; cuando no hay ninguno no hay nada que preservar, y
@@ -2890,10 +2898,8 @@ function sdtgenEnterOrCapture() {
   tryLoadEnv('V4');
   document.getElementById('sql-fields').style.display = 'none';
   document.getElementById('ora-fields').style.display = 'block';
-  toggleConnVersionPicker(); // sdtEnvCaptureActive ya está en true: lo esconde
+  toggleVersionPicker(); // sdtEnvCaptureActive ya está en true: lo esconde
   var t = document.querySelector('#p2 .ptitle'), sub = document.querySelector('#p2 .psub');
-  if (t && _p2OrigTitle === null) _p2OrigTitle = t.textContent;
-  if (sub && _p2OrigSub === null) _p2OrigSub = sub.textContent;
   if (t) t.textContent = 'Conexión para Generar SDT (V4 / Oracle)';
   if (sub) sub.textContent = 'Generar SDT solo trabaja contra V4/Oracle y tu ambiente activo es distinto. Conectate acá solo para esta herramienta — no se reemplaza tu ambiente global salvo que lo confirmes.';
   document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
@@ -2930,9 +2936,10 @@ function sdtEnvCaptureCancel() {
 
 function sdtEnvCaptureExit() {
   sdtEnvCaptureActive = false;
-  var t = document.querySelector('#p2 .ptitle'), sub = document.querySelector('#p2 .psub');
-  if (t && _p2OrigTitle !== null) { t.textContent = _p2OrigTitle; }
-  if (sub && _p2OrigSub !== null) { sub.textContent = _p2OrigSub; }
+  // Se re-aplica el encabezado que corresponda, no se restaura una copia:
+  // el panel tiene dos variantes (ver P2_TITULOS) y la copia podia ser la de
+  // la otra.
+  applyP2Titles();
 }
 
 // ── Paso 4 Doc: API ────────────────────────────────────────────

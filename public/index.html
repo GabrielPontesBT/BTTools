@@ -28,11 +28,11 @@
 
   <div class="wiz-sidebar">
     <div class="steps-bar">
-      <div class="step-row"><div class="sdot active" id="d1"><span id="dn1">1</span></div><span class="sdot-lb" id="lb1">Versión</span></div>
+      <div class="step-row"><div class="sdot active" id="d1"><span id="dn1">1</span></div><span class="sdot-lb" id="lb1">Ambiente</span></div>
       <div class="sline" id="l1"></div>
-      <div class="step-row"><div class="sdot" id="d2"><span id="dn2">2</span></div><span class="sdot-lb" id="lb2">Conexión</span></div>
+      <div class="step-row"><div class="sdot" id="d2"><span id="dn2">2</span></div><span class="sdot-lb" id="lb2">Acción</span></div>
       <div class="sline" id="l2"></div>
-      <div class="step-row"><div class="sdot" id="d3"><span id="dn3">3</span></div><span class="sdot-lb" id="lb3">Acción</span></div>
+      <div class="step-row"><div class="sdot" id="d3"><span id="dn3">3</span></div><span class="sdot-lb" id="lb3"> </span></div>
       <div class="sline" id="l3"></div>
       <div class="step-row"><div class="sdot" id="d4"><span id="dn4">4</span></div><span class="sdot-lb" id="lb4"> </span></div>
       <div class="sline" id="l4"></div>
@@ -44,65 +44,49 @@
 
   <div class="wiz-bd">
 
-    <!-- Paso 1: Versión -->
-    <div class="panel" id="p1">
-      <div class="ptitle">¿Qué versión de Bantotal vas a usar?</div>
-      <div class="psub">V3 usa SQL Server · V4 usa Oracle. Podés cambiar la configuración en cualquier momento.</div>
-      <div class="cards">
-        <div class="ccard" onclick="pick('version','V3',this)">
-          <span class="ccard-title">V3</span>
-          <span class="ccard-desc">SQL Server</span>
-        </div>
-        <div class="ccard" onclick="pick('version','V4',this)">
-          <span class="ccard-title">V4</span>
-          <!--span class="ccard-desc">Oracle</span> -->
-        </div>
-      </div>
-
-      <div id="engine-section" style="display:none;margin-top:var(--sp-5)">
-        <div class="psub" style="margin-bottom:var(--sp-3)">¿Qué motor de base de datos vas a usar?</div>
-        <div class="cards" style="grid-template-columns:repeat(4,1fr)">
-          <div class="ccard" id="engine-oracle" onclick="pick('engine','oracle',this)">
-            <span class="ccard-title">Oracle</span>
-          </div>
-          <div class="ccard ccard-disabled" id="engine-javasql">
-            <span class="ccard-badge" style="background:var(--muted)">Próximamente</span>
-            <span class="ccard-title">Java SQL</span>
-          </div>
-          <div class="ccard ccard-disabled" id="engine-as400">
-            <span class="ccard-badge" style="background:var(--muted)">Próximamente</span>
-            <span class="ccard-title">Java AS400</span>
-          </div>
-          <div class="ccard ccard-disabled" id="engine-postgresql">
-            <span class="ccard-badge" style="background:var(--muted)">Próximamente</span>
-            <span class="ccard-title">Postgre SQL</span>
-          </div>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- Paso 2: Conexión (BD) -->
+    <!-- Paso 1: Ambiente (versión + motor + conexión) -->
     <div class="panel" id="p2">
-      <div class="ptitle">Datos de conexión a la base de datos</div>
-      <div class="psub">Ingresá los datos del ambiente al que querés conectarte.</div>
+      <div class="ptitle">¿Contra qué ambiente vas a trabajar?</div>
+      <div class="psub">Elegí la versión y la base de datos. Queda activo para todas las herramientas.</div>
 
-      <!-- Version. Se elige tambien aca porque en el arranque este panel es la
-           PRIMERA pagina que se ve: askEnvForNewSession saltea el paso de
-           Version cuando hay conexiones guardadas. Solo se muestra mientras
-           se esta eligiendo el ambiente (ver show/PASO_CONEXION). -->
+      <!-- Version + motor. El ambiente entero (version, motor y conexion) se
+           elige en ESTE panel, que es el paso 1 y la primera pagina que se ve
+           al abrir la app. Las ids siguen diciendo "conn"/"p2" porque el panel
+           es el mismo que ademas se reusa para reconectar a mitad de una
+           herramienta (PASO_CONEXION), donde este bloque se esconde. -->
       <div id="conn-version-wrap" style="display:none;margin-bottom:var(--sp-4)">
         <label style="display:block;font-size:var(--fs-base);font-weight:500;color:var(--text);margin-bottom:var(--sp-2)">Versión de Bantotal</label>
         <div class="cards" style="grid-template-columns:repeat(2,1fr);gap:var(--sp-3);margin-bottom:0">
-          <div class="ccard" id="conn-ver-V3" onclick="pickConnVersion('V3')" style="padding:14px 20px">
+          <div class="ccard" id="conn-ver-V3" onclick="pickVersion('V3')" style="padding:14px 20px">
             <span class="ccard-title" style="margin-bottom:2px">V3</span>
             <span class="ccard-desc">SQL Server</span>
           </div>
-          <div class="ccard" id="conn-ver-V4" onclick="pickConnVersion('V4')" style="padding:14px 20px">
+          <div class="ccard" id="conn-ver-V4" onclick="pickVersion('V4')" style="padding:14px 20px">
             <span class="ccard-title" style="margin-bottom:2px">V4</span>
             <span class="ccard-desc">Oracle</span>
           </div>
         </div>
+        <div id="engine-section" style="display:none;margin-top:var(--sp-5)">
+          <div class="psub" style="margin-bottom:var(--sp-3)">Motor de base de datos</div>
+          <div class="cards" style="grid-template-columns:repeat(4,1fr)">
+            <div class="ccard" id="engine-oracle" onclick="pick('engine','oracle',this)" style="padding:14px 20px">
+              <span class="ccard-title" style="margin-bottom:0">Oracle</span>
+            </div>
+            <div class="ccard ccard-disabled" id="engine-javasql" style="padding:14px 20px">
+              <span class="ccard-badge" style="background:var(--muted)">Próximamente</span>
+              <span class="ccard-title" style="margin-bottom:0">Java SQL</span>
+            </div>
+            <div class="ccard ccard-disabled" id="engine-as400" style="padding:14px 20px">
+              <span class="ccard-badge" style="background:var(--muted)">Próximamente</span>
+              <span class="ccard-title" style="margin-bottom:0">Java AS400</span>
+            </div>
+            <div class="ccard ccard-disabled" id="engine-postgresql" style="padding:14px 20px">
+              <span class="ccard-badge" style="background:var(--muted)">Próximamente</span>
+              <span class="ccard-title" style="margin-bottom:0">Postgre SQL</span>
+            </div>
+          </div>
+        </div>
+
         <div style="border-top:1px solid var(--border);margin:var(--sp-4) 0 var(--sp-5)"></div>
       </div>
 
