@@ -1110,3 +1110,170 @@ test('las otras herramientas conservan sus rotulos de siempre', () => {
     assert.equal(lb.lb3, 'Conexión', accion + ' sigue teniendo el paso de Conexion');
   });
 });
+
+// ── El ambiente activo se elige una sola vez ─────────────────
+// pick() y commitActiveEnv() lo documentan desde el reorden de pasos:
+// "el ambiente se elige una sola vez, al principio" y "a partir de aca
+// todas las herramientas usan esta conexion sin volver a pedirla". Solo
+// Generar SDT lo cumplia; las otras cuatro volvian a pedir la conexion
+// con un ambiente ya confirmado.
+
+// Ambiente activo que coincide con lo elegido en el paso 1 (V4/Oracle,
+// que es lo que fija wizardNavegable).
+function ambienteActivoOracle() {
+  return {
+    version: 'V4', platform: 'oracle', engine: 'oracle',
+    connName: 'POC TIERRA',
+    fields: { host: '10.0.0.4', port: '1521', service: 'btv4db', user: 'bt', password: 'x' },
+  };
+}
+
+test('activeEnvUsable: exige que coincidan version y motor, no solo que exista', () => {
+  const w = wizardNavegable();
+  assert.equal(w.activeEnvUsable(), false, 'sin ambiente activo, no sirve');
+
+  w.S.activeEnv = ambienteActivoOracle();
+  assert.equal(w.activeEnvUsable(), true);
+
+  // El usuario volvio al paso 1 y eligio V3: la conexion guardada apunta
+  // a otra base.
+  w.S.version = 'V3'; w.S.platform = 'sqlserver';
+  assert.equal(w.activeEnvUsable(), false, 'cambiar de version invalida el ambiente guardado');
+});
+
+test('mustAskForConnection: separa "la herramienta usa la base" de "hay que preguntar"', () => {
+  const w = wizardNavegable();
+  w.S.action = 'doc';
+  assert.equal(w.needsDbConnection(), true, 'documentar siempre usa la base');
+  assert.equal(w.mustAskForConnection(), true, 'y sin ambiente activo hay que preguntar');
+
+  w.S.activeEnv = ambienteActivoOracle();
+  assert.equal(w.needsDbConnection(), true, 'sigue usando la base');
+  assert.equal(w.mustAskForConnection(), false, 'pero ya no hay nada que preguntar');
+});
+
+test('con ambiente activo, ninguna herramienta vuelve a pedir la conexion', async () => {
+  for (const accion of ['doc', 'scripts', 'validate', 'paramgen']) {
+    const w = wizardNavegable();
+    w.S.activeEnv = ambienteActivoOracle();
+    w.S.action = accion;
+    w.S.step = w.PASO_ACCION;
+    await w.goNext();
+    assert.equal(w.S.step, 4, accion + ' tiene que saltear Conexion con ambiente activo');
+  }
+});
+
+test('con ambiente activo, collections con base tampoco la vuelve a pedir', async () => {
+  const w = wizardNavegable();
+  w.S.activeEnv = ambienteActivoOracle();
+  w.S.action = 'collections';
+  w.S.collectionSource = 'database';
+  w.S.step = w.PASO_ACCION;
+  await w.goNext();
+  assert.equal(w.S.step, 4);
+});
+
+test('sin ambiente activo se sigue pidiendo la conexion', async () => {
+  // La contracara: el cambio no puede dejar a nadie sin forma de conectarse.
+  for (const accion of ['doc', 'scripts', 'validate', 'paramgen']) {
+    const w = wizardNavegable();
+    w.S.action = accion;
+    w.S.step = w.PASO_ACCION;
+    await w.goNext();
+    assert.equal(w.S.step, w.PASO_CONEXION, accion + ' sin ambiente activo tiene que pedirla');
+  }
+});
+
+test('un ambiente activo de otra version no alcanza para saltear', async () => {
+  const w = wizardNavegable();
+  w.S.activeEnv = ambienteActivoOracle();
+  w.S.version = 'V3'; w.S.platform = 'sqlserver';   // el usuario cambio de version
+  w.S.action = 'doc';
+  w.S.step = w.PASO_ACCION;
+  await w.goNext();
+  assert.equal(w.S.step, w.PASO_CONEXION, 'la conexion guardada es de otra base');
+});
+
+test('volver desde el paso 4 saltea Conexion si la ida la salteo por ambiente activo', () => {
+  const w = wizardNavegable();
+  w.S.activeEnv = ambienteActivoOracle();
+  w.S.action = 'doc';
+  w.S.step = 4;
+  w.goBack();
+  assert.equal(w.S.step, w.PASO_ACCION, 'no puede caer en un paso que nunca vio');
+});
+
+test('el stepper no deja huecos cuando se saltea por ambiente activo', () => {
+  // Es el mismo defecto que se arreglo para collections+Swagger: saltear
+  // el paso 3 dejaba el punto 3 apagado para siempre.
+  const w = wizardNavegable();
+  w.S.action = 'doc';
+  w.S.activeEnv = ambienteActivoOracle();
+  const posiciones = [1, 2, 4, 5].map(function (p) { return w.vizPos(p); });
+  assert.deepEqual(posiciones, [1, 2, 3, 4], 'posiciones consecutivas, sin huecos');
+});
+
+test('el stepper mantiene los 5 puntos cuando si hay que pedir la conexion', () => {
+  const w = wizardNavegable();
+  w.S.action = 'doc';
+  const posiciones = [1, 2, 3, 4, 5].map(function (p) { return w.vizPos(p); });
+  assert.deepEqual(posiciones, [1, 2, 3, 4, 5]);
+});
+
+// ── Generar SDT sin ambiente activo ─────────────────────────
+// La captura dedicada (S.sdtEnv) existe para no pisar un ambiente en uso.
+// Sin ambiente no hay nada que preservar, y mandar ahi afirmaba "tu
+// ambiente activo es distinto" cuando no habia ninguno, y dejaba la
+// conexion guardada solo para esa herramienta.
+
+test('Generar SDT sin ambiente activo va al paso de Conexion normal', () => {
+  const w = wizardNavegable();
+  w.S.action = 'sdtgen';
+  w.S.step = w.PASO_ACCION;
+  w.sdtgenEnterOrCapture();
+  assert.equal(w.S.step, w.PASO_CONEXION, 'el paso normal, que confirma el ambiente global');
+  assert.equal(w.sdtEnvCaptureActive, false, 'no la captura dedicada de la herramienta');
+});
+
+test('Generar SDT con ambiente Oracle activo no pide nada', () => {
+  const w = wizardNavegable();
+  w.S.activeEnv = ambienteActivoOracle();
+  w.S.action = 'sdtgen';
+  w.S.step = w.PASO_ACCION;
+  w.sdtgenEnterOrCapture();
+  assert.equal(w.S.step, 4);
+  assert.equal(w.S.sdtEnv, null, 'usa el ambiente global, sin conexion propia');
+});
+
+test('Generar SDT con ambiente V3/SQL Server activo si usa la captura dedicada', () => {
+  // El caso para el que se escribio: la herramienta es V4/Oracle-only y el
+  // ambiente global es otro, asi que se conecta aparte sin pisarlo.
+  const w = wizardNavegable();
+  w.S.activeEnv = {
+    version: 'V3', platform: 'sqlserver', engine: null, connName: 'V3 local',
+    fields: { server: 'srv1', port: '1433', database: 'btv3', user: 'sa', password: 'x' },
+  };
+  w.S.action = 'sdtgen';
+  w.S.step = w.PASO_ACCION;
+  w.sdtgenEnterOrCapture();
+  assert.equal(w.sdtEnvCaptureActive, true, 'la captura dedicada tiene que seguir existiendo');
+  assert.equal(w.S.activeEnv.platform, 'sqlserver', 'y no puede tocar el ambiente global');
+});
+
+test('Generar SDT fuerza V4/Oracle en los tres caminos', () => {
+  const casos = [
+    ['sin ambiente', null],
+    ['con Oracle', ambienteActivoOracle()],
+    ['con V3', { version: 'V3', platform: 'sqlserver', engine: null, connName: '', fields: {} }],
+  ];
+  for (const [nombre, env] of casos) {
+    const w = wizardNavegable();
+    w.S.version = 'V3'; w.S.platform = 'sqlserver';  // arranca en otra cosa
+    w.S.activeEnv = env;
+    w.S.action = 'sdtgen';
+    w.S.step = w.PASO_ACCION;
+    w.sdtgenEnterOrCapture();
+    assert.equal(w.S.version, 'V4', nombre + ': tiene que forzar V4');
+    assert.equal(w.S.platform, 'oracle', nombre + ': tiene que forzar Oracle');
+  }
+});

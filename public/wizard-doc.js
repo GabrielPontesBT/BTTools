@@ -1584,6 +1584,40 @@ function needsDbConnection() {
   return true;
 }
 
+/**
+ * El ambiente activo confirmado sirve para lo que se esta por hacer.
+ *
+ * No alcanza con que exista: tiene que coincidir con la version y el motor
+ * elegidos en el paso 1. Si el usuario venia con V4/Oracle activo y ahora
+ * eligio V3, la conexion guardada apunta a otra base y hay que volver a
+ * pedirla.
+ */
+function activeEnvUsable() {
+  return !!(S.activeEnv && S.activeEnv.version === S.version && S.activeEnv.platform === S.platform);
+}
+
+/**
+ * Si hay que PEDIR la conexion, que no es lo mismo que necesitarla.
+ *
+ * needsDbConnection() es una propiedad de la herramienta (collections con
+ * Swagger no toca la base). Esta funcion agrega la otra mitad: aunque la
+ * herramienta use la base, no hay nada que preguntar si el ambiente ya
+ * quedo confirmado. Es lo que dice el comentario de commitActiveEnv ("a
+ * partir de aca todas las herramientas usan esta conexion sin volver a
+ * pedirla") y el de pick() ("el ambiente se elige una sola vez, al
+ * principio"), y lo que hasta ahora solo cumplia Generar SDT.
+ *
+ * Se cambia de ambiente desde el chip del navbar (openEnvSwitcher), que es
+ * el camino explicito para eso.
+ *
+ * De esta funcion dependen las dos navegaciones y el stepper (vizPos, el
+ * rotulo del punto 3 y maxDot): tiene que ser una sola, o el paso se
+ * saltea pero el stepper deja un punto apagado que nunca se completa.
+ */
+function mustAskForConnection() {
+  return needsDbConnection() && !activeEnvUsable();
+}
+
 function refreshNextBtn() {
   var nb = document.getElementById('btn-next');
   if (!nb) return;
@@ -1641,7 +1675,7 @@ function vizPos(step) {
   // Cuando se saltea Conexion, los pasos posteriores corren un lugar hacia
   // atras en el stepper. Sin esto, ir del paso 2 al 4 dejaba el punto 3
   // apagado para siempre: un hueco en el camino que nunca se completa.
-  if (!needsDbConnection() && step > PASO_CONEXION) return step - 1;
+  if (!mustAskForConnection() && step > PASO_CONEXION) return step - 1;
   return step; // 1-5 directo (el paso 6 de exito no tiene punto activo)
 }
 
@@ -1660,7 +1694,7 @@ function dots(step) {
   // vacia: los rotulos 4 y 5 ya vienen vacios de fabrica, asi que queda
   // consistente. vizPos se encarga de que no quede un punto muerto.
   var lb3 = document.getElementById('lb3');
-  if (lb3) lb3.textContent = (!isSingle && needsDbConnection()) ? 'Conexión' : '';
+  if (lb3) lb3.textContent = (!isSingle && mustAskForConnection()) ? 'Conexión' : '';
   // El loop de mas abajo ya decide la visibilidad de cada punto y cada linea
   // con maxDot, que cubre tanto el caso validate como el salteo de Conexion.
   // Antes habia aca un segundo loop que hacia lo mismo solo para validate:
@@ -1669,7 +1703,7 @@ function dots(step) {
   // Cuantos puntos tiene el camino: 2 para validate, 4 cuando se saltea
   // Conexion, 5 normalmente. Sin ajustarlo, al saltear quedaba un quinto
   // punto vacio al final que nunca se enciende.
-  var maxDot = isSingle ? 2 : (needsDbConnection() ? 5 : 4);
+  var maxDot = isSingle ? 2 : (mustAskForConnection() ? 5 : 4);
   [1,2,3,4,5].forEach(function(i) {
     var d = document.getElementById('d' + i);
     if (!d) return;
@@ -1890,7 +1924,7 @@ async function goNext() {
     // Se saltea Conexion cuando la herramienta elegida no usa la base.
     // Si ya hay un ambiente activo confirmado, tampoco hace falta volver a
     // pedirla: es el mismo criterio que ya usaba sdtgenEnterOrCapture.
-    if (!needsDbConnection()) { show(4); return; }
+    if (!mustAskForConnection()) { show(4); return; }
     show(PASO_CONEXION);
     return;
   }
@@ -1915,7 +1949,7 @@ function goBack() {
   var s = S.step;
   // Volver desde el paso 4 tiene que saltear Conexion igual que la ida, si
   // no el usuario cae en un paso que nunca vio y que no necesita.
-  if (s === 4 && !needsDbConnection()) { show(PASO_ACCION); return; }
+  if (s === 4 && !mustAskForConnection()) { show(PASO_ACCION); return; }
   if (s > 1) show(s - 1);
 }
 
@@ -2373,13 +2407,30 @@ if (typeof document !== 'undefined' && typeof document.addEventListener === 'fun
 // Si no, se pide una conexión V4/Oracle aparte SOLO para esta herramienta,
 // sin tocar el ambiente global salvo que el usuario lo confirme al final.
 function sdtgenEnterOrCapture() {
+  S.version = 'V4'; S.platform = 'oracle'; S.engine = 'oracle';
+
+  // El ambiente activo ya es Oracle: se usa directo, sin preguntar nada.
   if (S.activeEnv && S.activeEnv.platform === 'oracle') {
     S.sdtEnv = null;
-    S.version = 'V4'; S.platform = 'oracle'; S.engine = 'oracle';
     show(4);
     return;
   }
-  S.version = 'V4'; S.platform = 'oracle'; S.engine = 'oracle';
+
+  // Todavia no hay ambiente activo: va al paso de Conexion NORMAL, que
+  // confirma el ambiente global y queda disponible para las otras
+  // herramientas.
+  //
+  // La captura dedicada de abajo existe para no pisar un ambiente que ya
+  // esta en uso; cuando no hay ninguno no hay nada que preservar, y
+  // mandar ahi tenia dos consecuencias malas: el subtitulo afirmaba "tu
+  // ambiente activo es distinto" cuando no habia ambiente alguno, y la
+  // conexion quedaba guardada solo para esta herramienta, asi que la
+  // siguiente volvia a pedirla.
+  if (!S.activeEnv) { show(PASO_CONEXION); return; }
+
+  // Hay ambiente activo pero no es Oracle (V3/SQL Server) y Generar SDT
+  // solo trabaja contra V4/Oracle: conexion aparte solo para esta
+  // herramienta, sin tocar la global salvo confirmacion.
   sdtEnvCaptureActive = true;
   clearDbFields();
   tryLoadEnv('V4');
