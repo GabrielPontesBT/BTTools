@@ -32,6 +32,9 @@ function loadWizard() {
     },
     fetch: function() { return Promise.reject(new Error('sin red en los tests')); },
     localStorage: makeMemoryStorage(),
+    // El ambiente activo vive en sessionStorage (dura la sesion); en
+    // localStorage queda solo el puntero a la ultima conexion usada.
+    sessionStorage: makeMemoryStorage(),
     confirm: function() { return true; },
     alert: function() {},
   };
@@ -444,7 +447,7 @@ test('getDb/getDbSG ignoran S.sdtEnv fuera de la herramienta Generar SDT', () =>
   assert.equal(w.getDbSG().connectString, 'global:1521/g');
 });
 
-test('commitActiveEnv arma S.activeEnv desde el DOM, lo persiste en localStorage y actualiza el chip', () => {
+test('commitActiveEnv arma S.activeEnv desde el DOM, lo persiste en la sesion y actualiza el chip', () => {
   const w = loadWizard();
   w.S.version = 'V4'; w.S.platform = 'oracle'; w.S.engine = 'oracle';
   const values = { 'db-conn-name': 'Mi conexion', 'db-host': 'h', 'db-port-o': '1521', 'db-service': 'svc', 'db-user-o': 'u', 'db-pass-o': 'p' };
@@ -458,9 +461,13 @@ test('commitActiveEnv arma S.activeEnv desde el DOM, lo persiste en localStorage
   w.commitActiveEnv();
   assert.equal(w.S.activeEnv.connName, 'Mi conexion');
   assert.equal(w.S.activeEnv.fields.host, 'h');
-  const saved = JSON.parse(w.localStorage.getItem('bt_active_environment'));
+  const saved = JSON.parse(w.sessionStorage.getItem('bt_active_environment'));
   assert.equal(saved.platform, 'oracle');
   assert.equal(saved.fields.service, 'svc');
+  assert.equal(w.localStorage.getItem('bt_active_environment'), null,
+    'el ambiente (con la password) ya no queda guardado entre sesiones');
+  assert.equal(w.localStorage.getItem('bt_last_env_key'), 'V4|ora|h:1521/svc|u',
+    'en localStorage queda solo el puntero a la conexion, sin credenciales');
   assert.equal(chip.style.display, 'flex', 'el chip del navbar se muestra al confirmar un ambiente');
 });
 
@@ -900,12 +907,24 @@ test('las otras herramientas siguen pasando por Conexion', async () => {
   }
 });
 
-test('el paso 1 lleva a Accion, no a Conexion', async () => {
+test('con herramienta ya elegida, el paso 1 lleva a Accion (el reorden)', async () => {
   const w = wizardNavegable();
+  w.S.action = 'doc';               // fuera del gate de ambiente
   w.S.step = w.PASO_VERSION;
   await w.goNext();
   assert.equal(w.S.step, w.PASO_ACCION);
   assert.equal(w.panelId(w.S.step), 'p3', 'y muestra el panel de Accion');
+});
+
+test('en el gate de ambiente, el paso 1 lleva a Conexion', async () => {
+  // Version + conexion son las dos mitades del ambiente: en el gate van
+  // seguidas, y recien despues se elige la herramienta. Es lo que hace que
+  // el chip "Cambiar de ambiente" pueda llegar al paso de Conexion.
+  const w = wizardNavegable();
+  w.S.step = w.PASO_VERSION;        // S.action null: gate
+  await w.goNext();
+  assert.equal(w.S.step, w.PASO_CONEXION);
+  assert.equal(w.panelId(w.S.step), 'p2', 'y muestra el panel de Conexion');
 });
 
 test('Conexion sin prueba OK no deja avanzar', async () => {
@@ -1276,4 +1295,259 @@ test('Generar SDT fuerza V4/Oracle en los tres caminos', () => {
     assert.equal(w.S.version, 'V4', nombre + ': tiene que forzar V4');
     assert.equal(w.S.platform, 'oracle', nombre + ': tiene que forzar Oracle');
   }
+});
+
+// ── El ambiente dura la sesion ───────────────────────────────
+// Al abrir la app se pide el ambiente, con la ultima conexion usada ya
+// seleccionada; queda fijo toda la sesion; un F5 no vuelve a preguntar;
+// cerrar la ventana si. El chip del navbar sigue siendo la forma de
+// cambiarlo a mitad de sesion.
+
+function envOracle(overrides) {
+  return Object.assign({
+    version: 'V4', platform: 'oracle', engine: 'oracle', connName: 'POC TIERRA',
+    fields: { host: '10.0.0.4', port: '1521', service: 'btv4db', user: 'bt', password: 'x' },
+  }, overrides || {});
+}
+
+test('envHistKey arma la misma key que el backend, para los dos motores', () => {
+  const w = loadWizard();
+  // Formato real medido en db_history.json.
+  assert.equal(w.envHistKey(envOracle()), 'V4|ora|10.0.0.4:1521/btv4db|bt');
+  assert.equal(w.envHistKey({
+    version: 'V3', platform: 'sqlserver',
+    fields: { server: 'SQLSERVER1', database: 'ProductoGx16', user: 'productogx16' },
+  }), 'V3|ss|SQLSERVER1|ProductoGx16|productogx16');
+});
+
+test('envHistKey tolera un ambiente incompleto sin explotar', () => {
+  const w = loadWizard();
+  assert.equal(w.envHistKey(null), '');
+  assert.equal(w.envHistKey({}), '');
+});
+
+test('el ambiente va a sessionStorage y el puntero a localStorage', () => {
+  const w = loadWizard();
+  w.S.activeEnv = envOracle();
+  w.saveActiveEnvToStorage();
+
+  assert.ok(w.sessionStorage.getItem('bt_active_environment'), 'el ambiente dura la sesion');
+  assert.equal(w.localStorage.getItem('bt_active_environment'), null, 'y no mas que eso');
+  assert.equal(w.localStorage.getItem('bt_last_env_key'), 'V4|ora|10.0.0.4:1521/btv4db|bt');
+});
+
+test('el puntero que se persiste no lleva la password', () => {
+  const w = loadWizard();
+  w.S.activeEnv = envOracle({ fields: { host: 'h', port: '1521', service: 's', user: 'u', password: 'SECRETO' } });
+  w.saveActiveEnvToStorage();
+  assert.ok(!/SECRETO/.test(w.localStorage.getItem('bt_last_env_key')), 'la key no puede contener la password');
+});
+
+test('loadActiveEnvFromStorage lee de la sesion, no de localStorage', () => {
+  const w = loadWizard();
+  // Un ambiente viejo en localStorage no cuenta como ambiente de la sesion.
+  w.localStorage.setItem('bt_active_environment', JSON.stringify(envOracle()));
+  assert.equal(w.loadActiveEnvFromStorage(), null);
+
+  w.sessionStorage.setItem('bt_active_environment', JSON.stringify(envOracle()));
+  assert.equal(w.loadActiveEnvFromStorage().connName, 'POC TIERRA');
+});
+
+test('migrateLegacyActiveEnv borra el ambiente viejo de localStorage y se queda con el puntero', () => {
+  // El esquema anterior guardaba el objeto completo, password incluida, para
+  // siempre. Se usa una vez para no perder la preseleccion y se borra.
+  const w = loadWizard();
+  w.localStorage.setItem('bt_active_environment', JSON.stringify(envOracle()));
+  w.migrateLegacyActiveEnv();
+  assert.equal(w.localStorage.getItem('bt_active_environment'), null, 'la password no puede quedar ahi');
+  assert.equal(w.localStorage.getItem('bt_last_env_key'), 'V4|ora|10.0.0.4:1521/btv4db|bt');
+});
+
+test('migrateLegacyActiveEnv no pisa un puntero que ya existe', () => {
+  const w = loadWizard();
+  w.localStorage.setItem('bt_last_env_key', 'V3|ss|otro|otra|user');
+  w.localStorage.setItem('bt_active_environment', JSON.stringify(envOracle()));
+  w.migrateLegacyActiveEnv();
+  assert.equal(w.localStorage.getItem('bt_last_env_key'), 'V3|ss|otro|otra|user');
+  assert.equal(w.localStorage.getItem('bt_active_environment'), null, 'igual lo borra');
+});
+
+test('migrateLegacyActiveEnv aguanta que no haya nada guardado', () => {
+  const w = loadWizard();
+  w.migrateLegacyActiveEnv();
+  assert.equal(w.localStorage.getItem('bt_last_env_key'), null);
+});
+
+// ── Que conexion se preselecciona ───────────────────────────
+
+test('pickEntryForNewSession elige la ultima usada si sigue en el historial', () => {
+  const w = loadWizard();
+  w._dbHistory = [
+    { id: '2', key: 'V4|ora|otro:1521/x|u', version: 'V4', platform: 'oracle', label: 'Otra' },
+    { id: '1', key: 'V4|ora|10.0.0.4:1521/btv4db|bt', version: 'V4', platform: 'oracle', label: 'POC TIERRA' },
+  ];
+  w.localStorage.setItem('bt_last_env_key', 'V4|ora|10.0.0.4:1521/btv4db|bt');
+  assert.equal(w.pickEntryForNewSession().label, 'POC TIERRA', 'no la primera de la lista: la ultima usada');
+});
+
+test('pickEntryForNewSession cae en la mas reciente si la ultima ya no existe', () => {
+  // El backend devuelve el historial con la ultima guardada primero.
+  const w = loadWizard();
+  w._dbHistory = [
+    { id: '2', key: 'V4|ora|nueva:1521/x|u', version: 'V4', platform: 'oracle', label: 'Nueva' },
+    { id: '1', key: 'V4|ora|vieja:1521/x|u', version: 'V4', platform: 'oracle', label: 'Vieja' },
+  ];
+  w.localStorage.setItem('bt_last_env_key', 'V4|ora|borrada:1521/x|u');
+  assert.equal(w.pickEntryForNewSession().label, 'Nueva');
+});
+
+test('pickEntryForNewSession sin puntero usa la mas reciente', () => {
+  const w = loadWizard();
+  w._dbHistory = [{ id: '1', key: 'k', version: 'V4', platform: 'oracle', label: 'Unica' }];
+  assert.equal(w.pickEntryForNewSession().label, 'Unica');
+});
+
+test('pickEntryForNewSession sin historial devuelve null (instalacion nueva)', () => {
+  const w = loadWizard();
+  w._dbHistory = [];
+  assert.equal(w.pickEntryForNewSession(), null);
+  w._dbHistory = null;
+  assert.equal(w.pickEntryForNewSession(), null);
+});
+
+// ── El gate de ambiente del arranque ────────────────────────
+
+test('isEnvGate: hay gate mientras no se eligio herramienta', () => {
+  const w = loadWizard();
+  assert.equal(w.isEnvGate(), true);
+  w.S.action = 'doc';
+  assert.equal(w.isEnvGate(), false);
+});
+
+test('en el gate el stepper es Version -> Conexion, con dos puntos', () => {
+  const w = loadWizard();
+  // Sin herramienta elegida: Conexion es el punto 2, no el 3.
+  assert.equal(w.vizPos(w.PASO_VERSION), 1);
+  assert.equal(w.vizPos(w.PASO_CONEXION), 2);
+});
+
+test('en el gate el punto 2 se rotula Conexion, no Accion', () => {
+  const w = loadWizard();
+  const rotulos = {};
+  const puntos = {};
+  w.document = makeDomStub();
+  w.document.getElementById = function (id) {
+    if (/^lb\d$/.test(id)) { rotulos[id] = rotulos[id] || stubEl(); return rotulos[id]; }
+    if (/^d\d$/.test(id)) { puntos[id] = puntos[id] || stubEl(); return puntos[id]; }
+    return stubEl();
+  };
+  w.dots(w.PASO_CONEXION);
+  assert.equal(rotulos.lb1.textContent, 'Versión');
+  assert.equal(rotulos.lb2.textContent, 'Conexión');
+  assert.equal(rotulos.lb3.textContent, '', 'no hay tercer punto todavia');
+  assert.equal(puntos.d3.style.display, 'none', 'solo dos puntos en el gate');
+});
+
+test('desde el gate de Conexion, Siguiente lleva a Accion (no al panel de una herramienta)', async () => {
+  const w = wizardNavegable();
+  w._connOk = true;
+  w.S.step = w.PASO_CONEXION;
+  // S.action sigue en null: es el arranque
+  await w.goNext();
+  assert.equal(w.S.step, w.PASO_ACCION, 'el paso 4 seria el panel de una herramienta que no se eligio');
+});
+
+test('desde el gate de Conexion, Volver lleva a Version', () => {
+  const w = wizardNavegable();
+  w.S.step = w.PASO_CONEXION;
+  w.goBack();
+  assert.equal(w.S.step, w.PASO_VERSION, 'el otro componente del ambiente');
+});
+
+test('fuera del gate, Conexion sigue yendo al panel de la herramienta', async () => {
+  const w = wizardNavegable();
+  w._connOk = true;
+  w.S.action = 'doc';
+  w.S.step = w.PASO_CONEXION;
+  await w.goNext();
+  assert.equal(w.S.step, 4);
+});
+
+test('fuera del gate, Volver desde Conexion sigue yendo a Accion', () => {
+  const w = wizardNavegable();
+  w.S.action = 'scripts';
+  w.S.step = w.PASO_CONEXION;
+  w.goBack();
+  assert.equal(w.S.step, w.PASO_ACCION);
+});
+
+test('el gate no deja avanzar sin una prueba de conexion OK', async () => {
+  const w = wizardNavegable();
+  w.S.step = w.PASO_CONEXION;
+  // _connOk arranca en false
+  await w.goNext();
+  assert.equal(w.S.step, w.PASO_CONEXION);
+});
+
+// ── La preseleccion se aplica en el render ──────────────────
+
+test('renderDbHistory aplica la preseleccion pendiente y llena los campos', () => {
+  // Se hace en el render, no despues, porque show(PASO_CONEXION) dispara su
+  // propio loadDbHistory() sin esperarlo y ese render podia llegar ultimo.
+  const w = loadWizard();
+  w.S.version = 'V4';
+  w._dbHistory = [{ id: '1', key: 'k', version: 'V4', platform: 'oracle', label: 'POC TIERRA', db: { connectString: '10.0.0.4:1521/btv4db', user: 'bt', password: 'p' } }];
+  w._pendingHistPreselect = '1';
+
+  const sel = stubEl();
+  sel.appendChild = function () {};
+  const campos = {};
+  w.document = makeDomStub();
+  w.document.getElementById = function (id) {
+    if (id === 'db-hist-sel') return sel;
+    if (id === 'db-hist-wrap' || id === 'db-hist-del') return stubEl();
+    campos[id] = campos[id] || stubEl();
+    return campos[id];
+  };
+  w.document.createElement = function () { return stubEl(); };
+
+  w.renderDbHistory();
+  assert.equal(sel.value, '1', 'la entrada queda elegida en el desplegable');
+  assert.equal(w._pendingHistPreselect, null, 'y la preseleccion se consume');
+  assert.equal(w._activeDbHistEntry.label, 'POC TIERRA', 'loadDbHistEntry corrio');
+  assert.equal(campos['db-host'].value, '10.0.0.4', 'y lleno los campos');
+});
+
+test('renderDbHistory no consume la preseleccion si esa conexion no esta en la lista', () => {
+  // Puede pasar si la entrada es de otra version, que renderDbHistory filtra:
+  // se deja pendiente en vez de perderla.
+  const w = loadWizard();
+  w.S.version = 'V4';
+  w._dbHistory = [{ id: '9', key: 'k', version: 'V4', platform: 'oracle', label: 'Otra', db: {} }];
+  w._pendingHistPreselect = '1';
+  const sel = stubEl();
+  sel.appendChild = function () {};
+  w.document = makeDomStub();
+  w.document.getElementById = function (id) { return id === 'db-hist-sel' ? sel : stubEl(); };
+  w.document.createElement = function () { return stubEl(); };
+  w.renderDbHistory();
+  assert.equal(w._pendingHistPreselect, '1', 'sigue pendiente');
+});
+
+test('el chip de cambiar ambiente llega al paso de Conexion', async () => {
+  // La regresion concreta: openEnvSwitcher lleva a Version con action en
+  // null y el ambiente activo intacto. Antes, de Version se iba a Accion y
+  // ahi el ambiente todavia servia, asi que Conexion se salteaba y no habia
+  // forma de cambiar la conexion.
+  const w = wizardNavegable();
+  w.S.activeEnv = envOracle();
+  w.S.action = 'doc';
+  w.S.step = 4;
+
+  w.openEnvSwitcher();
+  assert.equal(w.S.step, w.PASO_VERSION, 'el chip reabre el paso de Version');
+  assert.equal(w.S.action, null, 'y suelta la herramienta en curso');
+
+  await w.goNext();
+  assert.equal(w.S.step, w.PASO_CONEXION, 'de Version se llega a Conexion, no a Accion');
 });

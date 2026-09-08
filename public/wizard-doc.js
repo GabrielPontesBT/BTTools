@@ -10,10 +10,25 @@ var S = { step: 1, version: null, platform: null, action: null, engine: null, ap
 var APIMODE_ACTIONS = new Set(['scripts', 'collections', 'sdtgen', 'paramgen']);
 var _connOk = false, _connTimer = null;
 var loadedEnv = null;
+// El ambiente activo dura la SESION: vive en sessionStorage, asi que
+// sobrevive un F5 pero se va al cerrar la ventana. Al abrir de nuevo, la app
+// vuelve a pedir el ambiente (ver initWizard).
+//
+// En localStorage queda solo un PUNTERO a la ultima conexion usada (su `key`
+// del historial), para poder preseleccionarla. Nunca credenciales: las
+// passwords viven encriptadas del lado del servidor, en el vault de
+// scripts/common/secret-store. Antes el objeto completo (password incluida,
+// en texto plano) quedaba en localStorage para siempre.
 var ACTIVE_ENV_STORAGE_KEY = 'bt_active_environment';
+var LAST_ENV_KEY_STORAGE_KEY = 'bt_last_env_key';
 var sdtEnvCaptureActive = false;
 var _p2OrigTitle = null, _p2OrigSub = null;
 var _pendingReconnectError = null;
+// Entrada del historial que hay que dejar seleccionada en cuanto se dibuje el
+// desplegable. Existe porque show(PASO_CONEXION) dispara su propio
+// loadDbHistory() sin esperarlo: si la preseleccion se hiciera a mano despues,
+// el render de esa llamada podia llegar ultimo y borrarla.
+var _pendingHistPreselect = null;
 (function keepAlive() {
   var es = new EventSource('/api/alive');
   es.onerror = function() { es.close(); setTimeout(keepAlive, 3000); };
@@ -1652,6 +1667,11 @@ function updateStepLabels(action) {
   // Validar), que pone dots(). Ahi vizPos(4) y vizPos(5) valen los dos 2, asi
   // que reubicar aca pisaria "Validar" con el rotulo del paso 5.
   if (acc === 'validate') return;
+  // Mismo motivo en el gate de ambiente: todavia no hay herramienta, asi que
+  // no hay pasos 4 y 5 que rotular. Sin este corte, vizPos(4) y vizPos(5)
+  // caen en el punto 1 y los rotulos de la herramienta por defecto pisaban
+  // "Versión" y "Conexión".
+  if (isEnvGate()) return;
 
   var rotulos = ROTULOS_POR_ACCION[acc] || ROTULOS_POR_ACCION.doc;
 
@@ -1668,7 +1688,23 @@ function updateStepLabels(action) {
   });
 }
 
+/**
+ * Al abrir la app se elige el ambiente ANTES de la herramienta, asi que el
+ * camino visible en ese momento es Version -> Conexion y nada mas: cuantos
+ * pasos siguen depende de la herramienta, que todavia no se eligio.
+ *
+ * Se detecta por !S.action porque es exactamente eso: hay ambiente que
+ * confirmar y ninguna herramienta elegida. Mismo patron que validate, que
+ * tambien colapsa el stepper a dos puntos con rotulos propios.
+ */
+function isEnvGate() {
+  return !S.action;
+}
+
 function vizPos(step) {
+  if (isEnvGate()) {
+    return step === PASO_CONEXION ? 2 : 1; // Version→1, Conexion→2
+  }
   if (S.action === 'validate') {
     return step <= PASO_CONEXION ? 1 : 2; // ambiente+accion→1, panel→2
   }
@@ -1682,19 +1718,23 @@ function vizPos(step) {
 function dots(step) {
   var pos = vizPos(step);
   var isSingle = S.action === 'validate';
+  var enGate = isEnvGate();
 
   // Para validate el flujo se resume a 2 pasos visuales: elegir (ambiente +
   // accion) y validar. Para el resto, d1/d2/d3 muestran su rotulo real.
   var lb1 = document.getElementById('lb1');
   if (lb1) lb1.textContent = isSingle ? 'Ambiente' : 'Versión';
+  // En el gate de ambiente el segundo punto es Conexion, no Accion: la
+  // herramienta se elige DESPUES de confirmar el ambiente. Marcar ahi
+  // "Acción" como completada seria mentir sobre un paso que no se hizo.
   var lb2 = document.getElementById('lb2');
-  if (lb2) lb2.textContent = isSingle ? 'Validar' : 'Acción';
+  if (lb2) lb2.textContent = enGate ? 'Conexión' : (isSingle ? 'Validar' : 'Acción');
   // El rotulo del tercer paso acompaña al reorden (Accion paso al 2). Cuando
   // la herramienta no necesita conexion, ese paso no existe y el rotulo se
   // vacia: los rotulos 4 y 5 ya vienen vacios de fabrica, asi que queda
   // consistente. vizPos se encarga de que no quede un punto muerto.
   var lb3 = document.getElementById('lb3');
-  if (lb3) lb3.textContent = (!isSingle && mustAskForConnection()) ? 'Conexión' : '';
+  if (lb3) lb3.textContent = (!enGate && !isSingle && mustAskForConnection()) ? 'Conexión' : '';
   // El loop de mas abajo ya decide la visibilidad de cada punto y cada linea
   // con maxDot, que cubre tanto el caso validate como el salteo de Conexion.
   // Antes habia aca un segundo loop que hacia lo mismo solo para validate:
@@ -1703,7 +1743,9 @@ function dots(step) {
   // Cuantos puntos tiene el camino: 2 para validate, 4 cuando se saltea
   // Conexion, 5 normalmente. Sin ajustarlo, al saltear quedaba un quinto
   // punto vacio al final que nunca se enciende.
-  var maxDot = isSingle ? 2 : (mustAskForConnection() ? 5 : 4);
+  // En el gate son 2: Version y Conexion. Cuantos vienen despues lo define
+  // la herramienta, que se elige recien al confirmar el ambiente.
+  var maxDot = (enGate || isSingle) ? 2 : (mustAskForConnection() ? 5 : 4);
   [1,2,3,4,5].forEach(function(i) {
     var d = document.getElementById('d' + i);
     if (!d) return;
@@ -1917,7 +1959,19 @@ function foot(step) {
 async function goNext() {
   if (sdtEnvCaptureActive) { sdtEnvCaptureNext(); return; }
   var s = S.step;
-  if (s === PASO_VERSION) { if (!versionReady()) return; show(PASO_ACCION); return; }
+  if (s === PASO_VERSION) {
+    if (!versionReady()) return;
+    // En el gate de ambiente el camino es Version -> Conexion -> Accion: la
+    // conexion es parte del ambiente que se esta eligiendo.
+    //
+    // Sin esto, el chip del navbar ("Cambiar de ambiente") quedaba sin
+    // efecto: llevaba a Version, y de ahi a Accion, donde el ambiente activo
+    // todavia servia y el paso de Conexion se salteaba. O sea, no habia forma
+    // de cambiar la conexion salvo cambiando de version.
+    if (isEnvGate()) { show(PASO_CONEXION); return; }
+    show(PASO_ACCION);
+    return;
+  }
   if (s === PASO_ACCION) {
     if (!actionReady()) return;
     if (S.action === 'sdtgen') { sdtgenEnterOrCapture(); return; }
@@ -1928,7 +1982,15 @@ async function goNext() {
     show(PASO_CONEXION);
     return;
   }
-  if (s === PASO_CONEXION) { if (!connReady()) return; show(4); return; }
+  if (s === PASO_CONEXION) {
+    if (!connReady()) return;
+    // Gate de ambiente del arranque: se confirmo la conexion y todavia no
+    // hay herramienta elegida, asi que sigue Accion. Sin esto se caia en el
+    // paso 4, que es el panel de una herramienta que no existe.
+    if (isEnvGate()) { show(PASO_ACCION); return; }
+    show(4);
+    return;
+  }
   if (s === 4 && S.action === 'collections') { show(5); return; }
   if (s === 4 && S.action === 'scripts') {
     var grps = sgServiceGroups.filter(function(g) { return g.selected.size > 0; });
@@ -1950,6 +2012,9 @@ function goBack() {
   // Volver desde el paso 4 tiene que saltear Conexion igual que la ida, si
   // no el usuario cae en un paso que nunca vio y que no necesita.
   if (s === 4 && !mustAskForConnection()) { show(PASO_ACCION); return; }
+  // En el gate del arranque, atras de Conexion esta Version (el otro
+  // componente del ambiente), no Accion: la herramienta todavia no se eligio.
+  if (s === PASO_CONEXION && isEnvGate()) { show(PASO_VERSION); return; }
   if (s > 1) show(s - 1);
 }
 
@@ -2002,12 +2067,54 @@ function applyFieldsToDom(platform, f) {
 
 // ── Ambiente activo (persistencia + shapes para los endpoints) ────────────
 
+// Ambiente de la sesion: sessionStorage. Un F5 no vuelve a preguntar; cerrar
+// la ventana si. Ademas se anota en localStorage un puntero a la conexion
+// usada, para preseleccionarla la proxima vez que se abra la app.
 function saveActiveEnvToStorage() {
-  try { localStorage.setItem(ACTIVE_ENV_STORAGE_KEY, JSON.stringify(S.activeEnv)); } catch (e) {}
+  try { sessionStorage.setItem(ACTIVE_ENV_STORAGE_KEY, JSON.stringify(S.activeEnv)); } catch (e) {}
+  saveLastEnvKey();
 }
 
 function loadActiveEnvFromStorage() {
-  try { return JSON.parse(localStorage.getItem(ACTIVE_ENV_STORAGE_KEY) || 'null'); } catch (e) { return null; }
+  try { return JSON.parse(sessionStorage.getItem(ACTIVE_ENV_STORAGE_KEY) || 'null'); } catch (e) { return null; }
+}
+
+// El puntero es la `key` del historial (version|motor|host|usuario), no el
+// `id`: el id es un timestamp de cuando se guardo la entrada y no dice nada
+// del ambiente. La key la arma el backend en /sg/api/db-history.
+function envHistKey(env) {
+  if (!env || !env.fields) return '';
+  var f = env.fields;
+  return env.platform === 'sqlserver'
+    ? (env.version + '|ss|' + (f.server || '') + '|' + (f.database || '') + '|' + (f.user || ''))
+    : (env.version + '|ora|' + (f.host || '') + ':' + (f.port || '1521') + '/' + (f.service || '') + '|' + (f.user || ''));
+}
+
+function saveLastEnvKey() {
+  var k = envHistKey(S.activeEnv);
+  if (!k) return;
+  try { localStorage.setItem(LAST_ENV_KEY_STORAGE_KEY, k); } catch (e) {}
+}
+
+function loadLastEnvKey() {
+  try { return localStorage.getItem(LAST_ENV_KEY_STORAGE_KEY) || ''; } catch (e) { return ''; }
+}
+
+/**
+ * Migracion del esquema viejo, que guardaba el ambiente completo (con la
+ * password en texto plano) en localStorage y para siempre.
+ *
+ * Se usa una sola vez para no perder la preseleccion en el primer arranque
+ * con el codigo nuevo, y se BORRA: dejarlo seria mantener la password
+ * guardada en el navegador sin ninguna razon.
+ */
+function migrateLegacyActiveEnv() {
+  var viejo = null;
+  try { viejo = JSON.parse(localStorage.getItem(ACTIVE_ENV_STORAGE_KEY) || 'null'); } catch (e) { viejo = null; }
+  try { localStorage.removeItem(ACTIVE_ENV_STORAGE_KEY); } catch (e) {}
+  if (!viejo || loadLastEnvKey()) return;
+  var k = envHistKey(viejo);
+  if (k) { try { localStorage.setItem(LAST_ENV_KEY_STORAGE_KEY, k); } catch (e) {} }
 }
 
 // Campos "efectivos" para la conexion actual: la de Generar SDT si esta
@@ -2175,6 +2282,18 @@ function renderDbHistory() {
   });
   wrap.style.display = filtered.length ? '' : 'none';
   var del = document.getElementById('db-hist-del'); if (del) del.disabled = true;
+
+  // Preseleccion pedida por el arranque de sesion: se aplica en el render,
+  // no despues, para que no la pise un render que llegue mas tarde.
+  if (_pendingHistPreselect) {
+    var quiere = _pendingHistPreselect;
+    var existe = filtered.some(function(e) { return e.id === quiere; });
+    if (existe) {
+      _pendingHistPreselect = null;
+      sel.value = quiere;
+      loadDbHistEntry(); // llena los campos y dispara la prueba automatica
+    }
+  }
 }
 
 function loadDbHistEntry() {
@@ -2351,6 +2470,11 @@ function openEnvSwitcher() {
     S.engine = S.activeEnv.engine;
     applyFieldsToDom(S.platform, S.activeEnv.fields);
     setVal('db-conn-name', S.activeEnv.connName || '');
+    // Que el desplegable muestre la conexion en uso, no "-- Nueva conexión --".
+    // Los campos ya vienen con sus valores por applyFieldsToDom: sin esto el
+    // panel decia una cosa arriba y otra abajo.
+    var actual = findMatchingHistEntry(S.activeEnv);
+    if (actual) _pendingHistPreselect = actual.id;
   }
   show(PASO_VERSION);
 }
@@ -2368,9 +2492,23 @@ function findMatchingHistEntry(saved) {
   }) || null;
 }
 
+/**
+ * Arranque.
+ *
+ * El ambiente dura la sesion, asi que hay dos casos bien distintos:
+ *
+ *  - Recarga de la MISMA sesion (F5): el ambiente ya se eligio, esta en
+ *    sessionStorage y no se vuelve a preguntar. Se revalida igual, porque
+ *    entre medio se pudo haber cortado la VPN y ese error se muestra mejor
+ *    aca que a mitad de una herramienta.
+ *  - Sesion NUEVA (se abrio la app): se pregunta el ambiente, con la ultima
+ *    conexion usada ya seleccionada. Es un solo click en el caso normal, y
+ *    deja a la vista contra que base se va a trabajar.
+ */
 async function initWizard() {
+  migrateLegacyActiveEnv();
   var saved = loadActiveEnvFromStorage();
-  if (!saved || !saved.fields || !saved.version || !saved.platform) { show(PASO_VERSION); return; }
+  if (!saved || !saved.fields || !saved.version || !saved.platform) { await askEnvForNewSession(); return; }
   var testResult;
   try {
     var r = await fetch('/api/test', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platform: saved.platform, db: shapeDbApi(saved.platform, saved.fields) }) });
@@ -2392,6 +2530,47 @@ async function initWizard() {
     _pendingReconnectError = 'No se pudo reconectar automáticamente al último ambiente activo: ' + (testResult.message || 'error desconocido') + '. Revisá los datos.';
     show(PASO_CONEXION); // ir directo a Conexión: ahí vive el banner de error y los campos a corregir
   }
+}
+
+/**
+ * Sesion nueva: pedir el ambiente con la ultima conexion preseleccionada.
+ *
+ * El historial se pide ANTES de mostrar el paso porque renderDbHistory()
+ * filtra por S.version, y la version sale justamente de la entrada que se va
+ * a preseleccionar. Sin eso, la entrada quedaba fuera del desplegable.
+ *
+ * Si no hay ninguna conexion guardada (instalacion nueva) no hay nada que
+ * preseleccionar: arranca el wizard desde Version, como antes.
+ */
+async function askEnvForNewSession() {
+  await loadDbHistory();
+  var entry = pickEntryForNewSession();
+  if (!entry) { show(PASO_VERSION); return; }
+
+  S.version = entry.version;
+  S.platform = entry.platform;
+  S.engine = entry.platform === 'oracle' ? 'oracle' : null;
+  _pendingHistPreselect = entry.id;
+  show(PASO_CONEXION);
+  // show() dispara su propio loadDbHistory(); el render aplica la
+  // preseleccion pendiente. Este render extra cubre el caso en que el
+  // historial ya estaba en memoria y ese fetch no cambia nada.
+  renderDbHistory();
+}
+
+/**
+ * La conexion a preseleccionar: la ultima usada si todavia existe en el
+ * historial, y si no la mas reciente que haya. El backend ya devuelve el
+ * historial con la ultima guardada primero (ver writeDbHistory).
+ */
+function pickEntryForNewSession() {
+  if (!_dbHistory || !_dbHistory.length) return null;
+  var lastKey = loadLastEnvKey();
+  if (lastKey) {
+    var exacta = _dbHistory.find(function(e) { return e.key === lastKey; });
+    if (exacta) return exacta;
+  }
+  return _dbHistory[0];
 }
 
 // Guard: en el sandbox de los gate tests (wizard-doc.test.js) `document` es un
