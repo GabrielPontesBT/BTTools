@@ -135,14 +135,7 @@ function createSecretStore(options) {
       __nota: 'Las passwords estan en "vault", encriptadas. Ver scripts/common/secret-store/README.md',
       entries: split.entries,
       vault: Object.keys(split.secrets).length
-        ? cipher.encrypt(JSON.stringify(split.secrets), dir, {
-            onDowngrade: function (e) {
-              warn('[secret-store] DPAPI no esta disponible (' + e.message +
-                   '). Se guarda con clave local en ' + dir + ', que es mas debil ' +
-                   'porque la clave vive al lado del dato. Suele ser PowerShell ' +
-                   'bloqueado por politica.');
-            },
-          })
+        ? cipher.encrypt(JSON.stringify(split.secrets), dir)
         : null,
       savedAt: new Date().toISOString(),
     };
