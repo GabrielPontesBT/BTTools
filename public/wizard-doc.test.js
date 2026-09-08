@@ -49,15 +49,40 @@ function loadWizard() {
 // tener que enumerar cada uno. Los tests que necesitan leer/ver un valor
 // puntual (inputs de conexion, etc.) siguen pisando getElementById con su
 // propio mock especifico.
-function stubEl() {
+// classList de verdad (respaldado por un Set) y no un no-op: hay codigo que
+// LEE el estado de las clases, como applyNoDbRestrictions, que usa toggle y
+// despues se verifica con contains. Con el stub vacio esos tests pasaban por
+// no poder observar nada.
+function stubClassList(el) {
+  const clases = new Set();
+  const sync = function () { el.className = [...clases].join(' '); };
   return {
+    add: function () { [].forEach.call(arguments, function (c) { clases.add(c); }); sync(); },
+    remove: function () { [].forEach.call(arguments, function (c) { clases.delete(c); }); sync(); },
+    contains: function (c) { return clases.has(c); },
+    toggle: function (c, on) {
+      var poner = on === undefined ? !clases.has(c) : !!on;
+      if (poner) clases.add(c); else clases.delete(c);
+      sync();
+      return poner;
+    },
+  };
+}
+
+function stubEl() {
+  const el = {
     style: {},
-    classList: { add: function() {}, remove: function() {}, contains: function() { return false; }, toggle: function() {} },
-    textContent: '', innerHTML: '', value: '', disabled: false,
+    className: '',
+    textContent: '', innerHTML: '', value: '', disabled: false, title: '',
     querySelectorAll: function() { return []; },
     querySelector: function() { return stubEl(); },
     addEventListener: function() {}, removeEventListener: function() {},
+    // applyNoDbRestrictions marca/desmarca el motivo con title.
+    setAttribute: function(k, v) { this[k] = v; },
+    removeAttribute: function(k) { delete this[k]; },
   };
+  el.classList = stubClassList(el);
+  return el;
 }
 
 function makeDomStub() {
@@ -1550,4 +1575,290 @@ test('el chip de cambiar ambiente llega al paso de Conexion', async () => {
 
   await w.goNext();
   assert.equal(w.S.step, w.PASO_CONEXION, 'de Version se llega a Conexion, no a Accion');
+});
+
+// ── isEnvGate necesita las dos condiciones ──────────────────
+
+test('isEnvGate: no alcanza con que no haya herramienta, tiene que ser un paso del ambiente', () => {
+  // Accion es el paso 2, justo entre Version (1) y Conexion (3), asi que
+  // "S.step <= PASO_CONEXION" lo incluiria. Sin esa precision, al confirmar
+  // el ambiente el gate seguia activo sobre el panel de Accion y el stepper
+  // mostraba dos puntos con "Versión" encendido estando en Accion.
+  const w = loadWizard();
+
+  w.S.step = w.PASO_VERSION;  assert.equal(w.isEnvGate(), true);
+  w.S.step = w.PASO_CONEXION; assert.equal(w.isEnvGate(), true);
+  w.S.step = w.PASO_ACCION;   assert.equal(w.isEnvGate(), false, 'Accion no es un paso del ambiente');
+  w.S.step = 4;               assert.equal(w.isEnvGate(), false);
+
+  // Y con herramienta elegida no hay gate en ningun paso.
+  w.S.action = 'doc';
+  w.S.step = w.PASO_CONEXION; assert.equal(w.isEnvGate(), false);
+});
+
+test('parado en Accion sin herramienta, el stepper marca Accion y no Version', () => {
+  // Es el estado en el que te deja el gate al confirmar el ambiente.
+  const w = loadWizard();
+  w.S.activeEnv = envOracle();
+  const puntos = {};
+  const rotulos = {};
+  w.document = makeDomStub();
+  w.document.getElementById = function (id) {
+    if (/^lb\d$/.test(id)) { rotulos[id] = rotulos[id] || stubEl(); return rotulos[id]; }
+    if (/^d\d$/.test(id)) { puntos[id] = puntos[id] || stubEl(); return puntos[id]; }
+    return stubEl();
+  };
+  w.S.step = w.PASO_ACCION;
+  w.dots(w.PASO_ACCION);
+  assert.equal(puntos.d2.className.includes('active'), true, 'Accion es el punto activo');
+  assert.equal(puntos.d1.className.includes('done'), true);
+  assert.equal(rotulos.lb2.textContent, 'Acción', 'y se rotula Acción, no Conexión');
+});
+
+// ── Modo sin base de datos ──────────────────────────────────
+// Existe porque collections con fuente Swagger no toca la base en ningun
+// momento. Pedir una conexion para eso no tiene sentido, y en una
+// instalacion nueva sin conexiones guardadas dejaba ese flujo bloqueado.
+
+test('actionCanWorkWithoutDb: solo collections con Swagger', () => {
+  const w = loadWizard();
+  assert.equal(w.actionCanWorkWithoutDb('collections', 'swagger'), true);
+  assert.equal(w.actionCanWorkWithoutDb('collections', 'database'), false);
+  for (const a of ['doc', 'scripts', 'validate', 'sdtgen', 'paramgen']) {
+    assert.equal(w.actionCanWorkWithoutDb(a, 'swagger'), false, a + ' siempre necesita base');
+  }
+});
+
+test('needsDbConnection queda derivada de actionCanWorkWithoutDb', () => {
+  // Una sola definicion: la que usa el estado actual y la que evalua cada
+  // tarjeta por separado no pueden divergir.
+  const w = loadWizard();
+  w.S.action = 'collections'; w.S.collectionSource = 'swagger';
+  assert.equal(w.needsDbConnection(), false);
+  w.S.collectionSource = 'database';
+  assert.equal(w.needsDbConnection(), true);
+  w.S.action = 'doc';
+  assert.equal(w.needsDbConnection(), true);
+});
+
+test('actionsAvailableWithoutDb devuelve solo collections', () => {
+  const w = loadWizard();
+  // Array.from: el wizard corre en un contexto de vm, asi que sus arrays son
+  // de otro realm y deepStrictEqual falla por el prototipo, no por el valor.
+  assert.deepEqual(Array.from(w.actionsAvailableWithoutDb()), ['collections']);
+});
+
+test('continueWithoutDb prende el modo, no deja ambiente y va a Accion', () => {
+  const w = loadWizard();
+  w.document = makeDomStub();
+  w.S.activeEnv = envOracle();
+  w.sessionStorage.setItem('bt_active_environment', JSON.stringify(envOracle()));
+
+  w.continueWithoutDb();
+
+  assert.equal(w.S.noDb, true);
+  assert.equal(w.S.activeEnv, null, 'no hay ambiente: es justamente el punto');
+  assert.equal(w.S.step, w.PASO_ACCION);
+  assert.equal(w.sessionStorage.getItem('bt_no_db'), '1', 'la decision dura la sesion');
+  assert.equal(w.sessionStorage.getItem('bt_active_environment'), null, 'y limpia el ambiente de la sesion');
+});
+
+test('el modo sin base sobrevive un F5 y no vuelve a pedir la conexion', async () => {
+  const w = loadWizard();
+  w.document = makeDomStub();
+  w.sessionStorage.setItem('bt_no_db', '1');
+  await w.initWizard();
+  assert.equal(w.S.noDb, true);
+  assert.equal(w.S.step, w.PASO_ACCION, 'no puede devolverte al paso que salteaste');
+});
+
+test('applyNoDbRestrictions bloquea las herramientas que necesitan base', () => {
+  const w = loadWizard();
+  const tarjetas = {};
+  w.document = makeDomStub();
+  w.document.getElementById = function (id) {
+    if (/^(action-|collection-source-|nodb-notice)/.test(id)) {
+      tarjetas[id] = tarjetas[id] || stubEl();
+      return tarjetas[id];
+    }
+    return stubEl();
+  };
+  w.S.noDb = true;
+  w.applyNoDbRestrictions();
+
+  for (const a of ['doc', 'scripts', 'validate', 'sdtgen', 'paramgen']) {
+    assert.equal(tarjetas['action-' + a].classList.contains('ccard-disabled'), true, a + ' tiene que quedar bloqueada');
+    assert.match(tarjetas['action-' + a].title, /base de datos/, a + ' tiene que explicar por que');
+  }
+  assert.equal(tarjetas['action-collections'].classList.contains('ccard-disabled'), false, 'collections queda disponible');
+  assert.equal(tarjetas['collection-source-database'].classList.contains('ccard-disabled'), true, 'pero no con fuente Base de datos');
+  assert.equal(tarjetas['nodb-notice'].style.display, '', 'y se explica el modo arriba');
+});
+
+test('applyNoDbRestrictions devuelve todo a la normalidad al salir del modo', () => {
+  // Corre en cada show(PASO_ACCION), asi que es la misma funcion la que
+  // bloquea y la que desbloquea.
+  const w = loadWizard();
+  const tarjetas = {};
+  w.document = makeDomStub();
+  w.document.getElementById = function (id) {
+    if (/^(action-|collection-source-|nodb-notice)/.test(id)) {
+      tarjetas[id] = tarjetas[id] || stubEl();
+      return tarjetas[id];
+    }
+    return stubEl();
+  };
+  w.S.noDb = true;
+  w.applyNoDbRestrictions();
+  assert.equal(tarjetas['action-doc'].classList.contains('ccard-disabled'), true);
+
+  w.S.noDb = false;
+  w.applyNoDbRestrictions();
+  for (const a of ['doc', 'scripts', 'validate', 'collections', 'sdtgen', 'paramgen']) {
+    assert.equal(tarjetas['action-' + a].classList.contains('ccard-disabled'), false, a + ' vuelve a estar disponible');
+    assert.equal(tarjetas['action-' + a].title, undefined, 'y sin el motivo colgado');
+  }
+  assert.equal(tarjetas['collection-source-database'].classList.contains('ccard-disabled'), false);
+  assert.equal(tarjetas['nodb-notice'].style.display, 'none');
+});
+
+test('en modo sin base, collections con Swagger avanza sin pedir conexion', async () => {
+  const w = wizardNavegable();
+  w.S.noDb = true;
+  w.S.action = 'collections';
+  w.S.collectionSource = 'swagger';
+  w.S.step = w.PASO_ACCION;
+  await w.goNext();
+  assert.equal(w.S.step, 4, 'va derecho al panel de la herramienta');
+});
+
+test('en modo sin base, actionReady frena una herramienta que necesita base', () => {
+  // Red de seguridad: las tarjetas ya tienen pointer-events:none, pero un
+  // estado arrastrado (la fuente "Base de datos" de una vuelta anterior) no
+  // puede dejar avanzar a un camino que va a fallar.
+  const w = loadWizard();
+  w.document = makeDomStub();
+  w.S.noDb = true;
+
+  w.S.action = 'collections'; w.S.collectionSource = 'database';
+  assert.equal(w.actionReady(), false, 'collections con base no se puede sin base');
+
+  w.S.collectionSource = 'swagger';
+  assert.equal(w.actionReady(), true);
+
+  w.S.action = 'doc';
+  assert.equal(w.actionReady(), false);
+});
+
+test('sin el modo prendido, actionReady no cambia', () => {
+  const w = loadWizard();
+  w.document = makeDomStub();
+  w.S.action = 'doc';
+  assert.equal(w.actionReady(), true);
+  w.S.action = 'collections'; w.S.collectionSource = 'database';
+  assert.equal(w.actionReady(), true);
+});
+
+test('el chip se muestra en modo sin base: es la unica forma de volver a conectarse', () => {
+  const w = loadWizard();
+  const chip = stubEl();
+  const txt = stubEl();
+  chip.querySelector = function () { return txt; };
+  w.document = makeDomStub();
+  w.document.getElementById = function (id) { return id === 'env-chip' ? chip : stubEl(); };
+
+  w.S.noDb = true;
+  w.S.activeEnv = null;
+  w.renderEnvChip();
+  assert.equal(chip.style.display, 'flex', 'ocultarlo dejaba al usuario encerrado en el modo');
+  assert.equal(txt.textContent, 'Sin base de datos');
+});
+
+test('sin ambiente y sin modo sin base, el chip sigue oculto', () => {
+  const w = loadWizard();
+  const chip = stubEl();
+  w.document = makeDomStub();
+  w.document.getElementById = function (id) { return id === 'env-chip' ? chip : stubEl(); };
+  w.S.noDb = false;
+  w.S.activeEnv = null;
+  w.renderEnvChip();
+  assert.equal(chip.style.display, 'none');
+});
+
+test('el chip saca del modo sin base', () => {
+  const w = loadWizard();
+  w.document = makeDomStub();
+  w.S.noDb = true;
+  w.sessionStorage.setItem('bt_no_db', '1');
+  w.openEnvSwitcher();
+  assert.equal(w.S.noDb, false);
+  assert.equal(w.sessionStorage.getItem('bt_no_db'), null);
+  assert.equal(w.S.step, w.PASO_VERSION, 'y reabre la eleccion de ambiente');
+});
+
+test('confirmar un ambiente saca del modo sin base', () => {
+  const w = loadWizard();
+  w.S.version = 'V4'; w.S.platform = 'oracle'; w.S.engine = 'oracle';
+  w.S.noDb = true;
+  w.sessionStorage.setItem('bt_no_db', '1');
+  const values = { 'db-host': 'h', 'db-port-o': '1521', 'db-service': 'svc', 'db-user-o': 'u', 'db-pass-o': 'p' };
+  w.document.getElementById = function (id) {
+    if (id in values) return { value: values[id] };
+    return stubEl();
+  };
+  w.document.querySelector = function () { return null; };
+
+  w.commitActiveEnv();
+  assert.equal(w.S.noDb, false, 'ya hay base: el modo no aplica mas');
+  assert.equal(w.sessionStorage.getItem('bt_no_db'), null);
+  assert.equal(w.S.activeEnv.fields.host, 'h');
+});
+
+test('el boton de trabajar sin base solo aparece en el gate de ambiente', () => {
+  const w = loadWizard();
+  const ftr = stubEl();
+  w.document = makeDomStub();
+  w.document.getElementById = function (id) {
+    if (id === 'ft-r') return ftr;
+    return stubEl();
+  };
+
+  // En el gate: aparece.
+  w.S.step = w.PASO_CONEXION;
+  w.foot(w.PASO_CONEXION);
+  assert.match(ftr.innerHTML, /btn-nodb/, 'en el gate tiene que estar');
+
+  // A mitad de una herramienta que usa la base: no.
+  w.S.action = 'doc';
+  w.foot(w.PASO_CONEXION);
+  assert.doesNotMatch(ftr.innerHTML, /btn-nodb/, 'no tiene sentido con una herramienta ya elegida');
+  assert.match(ftr.innerHTML, /btn-test/, 'pero Probar conexión sigue');
+});
+
+test('en modo sin base el stepper no muestra un punto de Conexion', () => {
+  // Ese paso no existe en este modo: se eligio no usar la base.
+  const w = loadWizard();
+  w.S.noDb = true;
+  assert.equal(w.mustAskForConnection(), false, 'no se pide la conexion en ningun momento');
+
+  const rotulos = {};
+  const puntos = {};
+  w.document = makeDomStub();
+  w.document.getElementById = function (id) {
+    if (/^lb\d$/.test(id)) { rotulos[id] = rotulos[id] || stubEl(); return rotulos[id]; }
+    if (/^d\d$/.test(id)) { puntos[id] = puntos[id] || stubEl(); return puntos[id]; }
+    return stubEl();
+  };
+  w.S.action = 'collections';
+  w.S.collectionSource = 'swagger';
+  w.S.step = w.PASO_ACCION;
+  w.dots(w.PASO_ACCION);
+  // Los pasos de la herramienta corren un lugar al no haber Conexion, asi que
+  // el punto 3 pasa a ser el primer paso de collections ("API"). Lo que no
+  // puede haber es un punto rotulado Conexión ni un quinto punto vacio.
+  const todos = [1, 2, 3, 4, 5].map(function (n) { return rotulos['lb' + n].textContent; });
+  assert.equal(todos.indexOf('Conexión'), -1, 'ningun punto puede ser Conexión');
+  assert.equal(rotulos.lb3.textContent, 'API', 'el 3 pasa a ser el primer paso de collections');
+  assert.equal(puntos.d5.style.display, 'none', 'y sin un quinto punto vacio');
+  assert.equal(puntos.d4.style.display, '', 'quedan 4 puntos');
 });

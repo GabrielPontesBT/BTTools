@@ -4,7 +4,10 @@
 // sdtEnv = conexion V4/Oracle especifica de Generar SDT, solo cuando el
 // ambiente global activo no es V4/Oracle (ver sdtgenEnterOrCapture). No
 // reemplaza a activeEnv salvo que el usuario lo confirme explicitamente.
-var S = { step: 1, version: null, platform: null, action: null, engine: null, apiMode: 'publica', activeEnv: null, sdtEnv: null };
+// noDb = el usuario eligio trabajar sin base ("Trabajar sin base de datos" en
+// el paso de Conexion). Solo habilita las herramientas que no la tocan, hoy
+// nada mas que "Generar casos de prueba" con fuente Swagger.
+var S = { step: 1, version: null, platform: null, action: null, engine: null, apiMode: 'publica', activeEnv: null, sdtEnv: null, noDb: false };
 // Acciones que soportan trabajar contra la API Interna (tablas BTCBS);
 // Documentar y Validar siguen siempre contra la API Publica (BTI).
 var APIMODE_ACTIONS = new Set(['scripts', 'collections', 'sdtgen', 'paramgen']);
@@ -21,6 +24,9 @@ var loadedEnv = null;
 // en texto plano) quedaba en localStorage para siempre.
 var ACTIVE_ENV_STORAGE_KEY = 'bt_active_environment';
 var LAST_ENV_KEY_STORAGE_KEY = 'bt_last_env_key';
+// La decision de trabajar sin base tambien dura la sesion: un F5 no tiene que
+// devolverte al paso de Conexion que ya salteaste a proposito.
+var NO_DB_STORAGE_KEY = 'bt_no_db';
 var sdtEnvCaptureActive = false;
 var _p2OrigTitle = null, _p2OrigSub = null;
 var _pendingReconnectError = null;
@@ -1574,6 +1580,11 @@ function actionReady() {
   // Collections necesita saber la fuente ya en el paso de Accion: de eso
   // depende si despues se pide la conexion a la base (ver needsDbConnection).
   if (S.action === 'collections' && !S.collectionSource) return false;
+  // Red de seguridad del modo sin base. Las tarjetas bloqueadas ya tienen
+  // pointer-events:none, asi que esto no deberia poder pasar por la UI; esta
+  // para que un estado arrastrado (la fuente "Base de datos" ya elegida de
+  // una vuelta anterior) no deje avanzar a un camino que va a fallar.
+  if (S.noDb && !actionCanWorkWithoutDb(S.action, S.collectionSource)) return false;
   return true;
 }
 
@@ -1594,9 +1605,26 @@ function actionReady() {
  * El resto de las herramientas (doc, scripts, validate, sdtgen, paramgen)
  * leen metadata de la base siempre.
  */
+/**
+ * Si una herramienta puede trabajar SIN conexion a la base.
+ *
+ * Puro a proposito (recibe accion y fuente, no lee S): lo usan dos cosas con
+ * preguntas distintas. needsDbConnection() pregunta por el estado actual, y
+ * el modo "sin base" pregunta por cada tarjeta del paso de Accion, una por
+ * una, antes de que ninguna este elegida. Una sola definicion para las dos.
+ */
+function actionCanWorkWithoutDb(action, source) {
+  return action === 'collections' && source === 'swagger';
+}
+
 function needsDbConnection() {
-  if (S.action === 'collections') return S.collectionSource !== 'swagger';
-  return true;
+  return !actionCanWorkWithoutDb(S.action, S.collectionSource);
+}
+
+/** Las herramientas que el modo "sin base" deja usar. */
+function actionsAvailableWithoutDb() {
+  return ['doc', 'scripts', 'validate', 'collections', 'sdtgen', 'paramgen']
+    .filter(function (a) { return actionCanWorkWithoutDb(a, 'swagger'); });
 }
 
 /**
@@ -1630,6 +1658,11 @@ function activeEnvUsable() {
  * saltea pero el stepper deja un punto apagado que nunca se completa.
  */
 function mustAskForConnection() {
+  // En modo sin base no se pide nunca: se eligio explicitamente no usarla, y
+  // las herramientas que la necesitan estan bloqueadas en el paso de Accion.
+  // Sin esto el stepper mostraba un punto "Conexión" para un paso que en ese
+  // modo no existe.
+  if (S.noDb) return false;
   return needsDbConnection() && !activeEnvUsable();
 }
 
@@ -1693,12 +1726,21 @@ function updateStepLabels(action) {
  * camino visible en ese momento es Version -> Conexion y nada mas: cuantos
  * pasos siguen depende de la herramienta, que todavia no se eligio.
  *
- * Se detecta por !S.action porque es exactamente eso: hay ambiente que
- * confirmar y ninguna herramienta elegida. Mismo patron que validate, que
- * tambien colapsa el stepper a dos puntos con rotulos propios.
+ * Dos condiciones, y las DOS hacen falta:
+ *
+ *  - no hay herramienta elegida, y
+ *  - se esta en uno de los dos pasos del ambiente (Version o Conexion).
+ *
+ * El segundo no se puede escribir como `S.step <= PASO_CONEXION` porque
+ * Accion es justo el paso 2, en medio de los otros dos. Sin esa precision,
+ * al confirmar el ambiente el gate seguia activo sobre el panel de Accion y
+ * el stepper mostraba dos puntos con "Versión" encendido estando en Accion.
+ *
+ * Mismo patron que validate, que tambien colapsa el stepper a dos puntos con
+ * rotulos propios.
  */
 function isEnvGate() {
-  return !S.action;
+  return !S.action && (S.step === PASO_VERSION || S.step === PASO_CONEXION);
 }
 
 function vizPos(step) {
@@ -1814,6 +1856,11 @@ function show(step) {
   if (step === PASO_VERSION) { // versión + motor
     markVersionCardsFromS();
   }
+  // Cada vez que se entra a Accion, no solo al activar el modo: asi tambien
+  // devuelve las tarjetas a su estado normal cuando se conecto una base.
+  if (step === PASO_ACCION) {
+    applyNoDbRestrictions();
+  }
   if (step === PASO_CONEXION) { // conexión — ya NO se limpia automaticamente: los campos
     // reflejan lo que ya haya (ambiente activo si se esta editando, o lo que
     // el usuario ya tipeo si volvio de otro paso). Solo se limpian de forma
@@ -1922,7 +1969,13 @@ function foot(step) {
   } else if (step === PASO_ACCION) {
     ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (actionReady() ? '' : ' disabled') + '>Siguiente &#8594;</button>';
   } else if (step === PASO_CONEXION) {
-    ftr.innerHTML = '<button class="btn btn-outline" id="btn-test" onclick="testConn()">Probar conexión</button>&nbsp;&nbsp;' +
+    // La salida sin base solo aparece mientras se esta eligiendo el ambiente:
+    // a mitad de una herramienta que ya usa la base no tiene sentido.
+    // Ghost, y primero, para no competir con la accion principal.
+    ftr.innerHTML = (isEnvGate()
+        ? '<button class="btn btn-ghost" id="btn-nodb" onclick="continueWithoutDb()" title="Solo habilita las herramientas que no necesitan la base">Trabajar sin base de datos</button>&nbsp;&nbsp;'
+        : '') +
+      '<button class="btn btn-outline" id="btn-test" onclick="testConn()">Probar conexión</button>&nbsp;&nbsp;' +
       '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (connReady() ? '' : ' disabled') + '>Siguiente &#8594;</button>';
   } else if (step === 4 && S.action === 'validate') {
     ftr.innerHTML = '';
@@ -2407,6 +2460,9 @@ function updateConnBtn() {
 // global: a partir de aca todas las herramientas usan esta conexion sin
 // volver a pedirla (ver getDb()/getDbSG() / effectiveFields()).
 function commitActiveEnv() {
+  // Se conecto una base: el modo sin base ya no aplica y las herramientas
+  // vuelven a estar todas disponibles.
+  exitNoDbMode();
   S.activeEnv = {
     version: S.version,
     platform: S.platform,
@@ -2423,6 +2479,14 @@ function commitActiveEnv() {
 function renderEnvChip() {
   var chip = document.getElementById('env-chip');
   if (!chip) return;
+  // En modo sin base el chip igual se muestra: es la unica forma de volver a
+  // conectarse, asi que ocultarlo dejaba al usuario encerrado en ese modo.
+  if (!S.activeEnv && S.noDb) {
+    var txtNoDb = chip.querySelector('.env-chip-txt');
+    if (txtNoDb) txtNoDb.textContent = 'Sin base de datos';
+    chip.style.display = 'flex';
+    return;
+  }
   if (!S.activeEnv) { chip.style.display = 'none'; return; }
   var e = S.activeEnv;
   var host = e.platform === 'sqlserver' ? (e.fields.server || '') : (e.fields.host || '');
@@ -2460,6 +2524,8 @@ function markVersionCardsFromS() {
 function openEnvSwitcher() {
   if (S.action && !confirm('Vas a cambiar de ambiente. Esto reinicia la herramienta que tenías abierta (la conexión y el ambiente elegidos se mantienen hasta que confirmes uno nuevo). ¿Continuar?')) return;
   if (sdtEnvCaptureActive) sdtEnvCaptureExit(); // no dejar la conexion especial de sdtgen a medio armar
+  // Venir del modo sin base a elegir ambiente es justamente salir del modo.
+  exitNoDbMode();
   S.action = null;
   S.sdtEnv = null;
   sgInvalidateState();
@@ -2507,6 +2573,16 @@ function findMatchingHistEntry(saved) {
  */
 async function initWizard() {
   migrateLegacyActiveEnv();
+
+  // Se eligio trabajar sin base en esta sesion: un F5 no puede devolver al
+  // paso de Conexion que se salteo a proposito.
+  if (loadNoDbFromSession()) {
+    S.noDb = true;
+    renderEnvChip();
+    show(PASO_ACCION);
+    return;
+  }
+
   var saved = loadActiveEnvFromStorage();
   if (!saved || !saved.fields || !saved.version || !saved.platform) { await askEnvForNewSession(); return; }
   var testResult;
@@ -2556,6 +2632,72 @@ async function askEnvForNewSession() {
   // preseleccion pendiente. Este render extra cubre el caso en que el
   // historial ya estaba en memoria y ese fetch no cambia nada.
   renderDbHistory();
+}
+
+// ── Modo "sin base de datos" ─────────────────────────────────
+
+/**
+ * Salida del paso de Conexion para trabajar sin base.
+ *
+ * Existe porque "Generar casos de prueba" con fuente Swagger no toca la base
+ * en ningun momento (verificado ruta por ruta en generar-collections: ni el
+ * catalogo, ni generar, ni Probar). Pedir una conexion para eso no tiene
+ * sentido, y en una instalacion nueva sin conexiones guardadas dejaba ese
+ * flujo bloqueado.
+ *
+ * No es lo mismo que "no hay ambiente": es una eleccion, dura la sesion, y
+ * restringe el paso de Accion a las herramientas que pueden hacerlo.
+ */
+function continueWithoutDb() {
+  S.noDb = true;
+  S.activeEnv = null;
+  S.sdtEnv = null;
+  _connOk = false;
+  try { sessionStorage.setItem(NO_DB_STORAGE_KEY, '1'); } catch (e) {}
+  try { sessionStorage.removeItem(ACTIVE_ENV_STORAGE_KEY); } catch (e) {}
+  renderEnvChip();
+  show(PASO_ACCION);
+}
+
+/** Sale del modo sin base: se vuelve a poder elegir cualquier herramienta. */
+function exitNoDbMode() {
+  S.noDb = false;
+  try { sessionStorage.removeItem(NO_DB_STORAGE_KEY); } catch (e) {}
+}
+
+function loadNoDbFromSession() {
+  try { return sessionStorage.getItem(NO_DB_STORAGE_KEY) === '1'; } catch (e) { return false; }
+}
+
+/**
+ * Deshabilita en el paso de Accion lo que no se puede usar sin base, y
+ * explica por que. Se llama cada vez que se muestra ese paso, asi que
+ * tambien sirve para DEVOLVER todo a su estado normal al conectarse.
+ */
+function applyNoDbRestrictions() {
+  var disponibles = actionsAvailableWithoutDb();
+  var aviso = document.getElementById('nodb-notice');
+  if (aviso) aviso.style.display = S.noDb ? '' : 'none';
+
+  ['doc', 'scripts', 'validate', 'collections', 'sdtgen', 'paramgen'].forEach(function (a) {
+    var card = document.getElementById('action-' + a);
+    if (!card) return;
+    var bloqueada = S.noDb && disponibles.indexOf(a) < 0;
+    card.classList.toggle('ccard-disabled', bloqueada);
+    // title y no un cartel por tarjeta: el aviso de arriba ya explica el
+    // modo, y seis carteles repetidos serian ruido.
+    if (bloqueada) card.title = 'Necesita conexión a la base de datos. Conectate desde el ambiente, arriba a la derecha.';
+    else card.removeAttribute('title');
+  });
+
+  // La fuente "Base de datos" de collections tampoco se puede en este modo:
+  // es justo lo que hace que la herramienta necesite la conexion.
+  var fuenteDb = document.getElementById('collection-source-database');
+  if (fuenteDb) {
+    fuenteDb.classList.toggle('ccard-disabled', !!S.noDb);
+    if (S.noDb) fuenteDb.title = 'Necesita conexión a la base de datos.';
+    else fuenteDb.removeAttribute('title');
+  }
 }
 
 /**

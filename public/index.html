@@ -141,34 +141,44 @@
     <div class="panel" id="p3">
       <div class="ptitle">¿Qué querés hacer?</div>
       <div class="psub">Elegí la herramienta que querés usar.</div>
+
+      <!-- Aviso del modo "sin base de datos" (ver continueWithoutDb en
+           wizard-doc.js). Lo muestra/oculta applyNoDbRestrictions, que es lo
+           mismo que deshabilita las tarjetas que necesitan la base. -->
+      <div class="cres warn show" id="nodb-notice" style="display:none">
+        <div class="cres-body">
+          <span class="cres-title">Estás trabajando sin base de datos</span>
+          <span class="cres-text">Solo queda disponible «Generar Casos de Prueba» con fuente Swagger, que es la única que no necesita la base. Para habilitar el resto, conectate desde el ambiente, arriba a la derecha.</span>
+        </div>
+      </div>
       <div class="cards" style="grid-template-columns:repeat(3,1fr)">
-        <div class="ccard act-ccard" onclick="pick('action','doc',this)">
+        <div class="ccard act-ccard" id="action-doc" onclick="pick('action','doc',this)">
           <span class="act-icon">&#128196;</span>
           <span class="ccard-title" style="font-size:var(--fs-2xl);display:block;margin-bottom:var(--sp-2)">Documentar</span>
           <span class="ccard-desc">Genera archivos .md con la documentación de los servicios Bantotal.</span>
         </div>
-        <div class="ccard act-ccard" onclick="pick('action','scripts',this)">
+        <div class="ccard act-ccard" id="action-scripts" onclick="pick('action','scripts',this)">
           <span class="act-icon">&#128295;</span>
           <span class="ccard-title" style="font-size:var(--fs-2xl);display:block;margin-bottom:var(--sp-2)">Generar Scripts</span>
           <span class="ccard-desc">Genera scripts INSERT/DELETE para instalar servicios en otra base de datos.</span>
         </div>
-        <div class="ccard act-ccard" onclick="pick('action','validate',this)">
+        <div class="ccard act-ccard" id="action-validate" onclick="pick('action','validate',this)">
           <span class="act-icon">&#128269;</span>
           <span class="ccard-title" style="font-size:var(--fs-2xl);display:block;margin-bottom:var(--sp-2)">Validar Documentos</span>
           <span class="ccard-desc">Verifica que los documentos se encuentren con el estándar correcto, y que los parámetros documentados coincidan con los ejemplos de invocación/respuesta.</span>
         </div>
-        <div class="ccard act-ccard" onclick="pick('action','collections',this)">
+        <div class="ccard act-ccard" id="action-collections" onclick="pick('action','collections',this)">
           <span class="act-icon">&#129514;</span>
           <span class="ccard-title" style="font-size:var(--fs-2xl);display:block;margin-bottom:var(--sp-2)">Generar Casos de Prueba</span>
           <span class="ccard-desc">Genera casos de uso a partir de la información de los servicios del ambiente.</span>
         </div>
-        <div class="ccard act-ccard" onclick="pick('action','sdtgen',this)">
+        <div class="ccard act-ccard" id="action-sdtgen" onclick="pick('action','sdtgen',this)">
           <span class="act-icon">&#128203;</span>
           <span class="ccard-title" style="font-size:var(--fs-2xl);display:block;margin-bottom:var(--sp-2)">Generar SDT</span>
           <span class="ccard-desc" style="color:var(--blue)">Disponible para V4.</span>
           <span class="ccard-desc">Genera una copia no nativa de un SDT existente, con campos eliminados y reordenados.</span>
         </div>
-        <div class="ccard act-ccard" onclick="pick('action','paramgen',this)">
+        <div class="ccard act-ccard" id="action-paramgen" onclick="pick('action','paramgen',this)">
           <span class="act-icon">&#9881;</span>
           <span class="ccard-title" style="font-size:var(--fs-2xl);display:block;margin-bottom:var(--sp-2)">Editar Parametría</span>
           <span class="ccard-desc">Elegí un servicio y un método para editar los parámetros de la tabla BTI019 (o BTCBS019).</span>
