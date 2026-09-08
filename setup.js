@@ -83,34 +83,11 @@ function readBody(req) {
 // Ver scripts/common/bantotal-urls/index.js.
 const { authUrlCandidates, resolveV4AuthUrl, intentarCandidatos } = require('./scripts/common/bantotal-urls');
 
-async function testSqlServer(db) {
-  const mod = path.join(ROOT, 'V3', 'node_modules', 'mssql');
-  if (!fs.existsSync(mod)) throw new Error('mssql no instalado - ejecuta npm install en V3/');
-  const mssql = require(mod);
-  const pool = new mssql.ConnectionPool({
-    server: db.DB_SERVER,
-    port: Number(db.DB_PORT) || 1433,
-    database: db.DB_DATABASE,
-    user: db.DB_USER,
-    password: db.DB_PASSWORD,
-    options: { trustServerCertificate: true },
-    connectionTimeout: 8000,
-  });
-  await pool.connect();
-  await pool.close();
-}
-
-async function testOracle(db) {
-  const mod = path.join(ROOT, 'V4', 'node_modules', 'oracledb');
-  if (!fs.existsSync(mod)) throw new Error('oracledb no instalado - ejecuta npm install en V4/');
-  const oracledb = oraFetchLobsAsString(require(mod));
-  const conn = await oracledb.getConnection({
-    user: db.DB_USER,
-    password: db.DB_PASSWORD,
-    connectString: db.DB_CONNECT_STRING,
-  });
-  await conn.close();
-}
+// El paso de Conexion es el UNICO momento en que se abre la conexion:
+// sg_testConn deja el pool cacheado y todo lo que venga despues lo reusa.
+// Antes habia dos funciones (testSqlServer/testOracle) que abrian y
+// cerraban una conexion descartable, con lo cual probar la conexion no
+// dejaba nada listo para el resto de la sesion.
 
 // 1/0 (BTCBS, NUMBER(1,0)) -> 'S'/'N', para que el resto del codigo (que
 // espera el formato CHAR 'S'/'N' de las BTI) no tenga que saber de apiMode.
@@ -118,26 +95,12 @@ function num_sn(val) { return (val == 1 || val === '1') ? 'S' : 'N'; }
 
 async function queryServices(platform, db, apiMode) {
   if (platform === 'sqlserver') {
-    const mod = path.join(ROOT, 'V3', 'node_modules', 'mssql');
-    if (!fs.existsSync(mod)) throw new Error('mssql no instalado - ejecuta npm install en V3/');
-    const mssql = require(mod);
-    const pool = new mssql.ConnectionPool({
-      server: db.DB_SERVER, port: Number(db.DB_PORT) || 1433,
-      database: db.DB_DATABASE, user: db.DB_USER, password: db.DB_PASSWORD,
-      options: { trustServerCertificate: true }, connectionTimeout: 8000,
-    });
-    await pool.connect();
+    const { pool } = await sg_getPool(db);
     const r = await pool.request()
       .query('SELECT DISTINCT BTISRVNOM FROM BTI014 ORDER BY BTISRVNOM');
-    await pool.close();
     return r.recordset.map(function(row) { return (row.BTISRVNOM || '').trim(); }).filter(Boolean);
   } else {
-    const mod = path.join(ROOT, 'V4', 'node_modules', 'oracledb');
-    if (!fs.existsSync(mod)) throw new Error('oracledb no instalado - ejecuta npm install en V4/');
-    const oracledb = oraFetchLobsAsString(require(mod));
-    const conn = await oracledb.getConnection({
-      user: db.DB_USER, password: db.DB_PASSWORD, connectString: db.DB_CONNECT_STRING,
-    });
+    const { conn, oracledb } = await sg_getOra(db);
     const interna = apiMode === 'interna';
     const r = await conn.execute(
       interna ? 'SELECT DISTINCT BSSRVNAME FROM BTCBS014 ORDER BY BSSRVNAME' : 'SELECT DISTINCT BTISRVNOM FROM BTI014 ORDER BY BTISRVNOM', [],
@@ -177,27 +140,13 @@ async function queryServicesWithMethods(platform, db, apiMode) {
   }
 
   if (platform === 'sqlserver') {
-    const mod = path.join(ROOT, 'V3', 'node_modules', 'mssql');
-    if (!fs.existsSync(mod)) throw new Error('mssql no instalado - ejecuta npm install en V3/');
-    const mssql = require(mod);
-    const pool = new mssql.ConnectionPool({
-      server: db.DB_SERVER, port: Number(db.DB_PORT) || 1433,
-      database: db.DB_DATABASE, user: db.DB_USER, password: db.DB_PASSWORD,
-      options: { trustServerCertificate: true }, connectionTimeout: 8000,
-    });
-    await pool.connect();
+    const { pool } = await sg_getPool(db);
     // V3 (SQL Server) no tiene API interna: siempre BTI014.
     const r = await pool.request()
       .query('SELECT BTISRVNOM, BTIMTDNOM FROM BTI014 ORDER BY BTISRVNOM, BTIMTDNOM');
-    await pool.close();
     return groupRows(r.recordset, 'BTISRVNOM', 'BTIMTDNOM');
   } else {
-    const mod = path.join(ROOT, 'V4', 'node_modules', 'oracledb');
-    if (!fs.existsSync(mod)) throw new Error('oracledb no instalado - ejecuta npm install en V4/');
-    const oracledb = require(mod);
-    const conn = await oracledb.getConnection({
-      user: db.DB_USER, password: db.DB_PASSWORD, connectString: db.DB_CONNECT_STRING,
-    });
+    const { conn, oracledb } = await sg_getOra(db);
     const interna = apiMode === 'interna';
     const r = await conn.execute(
       interna
@@ -213,27 +162,13 @@ async function queryServicesWithMethods(platform, db, apiMode) {
 
 async function queryMethods(platform, db, service, apiMode) {
   if (platform === 'sqlserver') {
-    const mod = path.join(ROOT, 'V3', 'node_modules', 'mssql');
-    if (!fs.existsSync(mod)) throw new Error('mssql no instalado - ejecuta npm install en V3/');
-    const mssql = require(mod);
-    const pool = new mssql.ConnectionPool({
-      server: db.DB_SERVER, port: Number(db.DB_PORT) || 1433,
-      database: db.DB_DATABASE, user: db.DB_USER, password: db.DB_PASSWORD,
-      options: { trustServerCertificate: true }, connectionTimeout: 8000,
-    });
-    await pool.connect();
+    const { pool, mssql } = await sg_getPool(db);
     const r = await pool.request()
       .input('svc', mssql.VarChar(100), service)
       .query('SELECT BTIMTDNOM FROM BTI014 WHERE BTISRVNOM = @svc ORDER BY BTIMTDNOM');
-    await pool.close();
     return r.recordset.map(function(row) { return (row.BTIMTDNOM || '').trim(); }).filter(Boolean);
   } else {
-    const mod = path.join(ROOT, 'V4', 'node_modules', 'oracledb');
-    if (!fs.existsSync(mod)) throw new Error('oracledb no instalado - ejecuta npm install en V4/');
-    const oracledb = oraFetchLobsAsString(require(mod));
-    const conn = await oracledb.getConnection({
-      user: db.DB_USER, password: db.DB_PASSWORD, connectString: db.DB_CONNECT_STRING,
-    });
+    const { conn, oracledb } = await sg_getOra(db);
     const interna = apiMode === 'interna';
     const r = await conn.execute(
       interna ? 'SELECT BSMTDNAME FROM BTCBS014 WHERE BSSRVNAME = :1 ORDER BY BSMTDNAME' : 'SELECT BTIMTDNOM FROM BTI014 WHERE BTISRVNOM = :1 ORDER BY BTIMTDNOM', [service],
@@ -249,60 +184,43 @@ const { wrapColeccion, mapBti026Row, buildSdtObj } = require('./scripts/input-pa
 
 async function queryInputParams(platform, db, service, method) {
   if (platform === 'sqlserver') {
-    const mod = path.join(ROOT, 'V3', 'node_modules', 'mssql');
-    if (!fs.existsSync(mod)) throw new Error('mssql no instalado - ejecuta npm install en V3/');
-    const mssql = require(mod);
-    const pool = new mssql.ConnectionPool({
-      server: db.DB_SERVER, port: Number(db.DB_PORT) || 1433,
-      database: db.DB_DATABASE, user: db.DB_USER, password: db.DB_PASSWORD,
-      options: { trustServerCertificate: true }, connectionTimeout: 8000,
-    });
-    await pool.connect();
-    try {
-      const r = await pool.request()
-        .input('svc', mssql.VarChar(100), service)
-        .input('mtd', mssql.VarChar(100), method)
-        .query("SELECT BTISRVPARNOM,BTISRVVARTIPO,BTISRVPARLARGO,BTISRVCATIT,BTISRVPARITTIPO,BTISRVPARITNOM FROM BTI019 WHERE BTISRVNOM=@svc AND BTIMTDNOM=@mtd AND BTISRVPARDIR='I' ORDER BY BTISRVPARPOSI");
-      const sdtCache = new Map();
-      // V3/BTI026 no tiene columna de nombre de item para campos anidados
-      // (a diferencia de V4/BTISDTELEMNOMIT, ver sg_queryBti026): una
-      // coleccion anidada dentro de un SDT cae a array suelto en V3.
-      const queryFn = async (sdtType) => {
-        const r26 = await pool.request()
-          .input('sdt', mssql.VarChar(100), sdtType)
-          .query('SELECT BTISDTELEMNOM,BTISDTELEMTIPO,BTISDTELEMCAT,BTISDTELEMSDT FROM BTI026 WHERE BTISDTNOM=@sdt ORDER BY BTISDTELEMNOM');
-        return r26.recordset.map(mapBti026Row).filter(f => f.name);
-      };
-      const params = [];
-      for (const row of r.recordset) {
-        const name     = (row.BTISRVPARNOM    || '').trim(); if (!name) continue;
-        const type     = (row.BTISRVVARTIPO   || '').trim();
-        const cat      = (row.BTISRVCATIT     || '').trim();
-        const itemType = (row.BTISRVPARITTIPO || '').trim();
-        const itemName = (row.BTISRVPARITNOM  || '').trim();
-        const p = { name, type, label: cat, itemType, itemName };
-        const sdtType = itemType || (type.startsWith('Sdt') ? type : '');
-        if (sdtType) {
-          p.isComplex = true;
-          try {
-            const built = await buildSdtObj(queryFn, sdtType, sdtCache, new Set());
-            p.example = JSON.stringify(itemType ? wrapColeccion(built, itemName) : built, null, 2);
-          }
-          catch(e) { p.example = itemType ? (itemName ? `{"${itemName}":[]}` : '[]') : '{}'; }
+    const { pool, mssql } = await sg_getPool(db);
+    const r = await pool.request()
+      .input('svc', mssql.VarChar(100), service)
+      .input('mtd', mssql.VarChar(100), method)
+      .query("SELECT BTISRVPARNOM,BTISRVVARTIPO,BTISRVPARLARGO,BTISRVCATIT,BTISRVPARITTIPO,BTISRVPARITNOM FROM BTI019 WHERE BTISRVNOM=@svc AND BTIMTDNOM=@mtd AND BTISRVPARDIR='I' ORDER BY BTISRVPARPOSI");
+    const sdtCache = new Map();
+    // V3/BTI026 no tiene columna de nombre de item para campos anidados
+    // (a diferencia de V4/BTISDTELEMNOMIT, ver sg_queryBti026): una
+    // coleccion anidada dentro de un SDT cae a array suelto en V3.
+    const queryFn = async (sdtType) => {
+      const r26 = await pool.request()
+        .input('sdt', mssql.VarChar(100), sdtType)
+        .query('SELECT BTISDTELEMNOM,BTISDTELEMTIPO,BTISDTELEMCAT,BTISDTELEMSDT FROM BTI026 WHERE BTISDTNOM=@sdt ORDER BY BTISDTELEMNOM');
+      return r26.recordset.map(mapBti026Row).filter(f => f.name);
+    };
+    const params = [];
+    for (const row of r.recordset) {
+      const name     = (row.BTISRVPARNOM    || '').trim(); if (!name) continue;
+      const type     = (row.BTISRVVARTIPO   || '').trim();
+      const cat      = (row.BTISRVCATIT     || '').trim();
+      const itemType = (row.BTISRVPARITTIPO || '').trim();
+      const itemName = (row.BTISRVPARITNOM  || '').trim();
+      const p = { name, type, label: cat, itemType, itemName };
+      const sdtType = itemType || (type.startsWith('Sdt') ? type : '');
+      if (sdtType) {
+        p.isComplex = true;
+        try {
+          const built = await buildSdtObj(queryFn, sdtType, sdtCache, new Set());
+          p.example = JSON.stringify(itemType ? wrapColeccion(built, itemName) : built, null, 2);
         }
-        params.push(p);
+        catch(e) { p.example = itemType ? (itemName ? `{"${itemName}":[]}` : '[]') : '{}'; }
       }
-      return params;
-    } finally {
-      await pool.close();
+      params.push(p);
     }
+    return params;
   } else {
-    const mod = path.join(ROOT, 'V4', 'node_modules', 'oracledb');
-    if (!fs.existsSync(mod)) throw new Error('oracledb no instalado - ejecuta npm install en V4/');
-    const oracledb = oraFetchLobsAsString(require(mod));
-    const conn = await oracledb.getConnection({
-      user: db.DB_USER, password: db.DB_PASSWORD, connectString: db.DB_CONNECT_STRING,
-    });
+    const { conn, oracledb } = await sg_getOra(db);
     try {
       const r = await conn.execute(
         "SELECT BTISRVPARNOM,BTISRVVARTIPO,BTISRVPARLARGO,BTISRVCATIT,BTISRVPARITTIPO,BTISRVPARITNOM FROM BTI019 WHERE BTISRVNOM=:1 AND BTIMTDNOM=:2 AND BTISRVPARDIR='I' ORDER BY BTISRVPARPOSI",
@@ -479,61 +397,31 @@ function oraFetchLobsAsString(oracledb) {
   return oracledb;
 }
 
-var _sg_sqlPool = null, _sg_sqlPoolKey = '';
-var _sg_oraPool = null, _sg_oraPoolKey = '';
+// Pool unico de toda la app. Toda la logica (normalizacion de los dos
+// shapes historicos de `db`, cacheo por conexion, invalidacion) vive en
+// scripts/common/db-pool, que se puede testear sin base ni drivers
+// nativos. El header de ese modulo explica el por que.
+//
+// La regla que implementa: se conecta una vez y esa conexion queda en
+// memoria hasta que el usuario apunte a otro ambiente.
+const { createDbPool } = require('./scripts/common/db-pool');
 
-async function sg_getPool(db) {
-  const mssql = sg_findModule('mssql');
-  const key = JSON.stringify(db);
-  if (_sg_sqlPool && _sg_sqlPoolKey === key && _sg_sqlPool.connected) return { pool: _sg_sqlPool, mssql };
-  if (_sg_sqlPool) { try { await _sg_sqlPool.close(); } catch(e) {} }
-  const pool = new mssql.ConnectionPool({
-    server: db.server, port: Number(db.port) || 1433,
-    database: db.database, user: db.user, password: db.password,
-    options: { trustServerCertificate: true }, connectionTimeout: 8000,
-    pool: { max: 5, min: 1, idleTimeoutMillis: 30000 },
-  });
-  // mssql (tedious) emite 'error' en el pool cuando la conexion a la base se
-  // corta de forma asincronica, fuera de cualquier request en curso (ej. un
-  // corte de red/VPN mientras el usuario esta editando parametria sin hacer
-  // pedidos). Un 'error' sin listener sobre un EventEmitter mata el proceso
-  // entero (ver el comentario junto a process.on('uncaughtException') mas
-  // arriba). Con el listener puesto, solo se invalida el pool cacheado para
-  // que el proximo request reconecte desde cero.
-  pool.on('error', function(err) {
-    console.error('[sg_getPool] Error asincronico en el pool de SQL Server, se invalida para reconectar en el proximo pedido:', err);
-    if (_sg_sqlPool === pool) { _sg_sqlPool = null; _sg_sqlPoolKey = ''; }
-  });
-  await pool.connect();
-  _sg_sqlPool = pool; _sg_sqlPoolKey = key;
-  return { pool, mssql };
-}
+const dbPool = createDbPool({
+  findModule: sg_findModule,
+  // Un solo canal de traza: la conexion establecida va a stdout (es
+  // informacion, no un problema) y las invalidaciones a stderr.
+  log: function (msg, err) {
+    if (err === undefined) { console.log(msg); return; }
+    console.error(msg + ":", err);
+  },
+});
 
-async function sg_getOra(db) {
-  const oracledb = sg_findModule('oracledb');
-  const key = JSON.stringify(db);
-  if (_sg_oraPool && _sg_oraPoolKey === key) {
-    try { const conn = await _sg_oraPool.getConnection(); return { conn, oracledb }; }
-    catch(e) { try { await _sg_oraPool.close(0); } catch(_) {} _sg_oraPool = null; _sg_oraPoolKey = ''; }
-  }
-  if (_sg_oraPool) { try { await _sg_oraPool.close(0); } catch(e) {} _sg_oraPool = null; }
-  const pool = await oracledb.createPool({ user: db.user, password: db.password, connectString: db.connectString, poolMin:1, poolMax:5, poolIncrement:1, poolTimeout:60 });
-  // Mismo motivo que en sg_getPool: sin este listener, un 'error' asincronico
-  // del pool de Oracle (conexion cortada sin ningun request en curso) mata
-  // el proceso entero en vez de solo invalidar el pool cacheado.
-  pool.on('error', function(err) {
-    console.error('[sg_getOra] Error asincronico en el pool de Oracle, se invalida para reconectar en el proximo pedido:', err);
-    if (_sg_oraPool === pool) { _sg_oraPool = null; _sg_oraPoolKey = ''; }
-  });
-  _sg_oraPool = pool; _sg_oraPoolKey = key;
-  const conn = await pool.getConnection();
-  return { conn, oracledb };
-}
-
-async function sg_testConn(platform, db) {
-  if (platform === 'sqlserver') { await sg_getPool(db); }
-  else { const { conn } = await sg_getOra(db); await conn.close(); }
-}
+// Wrappers como `function` (no `const`) para conservar el hoisting: las
+// funciones del flujo de documentar estan definidas MAS ARRIBA en este
+// archivo y las llaman por nombre.
+async function sg_getPool(db) { return dbPool.getPool(db); }
+async function sg_getOra(db) { return dbPool.getOra(db); }
+async function sg_testConn(platform, db) { return dbPool.testConn(platform, db); }
 
 async function sg_queryServices(platform, db, version, apiMode) {
   if (platform === 'sqlserver') {
@@ -1168,71 +1056,55 @@ async function queryMethodSchema(platform, db, service, method, apiMode) {
     // que volver a pedir el esquema real de esa tabla puntual antes de
     // adivinar nombres de columna: NO restaurar columnas de la rama V4
     // "por las dudas", porque eso reintroduce este mismo bug.
-    const mod = path.join(ROOT, 'V3', 'node_modules', 'mssql');
-    if (!fs.existsSync(mod)) throw new Error('mssql no instalado - ejecuta npm install en V3/');
-    const mssql = require(mod);
-    const pool = new mssql.ConnectionPool({
-      server: db.DB_SERVER,
-      port: Number(db.DB_PORT) || 1433,
-      database: db.DB_DATABASE,
-      user: db.DB_USER,
-      password: db.DB_PASSWORD,
-      options: { trustServerCertificate: true },
-      connectionTimeout: 8000,
-    });
-    await pool.connect();
-    try {
-      const meta = await pool.request()
-        .input('svc', mssql.VarChar(100), service)
-        .input('mtd', mssql.VarChar(100), method)
-        // Sin BTISRVPARDSC: en V3 esa columna no existe en BTI019 (ver nota arriba).
-        .query(`SELECT BTISRVPARNOM, BTISRVVARTIPO, BTISRVPARDIR, BTISRVPARLARGO, BTISRVPARDECI, BTISRVCATIT, BTISRVPARITTIPO, BTISRVPARITNOM
-                  FROM BTI019
-                 WHERE BTISRVNOM = @svc AND BTIMTDNOM = @mtd
-                 ORDER BY BTISRVPARPOSI`);
+    const { pool, mssql } = await sg_getPool(db);
+    const meta = await pool.request()
+      .input('svc', mssql.VarChar(100), service)
+      .input('mtd', mssql.VarChar(100), method)
+      // Sin BTISRVPARDSC: en V3 esa columna no existe en BTI019 (ver nota arriba).
+      .query(`SELECT BTISRVPARNOM, BTISRVVARTIPO, BTISRVPARDIR, BTISRVPARLARGO, BTISRVPARDECI, BTISRVCATIT, BTISRVPARITTIPO, BTISRVPARITNOM
+                FROM BTI019
+               WHERE BTISRVNOM = @svc AND BTIMTDNOM = @mtd
+               ORDER BY BTISRVPARPOSI`);
 
-      const info = await pool.request()
-        .input('svc', mssql.VarChar(100), service)
-        .input('mtd', mssql.VarChar(100), method)
-        .query('SELECT BTIMTDDSC FROM BTI014 WHERE BTISRVNOM = @svc AND BTIMTDNOM = @mtd');
+    const info = await pool.request()
+      .input('svc', mssql.VarChar(100), service)
+      .input('mtd', mssql.VarChar(100), method)
+      .query('SELECT BTIMTDDSC FROM BTI014 WHERE BTISRVNOM = @svc AND BTIMTDNOM = @mtd');
 
-      const sdts = {};
-      async function loadSdt(sdtName) {
-        if (!sdtName || sdts[sdtName]) return;
-        // BTI026 si tiene descripcion por campo (BTISDTElemDsc) en V3:
-        // este SELECT queda identico al de la rama V4, sin cambios.
-        // BTISDTELEMNOMIT: "nombre interno" del item quando BTISDTELEMCAT='C'
-        // (el campo es una coleccion) — confirmado contra el esquema real
-        // por el usuario el 2026-07-27. Es la clave que usa el exposer REST
-        // para envolver la lista (ver mapBti026SchemaRow/buildDbFieldTemplate).
-        const r26 = await pool.request()
-          .input('sdt', mssql.VarChar(100), sdtName)
-          .query(`SELECT BTISDTELEMNOM, BTISDTELEMTIPO, BTISDTELEMLARGO, BTISDTELEMDECI, BTISDTELEMCAT, BTISDTELEMDSC, BTISDTELEMSDT, BTISDTELEMNOMIT
-                    FROM BTI026
-                   WHERE BTISDTNOM = @sdt
-                   ORDER BY BTISDTELEMNOM`);
-        sdts[sdtName] = r26.recordset.map(mapBti026SchemaRow).filter(function(field) { return field.name; });
-        for (const field of sdts[sdtName]) {
-          if (field.sdtType) await loadSdt(field.sdtType);
-        }
+    const sdts = {};
+    async function loadSdt(sdtName) {
+      if (!sdtName || sdts[sdtName]) return;
+      // BTI026 si tiene descripcion por campo (BTISDTElemDsc) en V3:
+      // este SELECT queda identico al de la rama V4, sin cambios.
+      // BTISDTELEMNOMIT: "nombre interno" del item quando BTISDTELEMCAT='C'
+      // (el campo es una coleccion) — confirmado contra el esquema real
+      // por el usuario el 2026-07-27. Es la clave que usa el exposer REST
+      // para envolver la lista (ver mapBti026SchemaRow/buildDbFieldTemplate).
+      const r26 = await pool.request()
+        .input('sdt', mssql.VarChar(100), sdtName)
+        .query(`SELECT BTISDTELEMNOM, BTISDTELEMTIPO, BTISDTELEMLARGO, BTISDTELEMDECI, BTISDTELEMCAT, BTISDTELEMDSC, BTISDTELEMSDT, BTISDTELEMNOMIT
+                  FROM BTI026
+                 WHERE BTISDTNOM = @sdt
+                 ORDER BY BTISDTELEMNOM`);
+      sdts[sdtName] = r26.recordset.map(mapBti026SchemaRow).filter(function(field) { return field.name; });
+      for (const field of sdts[sdtName]) {
+        if (field.sdtType) await loadSdt(field.sdtType);
       }
-
-      const params = meta.recordset.map(mapMethodSchemaRow).filter(function(param) { return param.name; });
-      for (const param of params) {
-        if (param.sdtType) await loadSdt(param.sdtType);
-      }
-
-      return {
-        service,
-        method,
-        description: info.recordset[0] && info.recordset[0].BTIMTDDSC ? info.recordset[0].BTIMTDDSC.trim() : '',
-        inputs: params.filter(function(param) { return param.direction === 'I'; }),
-        outputs: params.filter(function(param) { return param.direction === 'O' || param.direction === 'R'; }),
-        sdts
-      };
-    } finally {
-      await pool.close();
     }
+
+    const params = meta.recordset.map(mapMethodSchemaRow).filter(function(param) { return param.name; });
+    for (const param of params) {
+      if (param.sdtType) await loadSdt(param.sdtType);
+    }
+
+    return {
+      service,
+      method,
+      description: info.recordset[0] && info.recordset[0].BTIMTDDSC ? info.recordset[0].BTIMTDDSC.trim() : '',
+      inputs: params.filter(function(param) { return param.direction === 'I'; }),
+      outputs: params.filter(function(param) { return param.direction === 'O' || param.direction === 'R'; }),
+      sdts
+    };
   }
 
   // ==================================================================
@@ -1245,14 +1117,7 @@ async function queryMethodSchema(platform, db, service, method, apiMode) {
   // para que un cambio de esquema de V3 nunca pueda afectar a V4 y
   // viceversa.
   // ==================================================================
-  const mod = path.join(ROOT, 'V4', 'node_modules', 'oracledb');
-  if (!fs.existsSync(mod)) throw new Error('oracledb no instalado - ejecuta npm install en V4/');
-  const oracledb = oraFetchLobsAsString(require(mod));
-  const conn = await oracledb.getConnection({
-    user: db.DB_USER,
-    password: db.DB_PASSWORD,
-    connectString: db.DB_CONNECT_STRING,
-  });
+  const { conn, oracledb } = await sg_getOra(db);
   const interna = apiMode === 'interna';
   try {
     const meta = await conn.execute(
@@ -1437,8 +1302,7 @@ http.createServer(async (req, res) => {
   if (req.method === 'POST' && req.url === '/api/test') {
     try {
       const { platform, db } = await readBody(req);
-      if (platform === 'sqlserver') await testSqlServer(db);
-      else await testOracle(db);
+      await sg_testConn(platform, db);
       json(200, { ok: true });
     } catch (e) {
       json(200, { ok: false, message: e.message });
