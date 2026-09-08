@@ -1862,3 +1862,280 @@ test('en modo sin base el stepper no muestra un punto de Conexion', () => {
   assert.equal(puntos.d5.style.display, 'none', 'y sin un quinto punto vacio');
   assert.equal(puntos.d4.style.display, '', 'quedan 4 puntos');
 });
+
+// ── Versión en el paso de Conexión ──────────────────────────
+//
+// En el arranque el paso de Conexión es la PRIMERA página que se ve
+// (askEnvForNewSession saltea Versión cuando hay conexiones guardadas), y
+// renderDbHistory filtra el desplegable por S.version. Sin un selector de
+// versión ahí, la lista quedaba clavada en la versión de la última conexión
+// usada y no había forma visible de cambiarla.
+
+// Wizard con el panel de Conexión observable: registro de elementos por id,
+// para poder leer los campos, el desplegable y las tarjetas de versión.
+function wizardConexion() {
+  const w = loadWizard();
+  const els = {};
+  const sel = stubEl();
+  sel.opciones = [];
+  sel.appendChild = function (o) { sel.opciones.push(o); };
+  els['db-hist-sel'] = sel;
+  w.document = makeDomStub();
+  w.document.getElementById = function (id) {
+    if (id === 'engine-section' || id === 'apimode-section') {
+      return { style: { display: 'none' }, querySelectorAll: function () { return []; } };
+    }
+    els[id] = els[id] || stubEl();
+    return els[id];
+  };
+  w.document.createElement = function () { return stubEl(); };
+  w.els = els;
+  w.histSel = sel;
+  return w;
+}
+
+function opcionesDelHistorial(w) {
+  return w.histSel.opciones.map(function (o) { return o.textContent; });
+}
+
+test('platformFor / defaultEngineFor: V3 es SQL Server sin motor a elegir, V4 es Oracle', () => {
+  const w = loadWizard();
+  assert.equal(w.platformFor('V3'), 'sqlserver');
+  assert.equal(w.platformFor('V4'), 'oracle');
+  assert.equal(w.defaultEngineFor('V3'), null, 'V3 no pregunta motor');
+  assert.equal(w.defaultEngineFor('V4'), 'oracle', 'hoy es el unico motor habilitado de V4');
+});
+
+test('pickConnVersion cambia version, motor y campos visibles', () => {
+  const w = wizardConexion();
+  w.S.version = 'V4'; w.S.platform = 'oracle'; w.S.engine = 'oracle';
+  w._dbHistory = [];
+
+  w.pickConnVersion('V3');
+
+  assert.equal(w.S.version, 'V3');
+  assert.equal(w.S.platform, 'sqlserver');
+  assert.equal(w.S.engine, null, 'V3 no tiene motor a elegir');
+  assert.equal(w.els['sql-fields'].style.display, 'block');
+  assert.equal(w.els['ora-fields'].style.display, 'none');
+  assert.equal(w.els['conn-ver-V3'].classList.contains('sel'), true);
+  assert.equal(w.els['conn-ver-V4'].classList.contains('sel'), false, 'la otra se desmarca');
+});
+
+test('pickConnVersion carga solo las conexiones de esa version', () => {
+  // El pedido concreto: eligiendo V3 se ven las bases V3, y con V4 las V4.
+  const w = wizardConexion();
+  w.S.version = 'V4'; w.S.platform = 'oracle';
+  w._dbHistory = [
+    { id: '1', version: 'V4', platform: 'oracle', label: 'POC TIERRA', db: { connectString: '10.0.0.4:1521/btv4db', user: 'bt', password: 'p' } },
+    { id: '2', version: 'V3', platform: 'sqlserver', label: 'ProductoGx16', db: { server: 'SQLSERVER1', port: '1433', database: 'ProductoGx16', user: 'pg', password: 'p' } },
+    { id: '3', version: 'V3', platform: 'sqlserver', label: 'Gx16 QA', db: { server: 'SQLSERVER2', port: '1433', database: 'Gx16QA', user: 'pg', password: 'p' } },
+  ];
+
+  w.pickConnVersion('V3');
+  assert.deepEqual(opcionesDelHistorial(w), ['ProductoGx16', 'Gx16 QA'], 'ninguna V4 en la lista');
+  assert.equal(w.els['db-hist-wrap'].style.display, '', 'y el desplegable se muestra');
+
+  w.histSel.opciones = [];
+  w.pickConnVersion('V4');
+  assert.deepEqual(opcionesDelHistorial(w), ['POC TIERRA']);
+});
+
+test('pickConnVersion esconde el desplegable si esa version no tiene conexiones', () => {
+  const w = wizardConexion();
+  w.S.version = 'V4'; w.S.platform = 'oracle';
+  w._dbHistory = [{ id: '1', version: 'V4', platform: 'oracle', label: 'POC TIERRA', db: {} }];
+  w.pickConnVersion('V3');
+  assert.deepEqual(opcionesDelHistorial(w), []);
+  assert.equal(w.els['db-hist-wrap'].style.display, 'none', 'se tipea una conexion nueva');
+});
+
+test('pickConnVersion limpia la conexion anterior: es de otro motor', () => {
+  const w = wizardConexion();
+  w.S.version = 'V4'; w.S.platform = 'oracle';
+  w._dbHistory = [];
+  w._connOk = true;
+  w._activeDbHistEntry = { id: '1', label: 'POC TIERRA' };
+  w._pendingHistPreselect = '1';
+  w.els['db-host'] = stubEl(); w.els['db-host'].value = '10.0.0.4';
+  w.els['db-conn-name'] = stubEl(); w.els['db-conn-name'].value = 'POC TIERRA';
+
+  w.pickConnVersion('V3');
+
+  assert.equal(w.els['db-host'].value, '', 'los datos Oracle no aplican a SQL Server');
+  assert.equal(w.els['db-conn-name'].value, '');
+  assert.equal(w._connOk, false, 'hay que volver a probar la conexion');
+  assert.equal(w._activeDbHistEntry, null);
+  assert.equal(w._pendingHistPreselect, null, 'la preseleccion era de la otra version');
+});
+
+test('pickConnVersion con la misma version no borra lo que se tipeo', () => {
+  const w = wizardConexion();
+  w.S.version = 'V4'; w.S.platform = 'oracle';
+  w._connOk = true;
+  w.els['db-host'] = stubEl(); w.els['db-host'].value = '10.0.0.4';
+
+  w.pickConnVersion('V4');
+
+  assert.equal(w.els['db-host'].value, '10.0.0.4');
+  assert.equal(w._connOk, true, 'la prueba OK sigue valiendo');
+});
+
+test('pickConnVersion deja el paso de Version diciendo lo mismo', () => {
+  // markVersionCardsFromS: volver atras no puede mostrar la version vieja.
+  const w = wizardConexion();
+  const p1 = stubEl();
+  const tarjetas = { V3: stubEl(), V4: stubEl() };
+  p1.querySelectorAll = function () { return [tarjetas.V3, tarjetas.V4]; };
+  p1.querySelector = function (sel) { return sel.indexOf('V4') >= 0 ? tarjetas.V4 : tarjetas.V3; };
+  const getById = w.document.getElementById;
+  w.document.getElementById = function (id) { return id === 'p1' ? p1 : getById(id); };
+  w.S.version = 'V3'; w.S.platform = 'sqlserver';
+  w._dbHistory = [];
+
+  w.pickConnVersion('V4');
+
+  assert.equal(tarjetas.V4.classList.contains('sel'), true, 'el paso 1 marca V4');
+  assert.equal(tarjetas.V3.classList.contains('sel'), false);
+  assert.equal(w.S.engine, 'oracle', 'y el motor queda resuelto sin volver al paso 1');
+});
+
+test('el selector de version solo aparece mientras se elige el ambiente', () => {
+  const w = wizardConexion();
+  w.S.version = 'V4';
+
+  w.toggleConnVersionPicker();
+  assert.equal(w.els['conn-version-wrap'].style.display, '', 'en el gate se muestra');
+
+  w.S.action = 'doc';
+  w.toggleConnVersionPicker();
+  assert.equal(w.els['conn-version-wrap'].style.display, 'none', 'a mitad de una herramienta no significa nada');
+
+  w.S.action = null;
+  w.sdtEnvCaptureActive = true;
+  w.toggleConnVersionPicker();
+  assert.equal(w.els['conn-version-wrap'].style.display, 'none', 'la conexion de Generar SDT es V4/Oracle por definicion');
+});
+
+test('entrar al paso de Conexion muestra el selector y los campos del motor', () => {
+  const w = wizardConexion();
+  w.S.version = 'V3'; w.S.platform = 'sqlserver';
+  w._dbHistory = [];
+
+  w.show(w.PASO_CONEXION);
+
+  assert.equal(w.els['conn-version-wrap'].style.display, '');
+  assert.equal(w.els['conn-ver-V3'].classList.contains('sel'), true, 'con la version en uso marcada');
+  assert.equal(w.els['sql-fields'].style.display, 'block');
+  assert.equal(w.els['ora-fields'].style.display, 'none');
+});
+
+test('cambiar de version en el paso 1 tambien invalida la conexion anterior', () => {
+  // Sin esto quedaba el nombre de la conexion V3 arriba y los campos Oracle
+  // vacios abajo: el panel decia una cosa y tenia otra.
+  const w = wizardConexion();
+  const tarjeta = stubEl();
+  tarjeta.closest = function () { return { querySelectorAll: function () { return []; } }; };
+  w.S.version = 'V3'; w.S.platform = 'sqlserver';
+  w._connOk = true;
+  w._pendingHistPreselect = '2';
+  w.els['db-conn-name'] = stubEl(); w.els['db-conn-name'].value = 'productogx16';
+  w.els['db-server'] = stubEl(); w.els['db-server'].value = 'SQLSERVER1';
+
+  w.pick('version', 'V4', tarjeta);
+
+  assert.equal(w.S.platform, 'oracle');
+  assert.equal(w.els['db-conn-name'].value, '', 'el nombre era de la conexion V3');
+  assert.equal(w.els['db-server'].value, '');
+  assert.equal(w._connOk, false);
+  assert.equal(w._pendingHistPreselect, null);
+});
+
+test('reclickear la misma version en el paso 1 no borra la conexion precargada', () => {
+  // openEnvSwitcher precarga el ambiente activo para editarlo: volver a
+  // clickear su misma version no puede vaciarlo.
+  const w = wizardConexion();
+  const tarjeta = stubEl();
+  tarjeta.closest = function () { return { querySelectorAll: function () { return []; } }; };
+  w.S.version = 'V4'; w.S.platform = 'oracle';
+  w._connOk = true;
+  w.els['db-host'] = stubEl(); w.els['db-host'].value = '10.0.0.4';
+
+  w.pick('version', 'V4', tarjeta);
+
+  assert.equal(w.els['db-host'].value, '10.0.0.4');
+  assert.equal(w._connOk, true);
+});
+
+test('elegir la primera version en el paso 1 (instalacion nueva) no resetea nada', () => {
+  const w = wizardConexion();
+  const tarjeta = stubEl();
+  tarjeta.closest = function () { return { querySelectorAll: function () { return []; } }; };
+  w.S.version = null;
+  w.els['db-host'] = stubEl(); w.els['db-host'].value = '10.0.0.4'; // lo que haya tipeado antes de elegir
+
+  w.pick('version', 'V4', tarjeta);
+
+  assert.equal(w.els['db-host'].value, '10.0.0.4', 'no habia version anterior que invalidar');
+});
+
+// ── La conexion que queda lista al elegir la version ────────
+
+test('pickEntryForVersion elige la ultima usada si es de esa version', () => {
+  const w = loadWizard();
+  w._dbHistory = [
+    { id: '1', key: 'V3|ss|SQLSERVER2|Gx16QA|pg', version: 'V3', label: 'Gx16 QA' },
+    { id: '2', key: 'V3|ss|SQLSERVER1|ProductoGx16|pg', version: 'V3', label: 'productogx16' },
+    { id: '3', key: 'V4|ora|10.0.0.4:1521/btv4db|bt', version: 'V4', label: 'POC TIERRA' },
+  ];
+  w.localStorage.setItem('bt_last_env_key', 'V3|ss|SQLSERVER1|ProductoGx16|pg');
+  assert.equal(w.pickEntryForVersion('V3').label, 'productogx16', 'no la primera de la lista: la ultima usada');
+});
+
+test('pickEntryForVersion ignora el puntero si apunta a la otra version', () => {
+  const w = loadWizard();
+  w._dbHistory = [
+    { id: '1', key: 'V3|ss|SQLSERVER2|Gx16QA|pg', version: 'V3', label: 'Gx16 QA' },
+    { id: '2', key: 'V4|ora|10.0.0.4:1521/btv4db|bt', version: 'V4', label: 'POC TIERRA' },
+  ];
+  w.localStorage.setItem('bt_last_env_key', 'V4|ora|10.0.0.4:1521/btv4db|bt');
+  assert.equal(w.pickEntryForVersion('V3').label, 'Gx16 QA', 'la mas reciente de la version pedida');
+});
+
+test('pickEntryForVersion sin conexiones de esa version devuelve null', () => {
+  const w = loadWizard();
+  w._dbHistory = [{ id: '1', key: 'k', version: 'V4', label: 'POC TIERRA' }];
+  assert.equal(w.pickEntryForVersion('V3'), null);
+  w._dbHistory = [];
+  assert.equal(w.pickEntryForVersion('V4'), null);
+});
+
+test('pickConnVersion deja lista la conexion de la version elegida', () => {
+  // Un click: se elige V3 y queda cargada la base V3, como hace el arranque.
+  const w = wizardConexion();
+  w.S.version = 'V4'; w.S.platform = 'oracle';
+  w._dbHistory = [
+    { id: '1', key: 'V4|ora|10.0.0.4:1521/btv4db|bt', version: 'V4', platform: 'oracle', label: 'POC TIERRA', db: { connectString: '10.0.0.4:1521/btv4db', user: 'bt', password: 'p' } },
+    { id: '2', key: 'V3|ss|SQLSERVER1|ProductoGx16|pg', version: 'V3', platform: 'sqlserver', label: 'productogx16', db: { server: 'SQLSERVER1', port: '1433', database: 'ProductoGx16', user: 'pg', password: 'p' } },
+  ];
+
+  w.pickConnVersion('V3');
+
+  assert.equal(w.histSel.value, '2', 'el desplegable queda en la conexion V3');
+  assert.equal(w._activeDbHistEntry.label, 'productogx16');
+  assert.equal(w.els['db-server'].value, 'SQLSERVER1', 'y los campos ya vienen llenos');
+  assert.equal(w.els['db-name'].value, 'ProductoGx16');
+  assert.equal(w._pendingHistPreselect, null, 'la preseleccion se consumio en el render');
+});
+
+test('pickConnVersion sin conexiones de esa version no preselecciona nada', () => {
+  const w = wizardConexion();
+  w.S.version = 'V4'; w.S.platform = 'oracle';
+  w._dbHistory = [{ id: '1', key: 'k', version: 'V4', platform: 'oracle', label: 'POC TIERRA', db: {} }];
+
+  w.pickConnVersion('V3');
+
+  assert.equal(w._pendingHistPreselect, null, 'no puede quedar pendiente y aplicarse despues');
+  assert.equal(w._activeDbHistEntry, null);
+  assert.equal(w.els['db-server'].value, '');
+});

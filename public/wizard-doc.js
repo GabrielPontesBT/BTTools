@@ -1482,11 +1482,15 @@ function sgInvalidateState() {
 function pick(key, val, el) {
   sgInvalidateState();
   pgInvalidateState();
+  var versionAnterior = S.version;
   S[key] = val;
   el.closest('.cards').querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
   el.classList.add('sel');
   if (key === 'version') {
-    S.platform = val === 'V3' ? 'sqlserver' : 'oracle';
+    S.platform = platformFor(val);
+    // Solo si REALMENTE cambio: reclickear la misma tarjeta no puede borrar la
+    // conexion que openEnvSwitcher acaba de precargar para editar.
+    if (versionAnterior && versionAnterior !== val) resetConnForVersionChange();
     tryLoadEnv(val);
     toggleEngineSection(val === 'V4');
   }
@@ -1506,6 +1510,113 @@ function pick(key, val, el) {
     dots(S.step);
   }
   refreshNextBtn();
+}
+
+// ── Versión: mapeos compartidos ───────────────────────────────
+
+/** El motor de base que implica cada versión. */
+function platformFor(version) {
+  return version === 'V3' ? 'sqlserver' : 'oracle';
+}
+
+/**
+ * Motor por defecto de una versión, para los caminos que eligen la versión
+ * SIN pasar por las tarjetas de motor del paso 1 (el selector del paso de
+ * Conexión y la preselección del arranque).
+ *
+ * Hoy V4 tiene un solo motor habilitado (Oracle; Java SQL, AS400 y Postgre
+ * están como "Próximamente" en #engine-section). Cuando se habilite un
+ * segundo motor, esos dos caminos tienen que preguntarlo en vez de asumirlo.
+ */
+function defaultEngineFor(version) {
+  return version === 'V4' ? 'oracle' : null;
+}
+
+// ── Versión desde el paso de Conexión ─────────────────────────
+
+/**
+ * Elegir la versión desde el panel de Conexión.
+ *
+ * En el arranque ese panel es la PRIMERA página que se ve: cuando hay
+ * conexiones guardadas, askEnvForNewSession saltea el paso de Versión y
+ * preselecciona la última usada. Sin este selector la lista de conexiones
+ * quedaba clavada en la versión de esa entrada (renderDbHistory filtra por
+ * S.version), así que para trabajar contra la otra versión había que adivinar
+ * el botón Volver.
+ *
+ * Cambiar de versión cambia de motor, así que la conexión anterior no aplica:
+ * se limpian los campos, se baja la prueba OK y se recarga el .env legado de
+ * la versión nueva (loadedEnv, del que dependen los defaults de la API).
+ */
+function pickConnVersion(version) {
+  if (version === S.version) return; // no borrar lo que ya se tipeó al re-clickear la misma
+  S.version = version;
+  S.platform = platformFor(version);
+  S.engine = defaultEngineFor(version);
+  sgInvalidateState();
+  pgInvalidateState();
+  resetConnForVersionChange();
+  // La respuesta puede llegar después de otro cambio de versión: tryLoadEnv ya
+  // se protege de eso, y acá se revalida antes de tocar el DOM.
+  var carga = tryLoadEnv(version);
+  if (carga && typeof carga.then === 'function') {
+    carga.then(function() { if (S.version === version) toggleConnPlatformFields(); });
+  }
+  syncConnVersionCards();
+  markVersionCardsFromS(); // el paso 1 no puede quedar diciendo otra versión
+  toggleConnPlatformFields();
+  // Elegir la version deja lista la conexion de esa version, igual que hace el
+  // arranque: un click y ya se sabe contra que base se va a trabajar. Se
+  // aplica dentro del render (ver renderDbHistory).
+  var candidata = pickEntryForVersion(version);
+  _pendingHistPreselect = candidata ? candidata.id : null;
+  renderDbHistory();       // el historial ya está en memoria: refiltra por la versión nueva
+  updateConnBtn();
+  if (typeof setTimeout === 'function') setTimeout(setupConnWatchers, 0);
+}
+
+/**
+ * Cambiar de versión cambia de motor, así que la conexión anterior no aplica:
+ * ni sus campos, ni su nombre, ni la prueba OK, ni la entrada del historial
+ * que se venía a preseleccionar. Lo usan los DOS caminos que cambian de
+ * versión (las tarjetas del paso 1 y el selector del paso de Conexión), para
+ * que no queden mostrando el nombre de una conexión con los campos de la otra
+ * versión vacíos.
+ */
+function resetConnForVersionChange() {
+  clearDbFields();
+  _connOk = false;
+  _pendingHistPreselect = null;
+  var res = document.getElementById('cres');
+  if (res) { res.className = 'cres'; res.textContent = ''; }
+}
+
+/** Marca la tarjeta de versión del paso de Conexión según S.version. */
+function syncConnVersionCards() {
+  ['V3', 'V4'].forEach(function(v) {
+    var card = document.getElementById('conn-ver-' + v);
+    if (card) card.classList.toggle('sel', S.version === v);
+  });
+}
+
+/** Muestra los campos del motor que corresponde a la versión elegida. */
+function toggleConnPlatformFields() {
+  var sql = document.getElementById('sql-fields');
+  var ora = document.getElementById('ora-fields');
+  if (sql) sql.style.display = S.platform === 'sqlserver' ? 'block' : 'none';
+  if (ora) ora.style.display = S.platform === 'oracle' ? 'block' : 'none';
+}
+
+/**
+ * El selector de versión del panel de Conexión solo aplica mientras se está
+ * eligiendo el ambiente. A mitad de una herramienta ya elegida, o en la
+ * conexión dedicada de Generar SDT (que es V4/Oracle por definición), cambiar
+ * la versión ahí no significaría nada.
+ */
+function toggleConnVersionPicker() {
+  var wrap = document.getElementById('conn-version-wrap');
+  if (wrap) wrap.style.display = (isEnvGate() && !sdtEnvCaptureActive) ? '' : 'none';
+  syncConnVersionCards();
 }
 
 function toggleEngineSection(show) {
@@ -1865,8 +1976,8 @@ function show(step) {
     // reflejan lo que ya haya (ambiente activo si se esta editando, o lo que
     // el usuario ya tipeo si volvio de otro paso). Solo se limpian de forma
     // explicita (primer uso nunca tocado, o conexion especifica de sdtgen).
-    document.getElementById('sql-fields').style.display = S.platform === 'sqlserver' ? 'block' : 'none';
-    document.getElementById('ora-fields').style.display  = S.platform === 'oracle'    ? 'block' : 'none';
+    toggleConnPlatformFields();
+    toggleConnVersionPicker();
     loadDbHistory();
     setTimeout(setupConnWatchers, 0);
     if (_pendingReconnectError) {
@@ -2625,7 +2736,7 @@ async function askEnvForNewSession() {
 
   S.version = entry.version;
   S.platform = entry.platform;
-  S.engine = entry.platform === 'oracle' ? 'oracle' : null;
+  S.engine = defaultEngineFor(entry.version);
   _pendingHistPreselect = entry.id;
   show(PASO_CONEXION);
   // show() dispara su propio loadDbHistory(); el render aplica la
@@ -2701,6 +2812,28 @@ function applyNoDbRestrictions() {
 }
 
 /**
+ * La conexion a preseleccionar DENTRO de una version, para cuando la version
+ * ya esta decidida (el selector del paso de Conexion).
+ *
+ * Mismo criterio que pickEntryForNewSession, pero acotado: la ultima usada si
+ * es de esa version y sigue en el historial, y si no la mas reciente de esa
+ * version. Sin esto, cambiar de version dejaba el desplegable en "-- Nueva
+ * conexion --" con todos los campos vacios, aunque hubiera una conexion
+ * guardada para esa version.
+ */
+function pickEntryForVersion(version) {
+  if (!_dbHistory || !_dbHistory.length) return null;
+  var deLaVersion = _dbHistory.filter(function(e) { return e.version === version; });
+  if (!deLaVersion.length) return null;
+  var lastKey = loadLastEnvKey();
+  if (lastKey) {
+    var exacta = deLaVersion.find(function(e) { return e.key === lastKey; });
+    if (exacta) return exacta;
+  }
+  return deLaVersion[0];
+}
+
+/**
  * La conexion a preseleccionar: la ultima usada si todavia existe en el
  * historial, y si no la mas reciente que haya. El backend ya devuelve el
  * historial con la ultima guardada primero (ver writeDbHistory).
@@ -2757,6 +2890,7 @@ function sdtgenEnterOrCapture() {
   tryLoadEnv('V4');
   document.getElementById('sql-fields').style.display = 'none';
   document.getElementById('ora-fields').style.display = 'block';
+  toggleConnVersionPicker(); // sdtEnvCaptureActive ya está en true: lo esconde
   var t = document.querySelector('#p2 .ptitle'), sub = document.querySelector('#p2 .psub');
   if (t && _p2OrigTitle === null) _p2OrigTitle = t.textContent;
   if (sub && _p2OrigSub === null) _p2OrigSub = sub.textContent;
