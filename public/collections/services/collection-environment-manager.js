@@ -396,7 +396,15 @@
               apiMode: wizardState.apiMode,
               authKind: state.swaggerAuthKind
             });
-            if (authData.ok) state.authContext = authData.authContext || null;
+            if (authData.ok) {
+              state.authContext = authData.authContext || null;
+              // El esquema que realmente respondio manda sobre el detectado
+              // en el swagger: "Probar autenticacion" prueba user-login y
+              // Authenticate en orden, asi que su resultado es dato medido
+              // y no inferencia (ver authCandidates en bantotal-urls).
+              if (authData.authKind) state.swaggerAuthKind = authData.authKind;
+              if (authData.authUrl) state.swaggerAuthUrl = authData.authUrl;
+            }
             else this.options.showStatus('warn', (authData.message || 'No se pudo autenticar usando el Authenticate del Swagger.') + ' Los servicios ya estan cargados; podes revisar la autenticacion mas tarde.', 'Autenticacion pendiente');
           } catch (authError) {
             this.options.showStatus('warn', 'No se pudo validar la autenticacion del ambiente. Los servicios ya estan cargados; podes revisar la autenticacion mas tarde.', 'Autenticacion pendiente');
@@ -465,14 +473,20 @@
 
           this.options.showStatus('ok', 'Catalogo BTI resuelto. Validando autenticacion del ambiente...');
 
+          // V4 va sin authUrl explicita a proposito: sin ella el backend
+          // prueba el user-login y, si el ambiente no migro, degrada al
+          // Authenticate viejo, y devuelve cual de los dos anduvo. Con una
+          // URL explicita ese fallback se apaga.
           var authData = await this.options.apiClient.testAuthentication({
             version: wizardState.version,
             api: this.options.getApi(),
-            authUrl: state.swaggerAuthUrl
+            authUrl: wizardState.version === 'V4' ? '' : state.swaggerAuthUrl
           });
           if (!authData.ok) throw new Error(authData.message || 'No se pudo autenticar usando la API publica del ambiente.');
 
           state.authContext = authData.authContext || null;
+          if (authData.authKind) state.swaggerAuthKind = authData.authKind;
+          if (authData.authUrl) state.swaggerAuthUrl = authData.authUrl;
         }
 
         var servicesPanel = document.getElementById('collection-services');

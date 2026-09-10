@@ -81,7 +81,18 @@ function readBody(req) {
 // El casing del endpoint de autenticacion REST cambio a minusculas y no
 // todos los ambientes se actualizaron, asi que se prueban las dos formas.
 // Ver scripts/common/bantotal-urls/index.js.
-const { authUrlCandidates, resolveV4AuthUrl, intentarCandidatos } = require('./scripts/common/bantotal-urls');
+const {
+  resolveV4AuthUrl,
+  authCandidates,
+  intentarCandidatosAuth,
+  buildAuthPayload,
+  extractAuthToken,
+  esPathSessionLogin,
+  usaBearer,
+  KIND_SESSION_PUBLICA,
+  KIND_AUTHENTICATE,
+  CANAL_PUBLICO,
+} = require('./scripts/common/bantotal-urls');
 
 // El paso de Conexion es el UNICO momento en que se abre la conexion:
 // sg_testConn deja el pool cacheado y todo lo que venga despues lo reusa.
@@ -1313,44 +1324,77 @@ http.createServer(async (req, res) => {
   if (req.method === 'POST' && req.url === '/api/test-auth') {
     try {
       const { version, api, authUrl: explicitAuthUrl, apiMode, authKind } = await readBody(req);
-      const https = require('https');
-      let authUrl = explicitAuthUrl || (version === 'V3' ? api.API_AUTH_URL : resolveV4AuthUrl(api));
-      if (version === 'V3') {
-        authUrl = String(authUrl || '').trim();
-        if (!/[?&]Execute$/i.test(authUrl)) {
-          authUrl += (authUrl.indexOf('?') >= 0 ? '&' : '?') + 'Execute';
-        }
-      }
       const isV4 = version === 'V4';
       // "API interna" via REST/Swagger expone Session.userLogin en vez de
       // Authenticate/Execute. Quien resuelve authKind es
       // findInternaAuthOperation, en generar-collections/index.js.
-      const isSessionUserLogin = isV4 && apiMode === 'interna' && authKind === 'session-userlogin';
-      const body = isSessionUserLogin
-        ? JSON.stringify({ user: api.API_USER, userPassword: api.API_PASSWORD, jwt: true })
-        : isV4
-          ? JSON.stringify({ UserId: api.API_USER, UserPassword: api.API_PASSWORD })
-          : JSON.stringify({
-              Btinreq: { Canal: api.API_CANAL || 'BTDIGITAL', Usuario: api.API_USER, Device: api.API_DEVICE || 'INSTALADOR', Requerimiento: api.API_REQUERIMIENTO || '1', Token: '' },
-              UserId: api.API_USER,
-              UserPassword: api.API_PASSWORD
-            });
-      function postAuth(url) {
+      const isInternaSession = isV4 && apiMode === 'interna' && authKind === 'session-userlogin';
+
+      const credenciales = {
+        username: api.API_USER,
+        password: api.API_PASSWORD,
+        channel: api.API_CANAL || 'BTDIGITAL',
+        device: api.API_DEVICE || 'INSTALADOR',
+        requirement: api.API_REQUERIMIENTO || '1',
+      };
+
+      // Body y headers dependen del esquema, no solo de la URL: el user-login
+      // de la API publica manda {user,userPassword,jwt} con Canal BTPUBLIC y
+      // nada mas, mientras que Authenticate.Execute manda {UserId,UserPassword}
+      // con los cinco headers de canal.
+      function payloadPara(kind) {
+        if (!isV4) {
+          return {
+            body: JSON.stringify({
+              Btinreq: {
+                Canal: credenciales.channel,
+                Usuario: credenciales.username,
+                Device: credenciales.device,
+                Requerimiento: credenciales.requirement,
+                Token: ''
+              },
+              UserId: credenciales.username,
+              UserPassword: credenciales.password
+            }),
+            headers: { 'Content-Type': 'application/json' }
+          };
+        }
+        if (kind === 'session-userlogin') {
+          // "API interna": mismo body que el user-login publico, pero con los
+          // headers de canal del ambiente (no BTPUBLIC) -- ese cambio es de la
+          // API publica.
+          return {
+            body: JSON.stringify({ user: credenciales.username, userPassword: credenciales.password, jwt: true }),
+            headers: {
+              'Content-Type': 'application/json',
+              Canal: credenciales.channel,
+              Device: credenciales.device,
+              Usuario: credenciales.username,
+              Requerimiento: credenciales.requirement,
+              Token: '',
+              'idempotency-key': '1'
+            }
+          };
+        }
+        return buildAuthPayload(kind, credenciales);
+      }
+
+      function postAuth(candidato) {
+        let url = candidato.url;
+        if (version === 'V3') {
+          url = String(url || '').trim();
+          if (!/[?&]Execute$/i.test(url)) {
+            url += (url.indexOf('?') >= 0 ? '&' : '?') + 'Execute';
+          }
+        }
+        const payload = payloadPara(candidato.kind);
         const parsed = new URL(url);
         const mod = parsed.protocol === 'https:' ? require('https') : require('http');
         return new Promise((resolve, reject) => {
-          const btHeaders = isV4 ? {
-            Canal:        api.API_CANAL        || 'BTDIGITAL',
-            Device:       api.API_DEVICE       || 'INSTALADOR',
-            Usuario:      api.API_USER,
-            Requerimiento: api.API_REQUERIMIENTO || '1',
-            Token:        '',
-            'idempotency-key': '1'
-          } : {};
           const options = {
             hostname: parsed.hostname, port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
             path: parsed.pathname + parsed.search, method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), ...btHeaders },
+            headers: Object.assign({ 'Content-Length': Buffer.byteLength(payload.body) }, payload.headers),
             rejectUnauthorized: false
           };
           const r = mod.request(options, res => {
@@ -1362,22 +1406,33 @@ http.createServer(async (req, res) => {
             res.on('end', () => resolve({ status: res.statusCode, raw: s }));
           });
           r.on('error', reject);
-          r.write(body); r.end();
+          r.write(payload.body); r.end();
         });
       }
 
-      // Candidatos: si el usuario no dio una URL explicita, se prueban las
-      // dos formas del path de autenticacion. El endpoint paso a ser todo
-      // en minusculas y los ambientes que no se actualizaron siguen con la
-      // forma vieja; probar en orden evita tener que preguntarselo.
-      const candidatos = (explicitAuthUrl || version === 'V3' || isSessionUserLogin)
-        ? [authUrl]
-        : authUrlCandidates(api);
+      // Candidatos: sin URL explicita, la API publica V4 prueba primero el
+      // user-login nuevo y despues las dos formas del Authenticate viejo (ver
+      // authCandidates). Con URL explicita se respeta lo que escribio el
+      // usuario, y el esquema sale del path.
+      let candidatos;
+      if (explicitAuthUrl) {
+        const kindExplicito = isV4 && !isInternaSession && esPathSessionLogin(explicitAuthUrl)
+          ? KIND_SESSION_PUBLICA
+          : (isInternaSession ? 'session-userlogin' : KIND_AUTHENTICATE);
+        candidatos = [{ kind: kindExplicito, url: explicitAuthUrl }];
+      } else if (!isV4) {
+        candidatos = [{ kind: KIND_AUTHENTICATE, url: api.API_AUTH_URL }];
+      } else if (isInternaSession) {
+        candidatos = [{ kind: 'session-userlogin', url: resolveV4AuthUrl(api) }];
+      } else {
+        candidatos = authCandidates(api);
+      }
 
-      const resultado = await intentarCandidatos(candidatos, postAuth);
+      const resultado = await intentarCandidatosAuth(candidatos, postAuth);
       const respuesta = resultado.respuesta;
       const intentos = resultado.intentos;
-      authUrl = resultado.authUrl;
+      const authUrl = resultado.authUrl;
+      const kindUsado = resultado.authKind;
 
       if (respuesta.status === 404) {
         throw new Error('El endpoint de autenticacion no existe en ninguna de las formas conocidas:\n  ' +
@@ -1390,25 +1445,33 @@ http.createServer(async (req, res) => {
         throw new Error('Respuesta inesperada de ' + authUrl + ' (HTTP ' + respuesta.status + '): ' +
                         respuesta.raw.slice(0, 200));
       }
-      // Session.userLogin responde "sessionToken" en minuscula, y los errores
-      // en BusinessErrors/messages.global, distinto de Authenticate/Execute.
-      const token = isSessionUserLogin ? parsed2.sessionToken : parsed2.SessionToken;
+      // user-login responde "sessionToken" en minuscula, y los errores en
+      // BusinessErrors/messages.global, distinto de Authenticate/Execute.
+      const token = kindUsado === 'session-userlogin'
+        ? parsed2.sessionToken
+        : extractAuthToken(kindUsado, parsed2);
       if (!token) {
         const businessError = parsed2.BusinessErrors?.BusinessError?.[0];
         throw new Error(businessError?.Description || parsed2.messages?.global || parsed2.Btoutreq?.Mensaje || parsed2.Mensaje || JSON.stringify(parsed2).slice(0, 200));
       }
+      const bearer = usaBearer(kindUsado);
       json(200, {
         ok: true,
         token,
         // Cual de las formas del endpoint respondio. El front la muestra:
-        // con dos casings posibles, saber cual anduvo evita adivinar.
+        // con varios esquemas posibles, saber cual anduvo evita adivinar.
         authUrl,
+        authKind: kindUsado,
         authContext: {
-          channel: api.API_CANAL || 'BTDIGITAL',
+          // Con el login publico el canal es BTPUBLIC por definicion, no el
+          // que quedo configurado en el ambiente.
+          channel: bearer ? CANAL_PUBLICO : (api.API_CANAL || 'BTDIGITAL'),
           username: api.API_USER || '',
           device: api.API_DEVICE || 'INSTALADOR',
           requirement: api.API_REQUERIMIENTO || '1',
-          token
+          token,
+          authKind: kindUsado,
+          bearer
         }
       });
     } catch(e) {

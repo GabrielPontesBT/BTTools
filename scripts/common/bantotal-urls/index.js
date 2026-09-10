@@ -113,6 +113,166 @@ async function intentarCandidatos(candidatos, poster) {
   return { respuesta, authUrl, intentos };
 }
 
+// ============================================================
+// Autenticacion de la API publica: jwt de session/user-login
+// ------------------------------------------------------------
+// Arquitectura dejo de usar Authenticate.Execute. La API publica pasa a
+// autenticarse con el metodo user-login de session:
+//
+//   POST <raiz>/session/v1/user-login
+//   Canal: BTPUBLIC
+//   { "user": ..., "userPassword": ..., "jwt": true }
+//   -> { success, sessionToken, refreshToken, userCode }
+//
+// y el sessionToken viaja despues como "Authorization: Bearer <token>".
+// Con Bearer NO se mandan los headers de canal/usuario/requerimiento/token:
+// el jwt ya lleva esa informacion adentro.
+//
+// El Authenticate viejo queda como fallback, no como camino principal: los
+// ambientes que todavia no se actualizaron siguen respondiendo solo la forma
+// vieja, y ahi un 404 del user-login tiene que poder degradar solo.
+// ============================================================
+
+const SESSION_LOGIN_PATH = '/session/v1/user-login';
+
+// Canal fijo del login publico. No sale de la parametria del ambiente a
+// proposito: arquitectura lo definio como el canal de la API publica, y un
+// BTDIGITAL heredado de la config vieja hace fallar el login con un error de
+// canal que no dice de donde salio.
+const CANAL_PUBLICO = 'BTPUBLIC';
+
+// Los dos esquemas de autenticacion posibles de la API publica V4.
+const KIND_SESSION_PUBLICA = 'public-session-userlogin';
+const KIND_AUTHENTICATE = 'authenticate-execute';
+
+// Path del login de sesion: el kebab de la API publica
+// (/session/v1/user-login) y el camelCase que exponen algunos swagger
+// (/Session/v1/userLogin). Sirve para detectarlo dentro de un swagger.
+const RE_SESSION_LOGIN = /\/session\/v\d+\/user-?login$/i;
+
+function esPathSessionLogin(pathName) {
+  return RE_SESSION_LOGIN.test(String(pathName || '').trim());
+}
+
+// true si el token de este esquema viaja como Authorization: Bearer.
+function usaBearer(kind) {
+  return kind === KIND_SESSION_PUBLICA;
+}
+
+/**
+ * Los candidatos de autenticacion de la API publica V4, en orden de
+ * preferencia: primero el user-login nuevo, despues las dos formas del
+ * Authenticate viejo (minusculas y el casing legacy).
+ *
+ * @returns {{kind: string, url: string}[]}
+ */
+function authCandidates(api) {
+  const root = resolvePublicApiRoot(api);
+  return [
+    { kind: KIND_SESSION_PUBLICA, url: root + SESSION_LOGIN_PATH },
+    { kind: KIND_AUTHENTICATE, url: root + AUTH_PATH },
+    { kind: KIND_AUTHENTICATE, url: root + AUTH_PATH_LEGACY },
+  ];
+}
+
+// La URL de login preferida de la API publica (la nueva).
+function resolveSessionLoginUrl(api) {
+  return resolvePublicApiRoot(api) + SESSION_LOGIN_PATH;
+}
+
+/**
+ * Body y headers del request de autenticacion, segun el esquema.
+ * El body sale ya serializado: quien lo manda necesita su Content-Length.
+ */
+function buildAuthPayload(kind, credenciales) {
+  const c = credenciales || {};
+  const usuario = String(c.username || '');
+  const password = String(c.password || '');
+
+  if (kind === KIND_SESSION_PUBLICA) {
+    return {
+      body: JSON.stringify({ user: usuario, userPassword: password, jwt: true }),
+      // Solo el canal: user-login no pide device/requerimiento/token.
+      headers: { 'Content-Type': 'application/json', Canal: CANAL_PUBLICO },
+    };
+  }
+
+  return {
+    body: JSON.stringify({ UserId: usuario, UserPassword: password }),
+    headers: {
+      'Content-Type': 'application/json',
+      Canal: String(c.channel || 'BTDIGITAL'),
+      Device: String(c.device || 'INSTALADOR'),
+      Usuario: usuario,
+      Requerimiento: String(c.requirement || '1'),
+      Token: '',
+      'idempotency-key': '1',
+    },
+  };
+}
+
+/**
+ * El token dentro de la respuesta ya parseada. user-login lo devuelve en
+ * "sessionToken" (minuscula); Authenticate.Execute en "SessionToken".
+ */
+function extractAuthToken(kind, parsedJson) {
+  const data = parsedJson || {};
+  if (kind === KIND_SESSION_PUBLICA) return data.sessionToken || '';
+  return data.SessionToken || '';
+}
+
+/**
+ * Headers de autenticacion de un request de negocio.
+ *
+ * Con Bearer se manda solo Authorization: el mensaje de arquitectura es
+ * explicito en que el resto de los headers de canal/usuario/requerimiento ya
+ * no hacen falta, y mandarlos igual es ruido al leer el request exportado.
+ */
+function buildRequestAuthHeaders(kind, contexto) {
+  const c = contexto || {};
+  const token = String(c.token || '');
+  if (usaBearer(kind)) {
+    return { Authorization: 'Bearer ' + token };
+  }
+  return {
+    Canal: String(c.channel || 'BTDIGITAL'),
+    Usuario: String(c.username || 'INSTALADOR'),
+    Device: String(c.device || 'INSTALADOR'),
+    Requerimiento: String(c.requirement || '1'),
+    Token: token,
+  };
+}
+
+/**
+ * Igual que intentarCandidatos, pero sobre candidatos {kind, url}: cada
+ * esquema manda un body y unos headers distintos, asi que el poster recibe el
+ * candidato entero y no solo la URL.
+ *
+ * Un 404 pasa al siguiente candidato (ese esquema no existe en el ambiente).
+ * Cualquier otro status significa que la ruta existe: ahi se corta, porque
+ * reintentar duplica el intento de login y contra un ambiente con bloqueo por
+ * intentos fallidos eso no es gratis.
+ */
+async function intentarCandidatosAuth(candidatos, poster) {
+  const lista = (Array.isArray(candidatos) ? candidatos : []).filter(function (c) {
+    return c && c.url;
+  });
+  if (!lista.length) throw new Error('No hay ninguna URL de autenticacion para probar');
+
+  const intentos = [];
+  let respuesta = null;
+  let candidato = null;
+
+  for (const actual of lista) {
+    respuesta = await poster(actual);
+    candidato = actual;
+    intentos.push(actual.url + ' -> HTTP ' + respuesta.status);
+    if (respuesta.status !== 404) break;
+  }
+
+  return { respuesta, authUrl: candidato.url, authKind: candidato.kind, intentos };
+}
+
 module.exports = {
   AUTH_PATH,
   AUTH_PATH_LEGACY,
@@ -121,4 +281,16 @@ module.exports = {
   resolveV4AuthUrl,
   esMismaAuthSalvoCasing,
   intentarCandidatos,
+  SESSION_LOGIN_PATH,
+  CANAL_PUBLICO,
+  KIND_SESSION_PUBLICA,
+  KIND_AUTHENTICATE,
+  esPathSessionLogin,
+  usaBearer,
+  authCandidates,
+  resolveSessionLoginUrl,
+  buildAuthPayload,
+  extractAuthToken,
+  buildRequestAuthHeaders,
+  intentarCandidatosAuth,
 };

@@ -27,8 +27,9 @@ const RAIZ_PROYECTO = path.join(__dirname, '..', '..');
 
 // Paths versionados, como los expone Bantotal (/Session/v1/userLogin, no
 // /Session/userLogin): findInternaAuthOperation exige el segmento de version.
-function swaggerDoc(raiz) {
-  return {
+function swaggerDoc(raiz, opciones) {
+  const o = opciones || {};
+  const doc = {
     openapi: '3.0.1',
     info: { title: 'Fake', version: '1.0' },
     servers: [{ url: raiz + '/btv4core' }],
@@ -42,18 +43,22 @@ function swaggerDoc(raiz) {
       '/Authenticate/v1/Execute': { post: { tags: ['Authenticate'], operationId: 'exec', responses: { 200: { description: 'ok' } } } },
     },
   };
+  // Variantes para los ambientes que no exponen uno u otro login.
+  if (o.sinSessionLogin) delete doc.paths['/Session/v1/userLogin'];
+  if (o.sinAuthenticate) delete doc.paths['/Authenticate/v1/Execute'];
+  return doc;
 }
 
 // Servidor de swagger en puerto efimero. Registra que rutas se pidieron,
 // que es lo que hace observable el bug de duplicacion.
-function servidorSwagger() {
+function servidorSwagger(opciones) {
   const pedidos = [];
   const server = http.createServer((req, res) => {
     pedidos.push(req.url);
     if (/^\/(v3\/api-docs|api-docs|swagger\.json|openapi\.json|swagger\/v1\/swagger\.json)/.test(req.url)) {
       const raiz = 'http://127.0.0.1:' + server.address().port;
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(swaggerDoc(raiz)));
+      res.end(JSON.stringify(swaggerDoc(raiz, opciones)));
       return;
     }
     res.writeHead(404, { 'Content-Type': 'text/plain' });
@@ -188,14 +193,48 @@ test('API interna: detecta Session.userLogin', async () => {
   } finally { await sw.cerrar(); }
 });
 
-test('API publica: usa Authenticate/Execute', async () => {
+// La API publica dejo de usar Authenticate.Execute: si el ambiente expone el
+// login de session, ese es el esquema (jwt + Authorization: Bearer).
+test('API publica: prefiere el user-login de session sobre Authenticate', async () => {
   const sw = await servidorSwagger();
   try {
     const r = await cargarSwagger(feature(), {
       swaggerUrls: [sw.raiz + '/v3/api-docs'], apiMode: 'publica', api: {},
     });
     assert.equal(r.ok, true, r.message);
+    assert.equal(r.authKind, 'public-session-userlogin');
+    assert.match(r.authUrl, /\/Session\/v1\/userLogin$/);
+  } finally { await sw.cerrar(); }
+});
+
+// Ambiente sin migrar: no expone el login de session, solo el Authenticate
+// viejo. Ahi el esquema viejo es el unico que anda y hay que respetarlo.
+test('API publica: cae a Authenticate/Execute si el ambiente no expone user-login', async () => {
+  const sw = await servidorSwagger({ sinSessionLogin: true });
+  try {
+    const r = await cargarSwagger(feature(), {
+      swaggerUrls: [sw.raiz + '/v3/api-docs'], apiMode: 'publica', api: {},
+    });
+    assert.equal(r.ok, true, r.message);
     assert.equal(r.authKind, 'authenticate-execute');
+    assert.match(r.authUrl, /\/Authenticate\/v1\/Execute$/);
+  } finally { await sw.cerrar(); }
+});
+
+// Ningun swagger cargado declara el login (es comun: session suele vivir en
+// otro swagger). Se asume el esquema nuevo y se arma la URL contra la raiz
+// del ambiente; el fallback al Authenticate viejo lo hace despues "Probar
+// autenticacion" (ver authCandidates).
+test('API publica: sin login declarado asume user-login contra la raiz del ambiente', async () => {
+  const sw = await servidorSwagger({ sinSessionLogin: true, sinAuthenticate: true });
+  try {
+    const r = await cargarSwagger(feature(), {
+      swaggerUrls: [sw.raiz + '/v3/api-docs'], apiMode: 'publica',
+      api: { BASE_URL: sw.raiz + '/api/publicapi' },
+    });
+    assert.equal(r.ok, true, r.message);
+    assert.equal(r.authKind, 'public-session-userlogin');
+    assert.equal(r.authUrl, sw.raiz + '/api/publicapi/session/v1/user-login');
   } finally { await sw.cerrar(); }
 });
 

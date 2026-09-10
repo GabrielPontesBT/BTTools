@@ -690,6 +690,13 @@
      * Reconstuye headers Bantotal legibles para el request mostrado en detalle.
      */
     buildRequestHeaders(runtimeValues) {
+      // Con el login publico (jwt) el request lleva solo Authorization: los
+      // headers de canal/usuario/device/requerimiento ya no se mandan, y
+      // mostrarlos igual haria que el detalle mienta sobre lo que se envio
+      // (ver buildRequestAuthHeaders en scripts/common/bantotal-urls).
+      if (this.usaBearer()) {
+        return { Authorization: 'Bearer ' + String(runtimeValues && runtimeValues.token || '') };
+      }
       return {
         Canal: String(runtimeValues && runtimeValues.channel || ''),
         Usuario: String(runtimeValues && runtimeValues.username || ''),
@@ -697,6 +704,15 @@
         Requerimiento: String(runtimeValues && runtimeValues.requirement || ''),
         Token: String(runtimeValues && runtimeValues.token || '')
       };
+    }
+
+    /**
+     * true si el ambiente cargado se autentica con el user-login publico, o
+     * sea que el token viaja como Authorization: Bearer.
+     */
+    usaBearer() {
+      var kind = this.options.getSwaggerAuthKind ? this.options.getSwaggerAuthKind() : '';
+      return String(kind || '') === 'public-session-userlogin';
     }
 
     /**

@@ -97,7 +97,7 @@
       return {
         id: 'auth',
         index: 0,
-        name: 'Authenticate',
+        name: authContext.bearer ? 'user-login (session)' : 'Authenticate',
         service: 'Security',
         method: 'POST',
         httpMethod: 'POST',
@@ -110,19 +110,27 @@
         happenedAtLabel: this.formatTime(happenedAt),
         requestUrl: String(state && state.swaggerAuthUrl || 'http://10.0.0.5:5101/api/authenticate/v1/execute'),
         createdVariables: variables,
-        requestHeaders: {
-          Canal: authContext.channel || 'BTDIGITAL',
-          Usuario: authContext.username || 'INSTALADOR',
-          Device: authContext.device || 'INSTALADOR',
-          Requerimiento: authContext.requirement || '1'
-        },
-        requestBody: {
-          UserId: authContext.username || 'INSTALADOR',
-          UserPassword: '********'
-        },
-        responseBody: {
-          SessionToken: variables[0].value
-        },
+        requestHeaders: authContext.bearer
+          ? { Canal: authContext.channel || 'BTPUBLIC' }
+          : {
+              Canal: authContext.channel || 'BTDIGITAL',
+              Usuario: authContext.username || 'INSTALADOR',
+              Device: authContext.device || 'INSTALADOR',
+              Requerimiento: authContext.requirement || '1'
+            },
+        requestBody: authContext.bearer
+          ? {
+              user: authContext.username || 'INSTALADOR',
+              userPassword: '********',
+              jwt: true
+            }
+          : {
+              UserId: authContext.username || 'INSTALADOR',
+              UserPassword: '********'
+            },
+        responseBody: authContext.bearer
+          ? { success: true, sessionToken: variables[0].value }
+          : { SessionToken: variables[0].value },
         logs: [
           'Se resolvio el contexto de autenticacion desde el ambiente actual.',
           'Se genero un token mock para la vista de ejecucion.'
@@ -344,6 +352,12 @@
      */
     buildRequestHeaders(state) {
       var authContext = state && state.authContext ? state.authContext : {};
+      // authContext.bearer lo marca /api/test-auth cuando el ambiente se
+      // autentica con el user-login publico: ahi el request real lleva solo
+      // Authorization, y la preview tiene que mostrar lo mismo.
+      if (authContext.bearer) {
+        return { Authorization: 'Bearer B240259FC0A0A579CBBA123B' };
+      }
       return {
         Canal: authContext.channel || 'BTDIGITAL',
         Usuario: authContext.username || 'INSTALADOR',

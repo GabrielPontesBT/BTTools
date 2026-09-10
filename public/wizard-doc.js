@@ -2362,12 +2362,12 @@ function _setApiHints(apiUrl, baseUrl) {
   if (S.version === 'V4') {
     if (hapi) hapi.textContent = '';
     // Todo en minusculas: confirmado contra el swagger de un ambiente real,
-    // donde el path de autenticacion es /authenticate/v1/execute y los
-    // servicios son /public/{servicio}/v1/{metodo} en kebab-case
-    // (ej. /public/saving-accounts/v1/product). La forma con mayusculas
-    // devuelve 404. Ver scripts/common/bantotal-urls/index.js.
+    // donde los servicios son /public/{servicio}/v1/{metodo} en kebab-case
+    // (ej. /public/saving-accounts/v1/product). La autenticacion pasa por el
+    // user-login de session (jwt + Authorization: Bearer); el Authenticate
+    // viejo quedo como fallback. Ver scripts/common/bantotal-urls/index.js.
     if (hbase) hbase.textContent = b
-      ? 'Autenticacion: ' + b + '/authenticate/v1/execute  |  Servicios: ' + b + '/public/{servicio}/v1/{metodo}'
+      ? 'Autenticacion: ' + b + '/session/v1/user-login  |  Servicios: ' + b + '/public/{servicio}/v1/{metodo}'
       : '';
   } else {
     if (hapi) hapi.textContent = a ? 'Ej de llamada: ' + a + '/servlet/com.dlya.bantotal.ardwsbt_{Servicio}?{Metodo}' : '';

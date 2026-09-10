@@ -200,3 +200,131 @@ test('sin candidatos falla con un mensaje claro en vez de romper', async () => {
   await assert.rejects(() => U.intentarCandidatos(null, async () => ({ status: 200, raw: '' })),
                        /No hay ninguna URL/);
 });
+
+// ── Autenticacion nueva de la API publica: user-login + Bearer ─────────────
+//
+// Arquitectura dejo de usar Authenticate.Execute. Estos tests fijan el
+// contrato entero del esquema nuevo (URL, canal, body, de donde sale el
+// token, como viaja despues), porque hay cuatro consumidores -- setup.js,
+// generar-collections, generar-doc y el front -- y la unica forma de que no
+// se desincronicen es que todos pidan lo mismo aca.
+
+test('el primer candidato es el user-login de session, no el Authenticate viejo', () => {
+  const c = U.authCandidates({ BASE_URL: RAIZ });
+  assert.equal(c[0].kind, U.KIND_SESSION_PUBLICA);
+  assert.equal(c[0].url, RAIZ + '/session/v1/user-login');
+});
+
+test('el Authenticate viejo sigue como fallback, en sus dos formas', () => {
+  const c = U.authCandidates({ BASE_URL: RAIZ });
+  assert.equal(c.length, 3);
+  assert.equal(c[1].kind, U.KIND_AUTHENTICATE);
+  assert.equal(c[1].url, RAIZ + '/authenticate/v1/execute');
+  assert.equal(c[2].kind, U.KIND_AUTHENTICATE);
+  assert.equal(c[2].url, RAIZ + '/Authenticate/v1/Execute');
+});
+
+test('los candidatos derivan la raiz igual que authUrlCandidates', () => {
+  const c = U.authCandidates({ API_BASE_URL: 'http://10.0.0.7:5101/core' });
+  assert.equal(c[0].url, 'http://10.0.0.7:5101/core/api/publicapi/session/v1/user-login');
+});
+
+test('el login publico manda canal BTPUBLIC y jwt:true, sin device/requerimiento/token', () => {
+  const r = U.buildAuthPayload(U.KIND_SESSION_PUBLICA, {
+    username: 'INSTALADOR', password: 'Bantotal2015', channel: 'BTDIGITAL', device: 'X', requirement: '9',
+  });
+  assert.deepEqual(JSON.parse(r.body), { user: 'INSTALADOR', userPassword: 'Bantotal2015', jwt: true });
+  assert.equal(r.headers.Canal, 'BTPUBLIC');
+  assert.deepEqual(Object.keys(r.headers).sort(), ['Canal', 'Content-Type']);
+});
+
+test('el canal del ambiente NO pisa el BTPUBLIC del login publico', () => {
+  const r = U.buildAuthPayload(U.KIND_SESSION_PUBLICA, { username: 'u', password: 'p', channel: 'BTMOVIL' });
+  assert.equal(r.headers.Canal, 'BTPUBLIC');
+});
+
+test('el Authenticate viejo sigue mandando UserId/UserPassword y los cinco headers', () => {
+  const r = U.buildAuthPayload(U.KIND_AUTHENTICATE, {
+    username: 'INSTALADOR', password: 'p', channel: 'BTDIGITAL', device: 'INSTALADOR', requirement: '1',
+  });
+  assert.deepEqual(JSON.parse(r.body), { UserId: 'INSTALADOR', UserPassword: 'p' });
+  assert.equal(r.headers.Canal, 'BTDIGITAL');
+  assert.equal(r.headers.Usuario, 'INSTALADOR');
+  assert.equal(r.headers.Token, '');
+});
+
+test('el token sale de sessionToken con user-login y de SessionToken con Authenticate', () => {
+  assert.equal(U.extractAuthToken(U.KIND_SESSION_PUBLICA, { sessionToken: 'abc', SessionToken: 'no' }), 'abc');
+  assert.equal(U.extractAuthToken(U.KIND_AUTHENTICATE, { SessionToken: 'xyz' }), 'xyz');
+  assert.equal(U.extractAuthToken(U.KIND_SESSION_PUBLICA, { success: false }), '');
+});
+
+test('con jwt el request de negocio lleva SOLO Authorization: Bearer', () => {
+  const h = U.buildRequestAuthHeaders(U.KIND_SESSION_PUBLICA, {
+    token: 'jwt.123', channel: 'BTPUBLIC', username: 'INSTALADOR', device: 'X', requirement: '1',
+  });
+  assert.deepEqual(h, { Authorization: 'Bearer jwt.123' });
+});
+
+test('sin jwt el request de negocio sigue llevando los headers de canal', () => {
+  const h = U.buildRequestAuthHeaders(U.KIND_AUTHENTICATE, {
+    token: 'T1', channel: 'BTDIGITAL', username: 'INSTALADOR', device: 'INSTALADOR', requirement: '1',
+  });
+  assert.deepEqual(h, {
+    Canal: 'BTDIGITAL', Usuario: 'INSTALADOR', Device: 'INSTALADOR', Requerimiento: '1', Token: 'T1',
+  });
+  assert.equal(h.Authorization, undefined);
+});
+
+test('usaBearer solo es cierto para el login publico', () => {
+  assert.equal(U.usaBearer(U.KIND_SESSION_PUBLICA), true);
+  assert.equal(U.usaBearer(U.KIND_AUTHENTICATE), false);
+  // 'session-userlogin' es "API interna": mismo body, pero header Token.
+  assert.equal(U.usaBearer('session-userlogin'), false);
+  assert.equal(U.usaBearer(undefined), false);
+});
+
+test('esPathSessionLogin acepta el kebab publico y el camelCase de los swagger', () => {
+  assert.equal(U.esPathSessionLogin('/session/v1/user-login'), true);
+  assert.equal(U.esPathSessionLogin('/Session/v1/userLogin'), true);
+  assert.equal(U.esPathSessionLogin('/session/v2/user-login'), true);
+  assert.equal(U.esPathSessionLogin('/session/user-login'), false, 'exige el segmento de version');
+  assert.equal(U.esPathSessionLogin('/Authenticate/v1/Execute'), false);
+});
+
+test('intentarCandidatosAuth devuelve el esquema del candidato que respondio', async () => {
+  const c = U.authCandidates({ BASE_URL: RAIZ });
+  // Ambiente sin migrar: el user-login no existe y contesta el Authenticate.
+  const poster = async (cand) => ({ status: cand.kind === U.KIND_SESSION_PUBLICA ? 404 : 200, raw: '{}' });
+  const r = await U.intentarCandidatosAuth(c, poster);
+  assert.equal(r.authKind, U.KIND_AUTHENTICATE);
+  assert.equal(r.authUrl, RAIZ + '/authenticate/v1/execute');
+  assert.equal(r.intentos.length, 2);
+});
+
+test('intentarCandidatosAuth corta en el user-login si existe, sin tocar el Authenticate', async () => {
+  const c = U.authCandidates({ BASE_URL: RAIZ });
+  const vistos = [];
+  const poster = async (cand) => { vistos.push(cand.url); return { status: 200, raw: '{}' }; };
+  const r = await U.intentarCandidatosAuth(c, poster);
+  assert.equal(r.authKind, U.KIND_SESSION_PUBLICA);
+  assert.deepEqual(vistos, [RAIZ + '/session/v1/user-login']);
+});
+
+test('un 401 del user-login NO reintenta con el Authenticate viejo', async () => {
+  // Credenciales mal no es "el endpoint no existe": reintentar duplicaria el
+  // intento fallido contra un ambiente que bloquea por intentos.
+  const c = U.authCandidates({ BASE_URL: RAIZ });
+  const vistos = [];
+  const poster = async (cand) => { vistos.push(cand.url); return { status: 401, raw: '{}' }; };
+  const r = await U.intentarCandidatosAuth(c, poster);
+  assert.equal(vistos.length, 1);
+  assert.equal(r.authKind, U.KIND_SESSION_PUBLICA);
+});
+
+test('intentarCandidatosAuth sin candidatos falla con un mensaje claro', async () => {
+  await assert.rejects(() => U.intentarCandidatosAuth([], async () => ({ status: 200, raw: '' })),
+                       /No hay ninguna URL de autenticacion/);
+  await assert.rejects(() => U.intentarCandidatosAuth(null, async () => ({ status: 200, raw: '' })),
+                       /No hay ninguna URL de autenticacion/);
+});

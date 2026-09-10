@@ -306,6 +306,30 @@ function createCollectionFeature(deps) {
   }
 
   /**
+   * Busca el login de la API publica dentro del catalogo ya fusionado:
+   * POST /session/v1/user-login (ver esPathSessionLogin, que tambien acepta
+   * el camelCase /Session/v1/userLogin de algunos swagger). Si el ambiente
+   * no lo expone pero si expone Authenticate/Execute, se devuelve ese: es un
+   * ambiente que todavia no migro y el esquema viejo sigue siendo el unico
+   * que anda ahi.
+   */
+  function findPublicaAuthOperation(operationsByService) {
+    let sessionOp = null;
+    let executeOp = null;
+    Object.keys(operationsByService || {}).forEach(function(service) {
+      (operationsByService[service] || []).forEach(function(operation) {
+        if (String(operation.httpMethod || '').toUpperCase() !== 'POST') return;
+        const path = String(operation.path || '');
+        if (!sessionOp && btUrls.esPathSessionLogin(path)) sessionOp = operation;
+        if (!executeOp && /\/Authenticate\/v\d+\/Execute$/i.test(path)) executeOp = operation;
+      });
+    });
+    if (sessionOp) return { kind: btUrls.KIND_SESSION_PUBLICA, baseUrl: sessionOp.sourceBaseUrl || '', path: sessionOp.path };
+    if (executeOp) return { kind: btUrls.KIND_AUTHENTICATE, baseUrl: executeOp.sourceBaseUrl || '', path: executeOp.path };
+    return null;
+  }
+
+  /**
    * "API interna" no se autentica con Authenticate/Execute (eso es de "API
    * publica") -- expone Session.userLogin (ver ejemplo real pegado por el
    * usuario: POST /Session/v1/userLogin, {user,userPassword,jwt} =>
@@ -345,13 +369,31 @@ function createCollectionFeature(deps) {
     return '';
   }
 
+  /**
+   * El esquema de autenticacion en juego. Sin nada declarado, la API publica
+   * V4 usa el user-login de session (jwt + Authorization: Bearer): es lo que
+   * definio arquitectura y Authenticate.Execute quedo como fallback, no como
+   * default. "API interna" declara su propio kind al cargar el swagger (ver
+   * findInternaAuthOperation), asi que nunca cae en este default.
+   */
+  function resolveAuthKind(config) {
+    const api = config && config.api ? config.api : (config || {});
+    const declarado = String(
+      (config && config.swaggerAuthKind) || (api && api.SWAGGER_AUTH_KIND) || ''
+    ).trim();
+    if (declarado) return declarado;
+    return btUrls.KIND_SESSION_PUBLICA;
+  }
+
   function resolveJsonAuthUrl(config) {
     const explicit = String((config && config.swaggerAuthUrl) || '').trim();
     if (explicit) return explicit;
     const api = config && config.api ? config.api : (config || {});
     const swaggerAuthUrl = String((api && api.SWAGGER_AUTH_URL) || '').trim();
     if (swaggerAuthUrl) return swaggerAuthUrl;
-    return resolveV4AuthUrl(api);
+    return resolveAuthKind(config) === btUrls.KIND_SESSION_PUBLICA
+      ? btUrls.resolveSessionLoginUrl(api)
+      : resolveV4AuthUrl(api);
   }
 
   function sanitizeVariableKey(value) {
@@ -1658,9 +1700,49 @@ function createCollectionFeature(deps) {
     };
   }
 
+  /**
+   * Item de autenticacion de la API publica V4: user-login de session.
+   *
+   * Canal BTPUBLIC literal y no {{channel}}: el canal del login publico lo
+   * fija arquitectura, no la parametria del ambiente, y dejarlo como variable
+   * invita a pisarlo con un BTDIGITAL heredado que hace fallar el login.
+   * Los requests de negocio que siguen usan Authorization: Bearer {{token}}
+   * (ver buildJsonRequestItem), sin headers de canal.
+   */
+  function buildPublicSessionAuthRequestItem(api) {
+    const resolvedAuthUrl = resolveJsonAuthUrl(api);
+    const rawJson = JSON.stringify({
+      user: '{{username}}',
+      userPassword: '{{password}}',
+      jwt: true
+    }, null, 2);
+    return {
+      name: '0. user-login (session)',
+      event: [buildPostmanJsonAuthTestScript()],
+      request: {
+        method: 'POST',
+        header: [
+          { key: 'Content-Type', value: 'application/json', type: 'text' },
+          { key: 'Canal', value: btUrls.CANAL_PUBLICO, type: 'text' }
+        ],
+        body: {
+          mode: 'raw',
+          raw: rawJson,
+          options: { raw: { language: 'json' } }
+        },
+        url: parsePostmanUrl('{{auth_url}}', resolvedAuthUrl),
+        description: 'Obtiene el sessionToken (jwt) de la API publica via session/user-login. Se usa como Authorization: Bearer en el resto de los requests.'
+      },
+      response: []
+    };
+  }
+
   function buildAuthRequestItem(version, api, apiMode) {
     if (version === 'V4' && apiMode === 'interna') {
       return buildInternaSessionAuthRequestItem(api);
+    }
+    if (version === 'V4' && resolveAuthKind(api) === btUrls.KIND_SESSION_PUBLICA) {
+      return buildPublicSessionAuthRequestItem(api);
     }
     if (version === 'V4') {
       const resolvedAuthUrl = resolveV4AuthUrl(api);
@@ -1804,6 +1886,9 @@ function createCollectionFeature(deps) {
     if (version === 'V4' && api.SWAGGER_AUTH_KIND === 'session-userlogin') {
       return buildInternaJsonSessionAuthRequestItem(api);
     }
+    if (version === 'V4' && resolveAuthKind(api) === btUrls.KIND_SESSION_PUBLICA) {
+      return buildPublicSessionAuthRequestItem(api);
+    }
     if (version === 'V4') return buildAuthRequestItem(version, api);
 
     const rawJson = JSON.stringify({
@@ -1901,7 +1986,11 @@ function createCollectionFeature(deps) {
       ['public_api_url', publicBaseUrl],
       ['base_url', publicBaseUrl],
       ['auth_url', authUrl],
-      ['channel', api.API_CANAL || 'BTDIGITAL'],
+      // Con el login publico el canal es BTPUBLIC por definicion: la
+      // collection tiene que salir con el mismo valor que se manda en vivo.
+      ['channel', (version === 'V4' && resolveAuthKind(api) === btUrls.KIND_SESSION_PUBLICA)
+        ? btUrls.CANAL_PUBLICO
+        : (api.API_CANAL || 'BTDIGITAL')],
       ['username', api.API_USER || 'INSTALADOR'],
       ['password', api.API_PASSWORD || ''],
       ['device', api.API_DEVICE || 'INSTALADOR'],
@@ -1945,19 +2034,22 @@ function createCollectionFeature(deps) {
     };
   }
 
-  function buildBantotalJsonHeaders(context, tokenOverride) {
-    const headers = {};
-    const channel = firstDefinedText(context && context.channel, 'BTDIGITAL');
-    const username = firstDefinedText(context && context.username, 'INSTALADOR');
-    const device = firstDefinedText(context && context.device, 'INSTALADOR');
-    const requirement = firstDefinedText(context && context.requirement, '1');
-    const token = firstDefinedText(tokenOverride, context && context.token, '');
-    headers.Canal = channel;
-    headers.Usuario = username;
-    headers.Device = device;
-    headers.Requerimiento = requirement;
-    headers.Token = token;
-    return headers;
+  /**
+   * Headers de autenticacion de un request de negocio. Con el user-login de
+   * la API publica el token va como "Authorization: Bearer" y los headers de
+   * canal/usuario/device/requerimiento ya no se mandan (el jwt los lleva
+   * adentro); con Authenticate.Execute siguen yendo los cinco de siempre.
+   * La decision vive en el modulo compartido para que la ejecucion en vivo y
+   * la collection exportada no se puedan desincronizar.
+   */
+  function buildBantotalJsonHeaders(context, tokenOverride, kind) {
+    return btUrls.buildRequestAuthHeaders(kind, {
+      channel: firstDefinedText(context && context.channel, 'BTDIGITAL'),
+      username: firstDefinedText(context && context.username, 'INSTALADOR'),
+      device: firstDefinedText(context && context.device, 'INSTALADOR'),
+      requirement: firstDefinedText(context && context.requirement, '1'),
+      token: firstDefinedText(tokenOverride, context && context.token, '')
+    });
   }
 
   function mergeExecutionStepValues(baseValues, stepOverrides) {
@@ -2580,13 +2672,21 @@ function createCollectionFeature(deps) {
     const tokenVariableRef = '{{' + (tokenSourceKey || 'token') + '}}';
     // V3 lleva Canal/Usuario/Device/Requerimiento/Token dentro del body (Btinreq),
     // no como headers custom: asi es como responde el servlet real (ver authenticateSession).
-    const headers = isV3 ? [] : [
-      { key: 'Canal', value: '{{channel}}', type: 'text' },
-      { key: 'Device', value: '{{device}}', type: 'text' },
-      { key: 'Usuario', value: '{{username}}', type: 'text' },
-      { key: 'Requerimiento', value: '{{requirement}}', type: 'text' },
-      { key: 'Token', value: tokenVariableRef, type: 'text' }
-    ];
+    //
+    // V4 con el login publico manda solo Authorization: Bearer. Los headers de
+    // canal/usuario/device/requerimiento dejaron de ser necesarios (el jwt los
+    // lleva adentro) y mandarlos igual solo ensucia el request exportado.
+    const headers = isV3
+      ? []
+      : btUrls.usaBearer(resolveAuthKind(api))
+        ? [{ key: 'Authorization', value: 'Bearer ' + tokenVariableRef, type: 'text' }]
+        : [
+            { key: 'Canal', value: '{{channel}}', type: 'text' },
+            { key: 'Device', value: '{{device}}', type: 'text' },
+            { key: 'Usuario', value: '{{username}}', type: 'text' },
+            { key: 'Requerimiento', value: '{{requirement}}', type: 'text' },
+            { key: 'Token', value: tokenVariableRef, type: 'text' }
+          ];
     const method = String(operation.httpMethod || 'GET').toUpperCase();
     if (method !== 'GET') {
       headers.unshift({ key: 'Content-Type', value: 'application/json', type: 'text' });
@@ -2739,22 +2839,23 @@ function createCollectionFeature(deps) {
     // (Session.userLogin, {user,userPassword,jwt} => sessionToken en
     // minuscula). `api` aca es el body completo del execute, por eso se lee
     // swaggerAuthKind (mismo criterio que resolveJsonAuthUrl con swaggerAuthUrl).
-    const isSessionUserLogin = isV4 && api.swaggerAuthKind === 'session-userlogin';
+    const kind = isV4 ? resolveAuthKind(api) : null;
+    // "API interna" (session-userlogin) manda el mismo body que el user-login
+    // publico pero con los headers de canal del ambiente: el BTPUBLIC + Bearer
+    // es un cambio de la API publica y no aplica ahi.
+    const isInternaSession = kind === 'session-userlogin';
     const authContext = resolveExecutionAuthContext(api);
     const authUrl = version === 'V3'
       ? `${api.API_AUTH_URL}?Execute`
       : resolveJsonAuthUrl(api);
-    const body = isSessionUserLogin
+    const body = isInternaSession
       ? JSON.stringify({
           user: authContext.username,
           userPassword: authContext.password,
           jwt: true
         })
       : isV4
-        ? JSON.stringify({
-            UserId: authContext.username,
-            UserPassword: authContext.password
-          })
+        ? btUrls.buildAuthPayload(kind, authContext).body
         : JSON.stringify({
             Btinreq: {
               Canal: authContext.channel,
@@ -2769,10 +2870,14 @@ function createCollectionFeature(deps) {
     const parsed = new URL(authUrl);
     const mod = parsed.protocol === 'https:' ? require('https') : require('http');
     const raw = await new Promise(function(resolve, reject) {
-      const btHeaders = isV4 ? Object.assign(
-        buildBantotalJsonHeaders(authContext, ''),
-        { 'idempotency-key': '1' }
-      ) : {};
+      const btHeaders = !isV4
+        ? {}
+        : isInternaSession
+          ? Object.assign(
+              btUrls.buildRequestAuthHeaders(kind, Object.assign({}, authContext, { token: '' })),
+              { 'idempotency-key': '1' }
+            )
+          : btUrls.buildAuthPayload(kind, authContext).headers;
       const options = {
         hostname: parsed.hostname,
         port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
@@ -2803,7 +2908,9 @@ function createCollectionFeature(deps) {
     // BusinessErrors/messages.global, distinto de Authenticate/Execute
     // (SessionToken en mayuscula, error en Btoutreq.Mensaje) -- ver ejemplo
     // real pegado por el usuario.
-    const token = isSessionUserLogin ? parsedJson.sessionToken : parsedJson.SessionToken;
+    const token = isInternaSession
+      ? parsedJson.sessionToken
+      : (isV4 ? btUrls.extractAuthToken(kind, parsedJson) : parsedJson.SessionToken);
     if (!token) {
       const businessError = parsedJson.BusinessErrors && parsedJson.BusinessErrors.BusinessError && parsedJson.BusinessErrors.BusinessError[0];
       const message = (businessError && businessError.Description)
@@ -3178,7 +3285,7 @@ function createCollectionFeature(deps) {
             username: stepRuntimeValues.username,
             device: stepRuntimeValues.device,
             requirement: stepRuntimeValues.requirement
-          }, effectiveToken);
+          }, effectiveToken, resolveAuthKind(body));
           const bodyValue = isV3
             ? Object.assign({
                 Btinreq: {
@@ -3448,8 +3555,25 @@ function createCollectionFeature(deps) {
               authWarning = 'No se encontro Session.userLogin ni Authenticate/Execute en los swaggers cargados para "API interna". Configura la autenticacion manualmente en la collection generada.';
             }
           } else {
-            authUrl = sources[0].authUrl;
-            authKind = 'authenticate-execute';
+            // API publica: el default es el user-login de session. Solo se
+            // usa Authenticate/Execute si el swagger lo declara y no declara
+            // user-login (ambiente sin migrar).
+            const foundAuth = findPublicaAuthOperation(operationsByService);
+            if (foundAuth && foundAuth.kind === btUrls.KIND_AUTHENTICATE) {
+              authUrl = joinSwaggerBaseAndPath(foundAuth.baseUrl, foundAuth.path);
+              authKind = btUrls.KIND_AUTHENTICATE;
+            } else if (foundAuth) {
+              authUrl = joinSwaggerBaseAndPath(foundAuth.baseUrl, foundAuth.path);
+              authKind = btUrls.KIND_SESSION_PUBLICA;
+            } else {
+              // Ningun swagger declara el login (es comun: session suele
+              // vivir en otro swagger que no se cargo). Se arma la URL del
+              // user-login contra la raiz del ambiente y, si ese ambiente no
+              // lo tiene, "Probar autenticacion" degrada solo al Authenticate
+              // viejo (ver authCandidates en setup.js).
+              authUrl = btUrls.resolveSessionLoginUrl(body.api || {}) || sources[0].authUrl;
+              authKind = btUrls.KIND_SESSION_PUBLICA;
+            }
           }
         }
 

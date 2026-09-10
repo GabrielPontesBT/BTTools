@@ -18,6 +18,7 @@ const { adaptarValoresTopLevel } = require('./migrate-legacy-value');
 const { leerEjemplosExistentes } = require('./existing-examples');
 const { nombreVisibleParam, nombreVisibleCampo } = require('./sdt-display-name');
 const { toFolderName } = require('./folder-name');
+const btUrls = require('../common/bantotal-urls');
 
 // ── VALIDACION DE ENTORNO ─────────────────────────────────────
 (function validarEntorno() {
@@ -321,28 +322,45 @@ function httpPost(url, body, headers = {}) {
   return httpRequest('POST', url, body, headers);
 }
 
-async function obtenerToken() {
-  const body = JSON.stringify({ UserId: API_USER, UserPassword: API_PASSWORD });
+// Credenciales para el modulo compartido, que es quien sabe que manda cada
+// esquema de autenticacion (ver scripts/common/bantotal-urls).
+const CREDENCIALES = {
+  username:    API_USER,
+  password:    API_PASSWORD,
+  channel:     API_CANAL,
+  device:      API_DEVICE,
+  requirement: API_REQUERIMIENTO
+};
 
-  const response = await httpPost(`${PUBLIC_BASE_URL}/Authenticate/v1/Execute`, body, {
-    'Content-Type': 'application/json',
-    'cache-control': 'no-cache',
-    Canal:          API_CANAL,
-    Device:         API_DEVICE,
-    Usuario:        API_USER,
-    Requerimiento:  API_REQUERIMIENTO,
-    Token:          '',
-    'idempotency-key': '1'
+// Esquema con el que se autentico este proceso. Arranca en el user-login de
+// session (lo que usa hoy la API publica) y solo baja al Authenticate viejo
+// si el ambiente devuelve 404 ahi. Se guarda porque decide como viaja el
+// token despues: Bearer con user-login, header Token con Authenticate.
+let authKindActivo = btUrls.KIND_SESSION_PUBLICA;
+
+async function obtenerToken() {
+  const candidatos = btUrls.authCandidates({ BASE_URL: PUBLIC_BASE_URL });
+
+  const resultado = await btUrls.intentarCandidatosAuth(candidatos, async function (candidato) {
+    const payload = btUrls.buildAuthPayload(candidato.kind, CREDENCIALES);
+    const raw = await httpPost(candidato.url, payload.body, Object.assign(
+      { 'cache-control': 'no-cache' },
+      payload.headers
+    ));
+    // httpPost no expone el status. Un 404 de estos ambientes llega como
+    // HTML o texto sin JSON: eso alcanza para saber que ese esquema no
+    // existe y pasar al siguiente, que es lo unico que decide el status.
+    let parsed = null;
+    try { parsed = JSON.parse(raw); } catch {}
+    return { status: parsed ? 200 : 404, raw, parsed };
   });
 
-  let parsed;
-  try {
-    parsed = JSON.parse(response);
-  } catch {
-    throw new Error(`Respuesta inesperada del auth: ${response.slice(0, 300)}`);
+  if (!resultado.respuesta.parsed) {
+    throw new Error(`Respuesta inesperada del auth: ${String(resultado.respuesta.raw).slice(0, 300)}`);
   }
 
-  const token = parsed.SessionToken;
+  authKindActivo = resultado.authKind;
+  const token = btUrls.extractAuthToken(authKindActivo, resultado.respuesta.parsed);
   if (!token) throw new Error('No se pudo obtener el token de sesión');
   return token;
 }
@@ -350,15 +368,10 @@ async function obtenerToken() {
 let cachedToken = null;
 
 async function llamarServicio(url, payload, token, method = 'POST') {
-  const btHeaders = {
-    'cache-control': 'no-cache',
-    Canal:          API_CANAL,
-    Device:         API_DEVICE,
-    Usuario:        API_USER,
-    Requerimiento:  API_REQUERIMIENTO,
-    Token:          token,
-    'idempotency-key': '1'
-  };
+  const btHeaders = Object.assign(
+    { 'cache-control': 'no-cache', 'idempotency-key': '1' },
+    btUrls.buildRequestAuthHeaders(authKindActivo, Object.assign({ token: token }, CREDENCIALES))
+  );
   let finalUrl = url;
   let body = null;
   if (method === 'GET') {
@@ -509,12 +522,10 @@ function buildCurlCmdPlaceholder(httpMethod, endpointPath, queryParams, bodyPara
     finalUrl += `?${qs}`;
   }
 
+  // La API publica autentica con jwt: el ejemplo documentado tiene que
+  // mostrar el Bearer y no los cinco headers de canal, que ya no se mandan.
   const headerLines = [
-    `  -H 'Device: {{device}}' \\`,
-    `  -H 'Usuario: {{usuario}}' \\`,
-    `  -H 'Requerimiento: {{requerimiento}}' \\`,
-    `  -H 'Canal: {{canal}}' \\`,
-    `  -H 'Token: {{token}}' \\`,
+    `  -H 'Authorization: Bearer {{token}}' \\`,
   ];
 
   if (hasBody) {
@@ -689,12 +700,9 @@ ${tabla}
     const url              = `${process.env.BASE_URL || ''}${endpointBasePath}`;
 
     // ── Headers de autenticación (van en HTTP, no en el body) ──
+    // Con el jwt de session/user-login alcanza el Authorization.
     const authHeaders = {
-      Device:         API_DEVICE,
-      Usuario:        API_USER,
-      Requerimiento:  API_REQUERIMIENTO,
-      Canal:          API_CANAL,
-      Token:          '23B342928917607ECECF65BD'
+      Authorization: 'Bearer 23B342928917607ECECF65BD'
     };
 
     // ── Split entrada: GUID → query string, resto → body ──

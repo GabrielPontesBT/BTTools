@@ -65,22 +65,24 @@
     }
 
     /**
-     * Dado el bloque API del wizard, resuelve la URL de Authenticate para V4.
+     * Dado el bloque API del wizard, resuelve la URL de login para V4.
      */
     resolveV4AuthUrl(api) {
       var publicBaseUrl = String((api && api.BASE_URL) || '').trim().replace(/\/+$/g, '');
       var apiBaseUrl = String((api && api.API_BASE_URL) || '').trim().replace(/\/+$/g, '');
 
-      // Minusculas: el endpoint cambio y la forma con mayusculas devuelve
-      // 404 (medido contra un ambiente real). La fuente de verdad es
+      // La API publica dejo de usar Authenticate.Execute: ahora se autentica
+      // con el user-login de session. La fuente de verdad es
       // scripts/common/bantotal-urls/index.js; aca se repite el literal
       // porque el front se sirve como scripts planos, sin require.
       // Igual esto es solo un fallback: cuando hay swagger, la URL de
-      // autenticacion sale del documento (findInternaAuthOperation).
-      if (publicBaseUrl) return publicBaseUrl + '/authenticate/v1/execute';
+      // autenticacion sale del documento (findPublicaAuthOperation /
+      // findInternaAuthOperation), y "Probar autenticacion" degrada solo al
+      // Authenticate viejo si el ambiente todavia no migro.
+      if (publicBaseUrl) return publicBaseUrl + '/session/v1/user-login';
       if (apiBaseUrl) {
         var normalized = apiBaseUrl.replace(/\/api\/publicapi$/i, '');
-        return normalized + '/api/publicapi/authenticate/v1/execute';
+        return normalized + '/api/publicapi/session/v1/user-login';
       }
       return 'sin URL de autenticacion';
     }
