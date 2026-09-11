@@ -91,6 +91,7 @@ const {
   usaBearer,
   describeAuthFailure,
   KIND_SESSION_PUBLICA,
+  KIND_SESSION_INTERNA,
   KIND_AUTHENTICATE,
   CANAL_PUBLICO,
 } = require('./scripts/common/bantotal-urls');
@@ -1338,7 +1339,7 @@ http.createServer(async (req, res) => {
       // "API interna" via REST/Swagger expone Session.userLogin en vez de
       // Authenticate/Execute. Quien resuelve authKind es
       // findInternaAuthOperation, en generar-collections/index.js.
-      const isInternaSession = isV4 && apiMode === 'interna' && authKind === 'session-userlogin';
+      const isInternaSession = isV4 && apiMode === 'interna' && authKind === KIND_SESSION_INTERNA;
 
       const credenciales = {
         username: api.API_USER,
@@ -1369,23 +1370,10 @@ http.createServer(async (req, res) => {
             headers: { 'Content-Type': 'application/json' }
           };
         }
-        if (kind === 'session-userlogin') {
-          // "API interna": mismo body que el user-login publico, pero con los
-          // headers de canal del ambiente (no BTPUBLIC) -- ese cambio es de la
-          // API publica.
-          return {
-            body: JSON.stringify({ user: credenciales.username, userPassword: credenciales.password, jwt: true }),
-            headers: {
-              'Content-Type': 'application/json',
-              Canal: credenciales.channel,
-              Device: credenciales.device,
-              Usuario: credenciales.username,
-              Requerimiento: credenciales.requirement,
-              Token: '',
-              'idempotency-key': '1'
-            }
-          };
-        }
+        // Interna y publica comparten payload (ver buildAuthPayload): mismo
+        // body, Canal + Device y ningun Token. Antes esta rama mandaba los
+        // cinco headers con Token vacio y el servicio de session contestaba
+        // 401 "Token is blank", medido contra 10.0.0.7:5107.
         return buildAuthPayload(kind, credenciales);
       }
 
@@ -1428,12 +1416,12 @@ http.createServer(async (req, res) => {
       if (explicitAuthUrl) {
         const kindExplicito = isV4 && !isInternaSession && esPathSessionLogin(explicitAuthUrl)
           ? KIND_SESSION_PUBLICA
-          : (isInternaSession ? 'session-userlogin' : KIND_AUTHENTICATE);
+          : (isInternaSession ? KIND_SESSION_INTERNA : KIND_AUTHENTICATE);
         candidatos = [{ kind: kindExplicito, url: explicitAuthUrl }];
       } else if (!isV4) {
         candidatos = [{ kind: KIND_AUTHENTICATE, url: api.API_AUTH_URL }];
       } else if (isInternaSession) {
-        candidatos = [{ kind: 'session-userlogin', url: resolveV4AuthUrl(api) }];
+        candidatos = [{ kind: KIND_SESSION_INTERNA, url: resolveV4AuthUrl(api) }];
       } else {
         candidatos = authCandidates(api);
       }
@@ -1457,9 +1445,7 @@ http.createServer(async (req, res) => {
       }
       // user-login responde "sessionToken" en minuscula, y los errores en
       // BusinessErrors/messages.global, distinto de Authenticate/Execute.
-      const token = kindUsado === 'session-userlogin'
-        ? parsed2.sessionToken
-        : extractAuthToken(kindUsado, parsed2);
+      const token = extractAuthToken(kindUsado, parsed2);
       if (!token) {
         // Con URL, esquema y status: "API internal error" pelado no dice si
         // el problema es la URL, las credenciales o el ambiente.

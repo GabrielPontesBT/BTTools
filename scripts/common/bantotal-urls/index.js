@@ -144,6 +144,12 @@ const CANAL_PUBLICO = 'BTPUBLIC';
 // Los dos esquemas de autenticacion posibles de la API publica V4.
 const KIND_SESSION_PUBLICA = 'public-session-userlogin';
 const KIND_AUTHENTICATE = 'authenticate-execute';
+// El mismo user-login, pero del gateway de "API interna" (/Session/v1/userLogin).
+// Mismo body y mismos headers que el publico; lo que cambia es que el canal
+// sale del ambiente y que el token de negocio sigue viajando en el header
+// Token (ver buildRequestAuthHeaders): los endpoints internos declaran esos
+// cinco headers en su swagger, aunque tambien acepten Bearer.
+const KIND_SESSION_INTERNA = 'session-userlogin';
 
 // Path del login de sesion: el kebab de la API publica
 // (/session/v1/user-login) y el camelCase que exponen algunos swagger
@@ -189,20 +195,25 @@ function buildAuthPayload(kind, credenciales) {
   const usuario = String(c.username || '');
   const password = String(c.password || '');
 
-  if (kind === KIND_SESSION_PUBLICA) {
+  if (kind === KIND_SESSION_PUBLICA || kind === KIND_SESSION_INTERNA) {
     return {
       body: JSON.stringify({ user: usuario, userPassword: password, jwt: true }),
-      // Canal Y Device: los dos, medido contra un ambiente real
-      // (10.0.0.7:5101). Solo con Canal el ambiente devuelve
-      // "API internal error" (Code 500), y el jwt que sale del login lleva
-      // el device adentro ("dev":"GP"), asi que no es opcional.
+      // Canal Y Device: los dos, medido contra un ambiente real (publica en
+      // 10.0.0.7:5101, interna en 10.0.0.7:5107). Solo con Canal la publica
+      // devuelve "API internal error" (Code 500), y el jwt que sale del login
+      // lleva el device adentro ("dev":"GP"), asi que no es opcional.
       //
       // Token NO va, ni siquiera vacio: mandarlo hace que el servicio de
-      // session conteste 401 "Token is blank". El resto de los headers del
-      // esquema viejo (Usuario, Requerimiento) no cambian nada.
+      // session conteste 401 "Token is blank", y eso era exactamente lo que
+      // rompia los dos logins. El resto de los headers del esquema viejo
+      // (Usuario, Requerimiento, idempotency-key) no cambian nada.
+      //
+      // La unica diferencia entre los dos: la publica va siempre por
+      // BTPUBLIC (lo fijo arquitectura), y la interna usa el canal del
+      // ambiente, porque ahi no hubo tal decision.
       headers: {
         'Content-Type': 'application/json',
-        Canal: CANAL_PUBLICO,
+        Canal: kind === KIND_SESSION_PUBLICA ? CANAL_PUBLICO : String(c.channel || 'BTDIGITAL'),
         Device: String(c.device || 'INSTALADOR'),
       },
     };
@@ -228,7 +239,7 @@ function buildAuthPayload(kind, credenciales) {
  */
 function extractAuthToken(kind, parsedJson) {
   const data = parsedJson || {};
-  if (kind === KIND_SESSION_PUBLICA) return data.sessionToken || '';
+  if (kind === KIND_SESSION_PUBLICA || kind === KIND_SESSION_INTERNA) return data.sessionToken || '';
   return data.SessionToken || '';
 }
 
@@ -366,6 +377,7 @@ module.exports = {
   SESSION_LOGIN_PATH,
   CANAL_PUBLICO,
   KIND_SESSION_PUBLICA,
+  KIND_SESSION_INTERNA,
   KIND_AUTHENTICATE,
   esPathSessionLogin,
   usaBearer,

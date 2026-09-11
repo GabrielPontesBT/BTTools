@@ -2432,5 +2432,26 @@
     "CustomerParameters_executives_hasNext": [
       "true"
     ]
+  },
+  "V4::::||::": {
+    "channel": [
+      "BTPUBLIC"
+    ],
+    "username": [
+      "INSTALADOR"
+    ],
+    "device": [
+      "GP"
+    ],
+    "requirement": [
+      "1"
+    ],
+    "token": [
+      "eyJ0eXAiOiJBQ1QiLCJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE3ODkxNTgxODQsImV4cCI6MTc4OTI0NDU4NCwiY2huIjoiQlRQVUJMSUMiLCJkZXYiOiJHUCIsInVzciI6IklOU1RBTEFET1IiLCJydGkiOiI5MDlkMDkwNC0xMDEyLTQ3Y2E...",
+      "eyJ0eXAiOiJBQ1QiLCJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE3ODkxNTgxMzcsImV4cCI6MTc4OTI0NDUzNywiY2huIjoiQlRQVUJMSUMiLCJkZXYiOiJHUCIsInVzciI6IklOU1RBTEFET1IiLCJydGkiOiI3Njk2M2UzMS0xNDA5LTRhNmU..."
+    ],
+    "systemDate": [
+      "2028-04-27"
+    ]
   }
 }

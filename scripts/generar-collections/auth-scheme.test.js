@@ -61,6 +61,13 @@ function servidorAmbiente(opciones) {
         res.end(JSON.stringify({ success: true, sessionToken: 'jwt.abc', userCode: 5488 }));
         return;
       }
+      // El gateway de "API interna" expone el login en camelCase
+      // (/Session/v1/userLogin), no en el kebab de la API publica.
+      if (/\/Session\/v1\/userLogin$/.test(req.url)) {
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, sessionToken: 'jwt.interna', userCode: 5488 }));
+        return;
+      }
       if (/\/authenticate\/v1\/execute$/i.test(req.url)) {
         res.writeHead(200);
         res.end(JSON.stringify({ SessionToken: 'TOKEN-VIEJO' }));
@@ -242,5 +249,84 @@ test('con el esquema viejo la collection exportada no cambia', async () => {
     const negocio = col.item[0].item[1];
     assert.equal(headerDe(negocio.request, 'Token'), '{{token}}');
     assert.equal(headerDe(negocio.request, 'Authorization'), undefined);
+  } finally { await amb.cerrar(); }
+});
+
+// ── API interna ───────────────────────────────────────────────────────────
+//
+// El gateway interno (medido en 10.0.0.7:5107/api/platform) usa el mismo
+// user-login que la publica, con dos diferencias: el path va en camelCase
+// (/Session/v1/userLogin) y el canal sale del ambiente, no es BTPUBLIC fijo.
+// El token de negocio sigue viajando en el header Token, porque los endpoints
+// internos declaran esos cinco headers en su propio swagger.
+//
+// Lo que rompia la interna era lo mismo que rompia la publica: se mandaba un
+// header Token vacio en el login y el servicio contestaba 401 "Token is blank".
+
+function bodyInterna(amb, extra) {
+  return Object.assign(bodyEjecucion(amb), {
+    apiMode: 'interna',
+    swaggerAuthKind: 'session-userlogin',
+    swaggerAuthUrl: amb.raiz + '/Session/v1/userLogin',
+    api: {
+      BASE_URL: amb.raiz, API_USER: 'INSTALADOR', API_PASSWORD: 'Bantotal2015',
+      API_CANAL: 'BTINTERNO', API_DEVICE: 'GP', API_REQUERIMIENTO: '1',
+    },
+  }, extra || {});
+}
+
+test('el login interno NO manda Token: eso es lo que devolvia 401', async () => {
+  const amb = await servidorAmbiente();
+  try {
+    const r = await llamarRuta(feature(raizTemporal()), '/api/collection/execute', bodyInterna(amb));
+    assert.equal(r.ok, true, r.message);
+
+    const login = amb.recibidos[0];
+    assert.match(login.url, /\/Session\/v1\/userLogin$/);
+    assert.equal(login.headers.token, undefined, 'con Token vacio el servicio contesta 401');
+    assert.equal(login.headers.usuario, undefined);
+    assert.equal(login.headers.requerimiento, undefined);
+    assert.deepEqual(JSON.parse(login.body), {
+      user: 'INSTALADOR', userPassword: 'Bantotal2015', jwt: true,
+    });
+  } finally { await amb.cerrar(); }
+});
+
+test('el login interno usa el canal del ambiente, no el BTPUBLIC de la publica', async () => {
+  const amb = await servidorAmbiente();
+  try {
+    await llamarRuta(feature(raizTemporal()), '/api/collection/execute', bodyInterna(amb));
+    const login = amb.recibidos[0];
+    assert.equal(login.headers.canal, 'BTINTERNO');
+    assert.equal(login.headers.device, 'GP');
+  } finally { await amb.cerrar(); }
+});
+
+test('el request de negocio interno sigue llevando el header Token, no Bearer', async () => {
+  const amb = await servidorAmbiente();
+  try {
+    await llamarRuta(feature(raizTemporal()), '/api/collection/execute', bodyInterna(amb));
+    const negocio = amb.recibidos[1];
+    assert.equal(negocio.headers.token, 'jwt.interna');
+    assert.equal(negocio.headers.canal, 'BTINTERNO');
+    assert.equal(negocio.headers.authorization, undefined,
+                 'los endpoints internos declaran los headers de canal en su swagger');
+  } finally { await amb.cerrar(); }
+});
+
+test('la collection interna exportada tampoco lleva Token en el login', async () => {
+  const amb = await servidorAmbiente();
+  try {
+    const col = await generar(raizTemporal(), Object.assign(bodyGeneracion(amb), {
+      apiMode: 'interna',
+      swaggerAuthKind: 'session-userlogin',
+      swaggerAuthUrl: amb.raiz + '/Session/v1/userLogin',
+    }));
+    const auth = col.item[0].item[0];
+    assert.match(auth.name, /Session\.userLogin/);
+    assert.equal(headerDe(auth.request, 'Canal'), '{{channel}}');
+    assert.equal(headerDe(auth.request, 'Device'), '{{device}}');
+    assert.equal(headerDe(auth.request, 'Token'), undefined, 'con Token el login da 401');
+    assert.equal(headerDe(auth.request, 'Usuario'), undefined);
   } finally { await amb.cerrar(); }
 });

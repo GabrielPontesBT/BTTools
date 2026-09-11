@@ -292,6 +292,42 @@ test('sin jwt el request de negocio sigue llevando los headers de canal', () => 
   assert.equal(h.Authorization, undefined);
 });
 
+// El gateway interno usa el mismo user-login: mismo body, Canal + Device y
+// ningun Token. Lo que cambia es el canal (sale del ambiente, no es BTPUBLIC
+// fijo) y que el token de negocio sigue viajando en el header Token.
+test('el login interno manda el mismo body y los mismos headers que el publico', () => {
+  const r = U.buildAuthPayload(U.KIND_SESSION_INTERNA, {
+    username: 'INSTALADOR', password: 'p', channel: 'BTINTERNO', device: 'GP', requirement: '1',
+  });
+  assert.deepEqual(JSON.parse(r.body), { user: 'INSTALADOR', userPassword: 'p', jwt: true });
+  assert.deepEqual(Object.keys(r.headers).sort(), ['Canal', 'Content-Type', 'Device']);
+});
+
+test('el login interno usa el canal del ambiente, no BTPUBLIC', () => {
+  const r = U.buildAuthPayload(U.KIND_SESSION_INTERNA, { username: 'u', password: 'p', channel: 'BTINTERNO' });
+  assert.equal(r.headers.Canal, 'BTINTERNO');
+  // Y la publica ignora ese canal, que es la unica diferencia entre los dos.
+  const pub = U.buildAuthPayload(U.KIND_SESSION_PUBLICA, { username: 'u', password: 'p', channel: 'BTINTERNO' });
+  assert.equal(pub.headers.Canal, 'BTPUBLIC');
+});
+
+test('el login interno NO manda Token: con Token el servicio contesta 401', () => {
+  const r = U.buildAuthPayload(U.KIND_SESSION_INTERNA, { username: 'u', password: 'p' });
+  assert.equal('Token' in r.headers, false);
+});
+
+test('el token interno tambien sale de sessionToken', () => {
+  assert.equal(U.extractAuthToken(U.KIND_SESSION_INTERNA, { sessionToken: 'jwt.1' }), 'jwt.1');
+});
+
+test('el request de negocio interno sigue con los headers de canal, no Bearer', () => {
+  const h = U.buildRequestAuthHeaders(U.KIND_SESSION_INTERNA, {
+    token: 'jwt.1', channel: 'BTINTERNO', username: 'INSTALADOR', device: 'GP', requirement: '1',
+  });
+  assert.equal(h.Token, 'jwt.1');
+  assert.equal(h.Authorization, undefined);
+});
+
 test('usaBearer solo es cierto para el login publico', () => {
   assert.equal(U.usaBearer(U.KIND_SESSION_PUBLICA), true);
   assert.equal(U.usaBearer(U.KIND_AUTHENTICATE), false);

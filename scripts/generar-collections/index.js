@@ -348,11 +348,15 @@ function createCollectionFeature(deps) {
       (operationsByService[service] || []).forEach(function(operation) {
         if (String(operation.httpMethod || '').toUpperCase() !== 'POST') return;
         const path = String(operation.path || '');
-        if (!sessionOp && /\/Session\/v\d+\/userLogin$/i.test(path)) sessionOp = operation;
+        // esPathSessionLogin acepta el camelCase (/Session/v1/userLogin, que
+        // es como lo expone el gateway interno) y tambien el kebab: el regex
+        // que habia solo aceptaba el camelCase, asi que contra un ambiente que
+        // publica el kebab la deteccion caia al Authenticate viejo.
+        if (!sessionOp && btUrls.esPathSessionLogin(path)) sessionOp = operation;
         if (!executeOp && /\/Authenticate\/v\d+\/Execute$/i.test(path)) executeOp = operation;
       });
     });
-    if (sessionOp) return { kind: 'session-userlogin', baseUrl: sessionOp.sourceBaseUrl || '', path: sessionOp.path };
+    if (sessionOp) return { kind: btUrls.KIND_SESSION_INTERNA, baseUrl: sessionOp.sourceBaseUrl || '', path: sessionOp.path };
     if (executeOp) return { kind: 'authenticate-execute', baseUrl: executeOp.sourceBaseUrl || '', path: executeOp.path };
     return null;
   }
@@ -1867,13 +1871,15 @@ function createCollectionFeature(deps) {
       event: [buildPostmanJsonAuthTestScript()],
       request: {
         method: 'POST',
+        // Canal + Device y nada mas. El header Token, aunque fuera vacio,
+        // hacia que el servicio de session contestara 401 "Token is blank"
+        // (medido contra el gateway interno en 10.0.0.7:5107); Usuario y
+        // Requerimiento no cambian nada. Mismo payload que la ejecucion en
+        // vivo, que lo arma buildAuthPayload.
         header: [
           { key: 'Content-Type', value: 'application/json', type: 'text' },
           { key: 'Canal', value: '{{channel}}', type: 'text' },
-          { key: 'Device', value: '{{device}}', type: 'text' },
-          { key: 'Usuario', value: '{{username}}', type: 'text' },
-          { key: 'Requerimiento', value: '{{requirement}}', type: 'text' },
-          { key: 'Token', value: '', type: 'text' }
+          { key: 'Device', value: '{{device}}', type: 'text' }
         ],
         body: {
           mode: 'raw',
@@ -1888,7 +1894,7 @@ function createCollectionFeature(deps) {
   }
 
   function buildJsonAuthRequestItem(version, api) {
-    if (version === 'V4' && api.SWAGGER_AUTH_KIND === 'session-userlogin') {
+    if (version === 'V4' && api.SWAGGER_AUTH_KIND === btUrls.KIND_SESSION_INTERNA) {
       return buildInternaJsonSessionAuthRequestItem(api);
     }
     if (version === 'V4' && resolveAuthKind(api) === btUrls.KIND_SESSION_PUBLICA) {
@@ -2844,45 +2850,33 @@ function createCollectionFeature(deps) {
     // (Session.userLogin, {user,userPassword,jwt} => sessionToken en
     // minuscula). `api` aca es el body completo del execute, por eso se lee
     // swaggerAuthKind (mismo criterio que resolveJsonAuthUrl con swaggerAuthUrl).
+    // El esquema decide todo: URL, body, headers y de donde sale el token.
+    // Interna y publica comparten el user-login (mismo body, Canal + Device y
+    // ningun Token); lo que cambia es el canal y como viaja el token despues.
     const kind = isV4 ? resolveAuthKind(api) : null;
-    // "API interna" (session-userlogin) manda el mismo body que el user-login
-    // publico pero con los headers de canal del ambiente: el BTPUBLIC + Bearer
-    // es un cambio de la API publica y no aplica ahi.
-    const isInternaSession = kind === 'session-userlogin';
     const authContext = resolveExecutionAuthContext(api);
     const authUrl = version === 'V3'
       ? `${api.API_AUTH_URL}?Execute`
       : resolveJsonAuthUrl(api);
-    const body = isInternaSession
-      ? JSON.stringify({
-          user: authContext.username,
-          userPassword: authContext.password,
-          jwt: true
-        })
-      : isV4
-        ? btUrls.buildAuthPayload(kind, authContext).body
-        : JSON.stringify({
-            Btinreq: {
-              Canal: authContext.channel,
-              Usuario: authContext.username,
-              Device: authContext.device,
-              Requerimiento: authContext.requirement,
-              Token: ''
-            },
-            UserId: authContext.username,
-            UserPassword: authContext.password
-          });
+    const body = isV4
+      ? btUrls.buildAuthPayload(kind, authContext).body
+      : JSON.stringify({
+          Btinreq: {
+            Canal: authContext.channel,
+            Usuario: authContext.username,
+            Device: authContext.device,
+            Requerimiento: authContext.requirement,
+            Token: ''
+          },
+          UserId: authContext.username,
+          UserPassword: authContext.password
+        });
     const parsed = new URL(authUrl);
     const mod = parsed.protocol === 'https:' ? require('https') : require('http');
     const raw = await new Promise(function(resolve, reject) {
-      const btHeaders = !isV4
-        ? {}
-        : isInternaSession
-          ? Object.assign(
-              btUrls.buildRequestAuthHeaders(kind, Object.assign({}, authContext, { token: '' })),
-              { 'idempotency-key': '1' }
-            )
-          : btUrls.buildAuthPayload(kind, authContext).headers;
+      // Interna y publica mandan lo mismo (Canal + Device, sin Token): el
+      // header Token en el login hace que session conteste 401.
+      const btHeaders = isV4 ? btUrls.buildAuthPayload(kind, authContext).headers : {};
       const options = {
         hostname: parsed.hostname,
         port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
@@ -2913,9 +2907,7 @@ function createCollectionFeature(deps) {
     // BusinessErrors/messages.global, distinto de Authenticate/Execute
     // (SessionToken en mayuscula, error en Btoutreq.Mensaje) -- ver ejemplo
     // real pegado por el usuario.
-    const token = isInternaSession
-      ? parsedJson.sessionToken
-      : (isV4 ? btUrls.extractAuthToken(kind, parsedJson) : parsedJson.SessionToken);
+    const token = isV4 ? btUrls.extractAuthToken(kind, parsedJson) : parsedJson.SessionToken;
     if (!token) {
       // Mismo diagnostico que "Probar autenticacion" (ver describeAuthFailure):
       // el panel de ejecucion muestra este texto y tiene que alcanzar para
