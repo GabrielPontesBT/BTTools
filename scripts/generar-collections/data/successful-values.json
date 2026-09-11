@@ -13,16 +13,6 @@
     "requirement": [
       "1"
     ],
-    "token": [
-      "F03B2253816946715E2C7373",
-      "A26B3DC57604062EE73941DC",
-      "E439D6D403BB6D72B73C3390",
-      "A469A3AB08076A1F1B1A99F6",
-      "4D98A82ECCF1301E736F0E20",
-      "EB3091917D7856350BD83825",
-      "849C984AD5C9BB861D5C8B3E",
-      "E0287D2316D39BF7353C1FB2"
-    ],
     "ProductGUID": [
       "4eb463cd-eb9d-4c80-9092-7e70ad881968",
       "cc2dc934-3de1-47c1-bf67-be92cc3ea16e",
@@ -1687,10 +1677,6 @@
     "requirement": [
       "1"
     ],
-    "token": [
-      "8FA9B98D40B3D24EBF55FA54",
-      "4D0FC2D7558DD84573EB5C28"
-    ],
     "groupName": [
       "PRUEBA GRUPO SOAP 20"
     ],
@@ -1853,16 +1839,6 @@
     ],
     "requirement": [
       "1"
-    ],
-    "token": [
-      "D1915E1F663E1870303387BA",
-      "B768BEA34028EDA12428867D",
-      "194B3D2D395223E1EF50582B",
-      "844ADFBBA47B55CFA110E140",
-      "E1D9E08334D448C1D8E29004",
-      "467F37B99198596EFB306FA8",
-      "3023607A280D0388F8A2049F",
-      "BDD055A3A7F8BB2D9C415C64"
     ],
     "groupId": [
       "139",
@@ -2178,16 +2154,6 @@
     "requirement": [
       "1"
     ],
-    "token": [
-      "3030C2CAF4C6CB76B41C7FCA",
-      "AC0172DE39A752B2C133946D",
-      "2A7D46F2498CBB0DF8D2B984",
-      "F28028F6A48109C2DEDE538B",
-      "E5FEE2C265C47167DE7DA2BD",
-      "CC8AD5E3FB66604E6DCFE145",
-      "B7A658CC3E01A04541CF036F",
-      "79BCDCC967EAED6292E2C496"
-    ],
     "BTPartners_ObtenerPartners_sdtPartners_item_clienteUId": [
       "0"
     ],
@@ -2271,9 +2237,6 @@
     "requirement": [
       "1"
     ],
-    "token": [
-      "D286F7545681D0263E7D204B"
-    ],
     "BTPartners_ObtenerPartners_sdtPartners_item_clienteUId": [
       "0"
     ],
@@ -2326,9 +2289,6 @@
     ],
     "requirement": [
       "1"
-    ],
-    "token": [
-      "4F695EE9A46C864591A29615"
     ],
     "statusDescription": [
       "INHABILITADA"
@@ -2445,10 +2405,6 @@
     ],
     "requirement": [
       "1"
-    ],
-    "token": [
-      "eyJ0eXAiOiJBQ1QiLCJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE3ODkxNTgxODQsImV4cCI6MTc4OTI0NDU4NCwiY2huIjoiQlRQVUJMSUMiLCJkZXYiOiJHUCIsInVzciI6IklOU1RBTEFET1IiLCJydGkiOiI5MDlkMDkwNC0xMDEyLTQ3Y2E...",
-      "eyJ0eXAiOiJBQ1QiLCJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE3ODkxNTgxMzcsImV4cCI6MTc4OTI0NDUzNywiY2huIjoiQlRQVUJMSUMiLCJkZXYiOiJHUCIsInVzciI6IklOU1RBTEFET1IiLCJydGkiOiI3Njk2M2UzMS0xNDA5LTRhNmU..."
     ],
     "systemDate": [
       "2028-04-27"

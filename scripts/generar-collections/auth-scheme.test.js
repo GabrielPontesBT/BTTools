@@ -330,3 +330,28 @@ test('la collection interna exportada tampoco lleva Token en el login', async ()
     assert.equal(headerDe(auth.request, 'Usuario'), undefined);
   } finally { await amb.cerrar(); }
 });
+
+// ── El historial de valores no guarda credenciales ────────────────────────
+//
+// successful-values.json esta versionado. Una corrida real llego a dejar ahi
+// el jwt de sesion y se fue en un commit: el token es un valor de runtime
+// como cualquier otro, y el historial guardaba todos.
+
+test('el historial de sugerencias NO guarda el token ni la password', async () => {
+  const amb = await servidorAmbiente();
+  const root = raizTemporal();
+  try {
+    const r = await llamarRuta(feature(root), '/api/collection/execute', bodyEjecucion(amb, {
+      swaggerAuthUrl: amb.raiz + '/session/v1/user-login',
+    }));
+    assert.equal(r.ok, true, r.message);
+
+    const archivo = path.join(root, 'scripts', 'generar-collections', 'data', 'successful-values.json');
+    const guardado = fs.existsSync(archivo) ? fs.readFileSync(archivo, 'utf8') : '{}';
+    assert.doesNotMatch(guardado, /jwt\.abc/, 'se guardo el token de sesion');
+    assert.doesNotMatch(guardado, /Bantotal2015/, 'se guardo la password');
+    assert.doesNotMatch(guardado, /"token"/i);
+    // Y lo que si sirve como sugerencia se sigue guardando.
+    assert.match(guardado, /username|channel|device/);
+  } finally { await amb.cerrar(); }
+});

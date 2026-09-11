@@ -159,8 +159,25 @@ function createCollectionFeature(deps) {
     writeSuccessfulValues(allSuccessful);
   }
 
+  // Valores que NUNCA se guardan en el historial de sugerencias.
+  //
+  // successful-values.json esta versionado en el repo, y "token" es un jwt de
+  // sesion real: guardarlo termina con credenciales en un commit. Tampoco
+  // aporta como sugerencia, porque vence. Mismo criterio para la password y
+  // para el authorization ya armado.
+  //
+  // Se compara normalizado para que no se escape por el casing
+  // (Token/token/TOKEN) ni por un nombre compuesto (sessionToken).
+  const CLAVES_SENSIBLES = ['token', 'password', 'userpassword', 'authorization', 'refreshtoken', 'sessiontoken'];
+
+  function esValorSensible(key) {
+    const normalizada = String(key || '').replace(/[^A-Za-z0-9]+/g, '').toLowerCase();
+    return CLAVES_SENSIBLES.some(function(sensible) { return normalizada.indexOf(sensible) >= 0; });
+  }
+
   function recordSuccessfulValues(body, values) {
     Object.keys(values || {}).forEach(function(key) {
+      if (esValorSensible(key)) return;
       addSuccessfulValue(body, key, values[key]);
     });
   }
