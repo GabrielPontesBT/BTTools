@@ -89,6 +89,7 @@ const {
   extractAuthToken,
   esPathSessionLogin,
   usaBearer,
+  describeAuthFailure,
   KIND_SESSION_PUBLICA,
   KIND_AUTHENTICATE,
   CANAL_PUBLICO,
@@ -1451,8 +1452,16 @@ http.createServer(async (req, res) => {
         ? parsed2.sessionToken
         : extractAuthToken(kindUsado, parsed2);
       if (!token) {
-        const businessError = parsed2.BusinessErrors?.BusinessError?.[0];
-        throw new Error(businessError?.Description || parsed2.messages?.global || parsed2.Btoutreq?.Mensaje || parsed2.Mensaje || JSON.stringify(parsed2).slice(0, 200));
+        // Con URL, esquema y status: "API internal error" pelado no dice si
+        // el problema es la URL, las credenciales o el ambiente.
+        throw new Error(describeAuthFailure({
+          url: authUrl,
+          authKind: kindUsado,
+          status: respuesta.status,
+          parsedJson: parsed2,
+          raw: respuesta.raw,
+          intentos,
+        }));
       }
       const bearer = usaBearer(kindUsado);
       json(200, {

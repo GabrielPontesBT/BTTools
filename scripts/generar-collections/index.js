@@ -6,6 +6,7 @@ const { resolveCollectionRequestData } = require('./request-data-resolver');
 const { suggestChains } = require('./chain-suggestion');
 const { buildSwaggerCandidateUrls, SUFIJOS_SWAGGER } = require('./swagger-candidates');
 const btUrls = require('../common/bantotal-urls');
+const describeAuthFailure = btUrls.describeAuthFailure;
 const extract = require('./swagger-candidates/extract-spec-url');
 
 function loadAsset(fileName) {
@@ -2912,12 +2913,15 @@ function createCollectionFeature(deps) {
       ? parsedJson.sessionToken
       : (isV4 ? btUrls.extractAuthToken(kind, parsedJson) : parsedJson.SessionToken);
     if (!token) {
-      const businessError = parsedJson.BusinessErrors && parsedJson.BusinessErrors.BusinessError && parsedJson.BusinessErrors.BusinessError[0];
-      const message = (businessError && businessError.Description)
-        || (parsedJson.messages && parsedJson.messages.global)
-        || (parsedJson.Btoutreq && parsedJson.Btoutreq.Mensaje)
-        || parsedJson.Mensaje
-        || JSON.stringify(parsedJson).slice(0, 200);
+      // Mismo diagnostico que "Probar autenticacion" (ver describeAuthFailure):
+      // el panel de ejecucion muestra este texto y tiene que alcanzar para
+      // saber si el problema es la URL, las credenciales o el ambiente.
+      const message = describeAuthFailure({
+        url: authUrl,
+        authKind: kind,
+        parsedJson,
+        raw,
+      });
       throw Object.assign(new Error(message), { raw });
     }
     return { token, raw };

@@ -273,6 +273,77 @@ async function intentarCandidatosAuth(candidatos, poster) {
   return { respuesta, authUrl: candidato.url, authKind: candidato.kind, intentos };
 }
 
+// ============================================================
+// Diagnostico de una autenticacion fallida
+// ------------------------------------------------------------
+// El ambiente contesta cosas como {"BusinessErrors":{"BusinessError":
+// [{"Description":"API internal error","Code":500}]}} y mostrar solo el
+// Description deja al usuario sin saber contra que URL fue, con que esquema,
+// ni si se llego a probar el otro. Medido contra un ambiente real
+// (10.0.0.7:5101) donde el user-login existe pero revienta del lado del
+// servidor: con el mensaje pelado no habia forma de distinguir eso de un
+// problema de credenciales o de URL.
+// ============================================================
+
+// El error de negocio de la respuesta, en el formato que use el ambiente.
+function extractAuthError(parsedJson) {
+  const data = parsedJson || {};
+  const lista = data.BusinessErrors && data.BusinessErrors.BusinessError;
+  const primero = Array.isArray(lista) ? lista[0] : lista;
+  if (primero && (primero.Description || primero.Code)) {
+    return {
+      description: String(primero.Description || '').trim(),
+      code: primero.Code === undefined || primero.Code === null ? '' : String(primero.Code),
+    };
+  }
+  const global = data.messages && data.messages.global;
+  const mensaje = global || (data.Btoutreq && data.Btoutreq.Mensaje) || data.Mensaje;
+  if (mensaje) return { description: String(mensaje).trim(), code: '' };
+  return { description: '', code: '' };
+}
+
+// Nombre legible del esquema, para que el mensaje no escupa el slug interno.
+function nombreEsquema(kind) {
+  if (kind === KIND_SESSION_PUBLICA) return 'user-login de session (jwt)';
+  if (kind === 'session-userlogin') return 'Session.userLogin (API interna)';
+  return 'Authenticate.Execute';
+}
+
+/**
+ * El mensaje de una autenticacion que respondio pero no dio token.
+ *
+ * Incluye URL, esquema y status porque son las tres cosas que deciden a quien
+ * le toca el problema: la URL dice si se pego donde corresponde, el esquema
+ * dice si el ambiente ya migro, y un Code 500 dice que el error es del
+ * servidor y no de lo que se mando.
+ */
+function describeAuthFailure(info) {
+  const i = info || {};
+  const error = extractAuthError(i.parsedJson);
+  const detalle = error.description || String(i.raw || '').replace(/\s+/g, ' ').slice(0, 200) || 'sin detalle';
+  const codigo = error.code ? ' (codigo ' + error.code + ')' : '';
+
+  const lineas = [
+    detalle + codigo,
+    'Esquema: ' + nombreEsquema(i.authKind) + ' | URL: ' + (i.url || 'desconocida') +
+      (i.status ? ' | HTTP ' + i.status : ''),
+  ];
+
+  // Un 500 del ambiente no se arregla desde aca: sirve decirlo, porque si no
+  // el siguiente paso es revisar credenciales o URL, que ya estan bien.
+  if (String(error.code) === '500' || Number(i.status) >= 500) {
+    lineas.push('El ambiente fallo del lado del servidor: la URL y el esquema son correctos. Es un tema del ambiente, no de la configuracion de la herramienta.');
+  }
+
+  if (Array.isArray(i.intentos) && i.intentos.length > 1) {
+    lineas.push('Se probaron: ' + i.intentos.join(' | '));
+  } else if (i.authKind === KIND_SESSION_PUBLICA) {
+    lineas.push('No se probo el Authenticate viejo: esa ruta solo se intenta cuando el user-login no existe (404), y aca si existe.');
+  }
+
+  return lineas.join('\n');
+}
+
 module.exports = {
   AUTH_PATH,
   AUTH_PATH_LEGACY,
@@ -293,4 +364,6 @@ module.exports = {
   extractAuthToken,
   buildRequestAuthHeaders,
   intentarCandidatosAuth,
+  extractAuthError,
+  describeAuthFailure,
 };

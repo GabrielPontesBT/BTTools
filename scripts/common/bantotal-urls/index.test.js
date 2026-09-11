@@ -322,6 +322,88 @@ test('un 401 del user-login NO reintenta con el Authenticate viejo', async () =>
   assert.equal(r.authKind, U.KIND_SESSION_PUBLICA);
 });
 
+// ── Diagnostico de una autenticacion fallida ──────────────────────────────
+//
+// Medido contra un ambiente real (10.0.0.7:5101): el user-login existe pero
+// contesta HTTP 400 con {"Description":"API internal error","Code":500}. Con
+// el Description pelado no habia forma de saber si fallaba la URL, las
+// credenciales o el ambiente, y se perdia media hora probando lo que ya
+// estaba bien.
+
+test('extractAuthError lee el error de negocio en los formatos que usa el ambiente', () => {
+  assert.deepEqual(
+    U.extractAuthError({ BusinessErrors: { BusinessError: [{ Description: 'API internal error', Code: 500 }] } }),
+    { description: 'API internal error', code: '500' });
+  assert.deepEqual(U.extractAuthError({ messages: { global: 'Token is blank' } }),
+                   { description: 'Token is blank', code: '' });
+  assert.deepEqual(U.extractAuthError({ Btoutreq: { Mensaje: 'Usuario invalido' } }),
+                   { description: 'Usuario invalido', code: '' });
+  assert.deepEqual(U.extractAuthError({}), { description: '', code: '' });
+});
+
+test('el mensaje de falla dice que URL, que esquema y que status', () => {
+  const m = U.describeAuthFailure({
+    url: RAIZ + '/session/v1/user-login',
+    authKind: U.KIND_SESSION_PUBLICA,
+    status: 400,
+    parsedJson: { BusinessErrors: { BusinessError: [{ Description: 'API internal error', Code: 500 }] } },
+  });
+  assert.match(m, /API internal error \(codigo 500\)/);
+  assert.match(m, /user-login de session/);
+  assert.match(m, /session\/v1\/user-login/);
+  assert.match(m, /HTTP 400/);
+});
+
+test('un Code 500 se llama por su nombre: el ambiente fallo, no la configuracion', () => {
+  const m = U.describeAuthFailure({
+    url: RAIZ + '/session/v1/user-login',
+    authKind: U.KIND_SESSION_PUBLICA,
+    status: 400,
+    parsedJson: { BusinessErrors: { BusinessError: [{ Description: 'API internal error', Code: 500 }] } },
+  });
+  assert.match(m, /fallo del lado del servidor/);
+  // Y explica por que no se cayo al Authenticate viejo, que es la otra
+  // pregunta obvia al ver el error.
+  assert.match(m, /No se probo el Authenticate viejo/);
+});
+
+test('un error de credenciales NO se disfraza de problema del ambiente', () => {
+  const m = U.describeAuthFailure({
+    url: RAIZ + '/session/v1/user-login',
+    authKind: U.KIND_SESSION_PUBLICA,
+    status: 401,
+    parsedJson: { BusinessErrors: { BusinessError: [{ Description: 'Usuario o contrasena invalidos', Code: 10005 }] } },
+  });
+  assert.match(m, /Usuario o contrasena invalidos \(codigo 10005\)/);
+  assert.doesNotMatch(m, /fallo del lado del servidor/);
+});
+
+test('cuando se probo mas de un esquema, el mensaje los lista', () => {
+  const m = U.describeAuthFailure({
+    url: RAIZ + '/authenticate/v1/execute',
+    authKind: U.KIND_AUTHENTICATE,
+    status: 400,
+    parsedJson: { BusinessErrors: { BusinessError: [{ Description: 'Canal no declarado', Code: 10021 }] } },
+    intentos: [RAIZ + '/session/v1/user-login -> HTTP 404', RAIZ + '/authenticate/v1/execute -> HTTP 400'],
+  });
+  assert.match(m, /Canal no declarado/);
+  assert.match(m, /Se probaron: .*user-login -> HTTP 404/);
+  assert.doesNotMatch(m, /No se probo el Authenticate viejo/);
+});
+
+test('sin JSON parseable el mensaje muestra el crudo recortado, no "undefined"', () => {
+  const m = U.describeAuthFailure({
+    url: RAIZ + '/session/v1/user-login',
+    authKind: U.KIND_SESSION_PUBLICA,
+    status: 502,
+    parsedJson: null,
+    raw: '<html>\n  <body>Bad Gateway</body>\n</html>',
+  });
+  assert.match(m, /Bad Gateway/);
+  assert.doesNotMatch(m, /undefined/);
+  assert.match(m, /fallo del lado del servidor/, 'un 502 tambien es del ambiente');
+});
+
 test('intentarCandidatosAuth sin candidatos falla con un mensaje claro', async () => {
   await assert.rejects(() => U.intentarCandidatosAuth([], async () => ({ status: 200, raw: '' })),
                        /No hay ninguna URL de autenticacion/);
