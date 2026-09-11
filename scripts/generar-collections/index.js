@@ -358,6 +358,21 @@ function createCollectionFeature(deps) {
    * cae a Authenticate/Execute como plan B: algunos ambientes interna
    * tambien lo exponen.
    */
+  // En "API interna" el ambiente son varios microservicios, cada uno con su
+  // propio swagger (term-deposit, loan, customer, liability, platform,
+  // configuration...). Medido contra el ambiente real: TODOS exponen
+  // /Session/v1/userLogin y todos devuelven un token valido, y ese token sirve
+  // en los demas servicios (un login alcanza para todo el flujo).
+  //
+  // Como cualquiera sirve, la eleccion es de claridad y no de funcionamiento:
+  // se prefiere el del servicio de plataforma, que es el que conceptualmente
+  // ofrece la sesion. Sin eso, la URL de login que muestra el wizard salia del
+  // primer swagger de la lista (term-deposit, por orden alfabetico del puerto)
+  // y daba la impresion de estar autenticando contra el servicio equivocado.
+  function esFuenteDePlataforma(operation) {
+    return /platform/i.test(String((operation && operation.sourceBaseUrl) || ''));
+  }
+
   function findInternaAuthOperation(operationsByService) {
     let sessionOp = null;
     let executeOp = null;
@@ -369,7 +384,11 @@ function createCollectionFeature(deps) {
         // es como lo expone el gateway interno) y tambien el kebab: el regex
         // que habia solo aceptaba el camelCase, asi que contra un ambiente que
         // publica el kebab la deteccion caia al Authenticate viejo.
-        if (!sessionOp && btUrls.esPathSessionLogin(path)) sessionOp = operation;
+        if (btUrls.esPathSessionLogin(path)) {
+          if (!sessionOp || (!esFuenteDePlataforma(sessionOp) && esFuenteDePlataforma(operation))) {
+            sessionOp = operation;
+          }
+        }
         if (!executeOp && /\/Authenticate\/v\d+\/Execute$/i.test(path)) executeOp = operation;
       });
     });

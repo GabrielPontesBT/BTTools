@@ -544,3 +544,89 @@ test('el error lista los saltos de la cadena, no solo el ultimo', async () => {
     assert.match(r.message, /HTTP 404/, 'no dice el motivo final');
   } finally { await new Promise((r) => server.close(r)); }
 });
+
+// ── "API interna": de que microservicio sale el login ─────────────────────
+//
+// El ambiente interno son varios microservicios, cada uno con su swagger
+// (term-deposit, loan, customer, liability, platform, configuration...).
+// Medido contra el ambiente real: todos exponen /Session/v1/userLogin, todos
+// devuelven un token valido, y ese token sirve en los demas servicios. Como
+// cualquiera funciona, se elige el de plataforma por claridad: antes salia el
+// primero de la lista (term-deposit) y parecia estar autenticando contra el
+// servicio equivocado.
+
+// Servidor que publica su swagger bajo un prefijo propio, como los
+// microservicios reales (/api/<servicio>/v3/api-docs).
+function servidorMicroservicio(nombre) {
+  const server = http.createServer((req, res) => {
+    if (req.url === '/api/' + nombre + '/v3/api-docs') {
+      const raiz = 'http://127.0.0.1:' + server.address().port + '/api/' + nombre;
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        openapi: '3.0.1',
+        info: { title: nombre, version: '1.0' },
+        servers: [{ url: raiz }],
+        paths: {
+          // Todos los microservicios exponen el login, no solo plataforma.
+          '/Session/v1/userLogin': { post: { tags: ['Session'], operationId: 'userLogin', responses: { 200: { description: 'ok' } } } },
+          ['/' + nombre + '/v1/algo']: { get: { tags: [nombre], operationId: 'algo', responses: { 200: { description: 'ok' } } } },
+        },
+      }));
+      return;
+    }
+    res.writeHead(404); res.end('404');
+  });
+  return new Promise((resolve) => {
+    server.listen(0, '127.0.0.1', () => {
+      resolve({
+        docUrl: 'http://127.0.0.1:' + server.address().port + '/api/' + nombre + '/v3/api-docs',
+        cerrar: () => new Promise((r) => server.close(r)),
+      });
+    });
+  });
+}
+
+test('con varios microservicios, el login sale del de plataforma', async () => {
+  const deposito = await servidorMicroservicio('term-deposit');
+  const plataforma = await servidorMicroservicio('platform');
+  try {
+    const r = await cargarSwagger(feature(), {
+      // term-deposit primero a proposito: sin la preferencia, ganaba este.
+      swaggerUrls: [deposito.docUrl, plataforma.docUrl],
+      apiMode: 'interna', api: {},
+    });
+    assert.equal(r.ok, true, r.message);
+    assert.equal(r.authKind, 'session-userlogin');
+    assert.match(r.authUrl, /\/api\/platform\/Session\/v1\/userLogin$/,
+                 'tenia que elegir el login de plataforma, no el del primer swagger de la lista');
+  } finally { await deposito.cerrar(); await plataforma.cerrar(); }
+});
+
+test('sin plataforma en la lista, sirve el login de cualquier microservicio', async () => {
+  const deposito = await servidorMicroservicio('term-deposit');
+  try {
+    const r = await cargarSwagger(feature(), {
+      swaggerUrls: [deposito.docUrl], apiMode: 'interna', api: {},
+    });
+    assert.equal(r.ok, true, r.message);
+    assert.equal(r.authKind, 'session-userlogin');
+    assert.match(r.authUrl, /\/api\/term-deposit\/Session\/v1\/userLogin$/);
+  } finally { await deposito.cerrar(); }
+});
+
+test('un microservicio caido no bloquea a los que si responden', async () => {
+  const plataforma = await servidorMicroservicio('platform');
+  try {
+    const r = await cargarSwagger(feature(), {
+      // 5108 y 5109 estaban apagados en el ambiente real: el resto tiene que
+      // cargar igual y la caida reportarse como tal.
+      swaggerUrls: [plataforma.docUrl, 'http://127.0.0.1:1/api/treasury-cash/v3/api-docs'],
+      apiMode: 'interna', api: {},
+    });
+    assert.equal(r.ok, true, r.message);
+    assert.equal(r.sources.length, 1);
+    assert.equal(r.failedSources.length, 1);
+    assert.match(r.failedSources[0].swaggerUrl, /treasury-cash/);
+    assert.match(r.authUrl, /\/api\/platform\//, 'la autenticacion se resuelve con lo que si cargo');
+  } finally { await plataforma.cerrar(); }
+});
