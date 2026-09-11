@@ -2251,3 +2251,44 @@ test('sesion nueva con conexiones guardadas: mismo paso, con la ultima lista', a
   assert.equal(w.S.engine, 'oracle');
   assert.equal(w.els['db-host'].value, '10.0.0.4', 'la conexion queda cargada');
 });
+
+// Los parametros de invocacion del paso 5 (doc) los dibuja toggleEjecutar, que
+// solo corre al tocar el checkbox. Volver al paso 4, cambiar de metodo y
+// avanzar de nuevo dejaba en pantalla los parametros del metodo anterior.
+function wizardDocPaso5() {
+  const w = wizardConexion();
+  w.S.action = 'doc';
+  w.S.version = 'V4';
+  w.llamadas = 0;
+  w.toggleEjecutar = function () { w.llamadas++; w.docParamsSig = w.docItemsSig(); };
+  w.els['cb-ejecutar'] = stubEl();
+  w.els['cb-ejecutar'].checked = true;
+  return w;
+}
+
+test('cambiar de metodo y volver al paso 5 redibuja los parametros', () => {
+  const w = wizardDocPaso5();
+  w.items = [{ service: 'General', method: 'getDocumentTypes' }];
+  w.show(5);
+  assert.equal(w.llamadas, 1, 'primera entrada: se dibujan');
+
+  w.items = [{ service: 'General', method: 'getCountries' }];
+  w.show(5);
+  assert.equal(w.llamadas, 2, 'otro metodo: se vuelven a dibujar');
+});
+
+test('volver y avanzar sin cambiar la seleccion no pisa lo tipeado', () => {
+  const w = wizardDocPaso5();
+  w.items = [{ service: 'General', method: 'getDocumentTypes' }];
+  w.show(5);
+  w.show(5);
+  assert.equal(w.llamadas, 1, 'misma seleccion: no se redibuja');
+});
+
+test('con la API sin tildar el paso 5 no dibuja parametros', () => {
+  const w = wizardDocPaso5();
+  w.els['cb-ejecutar'].checked = false;
+  w.items = [{ service: 'General', method: 'getDocumentTypes' }];
+  w.show(5);
+  assert.equal(w.llamadas, 0);
+});

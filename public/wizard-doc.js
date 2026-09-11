@@ -47,6 +47,15 @@ var paramFields = {};
 var workflowData = {};
 var docCacheKey = null;
 var wfConfirmed = false;
+// Firma (servicio/metodo) de la seleccion con la que se renderizaron los
+// parametros de invocacion del paso 5. Sin esto, volver al paso 4, cambiar de
+// metodo y avanzar de nuevo dejaba los parametros del metodo anterior: el paso
+// 5 solo los dibuja al tocar el checkbox "Llamar a la API", nunca al entrar.
+var docParamsSig = null;
+
+function docItemsSig() {
+  return items.map(function(it) { return it.service + '/' + it.method; }).join('|');
+}
 
 // ── Estado flujo Scripts ─────────────────────────────────────
 var sgServiceGroups = [];
@@ -2075,6 +2084,13 @@ function show(step) {
       }
       fillApiFields();
   }
+  // Los parametros de invocacion se redibujan al (re)entrar al paso solo si la
+  // seleccion de servicios/metodos cambio: asi no se pierde lo que el usuario
+  // ya tipeo cuando vuelve y avanza sin tocar nada.
+  if (step === 5 && S.action === 'doc') {
+    var cbEj5 = document.getElementById('cb-ejecutar');
+    if (cbEj5 && cbEj5.checked && docParamsSig !== docItemsSig()) toggleEjecutar();
+  }
   if (step === 5 && S.action === 'collections') {
     if (typeof collectionRefreshContext === 'function') collectionRefreshContext();
     if (typeof collectionToggleConfig === 'function') collectionToggleConfig();
@@ -3384,10 +3400,12 @@ async function toggleEjecutar() {
   var credsWrap = document.getElementById('api-creds-wrap');
   if (credsWrap) credsWrap.style.display = enabled ? 'block' : 'none';
   var section = document.getElementById('params-section');
-  if (!enabled) { section.style.display = 'none'; paramFields = {}; workflowData = {}; wfConfirmed = false; return; }
+  if (!enabled) { section.style.display = 'none'; paramFields = {}; workflowData = {}; wfConfirmed = false; docParamsSig = null; return; }
   section.style.display = 'block';
   paramFields = {};
   workflowData = {};
+  wfConfirmed = false;
+  docParamsSig = docItemsSig();
 
   var hasAll  = items.some(function(it) { return it.method === '__all__'; });
   var hasSpec = items.some(function(it) { return it.method !== '__all__'; });
@@ -3586,6 +3604,7 @@ function resetParaOtroServicio() {
   paramFields = {};
   workflowData = {};
   wfConfirmed = false;
+  docParamsSig = null;
   var genLog = document.getElementById('gen-log');
   if (genLog) { genLog.style.display = 'none'; genLog.innerHTML = ''; }
   var postActs = document.getElementById('post-gen-actions');
