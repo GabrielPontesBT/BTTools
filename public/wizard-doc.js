@@ -1464,7 +1464,7 @@ function domDbShape() { return shapeDbApi(S.platform, readFieldsFromDom(S.platfo
 function domDbShapeSG() { return shapeDbSG(S.platform, readFieldsFromDom(S.platform)); }
 
 function getApi() {
-  return { BASE_URL: v('a-base'), API_BASE_URL: v('a-api'), API_AUTH_URL: v('a-auth'), API_USER: v('a-user'), API_PASSWORD: vp('a-pass'), API_CANAL: v('a-canal'), API_DEVICE: v('a-device'), API_REQUERIMIENTO: v('a-requerimiento'), DOC_ERRORES_MODELOS: v('doc-errores-modelos') };
+  return { BASE_URL: v('a-base'), API_BASE_URL: v('a-api'), API_AUTH_URL: v('a-auth'), API_USER: v('a-user'), API_PASSWORD: vp('a-pass'), API_CANAL: v('a-canal'), API_DEVICE: v('a-device'), API_REQUERIMIENTO: v('a-requerimiento'), SWAGGER_URL: v('a-swagger'), DOC_ERRORES_MODELOS: v('doc-errores-modelos') };
 }
 
 // ── Navegación del wizard ─────────────────────────────────────
@@ -2035,6 +2035,16 @@ function show(step) {
       var isCollections = S.action === 'collections';
       document.getElementById('a-auth-wrap').style.display = isV4 ? 'none' : 'block';
       document.getElementById('a-api-wrap').style.display  = (isV4 && !isCollections) ? 'none' : 'block';
+      // El Swagger es de donde salen las rutas reales de los endpoints, y
+      // eso solo aplica a V4/REST: V3 es SOAP y no tiene documento. En
+      // collections el swagger ya se carga en su propio paso (multi-swagger),
+      // asi que este bloque es solo del flujo de Documentar.
+      var swaggerWrap = document.getElementById('a-swagger-wrap');
+      if (swaggerWrap) {
+        var mostrarSwagger = isV4 && !isCollections;
+        swaggerWrap.style.display = mostrarSwagger ? 'block' : 'none';
+        if (mostrarSwagger) refrescarEstadoSwagger();
+      }
 
       // Este panel es de Documentar y collections lo comparte. Documentar
       // puede generar el .md SIN llamar a la API (de ahi el checkbox
@@ -2416,6 +2426,7 @@ function fillApiFields() {
   setVal('a-canal',        src.API_CANAL || '');
   setVal('a-device',       src.API_DEVICE || '');
   setVal('a-requerimiento',src.API_REQUERIMIENTO || '');
+  setVal('a-swagger',      src.SWAGGER_URL || '');
   _lastAutoBase = src.BASE_URL || '';
   _lastAutoAuth = src.API_AUTH_URL || '';
   var cb = document.getElementById('cb-doc-errores');
@@ -2964,6 +2975,106 @@ function toggleDocErrores() {
   var cb = document.getElementById('cb-doc-errores');
   var fields = document.getElementById('doc-errores-fields');
   if (fields) fields.style.display = cb && cb.checked ? 'block' : 'none';
+}
+
+// ── Swagger del ambiente ───────────────────────────────────────
+//
+// Las rutas de los endpoints pasaron a kebab-case
+// (/public/saving-accounts/v1/additional-information) y derivarlas del
+// nombre del metodo dejo de funcionar. El Swagger las tiene medidas, asi que
+// de aca salen la ruta y el verbo HTTP de cada metodo documentado.
+// Es opcional: sin Swagger la ruta se deriva igual, pero es una suposicion.
+
+function _swaggerRes(clase, texto) {
+  var res = document.getElementById('swagger-res');
+  if (!res) return;
+  res.className = 'cres show ' + clase;
+  res.textContent = texto;
+}
+
+function toggleSwaggerPaste() {
+  var wrap = document.getElementById('swagger-paste-wrap');
+  if (!wrap) return;
+  wrap.style.display = wrap.style.display === 'none' ? 'block' : 'none';
+}
+
+async function detectarSwagger() {
+  var btn = document.getElementById('btn-detect-swagger');
+  btn.disabled = true;
+  var textoOriginal = btn.textContent;
+  btn.textContent = 'Buscando...';
+  try {
+    var r = await fetch('/api/swagger/detect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ version: S.version, api: getApi(), swaggerUrl: v('a-swagger') })
+    });
+    var d = await r.json();
+    if (d.ok) {
+      // La URL encontrada se escribe en el campo: la proxima corrida no
+      // vuelve a buscar, y queda a la vista contra que documento se genero.
+      var campo = document.getElementById('a-swagger');
+      if (campo) campo.value = d.url;
+      _swaggerRes('ok', 'Swagger OK: ' + d.operaciones + ' operaciones\n' + d.url +
+                        (d.ejemplos && d.ejemplos.length ? '\nej: ' + d.ejemplos.join('  |  ') : ''));
+    } else {
+      _swaggerRes('err', d.message || 'No se encontro el Swagger.');
+    }
+  } catch (e) {
+    _swaggerRes('err', 'Error al conectar con el servidor de setup');
+  }
+  btn.textContent = textoOriginal;
+  btn.disabled = false;
+}
+
+async function guardarSwaggerPegado() {
+  var contenido = v('a-swagger-json');
+  if (!contenido.trim()) { _swaggerRes('err', 'Pega el contenido del Swagger antes de guardar.'); return; }
+  try {
+    var r = await fetch('/api/swagger/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ version: S.version, contenido: contenido })
+    });
+    var d = await r.json();
+    if (d.ok) _swaggerRes('ok', 'Swagger guardado: ' + d.operaciones + ' operaciones\n' + d.archivo);
+    else _swaggerRes('err', d.message || 'No se pudo guardar el Swagger.');
+  } catch (e) {
+    _swaggerRes('err', 'Error al conectar con el servidor de setup');
+  }
+}
+
+async function borrarSwaggerPegado() {
+  try {
+    var r = await fetch('/api/swagger/clear', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ version: S.version })
+    });
+    var d = await r.json();
+    if (d.ok) _swaggerRes('ok', 'Swagger guardado borrado. Vuelve a detectarse por HTTP.');
+    else _swaggerRes('err', d.message || 'No se pudo borrar.');
+  } catch (e) {
+    _swaggerRes('err', 'Error al conectar con el servidor de setup');
+  }
+}
+
+// Al entrar al paso se avisa si ya hay un Swagger pegado guardado: gana
+// sobre la URL, y si no se dijera, una doc generada con un documento viejo
+// pareceria salir del ambiente actual.
+async function refrescarEstadoSwagger() {
+  if (S.version !== 'V4') return;
+  try {
+    var r = await fetch('/api/swagger/status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ version: S.version })
+    });
+    var d = await r.json();
+    if (d.ok && d.guardado) {
+      _swaggerRes('ok', 'Hay un Swagger guardado a mano (' + d.operaciones + ' operaciones). Se usa ese, no la URL.');
+    }
+  } catch (e) { /* el estado es informativo: no bloquea el paso */ }
 }
 
 async function testAuth() {

@@ -53,10 +53,17 @@ test('sin url pero con BASE_URL, saca los candidatos de ahi', () => {
   SUFIJOS_SWAGGER.forEach(function (s) { assert.ok(c.includes(BASE + s), 'falta ' + s); });
 });
 
-test('BASE_URL le saca el sufijo /publicapi para llegar a la raiz', () => {
+// Antes se probaba SOLO la raiz sin /publicapi, y ese era el bug: el ambiente
+// medido (10.0.0.7:5101) publica el documento en
+// <BASE_URL>/v1/api-docs, o sea DENTRO de /api/publicapi. Con el recorte
+// unicamente, las ocho rutas daban 404 y el descubrimiento fallaba con un
+// swagger que estaba ahi. Ahora se prueban las dos formas.
+test('BASE_URL se prueba tal cual y tambien sin el sufijo /publicapi', () => {
   const c = buildSwaggerCandidateUrls('', { BASE_URL: BASE + '/publicapi' });
-  assert.ok(c.includes(BASE + '/v3/api-docs'));
-  assert.ok(!c.includes(BASE + '/publicapi/v3/api-docs'));
+  assert.ok(c.includes(BASE + '/publicapi/v3/api-docs'), 'falta la forma con /publicapi');
+  assert.ok(c.includes(BASE + '/v3/api-docs'), 'falta la forma sin /publicapi');
+  // La forma con /publicapi va primero: es donde esta en los ambientes de hoy.
+  assert.ok(c.indexOf(BASE + '/publicapi/v3/api-docs') < c.indexOf(BASE + '/v3/api-docs'));
 });
 
 // El defecto de las operaciones duplicadas: con multi-swagger, una fuente

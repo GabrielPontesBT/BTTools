@@ -253,6 +253,32 @@
             <div class="hint">Endpoint de login. Se completa automáticamente al ingresar la URL de la API.</div>
           </div>
         </div>
+
+        <!-- Swagger del ambiente: de acá salen las rutas reales de cada
+             endpoint. Los ambientes pasaron a kebab-case y derivarlas del
+             nombre del método dejó de funcionar. Ver
+             scripts/common/swagger-endpoints. -->
+        <div id="a-swagger-wrap">
+          <div class="field">
+            <label>URL del Swagger <span style="font-weight:400;color:var(--muted)">(opcional)</span></label>
+            <div style="display:flex;gap:var(--sp-2)">
+              <input type="text" id="a-swagger" placeholder="se detecta solo desde la URL de la API publica" style="flex:1">
+              <button class="btn btn-outline" id="btn-detect-swagger" onclick="detectarSwagger()" style="white-space:nowrap">Detectar</button>
+            </div>
+            <div class="hint">De acá salen las rutas reales de cada endpoint (kebab-case) y el verbo HTTP. Sin Swagger, la ruta se deriva del nombre del método.</div>
+          </div>
+          <div id="swagger-res" class="cres" style="margin-bottom:0"></div>
+          <div style="margin-top:var(--sp-2)">
+            <a href="#" onclick="toggleSwaggerPaste();return false" style="font-size:var(--fs-sm)" id="swagger-paste-toggle">¿El ambiente no lo expone? Pegá el JSON</a>
+            <div id="swagger-paste-wrap" style="display:none;margin-top:var(--sp-2)">
+              <textarea id="a-swagger-json" rows="6" placeholder='Pegá acá el contenido del Swagger ({"openapi":"3.0.1", ...})' style="width:100%;font-family:monospace;font-size:var(--fs-sm)"></textarea>
+              <div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-2)">
+                <button class="btn btn-outline" onclick="guardarSwaggerPegado()">Guardar Swagger</button>
+                <button class="btn btn-outline" onclick="borrarSwaggerPegado()">Borrar guardado</button>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="frow">
           <div class="field">
             <label>Usuario API</label>

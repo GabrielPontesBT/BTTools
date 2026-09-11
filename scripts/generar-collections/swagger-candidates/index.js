@@ -98,6 +98,13 @@ function buildSwaggerCandidateUrls(rawUrl, api, opciones) {
   if (incluirFallback) {
     const publicBaseUrl = sinBarraFinal(String((api && api.BASE_URL) || '').trim());
     if (publicBaseUrl) {
+      // Primero la BASE_URL tal cual: el ambiente medido (10.0.0.7:5101)
+      // publica el documento en <BASE_URL>/v1/api-docs, o sea DENTRO de
+      // /api/publicapi. Recortando el /publicapi (lo de abajo) daban 404 las
+      // ocho rutas y el descubrimiento fallaba con un swagger que si existia.
+      SUFIJOS_SWAGGER.forEach(function (s) { push(publicBaseUrl + s); });
+      push(publicBaseUrl + '/swagger-ui/index.html');
+
       const apiRoot = publicBaseUrl.replace(/\/publicapi$/i, '');
       SUFIJOS_SWAGGER.forEach(function (s) { push(apiRoot + s); });
       push(apiRoot + '/swagger-ui/index.html');

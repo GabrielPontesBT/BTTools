@@ -32,3 +32,7 @@ db_history.json
 
 # Build de Electron
 dist/
+# Swagger del ambiente, pegado o descargado desde el wizard. Es dato del
+# ambiente de cada uno (y puede pesar megas), no del repo.
+V3/swagger.json
+V4/swagger.json

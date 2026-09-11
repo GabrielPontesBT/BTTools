@@ -19,6 +19,8 @@ const { leerEjemplosExistentes } = require('./existing-examples');
 const { nombreVisibleParam, nombreVisibleCampo } = require('./sdt-display-name');
 const { toFolderName } = require('./folder-name');
 const btUrls = require('../common/bantotal-urls');
+const { resolverEndpoint } = require('../common/swagger-endpoints');
+const { cargarIndice } = require('../common/swagger-endpoints/cargar');
 
 // ── VALIDACION DE ENTORNO ─────────────────────────────────────
 (function validarEntorno() {
@@ -470,6 +472,38 @@ const GET_PREFIXES    = ['get', 'list', 'search', 'find', 'fetch', 'obtain', 're
 const DELETE_PREFIXES = ['delete', 'remove', 'cancel', 'drop', 'deactivate', 'unregister'];
 const PUT_PREFIXES    = ['update', 'set', 'modify', 'edit', 'change', 'replace', 'patch'];
 
+// ── Endpoints reales desde el Swagger ─────────────────────────
+//
+// Las rutas pasaron a kebab-case (/public/saving-accounts/v1/
+// additional-information) y armarlas desde el nombre del metodo era
+// adivinar. El swagger del ambiente las tiene medidas, y de paso trae el
+// verbo HTTP real en vez del inferido por prefijo.
+//
+// Se carga una sola vez por corrida (son 1.3 MB en el ambiente medido) y
+// nunca es obligatorio: sin swagger se sigue derivando la ruta del nombre,
+// ya en kebab, y la doc se genera igual.
+let _indicePromesa = null;
+function indiceEndpoints() {
+  if (_indicePromesa) return _indicePromesa;
+  const archivo = process.env.SWAGGER_FILE || path.join(process.cwd(), 'swagger.json');
+  _indicePromesa = cargarIndice({
+    archivo,
+    url: process.env.SWAGGER_URL || '',
+    api: { BASE_URL: process.env.BASE_URL || '' },
+    autodetectar: process.env.SWAGGER_AUTODETECT !== 'false',
+  }).then(function (r) {
+    if (r.indice) {
+      console.log(`🔎 Endpoints desde Swagger (${r.operaciones} operaciones, ${r.origen}: ${r.detalle})`);
+    } else {
+      const primeraLinea = r.message ? String(r.message).split(/\r?\n/)[0] : '';
+      console.log('🔎 Sin Swagger: las rutas se derivan del nombre del metodo (kebab-case).' +
+                  (primeraLinea ? ' ' + primeraLinea : ''));
+    }
+    return r;
+  });
+  return _indicePromesa;
+}
+
 function inferirMetodoHttp(metodo) {
   const lower = metodo.toLowerCase();
   if (GET_PREFIXES.some(p => lower.startsWith(p)))    return 'GET';
@@ -694,9 +728,16 @@ ${tabla}
     _ts(`SDTs total (${sdtCache.size} tipos resueltos)`, tSdtStart);
 
     // ── URL y método HTTP ──
-    const httpMethod    = inferirMetodoHttp(metodo);
-    const serviceSuffix = servicio.replace(/^Public/, '');
-    const endpointBasePath = `/public/${serviceSuffix}/v1/${nombreCorto}`;
+    // El swagger manda: trae la ruta real (kebab-case) y el verbo real. Sin
+    // swagger, o si el metodo no esta en el, se deriva del nombre y se avisa,
+    // porque ahi la ruta es una suposicion y no un dato.
+    const swagger = await indiceEndpoints();
+    const endpoint = resolverEndpoint(swagger.indice, servicio, metodo, nombreCorto);
+    if (endpoint.fuente === 'derivado' && swagger.indice) {
+      console.log(`   ⚠️  ${servicio}.${metodo} no esta en el Swagger: se usa la ruta derivada ${endpoint.path}`);
+    }
+    const httpMethod       = endpoint.httpMethod || inferirMetodoHttp(metodo);
+    const endpointBasePath = endpoint.path;
     const url              = `${process.env.BASE_URL || ''}${endpointBasePath}`;
 
     // ── Headers de autenticación (van en HTTP, no en el body) ──

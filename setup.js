@@ -94,6 +94,8 @@ const {
   KIND_AUTHENTICATE,
   CANAL_PUBLICO,
 } = require('./scripts/common/bantotal-urls');
+const { indexarEndpoints } = require('./scripts/common/swagger-endpoints');
+const { descargarDocumento, leerDocumento } = require('./scripts/common/swagger-endpoints/cargar');
 
 // El paso de Conexion es el UNICO momento en que se abre la conexion:
 // sg_testConn deja el pool cacheado y todo lo que venga despues lo reusa.
@@ -360,6 +362,13 @@ function buildEnv(version, platform, db, api) {
   if (api.API_CANAL)        L.push('API_CANAL=' + api.API_CANAL);
   if (api.API_DEVICE)       L.push('API_DEVICE=' + api.API_DEVICE);
   if (api.API_REQUERIMIENTO) L.push('API_REQUERIMIENTO=' + api.API_REQUERIMIENTO);
+  // El generador de doc lo usa para resolver la ruta real de cada endpoint
+  // (ver scripts/common/swagger-endpoints). Vacio = autodetectar desde BASE_URL.
+  if (api.SWAGGER_URL) {
+    L.push('');
+    L.push('# Swagger del ambiente (rutas reales de los endpoints)');
+    L.push('SWAGGER_URL=' + api.SWAGGER_URL);
+  }
   if (api.DOC_ERRORES_MODELOS) {
     L.push('');
     L.push('# Documentador de Errores');
@@ -1484,6 +1493,91 @@ http.createServer(async (req, res) => {
         }
       });
     } catch(e) {
+      json(200, { ok: false, message: e.message });
+    }
+    return;
+  }
+
+  // Busca el documento Swagger del ambiente y dice cuantas operaciones
+  // trajo. Es el respaldo del boton "Detectar" del paso de API: sin esto,
+  // el usuario no sabe si la URL que puso sirve hasta que genera la doc y le
+  // sale 404 en cada metodo.
+  if (req.method === 'POST' && req.url === '/api/swagger/detect') {
+    try {
+      const { api, swaggerUrl, version } = await readBody(req);
+      if (version === 'V3') {
+        json(200, { ok: false, message: 'V3 es SOAP: no tiene Swagger.' });
+        return;
+      }
+      const r = await descargarDocumento(swaggerUrl || '', api || {});
+      if (!r.ok) { json(200, { ok: false, message: r.message, intentos: r.intentos }); return; }
+      const indice = indexarEndpoints(r.doc);
+      json(200, {
+        ok: true,
+        url: r.url,
+        operaciones: indice.size,
+        // Tres rutas de muestra: alcanza para ver de un vistazo si el
+        // documento es el del ambiente correcto.
+        ejemplos: Array.from(indice.values()).slice(0, 3).map(function (e) {
+          return e.httpMethod + ' ' + e.path;
+        }),
+      });
+    } catch (e) {
+      json(200, { ok: false, message: e.message });
+    }
+    return;
+  }
+
+  // Guarda un Swagger pegado a mano en <version>/swagger.json, que es donde
+  // lo busca el generador. Para los ambientes que no exponen el documento por
+  // HTTP (o no son alcanzables desde esta maquina).
+  if (req.method === 'POST' && req.url === '/api/swagger/save') {
+    try {
+      const { version, contenido } = await readBody(req);
+      if (!version) { json(200, { ok: false, message: 'Falta la version del ambiente.' }); return; }
+      let doc;
+      try { doc = JSON.parse(contenido); }
+      catch (e) { json(200, { ok: false, message: 'El contenido no es JSON valido: ' + e.message }); return; }
+      if (!doc || !doc.paths) { json(200, { ok: false, message: 'El JSON no parece un Swagger: no tiene "paths".' }); return; }
+      const indice = indexarEndpoints(doc);
+      const destino = path.join(ROOT, version, 'swagger.json');
+      fs.writeFileSync(destino, JSON.stringify(doc), 'utf8');
+      json(200, { ok: true, archivo: destino, operaciones: indice.size });
+    } catch (e) {
+      json(200, { ok: false, message: e.message });
+    }
+    return;
+  }
+
+  // Borra el Swagger pegado: vuelve a la autodeteccion por HTTP.
+  if (req.method === 'POST' && req.url === '/api/swagger/clear') {
+    try {
+      const { version } = await readBody(req);
+      const destino = path.join(ROOT, version || '', 'swagger.json');
+      if (fs.existsSync(destino)) fs.unlinkSync(destino);
+      json(200, { ok: true });
+    } catch (e) {
+      json(200, { ok: false, message: e.message });
+    }
+    return;
+  }
+
+  // Dice si hay un Swagger pegado guardado, para que el paso de API lo
+  // muestre al volver a entrar.
+  if (req.method === 'POST' && req.url === '/api/swagger/status') {
+    try {
+      const { version } = await readBody(req);
+      const destino = path.join(ROOT, version || '', 'swagger.json');
+      if (!fs.existsSync(destino)) { json(200, { ok: true, guardado: false }); return; }
+      const r = leerDocumento(destino);
+      json(200, {
+        ok: true,
+        guardado: r.ok,
+        archivo: destino,
+        operaciones: r.ok ? indexarEndpoints(r.doc).size : 0,
+        message: r.ok ? '' : r.message,
+      });
+    } catch (e) {
       json(200, { ok: false, message: e.message });
     }
     return;
