@@ -101,6 +101,39 @@ test('dos verbos sobre el mismo path no se pisan entre si', () => {
   assert.equal(get.path, put.path);
 });
 
+// ── La raiz de la API que declara el documento ─────────────────────────────
+//
+// El ambiente medido declara servers[0].url = "http://10.0.0.7:5101/api/
+// publicapi", que es exactamente lo que el usuario escribia a mano en "URL de
+// la API publica". Teniendo el swagger, ese campo se completa solo.
+
+test('saca la raiz de la API de servers[0].url', () => {
+  assert.equal(
+    SE.baseUrlDeDocumento({ servers: [{ url: 'http://10.0.0.7:5101/api/publicapi' }] }),
+    'http://10.0.0.7:5101/api/publicapi');
+});
+
+test('le saca la barra final, que si no duplica la barra al pegar el path', () => {
+  assert.equal(SE.baseUrlDeDocumento({ servers: [{ url: 'http://h:5101/api/publicapi/' }] }),
+               'http://h:5101/api/publicapi');
+});
+
+test('una url relativa o con plantilla no sirve como raiz', () => {
+  // Sin host no se puede armar la llamada: mejor vacio que una URL rota.
+  assert.equal(SE.baseUrlDeDocumento({ servers: [{ url: '/api/publicapi' }] }), '');
+  assert.equal(SE.baseUrlDeDocumento({ servers: [{ url: 'http://{host}/api' }] }), '');
+  // Y si la primera no sirve, se sigue con la siguiente.
+  assert.equal(
+    SE.baseUrlDeDocumento({ servers: [{ url: '/api' }, { url: 'https://real:8443/api' }] }),
+    'https://real:8443/api');
+});
+
+test('sin servers devuelve vacio, no rompe', () => {
+  assert.equal(SE.baseUrlDeDocumento({}), '');
+  assert.equal(SE.baseUrlDeDocumento(null), '');
+  assert.equal(SE.baseUrlDeDocumento({ servers: [] }), '');
+});
+
 // ── Resolucion ─────────────────────────────────────────────────────────────
 
 test('resuelve la ruta real en kebab-case, que es el bug que origina todo esto', () => {

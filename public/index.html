@@ -273,8 +273,8 @@
             <div id="swagger-paste-wrap" style="display:none;margin-top:var(--sp-2)">
               <textarea id="a-swagger-json" rows="6" placeholder='Pegá acá el contenido del Swagger ({"openapi":"3.0.1", ...})' style="width:100%;font-family:monospace;font-size:var(--fs-sm)"></textarea>
               <div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-2)">
-                <button class="btn btn-outline" onclick="guardarSwaggerPegado()">Guardar Swagger</button>
-                <button class="btn btn-outline" onclick="borrarSwaggerPegado()">Borrar guardado</button>
+                <button class="btn btn-outline" onclick="guardarSwaggerPegado()" style="margin:var(--sp-2), 0, var(--sp-3)">Guardar Swagger</button>
+                <button class="btn btn-outline" onclick="borrarSwaggerPegado()" style="margin:var(--sp-2), 0, var(--sp-3)">Borrar guardado</button>
               </div>
             </div>
           </div>
@@ -307,7 +307,7 @@
           </div>
         </div>
         <div id="ares" class="cres" style="margin-bottom:0"></div>
-        <button class="btn btn-outline" id="btn-test-api" onclick="testAuth()" style="margin-top:var(--sp-1);width:100%">Probar autenticación</button>
+        <button class="btn btn-outline" id="btn-test-api" onclick="testAuth()" style="margin-bottom:var(--sp-5);width:100%">Probar Autenticación</button>
       </div>
 
       <div id="params-section" style="display:none;margin-bottom:var(--sp-4)"></div>

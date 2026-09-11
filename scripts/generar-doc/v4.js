@@ -31,7 +31,11 @@ const { cargarIndice } = require('../common/swagger-endpoints/cargar');
     process.exit(1);
   }
   const BD  = ['DB_USER', 'DB_PASSWORD', 'DB_CONNECT_STRING'];
-  const API = ['BASE_URL', 'API_USER', 'API_PASSWORD'];
+  // BASE_URL solo hace falta si no hay Swagger de donde sacarla: el
+  // documento la declara en servers[0].url (ver baseUrlPublica).
+  const haySwagger = !!process.env.SWAGGER_URL ||
+                     fs.existsSync(process.env.SWAGGER_FILE || path.join(process.cwd(), 'swagger.json'));
+  const API = (haySwagger ? [] : ['BASE_URL']).concat(['API_USER', 'API_PASSWORD']);
   const usaEjecutar = process.argv.includes('--ejecutar');
   const faltantes = [
     ...BD.filter(k => !process.env[k]),
@@ -248,7 +252,19 @@ function generarTablaSdt(rows, sdtNombre) {
 
 // ── EJECUCION DE SERVICIOS ────────────────────────────────────
 
-const PUBLIC_BASE_URL  = process.env.BASE_URL          || '';
+// La raiz de la API publica. Sale del .env, y si esta vacia, del propio
+// Swagger (servers[0].url): el documento ya la declara, asi que teniendola
+// no hace falta que el usuario la escriba de nuevo.
+let PUBLIC_BASE_URL = process.env.BASE_URL || '';
+async function baseUrlPublica() {
+  if (PUBLIC_BASE_URL) return PUBLIC_BASE_URL;
+  const swagger = await indiceEndpoints();
+  if (swagger.baseUrl) {
+    PUBLIC_BASE_URL = swagger.baseUrl;
+    console.log(`🔗 URL de la API publica tomada del Swagger: ${PUBLIC_BASE_URL}`);
+  }
+  return PUBLIC_BASE_URL;
+}
 const API_USER         = process.env.API_USER          || 'INSTALADOR';
 const API_PASSWORD     = process.env.API_PASSWORD      || 'Bantotal2015';
 const API_CANAL        = process.env.API_CANAL         || 'BTDIGITAL';
@@ -341,7 +357,7 @@ const CREDENCIALES = {
 let authKindActivo = btUrls.KIND_SESSION_PUBLICA;
 
 async function obtenerToken() {
-  const candidatos = btUrls.authCandidates({ BASE_URL: PUBLIC_BASE_URL });
+  const candidatos = btUrls.authCandidates({ BASE_URL: await baseUrlPublica() });
 
   const resultado = await btUrls.intentarCandidatosAuth(candidatos, async function (candidato) {
     const payload = btUrls.buildAuthPayload(candidato.kind, CREDENCIALES);
@@ -738,7 +754,7 @@ ${tabla}
     }
     const httpMethod       = endpoint.httpMethod || inferirMetodoHttp(metodo);
     const endpointBasePath = endpoint.path;
-    const url              = `${process.env.BASE_URL || ''}${endpointBasePath}`;
+    const url              = `${await baseUrlPublica()}${endpointBasePath}`;
 
     // ── Headers de autenticación (van en HTTP, no en el body) ──
     // Con el jwt de session/user-login alcanza el Authorization.
@@ -801,9 +817,12 @@ ${tabla}
     if (ejecutar) {
       try {
         process.stdout.write(`  🌐 Ejecutando ${servicio}.${metodo}... `);
-        const serviceSuffixExec = servicio.replace(/^Public/, '');
+        // La MISMA ruta que se documenta (endpointBasePath, resuelta contra
+        // el Swagger). Antes se rearmaba a mano en camelCase aca abajo: la
+        // doc mostraba la ruta nueva y la llamada real iba a la vieja, o sea
+        // 404 al ejecutar aunque el .md saliera bien.
         const respuestaReal = await ejecutarServicio(
-          `${PUBLIC_BASE_URL}/public/${serviceSuffixExec}/v1/${nombreCorto}`,
+          `${await baseUrlPublica()}${endpointBasePath}`,
           execPayload,
           httpMethod
         );

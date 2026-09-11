@@ -20,7 +20,7 @@ const http = require('http');
 const https = require('https');
 
 const { buildSwaggerCandidateUrls } = require('../../generar-collections/swagger-candidates');
-const { indexarEndpoints } = require('./index');
+const { indexarEndpoints, baseUrlDeDocumento } = require('./index');
 
 // Un documento de 1.3 MB es normal (el ambiente medido pesa eso), pero un
 // endpoint que devuelve un stream infinito no puede colgar la generacion.
@@ -133,21 +133,21 @@ async function cargarIndice(opciones) {
     const r = leerDocumento(o.archivo);
     if (r.ok) {
       const indice = indexarEndpoints(r.doc);
-      return { indice, origen: 'archivo', detalle: o.archivo, operaciones: indice.size };
+      return { indice, origen: 'archivo', detalle: o.archivo, operaciones: indice.size, baseUrl: baseUrlDeDocumento(r.doc) };
     }
-    return { indice: null, origen: 'ninguno', detalle: '', operaciones: 0, message: r.message };
+    return { indice: null, origen: 'ninguno', detalle: '', operaciones: 0, baseUrl: '', message: r.message };
   }
 
   const urlExplicita = String(o.url || '').trim();
   if (!urlExplicita && o.autodetectar === false) {
-    return { indice: null, origen: 'ninguno', detalle: '', operaciones: 0 };
+    return { indice: null, origen: 'ninguno', detalle: '', operaciones: 0, baseUrl: '' };
   }
 
   const r = await descargarDocumento(urlExplicita, o.api || {});
-  if (!r.ok) return { indice: null, origen: 'ninguno', detalle: '', operaciones: 0, message: r.message };
+  if (!r.ok) return { indice: null, origen: 'ninguno', detalle: '', operaciones: 0, baseUrl: '', message: r.message };
 
   const indice = indexarEndpoints(r.doc);
-  return { indice, origen: 'url', detalle: r.url, operaciones: indice.size };
+  return { indice, origen: 'url', detalle: r.url, operaciones: indice.size, baseUrl: baseUrlDeDocumento(r.doc) };
 }
 
 module.exports = {

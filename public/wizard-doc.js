@@ -2031,7 +2031,10 @@ function show(step) {
   // Panel de ambiente + API ('p4'): en collections vive en el paso 4, en doc
   // (tras el reorden servicios-antes-que-ambiente) vive en el paso 5.
   if ((step === 4 && S.action === 'collections') || (step === 5 && S.action === 'doc')) {
-      var isV4 = S.version === 'V4';
+      // Normalizado a proposito: si S.version viene con otro casing o con
+      // espacios, la comparacion estricta fallaba y el panel mostraba 'URL de
+      // la API' (que en V4 no se usa) y escondia el bloque del Swagger.
+      var isV4 = String(S.version || '').trim().toUpperCase() === 'V4';
       var isCollections = S.action === 'collections';
       document.getElementById('a-auth-wrap').style.display = isV4 ? 'none' : 'block';
       document.getElementById('a-api-wrap').style.display  = (isV4 && !isCollections) ? 'none' : 'block';
@@ -3015,6 +3018,15 @@ async function detectarSwagger() {
       // vuelve a buscar, y queda a la vista contra que documento se genero.
       var campo = document.getElementById('a-swagger');
       if (campo) campo.value = d.url;
+      // El documento declara la raiz de la API (servers[0].url), que es justo
+      // lo que hay que escribir en 'URL de la API publica'. Si el campo esta
+      // vacio se completa solo: es un dato que ya vino, pedirlo de nuevo es
+      // hacer tipear algo que la herramienta ya sabe. Lo que el usuario haya
+      // escrito no se pisa.
+      if (d.serverUrl && !v('a-base')) {
+        setVal('a-base', d.serverUrl);
+        _setApiHints(v('a-api'), v('a-base'));
+      }
       _swaggerRes('ok', 'Swagger OK: ' + d.operaciones + ' operaciones\n' + d.url +
                         (d.ejemplos && d.ejemplos.length ? '\nej: ' + d.ejemplos.join('  |  ') : ''));
     } else {
@@ -3037,7 +3049,14 @@ async function guardarSwaggerPegado() {
       body: JSON.stringify({ version: S.version, contenido: contenido })
     });
     var d = await r.json();
-    if (d.ok) _swaggerRes('ok', 'Swagger guardado: ' + d.operaciones + ' operaciones\n' + d.archivo);
+    if (d.ok) {
+      if (d.serverUrl && !v('a-base')) {
+        setVal('a-base', d.serverUrl);
+        _setApiHints(v('a-api'), v('a-base'));
+      }
+      _swaggerRes('ok', 'Swagger guardado: ' + d.operaciones + ' operaciones\n' + d.archivo +
+                        (d.serverUrl ? '\nAPI publica: ' + d.serverUrl : ''));
+    }
     else _swaggerRes('err', d.message || 'No se pudo guardar el Swagger.');
   } catch (e) {
     _swaggerRes('err', 'Error al conectar con el servidor de setup');

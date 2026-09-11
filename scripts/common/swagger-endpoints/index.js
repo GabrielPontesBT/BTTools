@@ -122,6 +122,28 @@ function indexarEndpoints(doc) {
   return indice;
 }
 
+/**
+ * La raiz de la API que declara el propio documento (servers[0].url).
+ *
+ * Es lo mismo que el usuario escribe en "URL de la API publica": el ambiente
+ * medido declara "http://10.0.0.7:5101/api/publicapi". Teniendo el swagger,
+ * pedirle al usuario que lo escriba de nuevo es pedirle un dato que ya esta.
+ *
+ * Se ignora una url relativa o con plantilla ("/api", "{host}/api"): sin host
+ * no sirve para armar la URL de una llamada, y completar el campo con eso
+ * seria peor que dejarlo vacio.
+ */
+function baseUrlDeDocumento(doc) {
+  const servers = (doc && Array.isArray(doc.servers)) ? doc.servers : [];
+  for (const server of servers) {
+    const url = String((server && server.url) || '').trim();
+    if (!url || url.indexOf('{') >= 0) continue;
+    if (!/^https?:\/\//i.test(url)) continue;
+    return url.replace(/\/+$/g, '');
+  }
+  return '';
+}
+
 // ── Resolucion ──────────────────────────────────────────────
 
 /**
@@ -167,6 +189,7 @@ module.exports = {
   servicioEnRuta,
   claveEndpoint,
   indexarEndpoints,
+  baseUrlDeDocumento,
   derivarEndpoint,
   resolverEndpoint,
 };

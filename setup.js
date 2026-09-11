@@ -94,7 +94,7 @@ const {
   KIND_AUTHENTICATE,
   CANAL_PUBLICO,
 } = require('./scripts/common/bantotal-urls');
-const { indexarEndpoints } = require('./scripts/common/swagger-endpoints');
+const { indexarEndpoints, baseUrlDeDocumento } = require('./scripts/common/swagger-endpoints');
 const { descargarDocumento, leerDocumento } = require('./scripts/common/swagger-endpoints/cargar');
 
 // El paso de Conexion es el UNICO momento en que se abre la conexion:
@@ -1516,6 +1516,9 @@ http.createServer(async (req, res) => {
         ok: true,
         url: r.url,
         operaciones: indice.size,
+        // La raiz que declara el propio documento: el wizard completa con esto
+        // "URL de la API publica" si esta vacia, en vez de pedirla de nuevo.
+        serverUrl: baseUrlDeDocumento(r.doc),
         // Tres rutas de muestra: alcanza para ver de un vistazo si el
         // documento es el del ambiente correcto.
         ejemplos: Array.from(indice.values()).slice(0, 3).map(function (e) {
@@ -1542,7 +1545,7 @@ http.createServer(async (req, res) => {
       const indice = indexarEndpoints(doc);
       const destino = path.join(ROOT, version, 'swagger.json');
       fs.writeFileSync(destino, JSON.stringify(doc), 'utf8');
-      json(200, { ok: true, archivo: destino, operaciones: indice.size });
+      json(200, { ok: true, archivo: destino, operaciones: indice.size, serverUrl: baseUrlDeDocumento(doc) });
     } catch (e) {
       json(200, { ok: false, message: e.message });
     }

@@ -161,6 +161,13 @@ test('el archivo guardado gana sobre la URL: es lo que el usuario pego a mano', 
   } finally { await sv.cerrar(); }
 });
 
+test('el indice trae la raiz de la API que declara el documento', async () => {
+  const conServers = { openapi: '3.0.1', servers: [{ url: 'http://10.0.0.7:5101/api/publicapi' }], paths: DOC.paths };
+  const r = await cargarIndice({ archivo: archivoTemporal(JSON.stringify(conServers)) });
+  assert.equal(r.baseUrl, 'http://10.0.0.7:5101/api/publicapi',
+               'de aca sale la URL de la API publica sin que el usuario la escriba');
+});
+
 test('sin swagger no se cae: devuelve indice null y quien llama deriva la ruta', async () => {
   const r = await cargarIndice({ api: {}, autodetectar: true });
   assert.equal(r.indice, null);
