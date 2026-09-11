@@ -97,7 +97,7 @@ function bodyEjecucion(amb, extra) {
     format: 'json',
     version: 'V4',
     apiMode: 'publica',
-    api: { BASE_URL: amb.raiz, API_USER: 'INSTALADOR', API_PASSWORD: 'Bantotal2015' },
+    api: { BASE_URL: amb.raiz, API_USER: 'INSTALADOR', API_PASSWORD: 'Bantotal2015', API_DEVICE: 'GP' },
     swaggerBaseUrl: amb.raiz,
     items: [itemNegocio()],
     variableOverrides: {},
@@ -117,13 +117,16 @@ test('el login publico pega a session/user-login con canal BTPUBLIC y jwt:true',
     const login = amb.recibidos[0];
     assert.match(login.url, /\/session\/v1\/user-login$/);
     assert.equal(login.headers.canal, 'BTPUBLIC');
+    // Device va: sin el, el ambiente real devuelve "API internal error".
+    assert.equal(login.headers.device, 'GP');
     assert.deepEqual(JSON.parse(login.body), {
       user: 'INSTALADOR', userPassword: 'Bantotal2015', jwt: true,
     });
-    // El login no lleva device/requerimiento/token: eso era del esquema viejo.
-    assert.equal(login.headers.device, undefined);
-    assert.equal(login.headers.requerimiento, undefined);
+    // Token NO va ni vacio: con el header Token el servicio de session
+    // contesta 401 "Token is blank". Usuario/Requerimiento no cambian nada.
     assert.equal(login.headers.token, undefined);
+    assert.equal(login.headers.usuario, undefined);
+    assert.equal(login.headers.requerimiento, undefined);
   } finally { await amb.cerrar(); }
 });
 
@@ -198,6 +201,8 @@ test('la collection exportada arranca con el user-login y no con Authenticate', 
     const auth = col.item[0].item[0];
     assert.match(auth.name, /user-login/);
     assert.equal(headerDe(auth.request, 'Canal'), 'BTPUBLIC');
+    assert.equal(headerDe(auth.request, 'Device'), '{{device}}');
+    assert.equal(headerDe(auth.request, 'Token'), undefined, 'con Token el login da 401');
     assert.deepEqual(JSON.parse(auth.request.body.raw), {
       user: '{{username}}', userPassword: '{{password}}', jwt: true,
     });

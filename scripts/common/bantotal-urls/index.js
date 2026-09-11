@@ -192,8 +192,19 @@ function buildAuthPayload(kind, credenciales) {
   if (kind === KIND_SESSION_PUBLICA) {
     return {
       body: JSON.stringify({ user: usuario, userPassword: password, jwt: true }),
-      // Solo el canal: user-login no pide device/requerimiento/token.
-      headers: { 'Content-Type': 'application/json', Canal: CANAL_PUBLICO },
+      // Canal Y Device: los dos, medido contra un ambiente real
+      // (10.0.0.7:5101). Solo con Canal el ambiente devuelve
+      // "API internal error" (Code 500), y el jwt que sale del login lleva
+      // el device adentro ("dev":"GP"), asi que no es opcional.
+      //
+      // Token NO va, ni siquiera vacio: mandarlo hace que el servicio de
+      // session conteste 401 "Token is blank". El resto de los headers del
+      // esquema viejo (Usuario, Requerimiento) no cambian nada.
+      headers: {
+        'Content-Type': 'application/json',
+        Canal: CANAL_PUBLICO,
+        Device: String(c.device || 'INSTALADOR'),
+      },
     };
   }
 

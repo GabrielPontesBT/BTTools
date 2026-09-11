@@ -1707,6 +1707,9 @@ function createCollectionFeature(deps) {
    * Canal BTPUBLIC literal y no {{channel}}: el canal del login publico lo
    * fija arquitectura, no la parametria del ambiente, y dejarlo como variable
    * invita a pisarlo con un BTDIGITAL heredado que hace fallar el login.
+   * El Device si sale del ambiente, y va: sin el, el login devuelve
+   * "API internal error" (medido contra un ambiente real). Token no va ni
+   * vacio -- con Token el servicio contesta 401 "Token is blank".
    * Los requests de negocio que siguen usan Authorization: Bearer {{token}}
    * (ver buildJsonRequestItem), sin headers de canal.
    */
@@ -1724,7 +1727,8 @@ function createCollectionFeature(deps) {
         method: 'POST',
         header: [
           { key: 'Content-Type', value: 'application/json', type: 'text' },
-          { key: 'Canal', value: btUrls.CANAL_PUBLICO, type: 'text' }
+          { key: 'Canal', value: btUrls.CANAL_PUBLICO, type: 'text' },
+          { key: 'Device', value: '{{device}}', type: 'text' }
         ],
         body: {
           mode: 'raw',

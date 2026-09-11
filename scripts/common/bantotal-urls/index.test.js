@@ -229,13 +229,29 @@ test('los candidatos derivan la raiz igual que authUrlCandidates', () => {
   assert.equal(c[0].url, 'http://10.0.0.7:5101/core/api/publicapi/session/v1/user-login');
 });
 
-test('el login publico manda canal BTPUBLIC y jwt:true, sin device/requerimiento/token', () => {
+// Medido contra un ambiente real (10.0.0.7:5101): el login necesita Canal Y
+// Device. Solo con Canal devuelve "API internal error" (Code 500), y con un
+// header Token (aunque sea vacio) devuelve 401 "Token is blank".
+test('el login publico manda canal BTPUBLIC, Device y jwt:true, y nada mas', () => {
   const r = U.buildAuthPayload(U.KIND_SESSION_PUBLICA, {
-    username: 'INSTALADOR', password: 'Bantotal2015', channel: 'BTDIGITAL', device: 'X', requirement: '9',
+    username: 'INSTALADOR', password: 'Bantotal2015', channel: 'BTDIGITAL', device: 'GP', requirement: '9',
   });
   assert.deepEqual(JSON.parse(r.body), { user: 'INSTALADOR', userPassword: 'Bantotal2015', jwt: true });
   assert.equal(r.headers.Canal, 'BTPUBLIC');
-  assert.deepEqual(Object.keys(r.headers).sort(), ['Canal', 'Content-Type']);
+  assert.equal(r.headers.Device, 'GP');
+  assert.deepEqual(Object.keys(r.headers).sort(), ['Canal', 'Content-Type', 'Device']);
+});
+
+test('el login publico NO manda Token: con Token el ambiente contesta 401', () => {
+  const r = U.buildAuthPayload(U.KIND_SESSION_PUBLICA, { username: 'u', password: 'p', device: 'GP' });
+  assert.equal('Token' in r.headers, false);
+  assert.equal('Usuario' in r.headers, false);
+  assert.equal('Requerimiento' in r.headers, false);
+});
+
+test('sin Device configurado el login cae a INSTALADOR, no manda el header vacio', () => {
+  const r = U.buildAuthPayload(U.KIND_SESSION_PUBLICA, { username: 'u', password: 'p' });
+  assert.equal(r.headers.Device, 'INSTALADOR');
 });
 
 test('el canal del ambiente NO pisa el BTPUBLIC del login publico', () => {
