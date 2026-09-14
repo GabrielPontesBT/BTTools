@@ -1,6 +1,6 @@
 # Unificación de la escala de padding
 
-> **Estado: NO APROBADO.** Este documento plantea el problema y las opciones. La decisión es de Gabriel: las cuatro opciones tienen costos muy distintos y una de ellas es "no hacerlo". No se escribió una línea de CSS todavía.
+> **Estado: APROBADO — opción B, implementada.** Gabriel eligió la grilla de 4px. La implementación está en [scripts/common/design-padding/](../../../scripts/common/design-padding/README.md), con una desviación declarada: en vez de una escala nueva `--pad-1..7` en paralelo, se extendió `--sp-*` a 7 pasos, porque dos escalas idénticas con nombres distintos reproducen el problema que el pase resuelve. El resto del documento queda como estaba: es el registro de por qué se eligió B y qué se descartó.
 
 ## Contexto
 

@@ -1417,16 +1417,16 @@ function renderWarnings(containerId, warnings) {
   var el = document.getElementById(containerId); if (!el) return;
   if (!warnings || !warnings.length) { el.innerHTML = ''; el.style.display = 'none'; return; }
   var n = warnings.length;
-  var html = '<div style="background:var(--warn-l);border:1px solid var(--warn);border-radius:8px;padding:14px 16px">' +
+  var html = '<div style="background:var(--warn-l);border:1px solid var(--warn);border-radius:8px;padding:var(--sp-3) var(--sp-4)">' +
     '<div style="font-weight:600;font-size:var(--fs-sm);color:var(--warn-d);margin-bottom:var(--sp-3)">&#9888; ' + n + ' advertencia' + (n > 1 ? 's' : '') + ' encontrada' + (n > 1 ? 's' : '') + '</div>' +
-    '<ul style="margin:0;padding-left:18px;font-size:var(--fs-sm);color:var(--warn-d);line-height:1.9">';
+    '<ul style="margin:0;padding-left:var(--sp-4);font-size:var(--fs-sm);color:var(--warn-d);line-height:1.9">';
   warnings.forEach(function(w) {
     var tabla = _FIELD_TABLE[w.field] || '?';
     var loc = w.service ? (w.service + ' &rsaquo; ' + w.method) : w.method;
     if (w.param) loc += ' &rsaquo; ' + w.param;
     html += '<li>' +
-      '<span style="background:var(--warn-l);color:var(--warn-d);font-weight:600;font-size:var(--fs-sm);padding:1px 5px;border-radius:3px;margin-right:var(--sp-1)">' + tabla + '</span>' +
-      '<code style="background:rgba(0,0,0,.06);padding:1px 5px;border-radius:3px;font-size:var(--fs-sm)">' + w.field + '</code> ' +
+      '<span style="background:var(--warn-l);color:var(--warn-d);font-weight:600;font-size:var(--fs-sm);padding:var(--sp-1) var(--sp-1);border-radius:3px;margin-right:var(--sp-1)">' + tabla + '</span>' +
+      '<code style="background:rgba(0,0,0,.06);padding:var(--sp-1) var(--sp-1);border-radius:3px;font-size:var(--fs-sm)">' + w.field + '</code> ' +
       '<span style="color:var(--warn-d);font-weight:500"> [' + loc + ']</span> ' + w.msg + '</li>';
   });
   html += '</ul></div>';
@@ -3289,7 +3289,7 @@ async function loadServices() {
   var area = document.getElementById('svc-load-area');
   var err  = document.getElementById('svc-err');
   err.className = 'cres';
-  area.innerHTML = '<div style="font-size:var(--fs-sm);color:var(--muted);padding:4px 0"><span class="spin dk"></span>&nbsp;Cargando servicios...</div>';
+  area.innerHTML = '<div style="font-size:var(--fs-sm);color:var(--muted);padding:var(--sp-1) 0"><span class="spin dk"></span>&nbsp;Cargando servicios...</div>';
   document.getElementById('svc-picker').style.display = 'none';
   try {
     var r = await fetch('/api/services', {
@@ -3445,13 +3445,13 @@ async function validateDocItems() {
       return;
     }
     if (!dv.ok) {
-      if (valEl) { valEl.innerHTML = '<div style="background:var(--warn-l);border:1px solid var(--warn);border-radius:8px;padding:12px 16px;font-size:var(--fs-sm);color:var(--warn-d)">&#9888; No se pudo validar: ' + (dv.message || 'error desconocido') + '</div>'; valEl.style.display = ''; }
+      if (valEl) { valEl.innerHTML = '<div style="background:var(--warn-l);border:1px solid var(--warn);border-radius:8px;padding:var(--sp-3) var(--sp-4);font-size:var(--fs-sm);color:var(--warn-d)">&#9888; No se pudo validar: ' + (dv.message || 'error desconocido') + '</div>'; valEl.style.display = ''; }
       btn.innerHTML = 'Siguiente &#8594;';
       btn.disabled = false;
       return;
     }
   } catch(e) {
-    if (valEl) { valEl.innerHTML = '<div style="background:var(--warn-l);border:1px solid var(--warn);border-radius:8px;padding:12px 16px;font-size:var(--fs-sm);color:var(--warn-d)">&#9888; Error al validar: ' + e.message + '</div>'; valEl.style.display = ''; }
+    if (valEl) { valEl.innerHTML = '<div style="background:var(--warn-l);border:1px solid var(--warn);border-radius:8px;padding:var(--sp-3) var(--sp-4);font-size:var(--fs-sm);color:var(--warn-d)">&#9888; Error al validar: ' + e.message + '</div>'; valEl.style.display = ''; }
     btn.innerHTML = 'Siguiente &#8594;';
     btn.disabled = false;
     return;
@@ -3515,15 +3515,15 @@ function buildWorkflowCard(service, workflow, uncovered) {
     globalParams.forEach(function(p) {
       var fid = 'wfg-' + service + '-' + p.name;
       html += '<div style="display:flex;align-items:flex-start;gap:var(--sp-2);margin-bottom:var(--sp-2)">';
-      html += '<label style="min-width:130px;font-size:var(--fs-sm);font-weight:500;flex-shrink:0;padding-top:5px">' + p.name;
+      html += '<label style="min-width:130px;font-size:var(--fs-sm);font-weight:500;flex-shrink:0;padding-top:var(--sp-1)">' + p.name;
       if (p.type) html += '<div style="font-size:var(--fs-sm);font-weight:400;color:var(--muted)">' + p.type + '</div>';
       html += '</label>';
       if (p.isComplex) {
         var lines = p.example ? Math.min(p.example.split('\\n').length, 12) : 3;
         var exVal = p.example ? p.example.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : (p.itemType ? (p.itemName ? '{\\n  "' + p.itemName + '": []\\n}' : '[]') : '{}');
-        html += '<textarea id="' + fid + '" rows="' + lines + '" data-example="' + exVal + '" style="flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:var(--fs-sm);font-family:Consolas,monospace;resize:vertical;outline:none">' + exVal + '</textarea>';
+        html += '<textarea id="' + fid + '" rows="' + lines + '" data-example="' + exVal + '" style="flex:1;padding:var(--sp-1) var(--sp-2);border:1.5px solid var(--border);border-radius:6px;font-size:var(--fs-sm);font-family:Consolas,monospace;resize:vertical;outline:none">' + exVal + '</textarea>';
       } else {
-        html += '<input type="text" id="' + fid + '" placeholder="Ingresar valor..." style="flex:1;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:var(--fs-sm);font-family:inherit;outline:none">';
+        html += '<input type="text" id="' + fid + '" placeholder="Ingresar valor..." style="flex:1;padding:var(--sp-1) var(--sp-2);border:1.5px solid var(--border);border-radius:6px;font-size:var(--fs-sm);font-family:inherit;outline:none">';
       }
       html += '</div>';
     });
@@ -3532,7 +3532,7 @@ function buildWorkflowCard(service, workflow, uncovered) {
 
   html += '<div class="param-card-bd" style="padding:0" id="wf-bd-' + service + '">';
   if (!total) {
-    html += '<p style="font-size:var(--fs-sm);color:var(--muted);padding:10px 12px">Sin metodos detectados.</p>';
+    html += '<p style="font-size:var(--fs-sm);color:var(--muted);padding:var(--sp-3) var(--sp-3)">Sin metodos detectados.</p>';
   } else {
     steps.forEach(function(step, idx) {
       var extracts = (step.extract || []).map(function(e) { return typeof e === 'string' ? e : (e.as || ''); }).filter(Boolean);
@@ -3690,7 +3690,7 @@ async function toggleEjecutar() {
   }
 
   if (hasAll) {
-    section.innerHTML = '<div style="padding:6px 0;font-size:var(--fs-sm);color:var(--muted)"><span class="spin dk"></span>&nbsp;Analizando dependencias...</div>';
+    section.innerHTML = '<div style="padding:var(--sp-2) 0;font-size:var(--fs-sm);color:var(--muted)"><span class="spin dk"></span>&nbsp;Analizando dependencias...</div>';
     var wfHtml = '';
     for (var wi = 0; wi < items.length; wi++) {
       var wfItem = items[wi];
@@ -3712,12 +3712,12 @@ async function toggleEjecutar() {
     if (wfHtml) {
       wfHtml += '<button class="btn btn-outline" id="btn-confirm-wf" onclick="confirmWorkflowOrder()" style="margin-top:var(--sp-3);width:100%">Confirmar orden &#10003;</button>';
     }
-    section.innerHTML = wfHtml || '<div style="padding:6px 0;font-size:var(--fs-sm);color:var(--muted)">No hay servicios para analizar.</div>';
+    section.innerHTML = wfHtml || '<div style="padding:var(--sp-2) 0;font-size:var(--fs-sm);color:var(--muted)">No hay servicios para analizar.</div>';
     return;
   }
 
   // Modo parametros individuales
-  section.innerHTML = '<div style="padding:6px 0;font-size:var(--fs-sm);color:var(--muted)"><span class="spin dk"></span>&nbsp;Cargando parametros...</div>';
+  section.innerHTML = '<div style="padding:var(--sp-2) 0;font-size:var(--fs-sm);color:var(--muted)"><span class="spin dk"></span>&nbsp;Cargando parametros...</div>';
   var html = '';
   for (var i = 0; i < items.length; i++) {
     var item = items[i];
@@ -3745,7 +3745,7 @@ async function toggleEjecutar() {
         if (p.isComplex) {
           var lines = p.example ? Math.min(p.example.split('\\n').length, 12) : 3;
           var exVal = p.example ? p.example.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : (p.itemType ? (p.itemName ? '{\\n  "' + p.itemName + '": []\\n}' : '[]') : '{}');
-          html += '<textarea id="' + fid + '" rows="' + lines + '" data-example="' + exVal + '" style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:var(--fs-sm);font-family:Consolas,monospace;resize:vertical;outline:none">' + exVal + '</textarea>';
+          html += '<textarea id="' + fid + '" rows="' + lines + '" data-example="' + exVal + '" style="width:100%;padding:var(--sp-2) var(--sp-3);border:1.5px solid var(--border);border-radius:6px;font-size:var(--fs-sm);font-family:Consolas,monospace;resize:vertical;outline:none">' + exVal + '</textarea>';
         } else {
           html += '<input type="text" id="' + fid + '" placeholder="' + (p.type || 'Varchar') + '">';
         }
@@ -3757,7 +3757,7 @@ async function toggleEjecutar() {
         '<div class="param-card-bd" style="font-size:var(--fs-sm);color:var(--red)">Error: ' + ep.message + '</div></div>';
     }
   }
-  section.innerHTML = html || '<div style="padding:6px 0;font-size:var(--fs-sm);color:var(--muted)">No hay parametros de entrada para los servicios seleccionados.</div>';
+  section.innerHTML = html || '<div style="padding:var(--sp-2) 0;font-size:var(--fs-sm);color:var(--muted)">No hay parametros de entrada para los servicios seleccionados.</div>';
 }
 
 async function generateDocs() {
@@ -3863,7 +3863,7 @@ async function generateDocs() {
       });
     }
   } catch(e) {
-    log.innerHTML += '<div style="padding:10px 13px;font-size:var(--fs-sm);color:var(--red)">Error: ' + e.message + '</div>';
+    log.innerHTML += '<div style="padding:var(--sp-3) var(--sp-3);font-size:var(--fs-sm);color:var(--red)">Error: ' + e.message + '</div>';
   }
 
   btn.innerHTML = 'Generar documentacion';
@@ -4014,7 +4014,7 @@ function sgRenderServiceGroup(el, group, idx) {
   searchWrap.appendChild(searchInput); el.appendChild(searchWrap);
   var bd = document.createElement('div'); bd.className = 'sg-svc-group-bd';
   searchInput.addEventListener('input', function() { var q = this.value.toLowerCase(); bd.querySelectorAll('.sg-mtd-item').forEach(function(item) { var lbl = item.querySelector('.sg-chk-lbl'); item.style.display = (!q || lbl.textContent.toLowerCase().indexOf(q) !== -1) ? '' : 'none'; }); });
-  if (!group.methods.length) { var empty = document.createElement('div'); empty.style.cssText = 'padding:13px 16px;font-size:var(--fs-sm);color:var(--muted)'; empty.textContent = 'Sin métodos'; bd.appendChild(empty); }
+  if (!group.methods.length) { var empty = document.createElement('div'); empty.style.cssText = 'padding:var(--sp-3) var(--sp-4);font-size:var(--fs-sm);color:var(--muted)'; empty.textContent = 'Sin métodos'; bd.appendChild(empty); }
   else { group.methods.forEach(function(method) { bd.appendChild(sgBuildMethodCheckbox(group, idx, method)); }); }
   el.appendChild(bd);
 }

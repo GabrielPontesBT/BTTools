@@ -53,6 +53,10 @@ test('el chrome compacto del builder solo aplica con el panel del builder activo
 test('el panel de Ambiente conserva los margenes anchos del wizard', () => {
   const css = leer('styles.css');
   // La regla base: 8vw de aire a los costados en todo el wizard.
-  assert.match(css, /\.wiz-bd\{padding:28px 8vw/,
+  //
+  // Lo que importa es el 8vw horizontal, no el valor vertical: ese entro en la
+  // escala de espaciado (var(--sp-7)) con el pase de padding y va a seguir
+  // cambiando de nombre si la escala cambia. La expresion apunta al invariante.
+  assert.match(css, /\.wiz-bd\{padding:\S+ 8vw/,
                'es el margen de lectura de todos los pasos; si cambia, cambia a proposito');
 });
