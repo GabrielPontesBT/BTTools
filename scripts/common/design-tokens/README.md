@@ -82,6 +82,7 @@ Los dos estan cubiertos por tests:
 
 ## Lo que queda fuera, y por que
 
-- **Altura de control y radios.** El input del builder mide 44px y el del resto 40px (`--ctrl-h`); los radios son 12px contra 10.5px. Es el dominio del spec `control-height-unification`, no del de tokens. El builder tiene **5** alturas distintas (30/34/36/38/42px) que son variantes de tamano: colapsarlas a una sola rompe las compactas, y eso es una decision de diseno, no un reemplazo mecanico.
+- **Forma: radios, sombras, peso tipografico y altura de control.** Este pase mide `#hex`, y una sombra vive dentro de un `rgba()`, que no tiene hex: por eso el archivo podia quedar en "0 colores sueltos" y tener igual 49 sombras con base slate-900. Lo cubre el pase hermano [`design-shape/`](../design-shape/README.md), que es el que termino de hacer que la herramienta se vea de esta app.
+- **La escala compacta de alturas del builder** (30/34/36/38px en pantallas chicas) sigue intacta: son variantes de densidad buscadas, y colapsarlas a una sola es una decision de diseno, no un reemplazo mecanico. `design-shape` solo re-ancla el escalon que corre en un monitor normal.
 - **`public/styles.css` y `public/index.html` no quedan en cero.** Ya estaban migrados por su spec, con sus propias excepciones declaradas. Este cambio solo les **agrega** los 5 tokens al `:root`, sin tocar ningun valor existente.
 - **Los 40 JS de `public/collections/`** casi no generan estilos inline (1 color, 1 font-size, 1 espaciado en total), asi que no valia la pena incluirlos en el migrador.

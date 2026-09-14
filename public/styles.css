@@ -14,7 +14,13 @@
      la paleta slate de Tailwind (con tinte azul) en vez de los grises
      neutros del proyecto. El porque de cada uno esta en
      scripts/common/design-tokens/token-map.js */
-  --text-2:#47494a;--muted-l:#9fa1a2;--border-l:#e3e4e4;--surface:#fafafa;--red-d:#9e2423
+  --text-2:#47494a;--muted-l:#9fa1a2;--border-l:#e3e4e4;--surface:#fafafa;--red-d:#9e2423;
+  /* Segundo pase de unificacion del builder: FORMA (radio, elevacion, foco).
+     El pase de color dejo el archivo en 0 valores sueltos y la herramienta
+     seguia viendose de otra app, porque tenia 47 sombras con tinte slate y
+     19 radios distintos. El porque de cada token esta en
+     scripts/common/design-shape/shape-map.js */
+  --r-xs:6px;--r-ctrl:0.7em;--r-pill:20px;--shadow-sm:0 2px 8px rgba(18,20,24,.08);--shadow-md:0 8px 24px rgba(18,20,24,.10);--ring:0 0 0 3px var(--red-l)
 }
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);height:100vh;overflow:hidden;display:flex;align-items:stretch;justify-content:center;padding:0;color:var(--text)}
 .wizard{background:#fff;border-radius:0;box-shadow:none;width:100%;height:100vh;overflow:hidden;display:flex;flex-direction:column}
