@@ -151,7 +151,7 @@
       <div class="cres warn show" id="nodb-notice" style="display:none">
         <div class="cres-body">
           <span class="cres-title">Estás trabajando sin base de datos</span>
-          <span class="cres-text">Solo queda disponible «Generar Casos de Prueba» con fuente Swagger, que es la única que no necesita la base. Para habilitar el resto, conectate desde el ambiente, arriba a la derecha.</span>
+          <span class="cres-text">Solo queda disponible «Generar Casos de Prueba» sobre un ambiente V4, que es la única que no necesita la base: su catálogo sale del Swagger. Para habilitar el resto, conectate desde el ambiente, arriba a la derecha.</span>
         </div>
       </div>
       <div class="cards" style="grid-template-columns:repeat(3,1fr)">
@@ -188,25 +188,6 @@
         </div>
       </div>
 
-      <!-- Fuente de servicios de "Generar casos de prueba". Vive acá y no
-           dentro del panel de la herramienta porque de esta elección depende
-           si hace falta el paso de Conexión: con Swagger la herramienta no
-           toca la base en ningún momento (ver needsDbConnection en
-           wizard-doc.js). El select original quedó oculto dentro del panel,
-           es el que leen los managers del builder. -->
-      <div id="collection-source-section" style="display:none;margin-top:var(--sp-5)">
-        <div class="psub" style="margin-bottom:var(--sp-3)">¿De dónde saco los servicios?</div>
-        <div class="cards" style="grid-template-columns:repeat(2,1fr)">
-          <div class="ccard" id="collection-source-swagger" onclick="pick('collectionSource','swagger',this)">
-            <span class="ccard-title">Swagger</span>
-            <span class="ccard-desc">Lee el catálogo del documento OpenAPI del ambiente. No necesita conexión a la base de datos.</span>
-          </div>
-          <div class="ccard" id="collection-source-database" onclick="pick('collectionSource','database',this)">
-            <span class="ccard-title">Base de datos</span>
-            <span class="ccard-desc">Lee el catálogo de BTI014 (o BTCBS014 en API Interna). Necesita conexión a la base de datos.</span>
-          </div>
-        </div>
-      </div>
       <div id="apimode-section" style="display:none;margin-top:var(--sp-5)">
         <div class="psub" style="margin-bottom:var(--sp-3)">¿Con qué API vas a trabajar?</div>
         <div class="cards" style="grid-template-columns:repeat(2,1fr)">
@@ -236,6 +217,15 @@
       </div>
 
       <div id="api-creds-wrap" style="display:none">
+        <!-- Las tres URLs del ambiente viven juntas en un bloque movible. En
+             Documentar se muestran arriba de todo (su lugar de siempre); en
+             "Generar casos de prueba" show() las manda adentro del <details>
+             de detalles tecnicos (#a-urls-tech), porque ahi no se tipean: la
+             raiz de la API sale del propio Swagger (servers[0].url) y competian
+             visualmente con lo unico que si hay que completar a mano, que son
+             las credenciales. -->
+        <div id="a-urls-home">
+        <div id="a-urls-block">
         <div class="field" id="a-api-wrap">
           <label>URL de la API</label>
           <input type="text" id="a-api" placeholder="ej: http://10.0.0.7:5110/btv4core" oninput="onApiUrlInput()">
@@ -252,6 +242,8 @@
             <input type="text" id="a-auth" placeholder="">
             <div class="hint">Endpoint de login. Se completa automáticamente al ingresar la URL de la API.</div>
           </div>
+        </div>
+        </div>
         </div>
 
         <!-- Swagger del ambiente: de acá salen las rutas reales de cada
@@ -308,6 +300,83 @@
         </div>
         <div id="ares" class="cres" style="margin-bottom:0"></div>
         <button class="btn btn-outline" id="btn-test-api" onclick="testAuth()" style="margin-bottom:var(--sp-5);width:100%">Probar Autenticación</button>
+
+        <!-- Catalogo de servicios de "Generar casos de prueba". Vivia en su
+             propia pantalla (la etapa "setup" del panel, #collection-config en
+             panel.html), o sea: una pantalla para las credenciales y otra para
+             agregar los swaggers. Eran el mismo paso partido en dos, y encima
+             en el orden inverso al del dato -- del Swagger salen la raiz de la
+             API y la URL de login, que la pantalla anterior pedia a mano.
+             Ahora es un solo paso: credenciales, catalogo, y las URLs abajo en
+             detalles tecnicos. Los ids no cambiaron: son los que leen
+             CollectionEnvironmentManager y el bootstrap del builder. -->
+        <div id="collection-catalog-section" style="display:none;border-top:1px solid var(--border);padding-top:var(--sp-4)">
+          <div class="psub" style="margin-bottom:var(--sp-3)">¿De dónde saco los servicios?</div>
+
+          <!-- Solo para V3 (SOAP, sin documento OpenAPI): ahi el catalogo se
+               lee de BTCBS014/BTI014 y el formato real importa. Para V4 no hay
+               eleccion posible -- ver CollectionEnvironmentManager.syncFormatUi. -->
+          <div class="field" id="collection-format-field" style="margin-bottom:var(--sp-3); display:none">
+            <label>Formato</label>
+            <select id="collection-format-select" onchange="collectionUpdateFormat(this.value)">
+              <option value="xml">XML (SOAP)</option>
+              <option value="json">JSON (experimental)</option>
+            </select>
+          </div>
+
+          <!-- Un ambiente real puede tener un swagger por microservicio (cada
+               uno en su propio host/puerto) en vez de un unico gateway: se
+               agregan de a uno y quedan en una lista; ver
+               CollectionEnvironmentManager.addSwaggerUrl/renderSwaggerUrlList. -->
+          <div class="field" id="collection-swagger-field" style="margin-bottom:var(--sp-3)">
+            <label>Ruta Swagger</label>
+            <div class="collection-swagger-url-add">
+              <input type="text" id="collection-swagger-url" placeholder="ej: http://10.0.0.5:5101/api/swagger-ui/index.html#/" onkeydown="if(event.key==='Enter'){event.preventDefault();collectionAddSwaggerUrl();}">
+              <button class="btn btn-ghost" type="button" onclick="collectionAddSwaggerUrl()">+ Agregar swagger</button>
+            </div>
+            <div id="collection-swagger-url-list" class="collection-swagger-url-list"></div>
+            <div class="hint">De acá salen los servicios, las rutas reales de cada endpoint, la raíz de la API y la URL de login.</div>
+            <!-- Detecta Session.userLogin ("API interna") o Authenticate/Execute
+                 ("API publica") dentro de los swaggers cargados; ver
+                 findInternaAuthOperation en index.js. Destildar cuando la
+                 deteccion le pega mal a un ambiente puntual -- ahi la
+                 autenticacion se ajusta a mano en la collection generada. -->
+            <label class="collection-auto-auth-toggle">
+              <input type="checkbox" id="collection-auto-detect-auth" checked onchange="collectionUpdateAutoDetectAuth(this.checked)">
+              Detectar autenticacion automaticamente (Session.userLogin / Authenticate)
+            </label>
+          </div>
+
+          <!-- Solo V3 + "API interna": ese ambiente resuelve el catalogo contra
+               BTCBS014/019/026 pero ejecuta contra un gateway REST propio (sin
+               el prefijo "/public/", ej. ":5107/api/platform") que no se puede
+               inferir de ningun otro dato del wizard. -->
+          <div class="field" id="collection-interna-base-field" style="margin-bottom:var(--sp-3); display:none">
+            <label>URL de la API interna</label>
+            <input type="text" id="collection-interna-base-url" placeholder="ej: http://10.0.0.7:5107/api/platform" oninput="collectionUpdateInternaBaseUrl(this.value)">
+          </div>
+
+          <div class="collection-catalog-actions">
+            <button class="btn btn-primary" type="button" id="btn-collection-load-services">Cargar servicios</button>
+          </div>
+
+          <!-- Lo que el Swagger declaro, escrito como texto y no como campos a
+               completar: raiz de la API, URL de login y cuantas operaciones
+               entraron. Es la respuesta a "contra que ambiente estoy armando
+               esto" sin tener que abrir los detalles tecnicos. -->
+          <div id="collection-env-detected" class="collection-env-detected" style="display:none"></div>
+          <div id="collection-env-status" class="cres" style="margin-bottom:0"></div>
+
+          <details class="collection-tech-details" style="margin-top:var(--sp-3)">
+            <summary>Ver detalles tecnicos</summary>
+            <div class="collection-tech-content">
+              <!-- show() mueve #a-urls-block aca adentro cuando la herramienta
+                   es collections, y lo devuelve a #a-urls-home para Documentar. -->
+              <div id="a-urls-tech"></div>
+              <div id="collection-env-summary">Todavia no hay configuracion cargada desde el wizard.</div>
+            </div>
+          </details>
+        </div>
       </div>
 
       <div id="params-section" style="display:none;margin-bottom:var(--sp-4)"></div>

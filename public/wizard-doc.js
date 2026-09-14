@@ -1500,13 +1500,7 @@ function pick(key, val, el) {
     // anterior, para no arrastrar credenciales viejas.
     S.sdtEnv = null;
     toggleApiModeSection(APIMODE_ACTIONS.has(val));
-    toggleCollectionSourceSection(val === 'collections');
-  }
-  if (key === 'collectionSource') {
-    syncCollectionSourceToPanel(val);
-    // needsDbConnection() cambia con esto, y de ella dependen el rotulo del
-    // tercer paso y la posicion en el stepper: hay que redibujarlo.
-    dots(S.step);
+    applyCollectionSource();
   }
   refreshNextBtn();
 }
@@ -1558,6 +1552,10 @@ function pickVersion(version) {
   }
   syncVersionCards();
   syncEngineSection();
+  // La fuente del catalogo de collections se deriva de la version (V3 no
+  // tiene Swagger): cambiar de version puede cambiarla, y con ella si el paso
+  // de Conexion hace falta.
+  applyCollectionSource();
   toggleConnPlatformFields();
   // Elegir la version deja lista la conexion de esa version, igual que hace el
   // arranque: un click y ya se sabe contra que base se va a trabajar. Se
@@ -1671,37 +1669,62 @@ function toggleApiModeSection(show) {
 }
 
 /**
- * La fuente de servicios de "Generar casos de prueba" (Swagger o base de
- * datos) se elige aca, en el paso de Accion, y no dentro de la herramienta.
+ * De donde salen los servicios de "Generar casos de prueba".
  *
- * Vivia dentro del panel (el select #collection-source-select), pero ahi se
- * elegia DESPUES de la conexion, asi que el wizard no podia saber si la base
- * hacia falta y la exigia siempre. Con fuente Swagger no se usa en ningun
- * momento. Al subirla, needsDbConnection() puede decidir y saltear el paso.
+ * Dejo de ser una eleccion del usuario (eran dos tarjetas en el paso de
+ * Accion): la decide la version del ambiente, porque no hay tal eleccion.
+ * V4 es REST y publica su Swagger, que ademas trae las rutas reales en
+ * kebab-case, la raiz de la API y la operacion de login. V3 es SOAP y no
+ * tiene documento OpenAPI: su unico catalogo posible es BTI014/BTI019.
  *
- * El select original sigue existiendo, oculto: es lo que leen los managers
- * del builder (CollectionEnvironmentManager.syncSourceUi y compania). Se
- * mantiene sincronizado desde aca en vez de tocar esos 40 archivos.
+ * Elegirlo a mano solo habilitaba combinaciones rotas (V4 contra la base, o
+ * V3 contra un Swagger que no existe) y obligaba a un click mas en un paso
+ * donde no habia nada que decidir.
  */
-function toggleCollectionSourceSection(show) {
-  var sec = document.getElementById('collection-source-section');
-  if (!sec) return;
-  sec.style.display = show ? 'block' : 'none';
-  sec.querySelectorAll('.ccard').forEach(function(c) { c.classList.remove('sel'); });
-  S.collectionSource = null;
+function collectionSourceFor(version) {
+  return version === 'V3' ? 'database' : 'swagger';
 }
 
-// Baja la eleccion al select que leen los managers del builder.
+/**
+ * Fija la fuente derivada y la baja al panel del builder.
+ *
+ * De needsDbConnection() dependen el rotulo del tercer paso y la posicion en
+ * el stepper, asi que hay que redibujarlo despues de cambiarla.
+ */
+function applyCollectionSource() {
+  S.collectionSource = S.action === 'collections' ? collectionSourceFor(S.version) : null;
+  if (S.collectionSource) syncCollectionSourceToPanel(S.collectionSource);
+  dots(S.step);
+}
+
+// Baja la fuente derivada a los managers del builder, que son los que la leen
+// para decidir que endpoint de catalogo usar.
 function syncCollectionSourceToPanel(val) {
-  var sel = document.getElementById('collection-source-select');
-  if (sel) sel.value = val;
   if (typeof collectionUpdateServiceSource === 'function') {
     try { collectionUpdateServiceSource(val); } catch (e) {
-      // Los managers del builder pueden no estar listos si el usuario elige
-      // la fuente antes de que collections-entry.js termine de cargar. No es
-      // grave: show() llama collectionToggleConfig() al entrar al panel.
+      // Los managers del builder pueden no estar listos todavia si
+      // collections-entry.js no termino de cargar. No es grave: show() llama
+      // collectionToggleConfig() al entrar al panel.
     }
   }
+}
+
+/**
+ * Manda las tres URLs del ambiente (Core, API publica, autenticacion) adentro
+ * del <details> de detalles tecnicos, o las devuelve a su lugar de siempre.
+ *
+ * Se mueve el nodo en vez de duplicar el markup: son los mismos inputs que lee
+ * getApi(), y dos copias del mismo id serian dos fuentes de verdad. En
+ * collections esas URLs no se tipean (salen del Swagger) y competian con lo
+ * unico que si hay que completar, que son las credenciales; en Documentar
+ * siguen siendo campos de primera linea.
+ */
+function moverUrlsDelAmbiente(aDetallesTecnicos) {
+  var bloque = document.getElementById('a-urls-block');
+  var destino = document.getElementById(aDetallesTecnicos ? 'a-urls-tech' : 'a-urls-home');
+  if (!bloque || !destino || bloque.parentElement === destino) return;
+  if (typeof destino.appendChild !== 'function') return;
+  destino.appendChild(bloque);
 }
 
 function sectionVisible(id) {
@@ -1729,13 +1752,10 @@ function versionReady() {
 function actionReady() {
   if (!S.action) return false;
   if (sectionVisible('apimode-section') && !S.apiMode) return false;
-  // Collections necesita saber la fuente ya en el paso de Accion: de eso
-  // depende si despues se pide la conexion a la base (ver needsDbConnection).
-  if (S.action === 'collections' && !S.collectionSource) return false;
   // Red de seguridad del modo sin base. Las tarjetas bloqueadas ya tienen
   // pointer-events:none, asi que esto no deberia poder pasar por la UI; esta
-  // para que un estado arrastrado (la fuente "Base de datos" ya elegida de
-  // una vuelta anterior) no deje avanzar a un camino que va a fallar.
+  // para que un estado arrastrado no deje avanzar a un camino que va a fallar
+  // (en modo sin base, collections solo sirve con un ambiente V4).
   if (S.noDb && !actionCanWorkWithoutDb(S.action, S.collectionSource)) return false;
   return true;
 }
@@ -1752,7 +1772,8 @@ function actionReady() {
  * Con fuente "Base de datos" si hace falta: el catalogo se lee de BTI014
  * (o BTCBS014 en API interna) y queryMethodSchema es lo que da la forma de
  * cada request para poder armar el body. Swagger ya trae esa forma; la base
- * es como se consigue cuando no hay Swagger.
+ * es como se consigue cuando no hay Swagger, que es exactamente el caso de
+ * V3 (SOAP, sin documento OpenAPI) -- ver collectionSourceFor.
  *
  * El resto de las herramientas (doc, scripts, validate, sdtgen, paramgen)
  * leen metadata de la base siempre.
@@ -1773,10 +1794,17 @@ function needsDbConnection() {
   return !actionCanWorkWithoutDb(S.action, S.collectionSource);
 }
 
-/** Las herramientas que el modo "sin base" deja usar. */
+/**
+ * Las herramientas que el modo "sin base" deja usar, para el ambiente actual.
+ *
+ * La fuente ya no se elige: sale de la version (collectionSourceFor). Con un
+ * ambiente V3, collections lee la base y por lo tanto tampoco esta disponible
+ * en este modo.
+ */
 function actionsAvailableWithoutDb() {
+  var fuente = collectionSourceFor(S.version);
   return ['doc', 'scripts', 'validate', 'collections', 'sdtgen', 'paramgen']
-    .filter(function (a) { return actionCanWorkWithoutDb(a, 'swagger'); });
+    .filter(function (a) { return actionCanWorkWithoutDb(a, fuente); });
 }
 
 /**
@@ -2074,6 +2102,21 @@ function show(step) {
       }
       var creds = document.getElementById('api-creds-wrap');
       if (creds) creds.style.display = isCollections ? 'block' : creds.style.display;
+
+      // El catalogo (ruta Swagger + "Cargar servicios") vivia en una segunda
+      // pantalla dentro del panel del builder. Son el mismo paso: para armar
+      // los casos de uso hacen falta las credenciales Y los servicios, y el
+      // orden natural es al reves del que habia -- del Swagger salen la raiz
+      // de la API y la URL de login que este panel pedia a mano.
+      var catalogo = document.getElementById('collection-catalog-section');
+      if (catalogo) catalogo.style.display = isCollections ? 'block' : 'none';
+      moverUrlsDelAmbiente(isCollections);
+      if (isCollections && typeof collectionRefreshContext === 'function') {
+        try { collectionRefreshContext(); } catch (e) {
+          // El builder puede no haber terminado de montarse; el refresco se
+          // repite al entrar al panel (collectionToggleConfig en el paso 5).
+        }
+      }
       // Se deja tildado por coherencia con el resto del codigo que lo lee
       // como "hay que usar la API", aunque en collections no se muestre.
       var cbEjecutar = document.getElementById('cb-ejecutar');
@@ -2105,7 +2148,8 @@ function show(step) {
     if (cbEj5 && cbEj5.checked && docParamsSig !== docItemsSig()) toggleEjecutar();
   }
   if (step === 5 && S.action === 'collections') {
-    if (typeof collectionRefreshContext === 'function') collectionRefreshContext();
+    // El contexto del ambiente ya se refresco al entrar al paso 4, que es
+    // donde vive esa pantalla: aca solo queda pintar el builder.
     if (typeof collectionToggleConfig === 'function') collectionToggleConfig();
   }
   if (step === 4 && S.action === 'scripts' && !sgServicesLoaded) sgLoadServices();
@@ -2152,6 +2196,12 @@ function foot(step) {
       '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' + (listo ? '' : ' disabled') + '>Siguiente &#8594;</button>';
   } else if (step === 4 && S.action === 'validate') {
     ftr.innerHTML = '';
+  } else if (step === 4 && S.action === 'collections') {
+    // Avanzar al builder sin servicios cargados llevaba a un canvas vacio sin
+    // decir por que: el catalogo se carga en ESTE paso, con "Cargar servicios".
+    ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()"' +
+      (collectionsCatalogReady() ? '' : ' disabled title="Cargá primero los servicios del ambiente."') +
+      '>Siguiente &#8594;</button>';
   } else if (step === 5 && S.action === 'collections') {
     ftr.innerHTML = '';
   } else if (step === 4 && S.action === 'scripts') {
@@ -2182,6 +2232,26 @@ function foot(step) {
   }
 }
 
+/**
+ * Si el catalogo de servicios ya quedo cargado en el paso de Ambiente.
+ *
+ * Lee el estado del builder (collectionState) y no una copia propia: es el
+ * mismo objeto que llenan loadServicesFromSwagger/FromDatabase, asi que no
+ * puede quedar desfasado.
+ */
+function collectionsCatalogReady() {
+  var estado = typeof collectionState !== 'undefined' ? collectionState : null;
+  return !!(estado && Array.isArray(estado.services) && estado.services.length);
+}
+
+/**
+ * Lo llama el builder al terminar de cargar servicios, para que el boton
+ * Siguiente del paso de Ambiente se habilite sin esperar a otro evento.
+ */
+function refreshCollectionsNextBtn() {
+  if (S.step === 4 && S.action === 'collections') foot(4);
+}
+
 async function goNext() {
   if (sdtEnvCaptureActive) { sdtEnvCaptureNext(); return; }
   var s = S.step;
@@ -2205,7 +2275,11 @@ async function goNext() {
     show(4);
     return;
   }
-  if (s === 4 && S.action === 'collections') { show(5); return; }
+  if (s === 4 && S.action === 'collections') {
+    if (!collectionsCatalogReady()) return;
+    show(5);
+    return;
+  }
   if (s === 4 && S.action === 'scripts') {
     var grps = sgServiceGroups.filter(function(g) { return g.selected.size > 0; });
     if (!grps.length) { alert('Seleccioná al menos un método.'); return; }
@@ -2724,8 +2798,13 @@ async function initWizard() {
 
   // Se eligio trabajar sin base en esta sesion: un F5 no puede devolver al
   // paso de Ambiente que se salteo a proposito.
-  if (loadNoDbFromSession()) {
+  var sinBase = loadNoDbFromSession();
+  if (sinBase) {
     S.noDb = true;
+    S.version = sinBase.version || null;
+    S.platform = sinBase.platform || null;
+    S.engine = sinBase.engine || null;
+    syncVersionCards();
     renderEnvChip();
     show(PASO_ACCION);
     return;
@@ -2802,7 +2881,17 @@ function continueWithoutDb() {
   S.activeEnv = null;
   S.sdtEnv = null;
   _connOk = false;
-  try { sessionStorage.setItem(NO_DB_STORAGE_KEY, '1'); } catch (e) {}
+  // Con la version y el motor, no solo el flag: aunque no haya base, la
+  // version sigue definiendo todo lo demas (de ella salen el rotulo de las
+  // URLs, la plataforma que pide el catalogo y, desde que dejo de elegirse a
+  // mano, la fuente de servicios de collections -- ver collectionSourceFor).
+  // Guardando solo '1', un F5 volvia al paso de Accion con version null y
+  // "Cargar servicios" fallaba con "Completa primero la plataforma".
+  try {
+    sessionStorage.setItem(NO_DB_STORAGE_KEY, JSON.stringify({
+      noDb: true, version: S.version, platform: S.platform, engine: S.engine
+    }));
+  } catch (e) {}
   try { sessionStorage.removeItem(ACTIVE_ENV_STORAGE_KEY); } catch (e) {}
   renderEnvChip();
   show(PASO_ACCION);
@@ -2814,8 +2903,22 @@ function exitNoDbMode() {
   try { sessionStorage.removeItem(NO_DB_STORAGE_KEY); } catch (e) {}
 }
 
+/**
+ * El modo sin base guardado en la sesion, o null si no esta activo.
+ *
+ * Acepta el formato viejo ('1', sin version) para no romper una sesion que
+ * quedo abierta de una version anterior de la app: ahi devuelve el modo sin
+ * version, que es exactamente lo que habia.
+ */
 function loadNoDbFromSession() {
-  try { return sessionStorage.getItem(NO_DB_STORAGE_KEY) === '1'; } catch (e) { return false; }
+  var crudo;
+  try { crudo = sessionStorage.getItem(NO_DB_STORAGE_KEY); } catch (e) { return null; }
+  if (!crudo) return null;
+  if (crudo === '1') return { noDb: true };
+  try {
+    var datos = JSON.parse(crudo);
+    return datos && datos.noDb ? datos : null;
+  } catch (e) { return null; }
 }
 
 /**
@@ -2838,15 +2941,6 @@ function applyNoDbRestrictions() {
     if (bloqueada) card.title = 'Necesita conexión a la base de datos. Conectate desde el ambiente, arriba a la derecha.';
     else card.removeAttribute('title');
   });
-
-  // La fuente "Base de datos" de collections tampoco se puede en este modo:
-  // es justo lo que hace que la herramienta necesite la conexion.
-  var fuenteDb = document.getElementById('collection-source-database');
-  if (fuenteDb) {
-    fuenteDb.classList.toggle('ccard-disabled', !!S.noDb);
-    if (S.noDb) fuenteDb.title = 'Necesita conexión a la base de datos.';
-    else fuenteDb.removeAttribute('title');
-  }
 }
 
 /**

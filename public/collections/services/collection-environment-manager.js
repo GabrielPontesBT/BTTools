@@ -3,7 +3,12 @@
 
   /**
    * Centraliza la lectura del ambiente actual, la prueba de credenciales
-   * y la carga de servicios desde Swagger o Base de datos.
+   * y la carga del catalogo de servicios.
+   *
+   * El origen del catalogo ya no lo elige el usuario: lo define la version del
+   * ambiente. V4 lee el Swagger (ahi estan las rutas reales, la raiz de la API
+   * y el login); V3 es SOAP y no publica documento OpenAPI, asi que su unico
+   * camino es BTI014/BTI019. Ver collectionSourceFor() en wizard-doc.js.
    */
   class CollectionEnvironmentManager {
     /**
@@ -31,7 +36,6 @@
       var swaggerField = document.getElementById('collection-swagger-field');
       var internaBaseField = document.getElementById('collection-interna-base-field');
       var loadButton = document.getElementById('btn-collection-load-services');
-      var sourceSelect = document.getElementById('collection-source-select');
 
       if (swaggerField) swaggerField.style.display = source === 'swagger' ? 'block' : 'none';
       if (source === 'swagger') this.renderSwaggerUrlList();
@@ -42,7 +46,6 @@
       // documento (ver resolveSwaggerServerUrl en index.js).
       if (internaBaseField) internaBaseField.style.display = (source === 'database' && wizardState.apiMode === 'interna') ? 'block' : 'none';
       if (loadButton) loadButton.textContent = 'Cargar servicios';
-      if (sourceSelect) sourceSelect.value = source;
 
       this.syncFormatUi();
     }
@@ -72,8 +75,8 @@
       // "XML (SOAP)" con origen Swagger hacia que la ejecucion tomara la rama
       // SOAP de executeCollectionFlow contra operaciones que en realidad son
       // REST, rompiendo todo con errores como "Token is blank").
-      var isV4Interna = wizardState.version === 'V4' && wizardState.apiMode === 'interna' && this.getSelectedSource() === 'database';
-      var showFormatChoice = isV3 || isV4Interna;
+      var isInternaDesdeBase = wizardState.apiMode === 'interna' && this.getSelectedSource() === 'database';
+      var showFormatChoice = isV3 || isInternaDesdeBase;
       var formatField = document.getElementById('collection-format-field');
       var formatSelect = document.getElementById('collection-format-select');
 
@@ -145,6 +148,7 @@
         if (guessedSwaggerUrl) state.swaggerUrls.push(guessedSwaggerUrl);
       }
       this.renderSwaggerUrlList();
+      this.renderDetected();
 
       this.syncSourceUi();
 
@@ -155,6 +159,51 @@
         ' | API publica: ' + ((api.BASE_URL || '').trim() || 'sin BASE_URL') +
         ' | Core: ' + ((api.API_BASE_URL || '').trim() || 'sin API_BASE_URL') +
         ' | Auth: ' + authLabel;
+    }
+
+    /**
+     * Escribe, en el paso de Ambiente, lo que el catalogo dejo resuelto: raiz
+     * de la API, URL de login y cuantas operaciones entraron.
+     *
+     * Existe porque esos tres datos SALEN del Swagger (servers[0].url y la
+     * operacion de autenticacion) pero la pantalla anterior los pedia tipeados
+     * a mano en dos campos de URL casi identicos. Mostrarlos como texto, ya
+     * resueltos, es la unica forma de que el usuario sepa contra que ambiente
+     * quedo armada la collection sin abrir los detalles tecnicos.
+     */
+    renderDetected() {
+      var box = document.getElementById('collection-env-detected');
+      if (!box) return;
+
+      var state = this.options.getState();
+      var services = Array.isArray(state.services) ? state.services : [];
+      if (!services.length) {
+        box.style.display = 'none';
+        box.innerHTML = '';
+        return;
+      }
+
+      var escapeHtml = this.options.escapeHtml || function (text) { return String(text == null ? '' : text); };
+      var operaciones = 0;
+      Object.keys(state.serviceOperations || {}).forEach(function (service) {
+        var lista = state.serviceOperations[service];
+        operaciones += Array.isArray(lista) ? lista.length : 0;
+      });
+
+      var filas = [
+        ['Servicios', services.length + ' servicios, ' + operaciones + ' operaciones'],
+        ['API', String(state.swaggerBaseUrl || '').trim() || 'sin resolver'],
+        ['Login', String(state.swaggerAuthUrl || '').trim() || 'no detectado']
+      ];
+      if (state.swaggerResolvedUrl) filas.push(['Swagger', state.swaggerResolvedUrl]);
+
+      box.style.display = 'block';
+      box.innerHTML = filas.map(function (fila) {
+        return '<div class="collection-env-detected-row">' +
+          '<span class="collection-env-detected-label">' + escapeHtml(fila[0]) + '</span>' +
+          '<span class="collection-env-detected-value">' + escapeHtml(fila[1]) + '</span>' +
+          '</div>';
+      }).join('');
     }
 
     /**
@@ -306,11 +355,11 @@
 
       if (!this.options.isPathSupported()) {
         this.options.showStatus('err', 'Por ahora solo esta disponible el destino Postman (formato JSON o XML).');
-        return;
+        return false;
       }
       if (!wizardState.platform) {
         this.options.showStatus('err', 'Completa primero la plataforma en el wizard principal.');
-        return;
+        return false;
       }
 
       if (this.getSelectedSource() === 'database') {
@@ -334,7 +383,7 @@
         .filter(Boolean);
       if (!swaggerUrls.length) {
         this.options.showStatus('err', 'Agrega al menos una ruta Swagger del ambiente.');
-        return;
+        return false;
       }
 
       this.options.showStatus('ok', swaggerUrls.length > 1
@@ -414,9 +463,12 @@
         this.options.filterServices();
         this.options.renderVariableEditor();
         this.options.setStudioStage('builder');
-        if (state.authContext) this.options.showStatus('ok', 'Entrando al builder...' + failedNote, 'Servicios cargados correctamente');
+        this.renderDetected();
+        if (state.authContext) this.options.showStatus('ok', 'Servicios cargados. Toca Siguiente para armar los casos de uso.' + failedNote, 'Servicios cargados correctamente');
+        return true;
       } catch (error) {
         this.options.showStatus('err', error.message || 'No se pudieron cargar los servicios.');
+        return false;
       }
     }
 
@@ -427,7 +479,7 @@
       var isInterna = wizardState.apiMode === 'interna';
       if (isInterna && !String(state.internaBaseUrl || '').trim()) {
         this.options.showStatus('err', 'Completa primero la URL de la API interna (el gateway REST de este ambiente, distinto del de API publica).');
-        return;
+        return false;
       }
 
       this.options.showStatus('ok', 'Cargando servicios desde Base de datos...');
@@ -495,9 +547,12 @@
         this.options.filterServices();
         this.options.renderVariableEditor();
         this.options.setStudioStage('builder');
-        this.options.showStatus('ok', (databaseData.warning || 'Servicios cargados desde Base de datos.') + ' Entrando al builder...', 'Servicios cargados');
+        this.renderDetected();
+        this.options.showStatus('ok', (databaseData.warning || 'Servicios cargados desde Base de datos.') + ' Toca Siguiente para armar los casos de uso.', 'Servicios cargados');
+        return true;
       } catch (error) {
         this.options.showStatus('err', error.message || 'No se pudieron cargar los servicios desde Base de datos.');
+        return false;
       }
     }
   }

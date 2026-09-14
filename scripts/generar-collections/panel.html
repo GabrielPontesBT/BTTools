@@ -6,9 +6,10 @@
 
         <div id="collection-path-note" class="collection-path" style="display:none"></div>
 
-        <!-- Vive fuera de collection-config/collection-services a proposito: ambos
-             bloques se ocultan segun el stage (setup/builder), pero el feedback
-             debe verse en cualquiera de los dos (ver collection-feedback-manager.js).
+        <!-- Vive fuera de collection-services a proposito: ese bloque se oculta
+             segun el stage, pero el feedback debe verse igual. El feedback del
+             paso de Ambiente va a su propio bloque (#collection-env-status en
+             index.html) -- ver collection-feedback-manager.js.
 
              Usa .cres, el bloque inline de aviso del resto de las herramientas
              (styles.css), en vez de las tarjetas flotantes que tenia antes:
@@ -17,78 +18,10 @@
              lista varias rutas probadas era imposible de leer. -->
         <div id="collection-status" class="cres" aria-live="polite" aria-atomic="true"></div>
 
-        <div id="collection-config" class="collection-block" style="display:none">
-          <div class="collection-setup-head">
-            <h3>Cargar servicios</h3>
-            <button type="button" class="btn btn-ghost" onclick="goBack()">&#8592; Volver</button>
-          </div>
-          <div class="collection-catalog-grid">
-          <!-- La fuente ya se eligio en el paso de Accion del wizard
-               (#collection-source-section en index.html): de ella depende si
-               se pide la conexion a la base, asi que tiene que decidirse
-               antes. Este select queda oculto porque es el que leen los
-               managers del builder (CollectionEnvironmentManager.syncSourceUi
-               y compania); wizard-doc.js lo mantiene sincronizado via
-               syncCollectionSourceToPanel. Ofrecer la eleccion en los dos
-               lados seria justamente la inconsistencia que se saco. -->
-          <div class="field" style="display:none">
-            <label>Fuente</label>
-            <select id="collection-source-select" onchange="collectionUpdateServiceSource(this.value)">
-              <option value="swagger" selected>Swagger</option>
-              <option value="database">Base de datos</option>
-            </select>
-          </div>
-          <!-- Solo visible para V3 (V4 siempre usa JSON): ver
-               CollectionEnvironmentManager.syncSourceUi(), que la muestra/oculta
-               y fija el valor inicial segun la version activa del wizard. -->
-          <div class="field" id="collection-format-field" style="margin-bottom:var(--sp-3); display:none">
-            <label>Formato</label>
-            <select id="collection-format-select" onchange="collectionUpdateFormat(this.value)">
-              <option value="xml">XML (SOAP)</option>
-              <option value="json">JSON (experimental)</option>
-            </select>
-          </div>
-          <!-- Un ambiente real puede tener un swagger por microservicio (cada
-               uno en su propio host/puerto) en vez de un unico gateway -- se
-               agregan de a uno con el boton y quedan en una lista; ver
-               CollectionEnvironmentManager.addSwaggerUrl/renderSwaggerUrlList. -->
-          <div class="field" id="collection-swagger-field" style="margin-bottom:var(--sp-3)">
-            <label>Ruta Swagger</label>
-            <div class="collection-swagger-url-add">
-              <input type="text" id="collection-swagger-url" placeholder="ej: http://10.0.0.5:5101/api/swagger-ui/index.html#/" onkeydown="if(event.key==='Enter'){event.preventDefault();collectionAddSwaggerUrl();}">
-              <button class="btn btn-ghost" type="button" onclick="collectionAddSwaggerUrl()">+ Agregar swagger</button>
-            </div>
-            <div id="collection-swagger-url-list" class="collection-swagger-url-list"></div>
-            <!-- Detecta Session.userLogin ("API interna") o Authenticate/Execute
-                 ("API publica") dentro de los swaggers cargados; ver
-                 findInternaAuthOperation en index.js. Destildar cuando la
-                 deteccion le pega mal a un ambiente puntual -- ahi la
-                 autenticacion se ajusta a mano en la collection generada. -->
-            <label class="collection-auto-auth-toggle">
-              <input type="checkbox" id="collection-auto-detect-auth" checked onchange="collectionUpdateAutoDetectAuth(this.checked)">
-              Detectar autenticacion automaticamente (Session.userLogin / Authenticate)
-            </label>
-          </div>
-          <!-- Solo para Base de datos + API interna: ese ambiente resuelve el
-               catalogo contra BTCBS014/019/026, pero ejecuta contra un gateway
-               REST propio (sin el prefijo "/public/" de la API publica, ej.
-               ":5107/api/platform" en vez de ":5101/api/publicapi") que no se
-               puede inferir de ningun otro dato del wizard. Ver
-               CollectionEnvironmentManager.syncSourceUi()/loadServicesFromDatabase(). -->
-          <div class="field" id="collection-interna-base-field" style="margin-bottom:var(--sp-3); display:none">
-            <label>URL de la API interna</label>
-            <input type="text" id="collection-interna-base-url" placeholder="ej: http://10.0.0.7:5107/api/platform" oninput="collectionUpdateInternaBaseUrl(this.value)">
-          </div>
-          <div class="collection-catalog-actions">
-            <button class="btn btn-primary" type="button" id="btn-collection-load-services">Cargar servicios</button>
-          </div>
-          </div>
-          <details class="collection-tech-details">
-            <summary>Ver detalles tecnicos</summary>
-            <div id="collection-env-summary" class="collection-tech-content">Todavia no hay configuracion cargada desde el wizard.</div>
-          </details>
-        </div>
-
+        <!-- El paso de configuracion (credenciales + ruta Swagger + "Cargar
+             servicios") vive ahora en el panel de Ambiente del wizard
+             (#collection-catalog-section en index.html), no aca: eran dos
+             pantallas para un solo paso. Este panel es solo el builder. -->
         <div id="collection-services" class="collection-block" style="display:none">
           <div class="collection-builder-v2">
             <div class="collection-builder-top">

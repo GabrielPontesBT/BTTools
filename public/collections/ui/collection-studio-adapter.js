@@ -44,14 +44,6 @@
       shell.insertBefore(top, shell.firstChild);
     }
 
-    var config = document.getElementById('collection-config');
-    if (config) {
-      config.classList.remove('collection-block');
-      config.classList.add('collection-studio-config');
-      var summary = document.getElementById('collection-env-summary');
-      if (summary) summary.className = 'collection-tech-content';
-    }
-
     var services = document.getElementById('collection-services');
     if (services) {
       services.classList.remove('collection-block');
@@ -68,12 +60,10 @@
    */
   global.collectionToggleConfig = function collectionToggleConfigAdapter() {
     var note = document.getElementById('collection-path-note');
-    var config = document.getElementById('collection-config');
     var services = document.getElementById('collection-services');
-    if (!note || !config || !services) return;
+    if (!note || !services) return;
     note.style.display = 'none';
     if (!global.collectionPathSupported()) {
-      config.style.display = 'none';
       services.style.display = 'none';
       return;
     }
@@ -130,11 +120,11 @@
     global.collectionGetStudioManager().pickToolbarChoice(kind, value, el);
   };
 
-  // Vuelve del canvas a la pantalla de Fuente/Ruta Swagger sin tocar nada del
-  // escenario ya armado (servicios, casos de uso, mappings): solo cambia que
-  // bloque de collection-config/collection-services esta visible (ver
-  // CollectionStudioManager.renderStage()).
+  // Vuelve del canvas a la pantalla donde se configura el ambiente y se carga
+  // el catalogo. Esa pantalla dejo de ser una etapa interna del panel y es el
+  // paso de Ambiente del wizard, asi que volver es retroceder un paso: lo
+  // armado (servicios, casos de uso, mappings) no se toca, igual que antes.
   global.collectionBackToSetup = function collectionBackToSetupAdapter() {
-    global.collectionGetStudioManager().setStage('setup');
+    if (typeof global.goBack === 'function') global.goBack();
   };
 })(window);

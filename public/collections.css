@@ -68,7 +68,6 @@
 .collection-mode-btn:hover{border-color:var(--red);color:var(--red);box-shadow:none}
 .collection-mode-btn.sel{background:var(--red);border-color:var(--red);color:#fff;box-shadow:none}
 .collection-mode-btn-soon{opacity:.55}
-.collection-studio-config{border:1px solid var(--border-l);border-radius:22px;background:#fff;box-shadow:0 18px 34px rgba(15,23,42,.06);padding:18px 20px;margin-bottom:var(--sp-4)}
 .collection-studio-config-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--sp-5);align-items:end}
 .collection-studio-config-main label{display:block;font-size:var(--fs-sm);font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text);margin-bottom:var(--sp-2)}
 .collection-studio-config-main input{width:100%;height:48px;padding:0 15px;border:1px solid var(--border-l);border-radius:14px;background:#fff;font-size:var(--fs-md);color:var(--text);outline:none}
@@ -718,7 +717,7 @@
   .collection-builder-inspector{grid-column:1 / -1}
 }
 @media (max-width:980px){
-  .collection-studio-top,.collection-studio-config-row{grid-template-columns:1fr;display:grid}
+  .collection-studio-top{grid-template-columns:1fr;display:grid}
   .collection-builder-top{grid-template-columns:1fr;display:grid}
   .collection-builder-shell{grid-template-columns:1fr}
 }
@@ -852,7 +851,6 @@
 .collection-studio-top-simple{padding:0 0 18px}
 .collection-studio-top-simple .collection-studio-title{font-size:clamp(30px,2.1vw,38px)}
 .collection-studio-top-simple .collection-studio-subtitle{max-width:780px}
-.collection-catalog-lead{margin:0 0 12px;font-size:var(--fs-md);color:var(--muted)}
 .collection-swagger-url-add{display:flex;gap:var(--sp-2);align-items:center}
 .collection-swagger-url-add input{flex:1}
 .collection-swagger-url-list{margin-top:var(--sp-2);display:flex;flex-direction:column;gap:var(--sp-2)}
@@ -863,37 +861,14 @@
 .collection-swagger-url-remove:hover{text-decoration:underline}
 .collection-auto-auth-toggle{display:flex;align-items:center;gap:var(--sp-2);margin-top:var(--sp-3);font-size:var(--fs-sm);color:var(--text-2);cursor:pointer}
 .collection-auto-auth-toggle input{margin:0;width:16px;height:16px;flex:none}
-/* La grilla del catalogo (.collection-catalog-grid label/input, redeclarada
-   mas abajo con la misma especificidad) le gana a las dos reglas de arriba
-   por orden de aparicion -- se prefija con el id del contenedor para ganar
-   por especificidad en vez de depender del orden. */
 #collection-swagger-field .collection-auto-auth-toggle{display:flex;margin-bottom:0}
 #collection-swagger-field .collection-auto-auth-toggle input{width:16px;height:16px;flex:none}
-/* "Ruta Swagger" crece con la lista de URLs + el check de autenticacion --
-   ocupa la fila entera del grid en vez de compartir alto con Fuente/Formato
-   (que con align-items:end quedaban empujados hacia abajo por esta misma
-   columna cuando eran mas cortos). */
-#collection-swagger-field{grid-column:1 / -1;align-self:start}
-.collection-catalog-grid{display:grid;grid-template-columns:minmax(220px,260px) minmax(280px,1fr) auto;gap:var(--sp-4);align-items:end}
 .collection-catalog-actions{display:flex;justify-content:flex-end;align-items:end}
 .collection-catalog-actions .btn{min-width:180px}
 .collection-tech-details{margin-top:var(--sp-4);border:1px solid var(--border-l);border-radius:16px;background:var(--surface);overflow:hidden}
 .collection-tech-details summary{cursor:pointer;list-style:none;padding:14px 16px;font-size:var(--fs-sm);font-weight:800;color:var(--text-2)}
 .collection-tech-details summary::-webkit-details-marker{display:none}
 .collection-tech-content{padding:0 16px 16px;font-size:var(--fs-sm);color:var(--muted);line-height:1.6;word-break:break-word}
-.collection-studio-config{width:min(100%,1120px);padding:16px 18px;margin:0 auto 14px;border-radius:20px;box-shadow:0 10px 24px rgba(15,23,42,.05)}
-.collection-studio-config > h3{font-size:var(--fs-md);font-weight:800;color:var(--text);margin:0 0 10px}
-.collection-studio-stage-setup .collection-studio-top-simple{padding:0 0 10px}
-.collection-studio-stage-setup .collection-studio-brand{gap:var(--sp-3)}
-.collection-studio-stage-setup .collection-studio-mark{width:30px;height:30px;border-radius:10px;font-size:var(--fs-base)}
-.collection-studio-stage-setup .collection-studio-title{font-size:clamp(16px,1vw,18px);line-height:1.2}
-.collection-studio-stage-setup .collection-studio-config > h3{display:none}
-.collection-studio-stage-setup .collection-builder-actions,.collection-studio-stage-setup .collection-stagebar{display:none}
-.collection-catalog-grid{display:grid;grid-template-columns:minmax(180px,.72fr) minmax(360px,2.2fr) max-content;gap:var(--sp-3);align-items:end}
-.collection-catalog-grid .field{margin-bottom:0 !important}
-.collection-catalog-grid label{display:block;font-size:var(--fs-sm);font-weight:700;color:var(--text);margin-bottom:var(--sp-2)}
-.collection-catalog-grid input,.collection-catalog-grid select{width:100%;height:44px;padding:0 14px;border:1px solid var(--border-l);border-radius:12px;background:#fff;font-size:var(--fs-md);color:var(--text);outline:none}
-.collection-catalog-grid input:focus,.collection-catalog-grid select:focus{border-color:var(--red);box-shadow:0 0 0 3px rgba(215,43,43,.08)}
 .collection-builder-top h3{font-size:var(--fs-2xl);font-weight:800;color:var(--text)}
 .collection-builder-top .collection-inline-note{font-size:var(--fs-md);max-width:720px}
 /* Acento violeta reservado para la unica accion asistida por IA de la barra
@@ -1072,12 +1047,10 @@
     --builder-drawer-field-gap:var(--sp-3);
     --builder-drawer-card-gap:var(--sp-2);
   }
-   .collection-catalog-grid{grid-template-columns:minmax(170px,.75fr) minmax(300px,2fr) max-content}
 }
 @media (max-width: 1280px){
   .collection-builder-service-drawer{width:min(380px,calc(100% - 28px))}
   .collection-builder-inspector-drawer{width:min(400px,calc(100% - 28px))}
-  .collection-catalog-grid{grid-template-columns:minmax(160px,.78fr) minmax(260px,2fr) max-content}
 }
 
 /* Notebooks de 14"-15" en 1080p suelen tener escalado de Windows (125%-150%) activo,
@@ -1555,3 +1528,11 @@
     zoom: 0.9;
   }
 }
+
+/* Lo que el Swagger declaro (raiz de la API, login, cuantas operaciones),
+   mostrado como texto en el paso de Ambiente. No son campos: el usuario no
+   los escribe, salen del documento -- ver renderDetected(). */
+.collection-env-detected{margin-top:var(--sp-3);padding:12px 14px;border:1px solid var(--border-l);border-radius:12px;background:var(--surface);font-size:var(--fs-sm);line-height:1.6}
+.collection-env-detected-row{display:flex;gap:var(--sp-3);align-items:baseline}
+.collection-env-detected-label{flex:none;min-width:72px;font-weight:700;color:var(--text-2)}
+.collection-env-detected-value{color:var(--muted);word-break:break-all}

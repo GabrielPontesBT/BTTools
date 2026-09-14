@@ -43,7 +43,7 @@
     autoDetectAuth: true,
     collectionName: 'Bantotal JSON Collection',
     authContext: null,
-    studioStage: 'setup',
+    studioStage: 'define',
     scenarios: [],
     activeScenarioId: null,
     contextKey: null,

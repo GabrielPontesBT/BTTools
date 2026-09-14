@@ -80,6 +80,9 @@ function stubEl() {
     // applyNoDbRestrictions marca/desmarca el motivo con title.
     setAttribute: function(k, v) { this[k] = v; },
     removeAttribute: function(k) { delete this[k]; },
+    // moverUrlsDelAmbiente reubica el bloque de URLs entre dos contenedores.
+    parentElement: null,
+    appendChild: function(hijo) { hijo.parentElement = this; return hijo; },
   };
   el.classList = stubClassList(el);
   return el;
@@ -826,7 +829,7 @@ test('needsDbConnection: solo collections con Swagger puede prescindir de la bas
   });
 });
 
-test('actionReady exige la fuente cuando la herramienta es collections', () => {
+test('actionReady ya no pide la fuente: se deriva de la version', () => {
   const w = wizardConDom();
   // sectionVisible devuelve false con el stub (style.display no es 'none'
   // pero tampoco esta seteado)... se fuerza el caso puntual.
@@ -835,16 +838,171 @@ test('actionReady exige la fuente cuando la herramienta es collections', () => {
     return stubEl();
   };
 
+  w.S.version = 'V4';
   w.S.action = 'collections';
   w.S.collectionSource = null;
-  assert.equal(w.actionReady(), false, 'sin fuente no se puede avanzar');
-
-  w.S.collectionSource = 'swagger';
-  assert.equal(w.actionReady(), true);
+  assert.equal(w.actionReady(), true, 'no hay nada mas que elegir en ese paso');
 
   w.S.action = 'doc';
-  w.S.collectionSource = null;
-  assert.equal(w.actionReady(), true, 'las otras herramientas no piden fuente');
+  assert.equal(w.actionReady(), true);
+});
+
+// ── Un solo paso: credenciales + catalogo + URLs en detalles tecnicos ──
+//
+// Eran dos pantallas (credenciales primero, ruta Swagger despues) y encima en
+// el orden inverso al del dato: del Swagger salen la raiz de la API y la URL
+// de login que la primera pantalla pedia tipeadas a mano.
+
+function wizardConPaso4(opciones) {
+  const opts = opciones || {};
+  const w = loadWizard();
+  const els = {};
+  const el = function (id) {
+    if (!els[id]) els[id] = stubEl();
+    return els[id];
+  };
+  w.document = makeDomStub();
+  w.document.getElementById = function (id) { return el(id); };
+  w.S.version = opts.version || 'V4';
+  w.S.platform = 'oracle';
+  w.S.action = opts.action || 'collections';
+  w.collectionState = opts.collectionState || { services: [] };
+  return { w, el, els };
+}
+
+test('en collections, el paso de Ambiente muestra el catalogo y manda las URLs a detalles tecnicos', () => {
+  const { w, el } = wizardConPaso4();
+  w.show(4);
+
+  assert.equal(el('collection-catalog-section').style.display, 'block',
+               'la ruta Swagger y "Cargar servicios" viven en este paso');
+  assert.equal(el('a-urls-block').parentElement, el('a-urls-tech'),
+               'las URLs no se tipean acá: salen del Swagger');
+});
+
+test('en Documentar, el catalogo no aparece y las URLs vuelven a su lugar', () => {
+  const { w, el } = wizardConPaso4({ action: 'doc' });
+  w.S.action = 'collections';
+  w.show(4);
+  assert.equal(el('a-urls-block').parentElement, el('a-urls-tech'));
+
+  w.S.action = 'doc';
+  w.show(5); // el panel de ambiente de Documentar es el paso 5
+  assert.equal(el('collection-catalog-section').style.display, 'none');
+  assert.equal(el('a-urls-block').parentElement, el('a-urls-home'),
+               'en Documentar las URLs siguen siendo campos de primera linea');
+});
+
+test('collectionsCatalogReady mira los servicios que cargo el builder', () => {
+  const { w } = wizardConPaso4();
+  assert.equal(w.collectionsCatalogReady(), false, 'sin servicios no hay catalogo');
+
+  w.collectionState.services = [{ name: 'Loans' }];
+  assert.equal(w.collectionsCatalogReady(), true);
+});
+
+test('sin servicios cargados, Siguiente no saca del paso de Ambiente', async () => {
+  const { w } = wizardConPaso4();
+  w.S.step = 4;
+
+  await w.goNext();
+  assert.equal(w.S.step, 4, 'avanzar llevaba a un canvas vacio sin decir por que');
+
+  w.collectionState.services = [{ name: 'Loans' }];
+  await w.goNext();
+  assert.equal(w.S.step, 5);
+});
+
+test('el boton Siguiente del paso 4 se habilita recien con el catalogo cargado', () => {
+  const { w, el } = wizardConPaso4();
+  w.S.step = 4;
+
+  w.foot(4);
+  assert.match(el('ft-r').innerHTML, /disabled/, 'sin servicios queda deshabilitado');
+  assert.match(el('ft-r').innerHTML, /Cargá primero los servicios/);
+
+  w.collectionState.services = [{ name: 'Loans' }];
+  w.refreshCollectionsNextBtn();
+  assert.doesNotMatch(el('ft-r').innerHTML, /disabled/,
+                      'el builder avisa al terminar de cargar, sin esperar otro evento');
+});
+
+test('el modo sin base recuerda la version: un F5 no puede perderla', () => {
+  const w = wizardConDom();
+  w.S.version = 'V4'; w.S.platform = 'oracle'; w.S.engine = 'oracle';
+  w.continueWithoutDb();
+
+  const guardado = w.loadNoDbFromSession();
+  assert.equal(guardado.noDb, true);
+  assert.equal(guardado.version, 'V4',
+               'sin la version, al recargar no se sabe ni la plataforma ni la fuente del catalogo');
+  assert.equal(guardado.platform, 'oracle');
+});
+
+test('el modo sin base guardado por una version vieja de la app sigue leyendose', () => {
+  const w = wizardConDom();
+  w.sessionStorage.setItem(w.NO_DB_STORAGE_KEY, '1');
+  // El formato viejo era el flag pelado: vale como modo activo, sin version.
+  const guardado = w.loadNoDbFromSession();
+  assert.ok(guardado && guardado.noDb, 'una sesion abierta de antes no puede romperse');
+  assert.equal(guardado.version, undefined);
+});
+
+test('collectionSourceFor: V3 lee la base porque no publica Swagger', () => {
+  const w = wizardConDom();
+  assert.equal(w.collectionSourceFor('V4'), 'swagger');
+  assert.equal(w.collectionSourceFor('V3'), 'database',
+               'V3 es SOAP: no hay documento OpenAPI del que leer el catalogo');
+});
+
+test('applyCollectionSource deriva la fuente de la version, y la limpia fuera de collections', () => {
+  const w = wizardConDom();
+  let bajadaAlPanel = null;
+  w.collectionUpdateServiceSource = function (v) { bajadaAlPanel = v; };
+
+  w.S.action = 'collections';
+  w.S.version = 'V4';
+  w.applyCollectionSource();
+  assert.equal(w.S.collectionSource, 'swagger');
+  assert.equal(bajadaAlPanel, 'swagger', 'los managers del builder tienen que enterarse');
+
+  w.S.version = 'V3';
+  w.applyCollectionSource();
+  assert.equal(w.S.collectionSource, 'database');
+  assert.equal(bajadaAlPanel, 'database');
+
+  w.S.action = 'doc';
+  w.applyCollectionSource();
+  assert.equal(w.S.collectionSource, null, 'fuera de collections no hay fuente que derivar');
+});
+
+test('elegir collections deriva la fuente sin pedirle nada al usuario', () => {
+  const w = wizardConDom();
+  w.S.version = 'V4';
+  const el = { closest: function () { return { querySelectorAll: function () { return []; } }; },
+               classList: { add: function () {}, remove: function () {} } };
+
+  w.pick('action', 'collections', el);
+  assert.equal(w.S.collectionSource, 'swagger');
+  assert.equal(w.needsDbConnection(), false, 'y con eso ya se puede saltear Conexion');
+});
+
+test('con un ambiente V3, collections necesita la base y no esta en el modo sin base', () => {
+  const w = wizardConDom();
+  w.S.version = 'V3';
+  w.S.action = 'collections';
+  w.applyCollectionSource();
+
+  assert.equal(w.S.collectionSource, 'database');
+  assert.equal(w.needsDbConnection(), true);
+  assert.ok(w.actionsAvailableWithoutDb().indexOf('collections') < 0,
+            'sin base no hay catalogo posible para V3');
+});
+
+test('con un ambiente V4, collections es la unica herramienta del modo sin base', () => {
+  const w = wizardConDom();
+  w.S.version = 'V4';
+  assert.deepEqual(Array.from(w.actionsAvailableWithoutDb()), ['collections']);
 });
 
 test('vizPos comprime el stepper cuando se saltea Conexion', () => {
@@ -1001,45 +1159,35 @@ test('volver desde Conexion lleva a Accion, y desde Accion al Ambiente', () => {
   assert.equal(w.S.step, w.PASO_AMBIENTE);
 });
 
-test('elegir la herramienta resetea la fuente: no se arrastra de una vuelta anterior', () => {
+test('elegir otra herramienta limpia la fuente: no se arrastra de una vuelta anterior', () => {
   const w = wizardNavegable();
   const el = { closest: function () { return { querySelectorAll: function () { return []; } }; },
                classList: { add: function () {}, remove: function () {} } };
 
   w.S.collectionSource = 'swagger';
-  w.pick('action', 'collections', el);
-  assert.equal(w.S.collectionSource, null,
-               'cada eleccion de herramienta pide la fuente de nuevo');
+  w.pick('action', 'doc', el);
+  assert.equal(w.S.collectionSource, null);
 });
 
-test('elegir la fuente la baja al select que leen los managers del builder', () => {
-  const w = wizardNavegable();
-  let valorEnElSelect = null;
-  let avisado = null;
-  w.document.getElementById = function (id) {
-    if (id === 'collection-source-select') {
-      return { set value(v) { valorEnElSelect = v; }, get value() { return valorEnElSelect; } };
-    }
-    if (id === 'apimode-section') return { style: { display: 'none' }, querySelectorAll: function () { return []; } };
-    return stubEl();
-  };
-  w.collectionUpdateServiceSource = function (v) { avisado = v; };
-
-  const el = { closest: function () { return { querySelectorAll: function () { return []; } }; },
-               classList: { add: function () {}, remove: function () {} } };
-  w.pick('collectionSource', 'database', el);
-
-  assert.equal(valorEnElSelect, 'database', 'el select oculto quedo sincronizado');
-  assert.equal(avisado, 'database', 'y los managers se enteraron');
-});
-
-test('si los managers del builder no cargaron todavia, elegir la fuente no rompe', () => {
+test('si los managers del builder no cargaron todavia, derivar la fuente no rompe', () => {
   const w = wizardNavegable();
   w.collectionUpdateServiceSource = undefined;
-  const el = { closest: function () { return { querySelectorAll: function () { return []; } }; },
-               classList: { add: function () {}, remove: function () {} } };
-  assert.doesNotThrow(function () { w.pick('collectionSource', 'swagger', el); });
+  w.S.action = 'collections';
+  assert.doesNotThrow(function () { w.applyCollectionSource(); });
   assert.equal(w.S.collectionSource, 'swagger');
+});
+
+test('cambiar la version del ambiente re-deriva la fuente de collections', () => {
+  const w = wizardNavegable();
+  w.S.action = 'collections';
+  w.S.version = 'V4';
+  w.applyCollectionSource();
+  assert.equal(w.S.collectionSource, 'swagger');
+
+  w.pickVersion('V3');
+  assert.equal(w.S.collectionSource, 'database',
+               'V3 no tiene Swagger: la fuente tiene que acompañar al cambio');
+  assert.equal(w.needsDbConnection(), true, 'y con eso vuelve a hacer falta el paso de Conexion');
 });
 
 // ── Rótulos del stepper ──────────────────────────────────────
@@ -1660,7 +1808,7 @@ test('continueWithoutDb prende el modo, no deja ambiente y va a Accion', () => {
   assert.equal(w.S.noDb, true);
   assert.equal(w.S.activeEnv, null, 'no hay ambiente: es justamente el punto');
   assert.equal(w.S.step, w.PASO_ACCION);
-  assert.equal(w.sessionStorage.getItem('bt_no_db'), '1', 'la decision dura la sesion');
+  assert.ok(w.loadNoDbFromSession(), 'la decision dura la sesion');
   assert.equal(w.sessionStorage.getItem('bt_active_environment'), null, 'y limpia el ambiente de la sesion');
 });
 
@@ -1671,6 +1819,22 @@ test('el modo sin base sobrevive un F5 y no vuelve a pedir la conexion', async (
   await w.initWizard();
   assert.equal(w.S.noDb, true);
   assert.equal(w.S.step, w.PASO_ACCION, 'no puede devolverte al paso que salteaste');
+});
+
+test('tras un F5 en modo sin base, la version vuelve con el modo', async () => {
+  const w = loadWizard();
+  w.document = makeDomStub();
+  w.S.version = 'V4'; w.S.platform = 'oracle'; w.S.engine = 'oracle';
+  w.continueWithoutDb();
+
+  // Segunda carga de la app, misma sesion del navegador.
+  const w2 = loadWizard();
+  w2.document = makeDomStub();
+  w2.sessionStorage = w.sessionStorage;
+  await w2.initWizard();
+
+  assert.equal(w2.S.version, 'V4');
+  assert.equal(w2.S.platform, 'oracle', 'sin esto, "Cargar servicios" falla pidiendo la plataforma');
 });
 
 test('applyNoDbRestrictions bloquea las herramientas que necesitan base', () => {
@@ -1685,6 +1849,7 @@ test('applyNoDbRestrictions bloquea las herramientas que necesitan base', () => 
     return stubEl();
   };
   w.S.noDb = true;
+  w.S.version = 'V4'; // de la version sale la fuente de collections
   w.applyNoDbRestrictions();
 
   for (const a of ['doc', 'scripts', 'validate', 'sdtgen', 'paramgen']) {
@@ -1692,7 +1857,6 @@ test('applyNoDbRestrictions bloquea las herramientas que necesitan base', () => 
     assert.match(tarjetas['action-' + a].title, /base de datos/, a + ' tiene que explicar por que');
   }
   assert.equal(tarjetas['action-collections'].classList.contains('ccard-disabled'), false, 'collections queda disponible');
-  assert.equal(tarjetas['collection-source-database'].classList.contains('ccard-disabled'), true, 'pero no con fuente Base de datos');
   assert.equal(tarjetas['nodb-notice'].style.display, '', 'y se explica el modo arriba');
 });
 
@@ -1710,6 +1874,7 @@ test('applyNoDbRestrictions devuelve todo a la normalidad al salir del modo', ()
     return stubEl();
   };
   w.S.noDb = true;
+  w.S.version = 'V4';
   w.applyNoDbRestrictions();
   assert.equal(tarjetas['action-doc'].classList.contains('ccard-disabled'), true);
 
@@ -1719,11 +1884,10 @@ test('applyNoDbRestrictions devuelve todo a la normalidad al salir del modo', ()
     assert.equal(tarjetas['action-' + a].classList.contains('ccard-disabled'), false, a + ' vuelve a estar disponible');
     assert.equal(tarjetas['action-' + a].title, undefined, 'y sin el motivo colgado');
   }
-  assert.equal(tarjetas['collection-source-database'].classList.contains('ccard-disabled'), false);
   assert.equal(tarjetas['nodb-notice'].style.display, 'none');
 });
 
-test('en modo sin base, collections con Swagger avanza sin pedir conexion', async () => {
+test('en modo sin base, collections sobre V4 avanza sin pedir conexion', async () => {
   const w = wizardNavegable();
   w.S.noDb = true;
   w.S.action = 'collections';

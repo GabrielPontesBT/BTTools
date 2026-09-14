@@ -9,7 +9,13 @@
     info: { titulo: 'Informacion',  clase: 'info', autoDismissMs: 4200 }
   };
 
+  // Dos contenedores posibles, porque el feature vive en dos paneles del
+  // wizard: el paso de Ambiente (donde se cargan los servicios) y el panel del
+  // builder. El primero gana mientras este visible -- si no, todo el feedback
+  // de "Cargar servicios" (que es donde mas falla algo: swagger caido, auth
+  // rechazada) se escribia en un bloque de otro panel, invisible.
   var ID_CONTENEDOR = 'collection-status';
+  var ID_CONTENEDOR_AMBIENTE = 'collection-env-status';
 
   /**
    * Administra el feedback visual del builder.
@@ -40,6 +46,11 @@
     }
 
     contenedor() {
+      var seccionAmbiente = document.getElementById('collection-catalog-section');
+      if (seccionAmbiente && seccionAmbiente.style && seccionAmbiente.style.display !== 'none') {
+        var enAmbiente = document.getElementById(ID_CONTENEDOR_AMBIENTE);
+        if (enAmbiente) return enAmbiente;
+      }
       return document.getElementById(ID_CONTENEDOR);
     }
 

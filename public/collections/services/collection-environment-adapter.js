@@ -21,7 +21,7 @@
     state.swaggerResolvedUrl = '';
     state.swaggerBaseUrl = '';
     state.swaggerAuthUrl = '';
-    state.studioStage = global.collectionPathSupported() ? 'setup' : 'define';
+    state.studioStage = 'define';
     state.scenarios = [];
     state.activeScenarioId = null;
     state.nextScenarioId = 1;
@@ -74,8 +74,10 @@
     global.collectionGetEnvironmentManager().updateInternaBaseUrl(value);
   };
 
+  // Lo llama wizard-doc.js (applyCollectionSource) cuando cambia la version
+  // del ambiente. El usuario ya no elige el origen: V4 siempre lee el Swagger,
+  // y V3 (SOAP, sin documento OpenAPI) siempre lee la base.
   global.collectionUpdateServiceSource = function collectionUpdateServiceSourceAdapter(value) {
-    // El origen del catalogo vive en el manager de ambiente para mantener la UI y la carga alineadas.
     global.collectionGetEnvironmentManager().updateServiceSource(value);
   };
 

@@ -31,7 +31,6 @@
      */
     stageLabel(stage) {
       if (stage === 'define') return 'Definicion';
-      if (stage === 'setup') return 'Catalogo';
       if (stage === 'builder') return 'Builder';
       return stage;
     }
@@ -88,13 +87,12 @@
      */
     renderStage() {
       var intro = document.getElementById('collection-studio-intro');
-      var config = document.getElementById('collection-config');
       var services = document.getElementById('collection-services');
       var stageButtons = document.querySelectorAll('.collection-stage-btn');
       var shell = document.querySelector('.collection-shell-studio');
       var studioTitle = document.getElementById('collection-studio-title');
       var studioSubtitle = document.getElementById('collection-studio-subtitle');
-      var stage = this.state.studioStage || 'setup';
+      var stage = this.state.studioStage || 'define';
 
       Array.prototype.forEach.call(stageButtons, function updateStageButton(button) {
         var isActive = button.dataset.stage === stage;
@@ -102,7 +100,7 @@
       });
 
       if (shell) {
-        shell.classList.remove('collection-studio-stage-define', 'collection-studio-stage-setup', 'collection-studio-stage-builder');
+        shell.classList.remove('collection-studio-stage-define', 'collection-studio-stage-builder');
         shell.classList.add('collection-studio-stage-' + stage);
         shell.classList.toggle('collection-shell-studio-builder', stage === 'builder');
       }
@@ -117,7 +115,6 @@
       }
 
       if (intro) intro.style.display = stage === 'define' ? 'block' : 'none';
-      if (config) config.style.display = stage === 'setup' ? 'block' : 'none';
       if (services) services.style.display = stage === 'builder' ? 'flex' : 'none';
 
       var summary = document.getElementById('collection-studio-summary');
@@ -127,9 +124,9 @@
         summary.textContent = 'Camino seleccionado: ' + formatText + ' + ' + targetText + '.';
       }
 
-      if (stage === 'setup' && this.callbacks.refreshContext) {
-        this.callbacks.refreshContext();
-      }
+      // El contexto del ambiente se refresca al entrar al paso de Ambiente
+      // (show() en wizard-doc.js), que es donde vive esa pantalla desde que
+      // dejo de ser una etapa del panel.
     }
   }
 

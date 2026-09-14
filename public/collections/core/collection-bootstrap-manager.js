@@ -27,11 +27,17 @@
     }
 
     /**
-     * Wrapper del click que inicia la lectura de Swagger.
+     * Wrapper del click que inicia la lectura del catalogo.
+     *
+     * Avisa al wizard cuando termina: el boton "Siguiente" del paso de
+     * Ambiente (donde vive este boton desde que dejaron de ser dos pantallas)
+     * queda deshabilitado hasta que haya servicios cargados, y sin este aviso
+     * no se enteraria de que ya los hay.
      */
-    handleLoadServicesClick(event) {
+    async handleLoadServicesClick(event) {
       event.preventDefault();
-      this.options.loadServices();
+      await this.options.loadServices();
+      if (typeof window.refreshCollectionsNextBtn === 'function') window.refreshCollectionsNextBtn();
     }
 
     /**
