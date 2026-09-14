@@ -503,15 +503,15 @@
 .collection-execution-active .collection-studio-top{display:none}
 .collection-execution-active .collection-builder-top{margin-bottom:0}
 .collection-execution-active .collection-builder-context-fields{display:none}
-.collection-execution-active .collection-builder-header{justify-content:flex-end}
-.collection-execution-active .collection-builder-actions{gap:var(--sp-2)}
+
+
 /* Volver + menu de la corrida: solo existen visualmente en modo ejecucion,
    reemplazando la fila de resumen que antes vivia arriba del canvas. Se
    apoyan en --builder-button-height para escalar igual que el resto de la
    barra en cada breakpoint, sin necesitar sus propios ajustes responsive. */
 #btn-collection-exec-back,#collection-exec-header-menu-slot{display:none}
 .collection-execution-active #btn-collection-exec-back{display:inline-flex}
-.collection-execution-active #btn-collection-setup-back{display:none}
+
 .collection-execution-active #collection-exec-header-menu-slot{display:flex;align-items:center}
 .collection-exec-back-icon-btn{
   flex:0 0 auto;width:var(--builder-button-height,40px);height:var(--builder-button-height,40px);
@@ -892,7 +892,7 @@
 .collection-shell-studio-builder .collection-studio-mark{width:var(--builder-mark-size);height:var(--builder-mark-size);border-radius:var(--builder-mark-radius);font-size:var(--builder-mark-font-size)}
 .collection-builder-v2{display:flex;flex-direction:column;flex:1;gap:var(--builder-gap-sm);min-height:0}
 .collection-shell-studio-builder .collection-builder-mode-v2{flex:1;min-height:0}
-.collection-builder-top{justify-content:flex-end;align-items:center;gap:var(--builder-gap-sm);margin-bottom:0}
+.collection-builder-top{justify-content:flex-start;align-items:center;gap:var(--builder-gap-sm);margin-bottom:0}
 .collection-builder-actions{justify-content:flex-end;gap:var(--builder-gap-sm)}
 .collection-builder-actions .btn{min-width:100px;height:var(--builder-button-height);display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-2);padding:0 var(--builder-button-padding-x);font-size:var(--builder-control-font-size);font-weight:600}
 .collection-builder-actions .btn-primary{min-width:112px}
@@ -1508,3 +1508,38 @@
 .collection-env-detected-row{display:flex;gap:var(--sp-3);align-items:baseline}
 .collection-env-detected-label{flex:none;min-width:72px;font-weight:600;color:var(--text-2)}
 .collection-env-detected-value{color:var(--muted);word-break:break-all}
+
+/* ── La barra de acciones, ya dentro del footer del wizard ──────────────────
+   El nodo lo muda collectionDockActionsInWizardFooter() al montar el panel.
+   Acá sólo se le saca la escalera de tamaños propia del builder: dentro del
+   footer tiene que medir lo mismo que el "Siguiente" de las otras cinco
+   herramientas, que es --ctrl-h. */
+.wiz-ft .collection-builder-actions{margin-left:auto}
+.wiz-ft .collection-builder-actions .btn,
+.wiz-ft .collection-builder-menu-trigger{height:var(--ctrl-h);font-size:var(--fs-base);font-weight:500}
+.wiz-ft .collection-builder-actions .btn{padding:0 var(--sp-4)}
+.wiz-ft .collection-builder-menu-trigger{padding:0 var(--sp-4)}
+.wiz-ft .collection-builder-actions .collection-btn-icon{font-size:var(--fs-base)}
+.wiz-ft .collection-exec-back-icon-btn{width:var(--ctrl-h);height:var(--ctrl-h);margin-right:0}
+/* El popover abre hacia ARRIBA: desde el footer, hacia abajo se sale de la
+   ventana y el menú queda inalcanzable. */
+.wiz-ft .collection-builder-menu-popover{top:auto;bottom:calc(100% + var(--sp-2))}
+
+/* Arriba quedan sólo los campos de contexto y el menú de casos de uso, así que
+   el header deja de repartir dos grupos y se alinea a la izquierda. */
+.collection-builder-header{justify-content:flex-start}
+/* Con la barra de acciones ya en el footer, arriba queda un solo grupo (los
+   campos de contexto + casos de uso): el flex-end que lo empujaba contra los
+   botones ahora lo dejaba flotando a la derecha, lejos del titulo de la
+   pagina y de como alinean las otras cinco herramientas. */
+.collection-shell-studio-builder .collection-builder-top,
+.collection-shell-studio-builder .collection-builder-header{justify-content:flex-start}
+
+/* El modo ejecucion agrega dos cosas a la barra: el "volver al builder" y el
+   menu de la corrida. Sus reglas eran descendientes de .collection-execution-active,
+   que vive en el shell del panel; con la barra mudada al footer ese selector
+   dejo de alcanzarla y los dos quedaban invisibles. Se re-anclan desde .wizard,
+   que es el ancestro comun de los dos (mismo patron que styles.css ya usa para
+   esconder el stepper en ejecucion). */
+.wizard:has(.collection-execution-active) .wiz-ft #btn-collection-exec-back{display:inline-flex}
+.wizard:has(.collection-execution-active) .wiz-ft #collection-exec-header-menu-slot{display:flex;align-items:center}

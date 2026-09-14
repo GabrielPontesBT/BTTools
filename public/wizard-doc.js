@@ -2207,7 +2207,13 @@ function foot(step) {
       (collectionsCatalogReady() ? '' : ' disabled title="Cargá primero los servicios del ambiente."') +
       '>Siguiente &#8594;</button>';
   } else if (step === 5 && S.action === 'collections') {
-    ftr.innerHTML = '';
+    // El builder es la unica herramienta que trae sus propias acciones, asi
+    // que en vez de armar un boton se le muda la barra al footer (ver
+    // collectionDockActionsInWizardFooter). Si el panel todavia no monto, se
+    // deja vacio: el propio mount vuelve a llamar al dock cuando termina.
+    if (!(typeof collectionDockActionsInWizardFooter === 'function' && collectionDockActionsInWizardFooter())) {
+      ftr.innerHTML = '';
+    }
   } else if (step === 4 && S.action === 'scripts') {
     ftr.innerHTML = '<button class="btn btn-primary" id="btn-next" onclick="goNext()" disabled>Generar script &#8594;</button>';
   } else if (step === 4 && S.action === 'doc') {

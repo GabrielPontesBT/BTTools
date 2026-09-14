@@ -60,7 +60,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   .panel{display:none;animation:fadeIn .2s ease}.panel.active{display:block}
   #p4c.active{display:flex;flex-direction:column;flex:1;min-height:0;overflow-y:auto}
   .wizard:has(#p4c.active) .wiz-bd{padding:var(--sp-4) var(--sp-6) var(--sp-4)}
-  .wizard:has(#p4c.active) .wiz-ft{display:none}
+  /* El footer NO se oculta en collections: el builder muda ahi su barra de
+     acciones (ver collectionDockActionsInWizardFooter). Era la unica de las 6
+     herramientas sin la barra de abajo. El padding horizontal acompana al del
+     .wiz-bd del builder (24px) en vez del 8vw del resto de los pasos, para que
+     los botones queden alineados con el canvas y no flotando en el medio. */
+  .wizard:has(#p4c.active) .wiz-ft{padding:var(--sp-3) var(--sp-6)}
 .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-hd{padding:var(--sp-3) 2.4vw var(--sp-3);gap:24px}
 .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-hd-logo img{height:68px}
 .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-hd-steps{padding-bottom:var(--sp-3)}
