@@ -5,6 +5,30 @@ const path = require('path');
 
 const TAB_BAR_HEIGHT = 40;
 
+/**
+ * Que accion pide una tecla, o null si ninguna.
+ *
+ * Pura y exportada a proposito: es una tabla de equivalencias, no logica de
+ * ventanas, y es justo lo que se rompe en silencio (un atajo que deja de
+ * disparar no tira ningun error). `input` es el objeto de before-input-event
+ * de Electron.
+ */
+function shortcutFor(input) {
+  if (!input || input.type !== 'keyDown') return null;
+  const ctrl = !!(input.control || input.meta);
+  const key = String(input.key || '').toLowerCase();
+
+  // Recargar y devtools no piden Ctrl: F5 y F12 son las formas de siempre.
+  if (key === 'f5' || (ctrl && key === 'r')) return 'reload';
+  if (key === 'f12' || (ctrl && input.shift && key === 'i')) return 'devtools';
+
+  if (!ctrl) return null;
+  if (key === 't') return 'new-tab';
+  if (key === 'w') return 'close-tab';
+  if (key === 'tab') return input.shift ? 'prev-tab' : 'next-tab';
+  return null;
+}
+
 const CONTENT_WEB_PREFERENCES = {
   contextIsolation: true,
   nodeIntegration: false,
@@ -123,15 +147,40 @@ function createTabManager(win, serverUrl, onFirstPaint) {
     switchTab(tabs[nextIdx].id);
   }
 
+  /**
+   * El webContents de la pestaña activa, que es sobre la que operan los
+   * atajos de recarga y devtools. No alcanza con el que recibe la tecla: si
+   * el foco esta en la barra de pestañas, recargar esa vista no recarga la
+   * app.
+   */
+  function activeWebContents() {
+    const active = tabs.find((t) => t.id === activeId);
+    return active && !active.view.webContents.isDestroyed() ? active.view.webContents : null;
+  }
+
+  /**
+   * Recargar y devtools existen porque main.js hace
+   * Menu.setApplicationMenu(null) para sacar la barra de menu, y eso se lleva
+   * puestos los aceleradores por defecto de Electron: la app quedaba sin forma
+   * de recargar la ventana. El front se sirve leyendo del disco en cada
+   * request (serveStatic en setup.js), asi que recargar alcanza para ver un
+   * cambio en public/ sin reiniciar nada.
+   */
   function attachShortcuts(webContents) {
     webContents.on('before-input-event', (event, input) => {
-      if (input.type !== 'keyDown') return;
-      const ctrl = input.control || input.meta;
-      if (!ctrl) return;
-      const key = input.key.toLowerCase();
-      if (key === 't') { event.preventDefault(); newTab(); }
-      else if (key === 'w') { event.preventDefault(); if (activeId !== null) closeTab(activeId); }
-      else if (key === 'tab') { event.preventDefault(); cycleTab(input.shift ? -1 : 1); }
+      const accion = shortcutFor(input);
+      if (!accion) return;
+      event.preventDefault();
+
+      if (accion === 'new-tab') { newTab(); return; }
+      if (accion === 'close-tab') { if (activeId !== null) closeTab(activeId); return; }
+      if (accion === 'next-tab') { cycleTab(1); return; }
+      if (accion === 'prev-tab') { cycleTab(-1); return; }
+
+      const wc = activeWebContents();
+      if (!wc) return;
+      if (accion === 'reload') wc.reloadIgnoringCache();
+      else if (accion === 'devtools') wc.toggleDevTools();
     });
   }
 
@@ -151,4 +200,4 @@ function createTabManager(win, serverUrl, onFirstPaint) {
   return { newTab, closeTab, switchTab };
 }
 
-module.exports = { createTabManager };
+module.exports = { createTabManager, shortcutFor };

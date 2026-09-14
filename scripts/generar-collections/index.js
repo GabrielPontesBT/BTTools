@@ -18,7 +18,12 @@ function createCollectionFeature(deps) {
   const queryServicesWithMethods = deps.queryServicesWithMethods;
   const queryMethodSchema = deps.queryMethodSchema;
 
-  const panelHtml = loadAsset('panel.html');
+  // Se lee en cada pedido, no una vez al arrancar: el resto del front
+  // (public/*) se sirve con readFileSync por request, asi que editarlo y
+  // recargar la ventana alcanza. Con el panel cacheado en memoria, este era el
+  // unico archivo del front que obligaba a reiniciar el server para ver un
+  // cambio. Es un archivo chico y se pide una vez por carga de pagina.
+  const readPanelHtml = () => loadAsset('panel.html');
   const outputDir = path.join(ROOT, 'scripts', 'generar-collections', 'output');
   const dataDir = path.join(ROOT, 'scripts', 'generar-collections', 'data');
   const successfulValuesPath = path.join(dataDir, 'successful-values.json');
@@ -3496,7 +3501,7 @@ function createCollectionFeature(deps) {
 
     if (req.method === 'GET' && req.url === '/api/collection/panel') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(panelHtml);
+      res.end(readPanelHtml());
       return true;
     }
 
@@ -3854,7 +3859,9 @@ function createCollectionFeature(deps) {
   }
 
   return {
-    panelHtml,
+    // Expuesto para tests/inspeccion; el endpoint usa readPanelHtml()
+    // para no servir una copia vieja despues de editar el archivo.
+    readPanelHtml,
     handleApi
   };
 }
