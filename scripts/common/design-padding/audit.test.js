@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { auditar, ARCHIVOS_VIGILADOS, componenteValido } = require('./audit');
-const { migrarPadding, migrarPaddingEnVars, migrarFallbacks, necesitaRenombre } = require('./migrate');
+const { migrarPadding, migrarPaddingEnVars, migrarFallbacks, migrarPisoMicro, agregarTokenMicro, necesitaRenombre } = require('./migrate');
 const M = require('./pad-map');
 
 const RAIZ = path.join(__dirname, '..', '..', '..');
@@ -156,8 +156,9 @@ test('migrarPaddingEnVars no toca la definicion de la escala', () => {
   assert.equal(migrarPaddingEnVars(css), css);
 });
 
-test('esTokenDeEscala reconoce los 7 y solo los 7', () => {
+test('esTokenDeEscala reconoce los 7 pasos y el sub-paso, y nada mas', () => {
   M.ESCALA.forEach(function (e) { assert.equal(M.esTokenDeEscala(e.token), true, e.token); });
+  assert.equal(M.esTokenDeEscala(M.PISO_MICRO.token), true, 'el sub-paso tambien se consume como padding');
   assert.equal(M.esTokenDeEscala('--sp-8'), false);
   assert.equal(M.esTokenDeEscala('--builder-node-padding'), false);
 });
@@ -217,4 +218,59 @@ test('correr la migracion sobre los archivos ya migrados no cambia nada', () => 
     out = migrarPaddingEnVars(out);
     assert.equal(out, src, rel + ' cambia al re-migrar: el pase no es idempotente');
   });
+});
+
+// -- El sub-paso de los badges --------------------------------
+//
+// Reportado por Gabriel: los badges "PRÓXIMAMENTE" pasaron de 2px a 4px de
+// padding vertical y se leen como chips en vez de como tags. Es el limite de la
+// opcion B que el propio spec anticipo en el hallazgo 4: el rol "micro" tenia
+// banda propia (1-5px vertical) y el piso de la grilla de 4px no la expresa.
+
+ARCHIVOS_VIGILADOS.forEach(function (archivo) {
+  test(archivo + ': ningun badge perdio su sub-paso vertical', () => {
+    const r = auditar(archivo);
+    assert.deepEqual([...new Set(r.badges)], [],
+      'Un badge abraza su texto; con --sp-1 (4px) se hincha. El sub-paso es ' +
+      M.PISO_MICRO.token + ' y los selectores que lo usan estan en pad-map.js.');
+  });
+});
+
+test('--sp-micro esta definido y vale 2px', () => {
+  const root = (leer('public/styles.css').match(/:root\{[\s\S]*?\}/) || [''])[0];
+  assert.match(root, new RegExp(M.PISO_MICRO.token.replace(/-/g, '\-') + '\s*:\s*' + M.PISO_MICRO.valor + 'px'));
+});
+
+test('--sp-micro vive FUERA de la escala numerada', () => {
+  // La grilla de 4px tiene que seguir siendo una grilla de 4px: el sub-paso es
+  // una excepcion declarada, no un paso mas.
+  assert.equal(M.PASOS.indexOf(M.PISO_MICRO.valor), -1);
+  assert.ok(M.PISO_MICRO.valor < M.PASOS[0], 'es un sub-paso, tiene que estar debajo del piso');
+});
+
+test('el sub-paso es solo del eje vertical', () => {
+  // El horizontal de un badge (7-9px, ahora --sp-2) nunca fue el problema.
+  const out = migrarPisoMicro('.ccard-badge{padding:var(--sp-1) var(--sp-2)}', 'public/styles.css');
+  assert.match(out, /padding:var\(--sp-micro\) var\(--sp-2\)/);
+});
+
+test('el sub-paso no se aplica a un badge que ya estaba sobre el piso', () => {
+  // .btn-pill (5px), .collection-canvas-chip (4px) y compania no entran: para
+  // esos la escala nunca los movio, asi que no hay nada que devolver.
+  assert.equal(M.usaPisoMicro('.btn-pill'), false);
+  assert.equal(M.usaPisoMicro('.collection-canvas-chip'), false);
+  assert.equal(M.usaPisoMicro('.ccard-badge'), true);
+});
+
+test('--sp-micro cuenta como token de la escala para el pase de vars', () => {
+  // Si no, el pase de custom properties lo reescribe a var(--sp-1) en cada
+  // corrida y deshace lo de la corrida anterior: el pase deja de ser idempotente.
+  assert.equal(M.esTokenDeEscala(M.PISO_MICRO.token), true);
+  const css = ':root{--sp-micro:2px}\n.ccard-badge{padding:var(--sp-micro) var(--sp-2)}';
+  assert.equal(migrarPaddingEnVars(css), css);
+});
+
+test('agregar el token del sub-paso dos veces no cambia nada', () => {
+  const styles = leer('public/styles.css').replace(/\r\n/g, '\n');
+  assert.equal(agregarTokenMicro(styles), styles);
 });

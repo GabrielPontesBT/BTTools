@@ -32,9 +32,18 @@ const RE_DECL = /(padding(?:-top|-bottom|-left|-right|-block|-inline)?)\s*:\s*([
 // es px (%, vw, em, auto, calc). Un px pelado es lo que este gate persigue.
 function componenteValido(p) {
   if (/^var\(--sp-[1-7]\)$/.test(p)) return true;
+  if (p === 'var(' + M.PISO_MICRO.token + ')') return true;
   if (p === '0' || p === '0px') return true;
   if (!/\d+px/.test(p)) return true;
   return false;
+}
+
+// El primer componente de un padding es siempre el vertical (sea `a`, `a b`,
+// `a b c` o `a b c d`), asi que alcanza con mirarlo para saber si un badge
+// conserva su sub-paso.
+function verticalDe(prop, valor) {
+  if (/-(left|right|inline)/.test(prop)) return null;
+  return valor.trim().split(/\s+/)[0];
 }
 
 function auditar(rutaRel) {
@@ -43,6 +52,7 @@ function auditar(rutaRel) {
   const esCss = rutaRel.endsWith('.css');
 
   const sueltos = [];
+  const badges = [];
   let m;
   const re = new RegExp(RE_DECL.source, 'g');
   while ((m = re.exec(src))) {
@@ -63,6 +73,15 @@ function auditar(rutaRel) {
       if (Number.isFinite(px) && M.exencionDe(selector, 'vertical', px)) return;
       sueltos.push((selector || '(inline)').slice(0, 44) + '  ' + prop + ': ' + valor);
     });
+
+    // Los badge-like tienen que conservar el sub-paso vertical: si alguno
+    // vuelve a --sp-1, el badge se hincha de nuevo y eso ya fue un reporte.
+    if (M.usaPisoMicro(selector)) {
+      const v = verticalDe(prop, valor);
+      if (v && v !== 'var(' + M.PISO_MICRO.token + ')' && v !== '0' && v !== '0px') {
+        badges.push(selector + '  ' + prop + ': ' + valor);
+      }
+    }
   }
 
   // Las custom properties consumidas como padding tienen que estar en la escala
@@ -83,7 +102,8 @@ function auditar(rutaRel) {
     if (re2.test(src)) circulares.push(e.token);
   });
 
-  return { archivo: rutaRel, sueltos, enVars, circulares, total: sueltos.length + enVars.length + circulares.length };
+  return { archivo: rutaRel, sueltos, enVars, circulares, badges,
+           total: sueltos.length + enVars.length + circulares.length + badges.length };
 }
 
 function selectorEn(src, pos) {
@@ -99,13 +119,13 @@ module.exports = { auditar, ARCHIVOS_VIGILADOS, componenteValido, selectorEn };
 // -- CLI -------------------------------------------------------
 if (require.main === module) {
   console.log('\n=== AUDITORIA DE PADDING ===\n');
-  console.log('archivo'.padEnd(26) + 'sueltos'.padStart(9) + 'en vars'.padStart(9) + 'circular'.padStart(10));
-  console.log('-'.repeat(54));
+  console.log('archivo'.padEnd(26) + 'sueltos'.padStart(9) + 'en vars'.padStart(9) + 'circular'.padStart(10) + 'badges'.padStart(8));
+  console.log('-'.repeat(62));
   let fallo = false;
   ARCHIVOS_VIGILADOS.forEach(function (f) {
     const r = auditar(f);
     console.log(r.archivo.padEnd(26) + String(r.sueltos.length).padStart(9) +
-                String(r.enVars.length).padStart(9) + String(r.circulares.length).padStart(10));
+                String(r.enVars.length).padStart(9) + String(r.circulares.length).padStart(10) + String(r.badges.length).padStart(8));
     if (r.total) {
       fallo = true;
       if (r.sueltos.length) {
@@ -118,6 +138,10 @@ if (require.main === module) {
       }
       if (r.circulares.length) {
         console.log('    TOKENS CIRCULARES (anulan la escala entera): ' + r.circulares.join(', '));
+      }
+      if (r.badges.length) {
+        console.log('    badges sin el sub-paso vertical (se hinchan a 4px):');
+        [...new Set(r.badges)].forEach(function (x) { console.log('      ' + x); });
       }
     }
   });

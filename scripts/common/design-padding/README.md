@@ -30,6 +30,7 @@ La extension costo un renombre mecanico: `--sp-5` valia 28px y ahora vale 20px, 
 | valores px distintos | **27** | **0** (7 tokens) |
 | componentes en la escala | 246 de 613 | **613 de 613** |
 | declaraciones de padding con token | 2 de 367 | **todas menos 8** |
+| badges con su silueta original | — | **10**, via `--sp-micro` |
 | componentes que se movieron | — | **356** |
 
 Los 8 que quedan como px literal son las exenciones de geometria, declaradas con su razon.
@@ -41,7 +42,7 @@ Los 8 que quedan como px literal son las exenciones de geometria, declaradas con
 | `pad-map.js` | **La decision escrita.** La escala, como se rompen los empates, los dos valores que van por rol y las 6 exenciones con su razon |
 | `migrate.js` | Aplica el mapeo sobre los 4 archivos. `--dry-run` (default) no escribe |
 | `audit.js` | El verificador. Tambien CLI |
-| `audit.test.js` | El gate. 34 tests |
+| `audit.test.js` | El gate. 44 tests |
 
 ## Uso
 
@@ -84,6 +85,26 @@ Van por rol, igual que el pase de color resolvia un hex por rol y no por cercani
 | 14px | horizontal | todos | **16px** |
 
 Resultado: una fila queda en 8/12 y un contenedor en 12/16. Hay un test que verifica que esa jerarquia sobreviva.
+
+### El piso de 4px es demasiado grueso para un badge
+
+Lo reporto Gabriel mirando los badges "PRÓXIMAMENTE" del paso de Accion: pasaron de 2px a 4px de padding vertical y se leen como chips en vez de como tags. Tiene razon, y no era un caso puntual: es el limite de la opcion B que el propio spec habia anticipado en el hallazgo 4, donde el rol **micro** tenia banda propia (1-5px vertical) contra los 6-18px de todo lo demas.
+
+Un badge no es una caja con contenido adentro: es una forma que **abraza** su texto. Duplicarle el padding vertical no le da aire, le cambia la silueta. El paso mas chico de la escala no puede expresar eso.
+
+La solucion es un token propio, **fuera de la escala numerada**:
+
+```
+--sp-micro: 2px
+```
+
+`--sp-1..7` sigue siendo una grilla de 4px limpia (hay un test que lo verifica) y `--sp-micro` es el sub-paso declarado para esta familia. Poner `2px` a mano en 10 reglas seria el mismo valor suelto que este pase vino a sacar.
+
+Aplica **solo al eje vertical** y a las **10 reglas** cuyo vertical estaba por debajo del piso: `.ccard-badge`, `.vf-tag`, `.collection-badge`, `.collection-scenario-row-count`, `.collection-inspector-type-tag`, `.collection-inspector-source-group-count`, `.collection-suggest-scope-count`, `.collection-suggest-confidence-badge`, `.collection-suggest-detail-manual-chip` y `.collection-service-group-count`.
+
+Los badge-like que ya estaban en 4px o mas (`.btn-pill`, `.collection-var-badge`, `.collection-canvas-chip`, `.collection-exec-node-chip`, `.collection-exec-status-pill`, `.collection-suggestion-chip`) **no entran**: para esos la escala nunca los movio. El horizontal tampoco se toca: 8px separa el texto del borde redondeado igual que los 7-9px de antes.
+
+El audit falla si alguno de los 10 pierde el sub-paso.
 
 ### Hay padding que no es espaciado, es geometria
 
@@ -136,3 +157,11 @@ Lo que se hizo:
 - **Los `calc()` derivados de un ancho** (`padding-right:calc(var(--exec-node-width)/2 - 9px)`): son geometria de un conector, no espaciado.
 - **`--exec-node-width`**, por lo mismo: se consume dentro de un padding pero es un ancho.
 - **Los `padding:0`**: cero no es un paso de ninguna escala.
+
+## El segundo defecto, de la misma familia que el primero
+
+Cuando se agrego `--sp-micro`, el pase dejo de ser idempotente: cada corrida lo reescribia a `var(--sp-1)` y deshacia lo que la corrida anterior habia arreglado. La causa es la misma que la referencia circular, con otra cara: `--sp-micro` **tambien se consume dentro de declaraciones de padding**, asi que el sub-pase de custom properties lo tomaba como "una var con un px adentro".
+
+La diferencia es que aca no se anulaba nada — el CSS quedaba valido y la app se veia bien — simplemente el arreglo duraba hasta la proxima corrida del migrador. Lo agarro el test de idempotencia, no el de la escala.
+
+La leccion, escrita en `pad-map.js`: **todo token del vocabulario de espaciado tiene que estar en `TOKENS_DE_ESCALA`**, este o no en la grilla numerada.

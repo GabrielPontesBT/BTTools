@@ -34,8 +34,8 @@ function escribir(ruta, texto, crlf) {
   fs.writeFileSync(ruta, crlf ? texto.replace(/\n/g, '\r\n') : texto, 'utf8');
 }
 
-const cambios = { renombre: 0, root: 0, componentes: 0, exentos: 0, quietos: 0 };
-const detalle = { movidos: [], exentos: [], grandes: [] };
+const cambios = { renombre: 0, root: 0, componentes: 0, exentos: 0, quietos: 0, micro: 0 };
+const detalle = { movidos: [], exentos: [], grandes: [], micro: [] };
 
 // -- 1. Renombre de --sp-5 -------------------------------------
 //
@@ -157,6 +157,50 @@ function migrarPadding(src, archivo) {
   });
 }
 
+// -- 1b. El sub-paso de los badges -----------------------------
+//
+// --sp-micro vive fuera de la escala numerada, asi que se agrega aparte y de
+// forma idempotente: si ya esta, no se toca nada.
+function agregarTokenMicro(styles) {
+  const P = M.PISO_MICRO;
+  if (new RegExp('(^|[;{\\s])' + P.token + '\\s*:').test(styles)) return styles;
+  const ancla = M.ESCALA.map(function (e) { return e.token + ':' + e.valor + 'px'; }).join(';');
+  if (styles.indexOf(ancla) < 0) {
+    throw new Error('No encontre la escala en :root de styles.css para anclar ' + P.token);
+  }
+  cambios.root++;
+  const comentario = ';\n  /* Sub-paso de badges, FUERA de la grilla de 4px a proposito: un badge\n' +
+    '     abraza su texto y el paso mas chico de la escala le cambia la silueta.\n' +
+    '     El porque y los 10 selectores que lo usan estan en\n' +
+    '     scripts/common/design-padding/pad-map.js */\n  ';
+  return styles.replace(ancla, ancla + comentario + P.token + ':' + P.valor + 'px');
+}
+
+// El eje vertical de los badge-like va al sub-paso. Idempotente: una vez que
+// dice var(--sp-micro) el reemplazo no matchea mas.
+function migrarPisoMicro(src, archivo) {
+  if (!/\.css$/.test(archivo)) return src;
+  return src.replace(RE_DECL, function (todo, prop, sep, valor, offset) {
+    const selector = selectorEn(src, offset);
+    if (!M.usaPisoMicro(selector)) return todo;
+
+    const partes = valor.trim().split(/\s+/);
+    const ejes = /^padding$/.test(prop) ? ejesDe(partes.length) : partes.map(function () { return ejeDeLonghand(prop); });
+    let toco = false;
+    const nuevo = partes.map(function (p, i) {
+      if (ejes[i] === 'horizontal') return p;
+      if (p === '0' || p === '0px') return p;
+      if (p === 'var(' + M.PISO_MICRO.token + ')') return p;
+      toco = true;
+      return 'var(' + M.PISO_MICRO.token + ')';
+    }).join(' ');
+    if (!toco) return todo;
+    cambios.micro++;
+    detalle.micro.push(selector.slice(0, 44) + '  ' + prop + ': ' + valor.trim() + ' -> ' + nuevo);
+    return prop + sep + nuevo;
+  });
+}
+
 // -- 2b. El fallback de un var() dentro de un padding ----------
 //
 // `padding:0 var(--builder-control-padding-x,12px)`: el 12px solo se usa si la
@@ -204,12 +248,13 @@ function migrarArchivo(texto, archivo, conRenombre) {
   let out = texto;
   if (conRenombre) out = renombrarUsos(out);
   out = migrarPadding(out, archivo);
+  out = migrarPisoMicro(out, archivo);
   out = migrarFallbacks(out);
   out = migrarPaddingEnVars(out);
   return out;
 }
 
-module.exports = { migrarArchivo, migrarPadding, migrarFallbacks, migrarPaddingEnVars, renombrarUsos, redefinirRoot, necesitaRenombre, cambios, detalle, selectorEn };
+module.exports = { migrarArchivo, migrarPadding, migrarPisoMicro, agregarTokenMicro, migrarFallbacks, migrarPaddingEnVars, renombrarUsos, redefinirRoot, necesitaRenombre, cambios, detalle, selectorEn };
 
 // -- CLI -------------------------------------------------------
 if (require.main === module) {
@@ -229,6 +274,7 @@ if (require.main === module) {
     const antes = { r: cambios.renombre, c: cambios.componentes, e: cambios.exentos, q: cambios.quietos };
     let out = migrarArchivo(f.texto, rel, renombrar);
     if (rel === STYLES && renombrar) out = redefinirRoot(out);
+    if (rel === STYLES) out = agregarTokenMicro(out);
     salidas[rel] = { out, crlf: f.crlf };
     console.log(rel.padEnd(24) +
       'mueve:' + String(cambios.componentes - antes.c).padStart(4) +
@@ -242,6 +288,7 @@ if (require.main === module) {
   console.log('  ya estaban en escala: ' + cambios.quietos);
   console.log('  exentos (geometria) : ' + cambios.exentos);
   console.log('  var(--sp-5)->(--sp-7): ' + cambios.renombre);
+  console.log('  badges al sub-paso   : ' + cambios.micro);
 
   const resumen = function (lista) {
     const c = {};

@@ -169,6 +169,56 @@ const GEOMETRIA = {
   },
 };
 
+// -- El piso de 4px es demasiado grueso para un badge ----------
+//
+// Reportado por Gabriel mirando los badges "PRÓXIMAMENTE" del paso de Accion:
+// pasaron de 2px a 4px de padding vertical y se leen como chips en vez de como
+// tags. Tiene razon, y no es un caso puntual: es el limite de la opcion B que
+// el propio spec habia anticipado en el hallazgo 4, donde el rol "micro" tenia
+// banda propia (1-5px vertical) contra los 6-18px de todo lo demas.
+//
+// Un badge no es una caja con contenido adentro: es una forma que ABRAZA su
+// texto. Duplicarle el padding vertical no le da aire, le cambia la silueta.
+// El paso mas chico de la escala (4px) no puede expresar eso.
+//
+// La solucion es un token propio, FUERA de la escala numerada. --sp-1..7
+// sigue siendo una grilla de 4px limpia (hay un test que lo verifica) y
+// --sp-micro es el sub-paso declarado para esta familia, con su razon escrita.
+// Poner 2px a mano en 10 reglas seria el mismo valor suelto que este pase vino
+// a sacar.
+//
+// Solo el eje VERTICAL. El horizontal de un badge (7-9px, ahora --sp-2) nunca
+// fue el problema: ahi 8px separa el texto del borde redondeado igual que antes.
+//
+// Los 10 selectores son los badge-like cuyo vertical estaba por debajo del
+// piso. Los que ya estaban en 4px o mas (.btn-pill, .collection-var-badge,
+// .collection-canvas-chip, .collection-exec-node-chip, .collection-exec-status-pill,
+// .collection-suggestion-chip) no entran: para esos la escala nunca los movio.
+const PISO_MICRO = {
+  token: '--sp-micro',
+  valor: 2,
+  porque: 'Un badge abraza su texto. El paso mas chico de la escala (4px) le cambia la silueta ' +
+          'a chip. Va fuera de --sp-1..7 para no romper la grilla de 4px.',
+  selectores: [
+    '.ccard-badge',
+    '.vf-tag',
+    '.collection-badge',
+    '.collection-scenario-row-count',
+    '.collection-inspector-type-tag',
+    '.collection-inspector-source-group-count',
+    '.collection-suggest-scope-count',
+    '.collection-suggest-confidence-badge',
+    '.collection-suggest-detail-manual-chip',
+    '.collection-service-group-count',
+  ],
+};
+
+/** Si el padding vertical de un selector usa el sub-paso de badge. */
+function usaPisoMicro(selector) {
+  const normalizado = String(selector || '').trim().replace(/\s*,\s*/g, ',').replace(/\s+/g, ' ');
+  return PISO_MICRO.selectores.indexOf(normalizado) >= 0;
+}
+
 // -- Padding escondido en una custom property ------------------
 //
 // Mismo punto ciego que tenia la escala tipografica: el builder declara su
@@ -196,7 +246,13 @@ const VARS_EXENTAS = {
 // --sp-1:var(--sp-1), que es una referencia circular: CSS la descarta en tiempo
 // de computo y los SIETE tokens quedan vacios. Eso no rompe una regla: rompe
 // todas las que usan cualquier token, en las 6 herramientas y a la vez.
-const TOKENS_DE_ESCALA = new Set(ESCALA.map(function (e) { return e.token; }));
+// --sp-micro entra en la lista aunque no sea un paso de la grilla: tambien se
+// consume dentro de declaraciones de padding, asi que sin el el pase de vars lo
+// tomaria como "una var con un px adentro" y lo reescribiria a var(--sp-1), o
+// sea 4px, deshaciendo en cada corrida lo que la corrida anterior arreglo. Es
+// la misma trampa que la referencia circular de --sp-1..7, con otra cara: aca
+// no se anula nada, simplemente el pase deja de ser idempotente.
+const TOKENS_DE_ESCALA = new Set(ESCALA.map(function (e) { return e.token; }).concat([PISO_MICRO.token]));
 
 /** Si un nombre es uno de los tokens de la escala (nunca se redefine). */
 function esTokenDeEscala(nombre) {
@@ -225,6 +281,7 @@ function exencionDe(selector, eje, px) {
 module.exports = {
   ESCALA, PASOS, TOKEN_DE, RENOMBRE,
   FRECUENCIA, POR_ROL, ROLES, GEOMETRIA,
+  PISO_MICRO, usaPisoMicro,
   RE_VAR_VERTICAL, VARS_EXENTAS, TOKENS_DE_ESCALA, esTokenDeEscala, varsUsadasComoPadding,
   rolDe, resolverPaso, exencionDe,
 };
