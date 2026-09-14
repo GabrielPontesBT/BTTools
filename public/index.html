@@ -271,46 +271,18 @@
             </div>
           </div>
         </div>
-        <div class="frow">
-          <div class="field">
-            <label>Usuario API</label>
-            <input type="text" id="a-user" placeholder="ej: INSTALADOR">
-          </div>
-          <div class="field">
-            <label>Contraseña API</label>
-            <div class="pw">
-              <input type="password" id="a-pass" placeholder="Contraseña">
-              <button class="pw-btn" onclick="togglePw('a-pass',this)">&#128065;</button>
-            </div>
-          </div>
-        </div>
-        <div class="frow" style="grid-template-columns:1fr 1fr 160px">
-          <div class="field">
-            <label>Canal</label>
-            <input type="text" id="a-canal" placeholder="ej: BTDIGITAL">
-          </div>
-          <div class="field">
-            <label>Device</label>
-            <input type="text" id="a-device" placeholder="ej: INSTALADOR">
-          </div>
-          <div class="field">
-            <label>Requerimiento</label>
-            <input type="text" id="a-requerimiento" placeholder="ej: 1">
-          </div>
-        </div>
-        <div id="ares" class="cres" style="margin-bottom:0"></div>
-        <button class="btn btn-outline" id="btn-test-api" onclick="testAuth()" style="margin-bottom:var(--sp-5);width:100%">Probar Autenticación</button>
-
         <!-- Catalogo de servicios de "Generar casos de prueba". Vivia en su
              propia pantalla (la etapa "setup" del panel, #collection-config en
              panel.html), o sea: una pantalla para las credenciales y otra para
              agregar los swaggers. Eran el mismo paso partido en dos, y encima
              en el orden inverso al del dato -- del Swagger salen la raiz de la
              API y la URL de login, que la pantalla anterior pedia a mano.
-             Ahora es un solo paso: credenciales, catalogo, y las URLs abajo en
-             detalles tecnicos. Los ids no cambiaron: son los que leen
-             CollectionEnvironmentManager y el bootstrap del builder. -->
-        <div id="collection-catalog-section" style="display:none;border-top:1px solid var(--border);padding-top:var(--sp-4)">
+             Ahora es un solo paso, y en el orden del dato: primero el Swagger,
+             despues las credenciales (que se prueban contra el login que sale
+             de ese Swagger), y las URLs abajo en detalles tecnicos. Los ids no
+             cambiaron: son los que leen CollectionEnvironmentManager y el
+             bootstrap del builder. -->
+        <div id="collection-catalog-section" style="display:none">
           <div class="psub" style="margin-bottom:var(--sp-3)">¿De dónde saco los servicios?</div>
 
           <!-- Solo para V3 (SOAP, sin documento OpenAPI): ahi el catalogo se
@@ -377,6 +349,44 @@
             </div>
           </details>
         </div>
+
+        <!-- Las credenciales van DESPUES del catalogo: contra donde se prueban
+             sale del Swagger (la operacion de login que detecta
+             findInternaAuthOperation), no de un campo de este panel. Pedirlas
+             primero invitaba a tocar "Probar Autenticacion" apuntando a una URL
+             derivada de la URL base tipeada a mano, que no es necesariamente la
+             que va a usar la collection. -->
+        <div class="psub" id="a-creds-title" style="display:none;margin-bottom:var(--sp-3);margin-top:var(--sp-5);border-top:1px solid var(--border);padding-top:var(--sp-4)">Credenciales del ambiente</div>
+        <div class="frow">
+          <div class="field">
+            <label>Usuario API</label>
+            <input type="text" id="a-user" placeholder="ej: INSTALADOR">
+          </div>
+          <div class="field">
+            <label>Contraseña API</label>
+            <div class="pw">
+              <input type="password" id="a-pass" placeholder="Contraseña">
+              <button class="pw-btn" onclick="togglePw('a-pass',this)">&#128065;</button>
+            </div>
+          </div>
+        </div>
+        <div class="frow" style="grid-template-columns:1fr 1fr 160px">
+          <div class="field">
+            <label>Canal</label>
+            <input type="text" id="a-canal" placeholder="ej: BTDIGITAL">
+          </div>
+          <div class="field">
+            <label>Device</label>
+            <input type="text" id="a-device" placeholder="ej: INSTALADOR">
+          </div>
+          <div class="field">
+            <label>Requerimiento</label>
+            <input type="text" id="a-requerimiento" placeholder="ej: 1">
+          </div>
+        </div>
+        <div id="ares" class="cres" style="margin-bottom:0"></div>
+        <button class="btn btn-outline" id="btn-test-api" onclick="testAuth()" style="margin-bottom:var(--sp-5);width:100%">Probar Autenticación</button>
+
       </div>
 
       <div id="params-section" style="display:none;margin-bottom:var(--sp-4)"></div>

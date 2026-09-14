@@ -2110,6 +2110,10 @@ function show(step) {
       // de la API y la URL de login que este panel pedia a mano.
       var catalogo = document.getElementById('collection-catalog-section');
       if (catalogo) catalogo.style.display = isCollections ? 'block' : 'none';
+      // Titulo del segundo bloque: solo hace falta cuando hay dos (catalogo y
+      // credenciales). En Documentar las credenciales son todo el panel.
+      var tituloCreds = document.getElementById('a-creds-title');
+      if (tituloCreds) tituloCreds.style.display = isCollections ? '' : 'none';
       moverUrlsDelAmbiente(isCollections);
       if (isCollections && typeof collectionRefreshContext === 'function') {
         try { collectionRefreshContext(); } catch (e) {
@@ -2125,7 +2129,7 @@ function show(step) {
       var subtitulo = document.querySelector('#p4 .psub');
       if (subtitulo) {
         subtitulo.textContent = isCollections
-          ? 'Completá las credenciales del ambiente: se usan para leer el Swagger, para generar la collection y para probarla desde acá.'
+          ? 'Cargá los servicios desde el Swagger del ambiente y completá las credenciales: se prueban contra la misma autenticación que va a usar la collection.'
           : 'Decidí si vas a llamar a la API real y, si es así, completá las credenciales.';
       }
       var lbl = document.getElementById('a-base-label');
@@ -3190,9 +3194,48 @@ async function refrescarEstadoSwagger() {
   } catch (e) { /* el estado es informativo: no bloquea el paso */ }
 }
 
+/**
+ * Contra que URL prueba "Probar Autenticacion".
+ *
+ * En collections, contra la que salio del Swagger. El backend, sin authUrl
+ * explicita, arma los candidatos desde BASE_URL/API_BASE_URL (ver
+ * authCandidates en bantotal-urls), o sea desde lo que el usuario tipeo en el
+ * panel. Eso probaba una URL que no es necesariamente la que va a usar la
+ * collection: el builder ya se autentica contra state.swaggerAuthUrl, con el
+ * esquema (user-login o Authenticate/Execute) detectado en el documento. Dos
+ * URLs distintas para la misma pregunta, y la del boton era la que no cuenta.
+ *
+ * En Documentar no hay Swagger obligatorio y el comportamiento no cambia: sin
+ * authUrl, el backend prueba las formas conocidas y devuelve cual respondio.
+ */
+function authTargetForTest() {
+  var base = { version: S.version, api: getApi() };
+  if (S.action !== 'collections') return base;
+
+  var estado = typeof collectionState !== 'undefined' ? collectionState : null;
+  var urlDelSwagger = estado && String(estado.swaggerAuthUrl || '').trim();
+  if (!urlDelSwagger) return null; // todavia no se leyo el Swagger
+
+  base.authUrl = urlDelSwagger;
+  base.apiMode = S.apiMode;
+  base.authKind = estado.swaggerAuthKind || null;
+  return base;
+}
+
 async function testAuth() {
   var btn = document.getElementById('btn-test-api');
   var res = document.getElementById('ares');
+
+  var objetivo = authTargetForTest();
+  // Sin Swagger leido no hay contra que probar: disparar igual contra una URL
+  // derivada de la URL base seria decirle "OK" a un endpoint que la collection
+  // no va a usar, o "error" por una URL que no es la del ambiente.
+  if (!objetivo) {
+    res.className = 'cres show err';
+    res.textContent = 'Primero cargá los servicios: la URL de login sale del Swagger del ambiente.';
+    return;
+  }
+
   btn.innerHTML = '<span class="spin dk"></span>&nbsp;Probando...';
   btn.disabled = true;
   res.className = 'cres';
@@ -3200,7 +3243,7 @@ async function testAuth() {
     var r = await fetch('/api/test-auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ version: S.version, api: getApi() })
+      body: JSON.stringify(objetivo)
     });
     var d = await r.json();
     res.className = 'cres show ' + (d.ok ? 'ok' : 'err');
@@ -3210,7 +3253,14 @@ async function testAuth() {
     res.textContent = d.ok
       ? 'Autenticacion exitosa — token obtenido correctamente' + (d.authUrl ? '\n' + d.authUrl : '')
       : ('Error: ' + d.message);
-    if (d.ok) await saveApiToActiveEntry();
+    if (d.ok) {
+      if (S.action === 'collections' && typeof collectionState !== 'undefined' && collectionState) {
+        if (d.authUrl) collectionState.swaggerAuthUrl = d.authUrl;
+        if (d.authKind) collectionState.swaggerAuthKind = d.authKind;
+        if (d.authContext) collectionState.authContext = d.authContext;
+      }
+      await saveApiToActiveEntry();
+    }
   } catch(e) {
     res.className = 'cres show err';
     res.textContent = 'Error al conectar con el servidor de setup';

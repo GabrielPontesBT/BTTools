@@ -948,6 +948,52 @@ test('el modo sin base guardado por una version vieja de la app sigue leyendose'
   assert.equal(guardado.version, undefined);
 });
 
+// ── "Probar Autenticacion" apunta a donde apunta la collection ──
+//
+// El backend, sin authUrl explicita, arma los candidatos desde
+// BASE_URL/API_BASE_URL (authCandidates en bantotal-urls). En collections eso
+// es la URL tipeada en el panel, no la que salio del Swagger, que es contra la
+// que el builder realmente se autentica: el boton podia dar OK contra un
+// endpoint que la collection no usa.
+
+test('en collections, el test de autenticacion usa el login que salio del Swagger', () => {
+  const { w } = wizardConPaso4();
+  w.S.apiMode = 'publica';
+  w.collectionState.swaggerAuthUrl = 'http://10.0.0.7:5101/api/publicapi/session/v1/user-login';
+  w.collectionState.swaggerAuthKind = 'session-userlogin';
+
+  const objetivo = w.authTargetForTest();
+  assert.equal(objetivo.authUrl, 'http://10.0.0.7:5101/api/publicapi/session/v1/user-login');
+  assert.equal(objetivo.authKind, 'session-userlogin', 'el esquema tambien: el body no es el mismo');
+  assert.equal(objetivo.apiMode, 'publica');
+});
+
+test('sin Swagger leido no hay contra que probar la autenticacion', () => {
+  const { w } = wizardConPaso4();
+  assert.equal(w.authTargetForTest(), null,
+               'probar igual seria decir OK sobre un endpoint que la collection no va a usar');
+});
+
+test('el boton avisa que primero hay que cargar los servicios, y no dispara nada', async () => {
+  const { w, el } = wizardConPaso4();
+  let llamadas = 0;
+  w.fetch = function () { llamadas++; return Promise.reject(new Error('no deberia llamarse')); };
+
+  await w.testAuth();
+
+  assert.equal(llamadas, 0);
+  assert.match(el('ares').textContent, /cargá los servicios/i);
+  assert.match(el('ares').className, /err/);
+});
+
+test('en Documentar, el test de autenticacion sigue probando las formas conocidas', () => {
+  const { w } = wizardConPaso4({ action: 'doc' });
+  const objetivo = w.authTargetForTest();
+  assert.equal(objetivo.authUrl, undefined,
+               'sin authUrl el backend prueba user-login y Authenticate y devuelve cual anduvo');
+  assert.equal(objetivo.version, 'V4');
+});
+
 test('collectionSourceFor: V3 lee la base porque no publica Swagger', () => {
   const w = wizardConDom();
   assert.equal(w.collectionSourceFor('V4'), 'swagger');
