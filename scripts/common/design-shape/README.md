@@ -110,9 +110,15 @@ El rol lo da el **componente**, no el modificador: `.collection-exec-tab.active`
 
 La escalera responsive compacta del builder (36/34/32/30px en pantallas chicas) **no se toca**: es densidad buscada. Si se re-anclo el escalon de `≤1920px`, que dejaba el builder en 38px, porque en la practica **es el que corre** (cualquier monitor de 1920 o menos entra ahi) y era el que se veia al lado del resto de la app.
 
-### El borde de 1px solo sube en los inputs
+### El borde: sube el grosor de las cajas, no el tono
 
-`.field input` es `1.5px solid var(--border)`; los inputs del builder eran `1px solid var(--border-l)`. Se corrigieron **los 5 inputs** y nada mas: el pase de color eligio `--border-l` para los bordes de paneles y cards a proposito (ver `token-map.js`), y subirlos a `--border` los volveria pesados.
+Dos cosas distintas que se confunden facil.
+
+**El grosor.** Medido sobre `styles.css`, el proyecto dibuja una caja con `border:1.5px` (19 usos) y 2px cuando va enfatizada (`.ccard`, `.sdot`, `.sg-chk`). El builder tenia **81 cajas en 1px**: al lado de un `.svc-wrap` o un `.param-card` del wizard se leen de otro grosor. Las 81 suben a 1.5px. En un monitor al 100% las dos redondean al mismo pixel fisico y no se nota; a partir del 125-150% de escalado de Windows, que es donde suele estar un portatil, si.
+
+**El tono no se toca**: se queda en `--border-l`. El pase de color lo eligio a proposito para los paneles del builder (ver `token-map.js`), porque sus 7 bordes iban de luminancia 219 a 242 y mandarlos a `--border` (199) los hubiera vuelto notablemente mas pesados. La unica excepcion son los **5 inputs**, que van a `1.5px solid var(--border)` completo: un campo editable tiene que leerse como editable, y ese es el borde con el que el proyecto lo marca (`.field input`).
+
+**Los separadores no entran.** `border-top` / `border-bottom` / `border-left` / `border-right` dibujan la linea entre dos filas, no una caja, y ahi los dos archivos ya coincidian en 1px (16 usos en `styles.css`, 31 en `collections.css`). Hay un test que verifica que sigan asi.
 
 ### Las mayusculas se quedan, el tracking se unifica
 
@@ -127,6 +133,7 @@ Los dos estan cubiertos por tests:
 
 ## Lo que queda fuera, y por que
 
-- **El escalonado de tamaños de letra del builder** (`--builder-node-title-size:13px`, `--builder-chip-size:9px`…). Son custom properties, no declaraciones `font-size:`, asi que la escala `--fs-*` no las cubre. Subirlas a `--fs-sm` (12px) agranda el texto dentro de los nodos del canvas, que tienen ancho fijo: es una decision de densidad, no un reemplazo mecanico.
+- **El escalonado de tamaños de letra del builder.** Lo cierra el pase de color, que es el dueño de la escala tipografica: ver el punto "font-size escondido en una custom property" en [`design-tokens/`](../design-tokens/README.md).
+- **El `padding`.** Es la unica dimension donde el builder NO diverge: `styles.css` tiene 45 shorthands distintos en 25KB y `collections.css` 123 en 130KB, proporcionalmente lo mismo, y el proyecto mismo escribe `padding:11px`, `padding:9px 14px` y `padding:10px 15px` fuera de la escala `--sp-*`. Meter el builder en una escala que el resto no cumple lo haria divergir, no converger.
 - **`public/styles.css`.** Este pase solo le **agrega** los 6 tokens al `:root`; no cambia ninguna regla existente, asi que las otras 5 herramientas quedan pixel a pixel iguales.
 - **`scripts/generar-collections/panel.html`.** No declara ni un `border-radius`, `box-shadow` ni `font-weight`: es solo estructura.

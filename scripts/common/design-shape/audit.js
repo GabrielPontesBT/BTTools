@@ -89,6 +89,7 @@ function auditar(rutaRel) {
   const pesos = [];
   const altos = [];
   const trackings = [];
+  const bordes = [];
 
   reglas.forEach(function (r) {
     declaraciones(r.cuerpo, 'border-radius').forEach(function (v) {
@@ -110,6 +111,15 @@ function auditar(rutaRel) {
         if (v !== M.TRACKING_MAYUSCULA) trackings.push(r.selector + ' -> ' + v);
       });
     }
+    // El shorthand `border:` dibuja una caja y el proyecto la dibuja en 1.5px
+    // (2px cuando va enfatizada). Los border-top/bottom/left/right son
+    // separadores y no entran: ahi los dos archivos ya coinciden en 1px.
+    declaraciones(r.cuerpo, 'border').forEach(function (v) {
+      const ancho = (/^([\d.]+)px\b/.exec(v) || [])[1];
+      if (ancho && Number(ancho) === Number(M.BORDE_CAJA.de.replace('px', ''))) {
+        bordes.push(r.selector + ' -> ' + v);
+      }
+    });
   });
 
   // Las custom properties "-radius" tienen que estar en la misma escala.
@@ -126,9 +136,9 @@ function auditar(rutaRel) {
 
   return {
     archivo: rutaRel,
-    radios, sombras, pesos, altos, trackings, varsRadio, tintes,
+    radios, sombras, pesos, altos, trackings, bordes, varsRadio, tintes,
     total: radios.length + sombras.length + pesos.length + altos.length +
-           trackings.length + varsRadio.length + tintes.length,
+           trackings.length + bordes.length + varsRadio.length + tintes.length,
   };
 }
 
@@ -138,15 +148,15 @@ module.exports = { auditar, ARCHIVOS_VIGILADOS, radioValido, sombraValida, rgbaN
 if (require.main === module) {
   console.log('\n=== AUDITORIA DE FORMA ===\n');
   console.log('archivo'.padEnd(26) + 'radio'.padStart(7) + 'sombra'.padStart(8) +
-              'peso'.padStart(6) + 'alto'.padStart(6) + 'track'.padStart(7) +
+              'peso'.padStart(6) + 'alto'.padStart(6) + 'track'.padStart(7) + 'borde'.padStart(7) +
               'var-r'.padStart(7) + 'tinte'.padStart(7));
-  console.log('-'.repeat(74));
+  console.log('-'.repeat(81));
   let fallo = false;
   ARCHIVOS_VIGILADOS.forEach(function (f) {
     const r = auditar(f);
     console.log(r.archivo.padEnd(26) + String(r.radios.length).padStart(7) +
                 String(r.sombras.length).padStart(8) + String(r.pesos.length).padStart(6) +
-                String(r.altos.length).padStart(6) + String(r.trackings.length).padStart(7) +
+                String(r.altos.length).padStart(6) + String(r.trackings.length).padStart(7) + String(r.bordes.length).padStart(7) +
                 String(r.varsRadio.length).padStart(7) + String(r.tintes.length).padStart(7));
     if (r.total) {
       fallo = true;
@@ -160,6 +170,7 @@ if (require.main === module) {
       listar('font-weight > 700', r.pesos);
       listar('alto de control fuera de --ctrl-h', r.altos);
       listar('tracking de mayuscula fuera de ' + M.TRACKING_MAYUSCULA, r.trackings);
+      listar('borde de caja en 1px (el proyecto usa 1.5px)', r.bordes);
       listar('vars -radius fuera de escala', r.varsRadio);
       listar('rgba() con tinte ajeno', r.tintes);
     }

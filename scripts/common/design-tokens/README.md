@@ -73,6 +73,24 @@ Lo que hubo que decidir mirando el selector, no el tono:
 - **El icono de la stat card "violet" se neutralizo a `--text-2`:** convive con las cards de error (rojo) y exito (verde), asi que tiene que distinguirse de ambas sin inventar color.
 - **El texto de accion y del boton AI van a `--red-d`.** Son acentos accionables, y el lenguaje de acento de esta app es el rojo de marca.
 
+## El punto ciego: font-size escondido en una custom property
+
+La auditoria buscaba `font-size:Npx`. El builder declara su escalera de densidad como **variables** y despues las consume:
+
+```css
+--builder-node-title-size:13px;      /* no matchea /font-size:\d+px/ */
+...
+.collection-canvas-step-title{font-size:var(--builder-node-title-size)}
+```
+
+El valor es un `font-size`, escrito donde la expresion no lo buscaba. Por eso el archivo podia auditar **0 font-size fuera de escala** y renderizar igual texto en **8, 9, 10, 11, 13 y 17px**: seis tamaños que no existen en ninguna otra herramienta.
+
+Se resuelven con el **mismo** `MAPA_FONT_SIZE` que los literales (8-12 → `--fs-sm`, 13-14 → `--fs-md`, 15 → `--fs-base`, 16-20 → `--fs-lg`): agregar ahora un token nuevo para el builder contradiria la decision que este mismo pase ya tomo al migrar los 143 `font-size` sueltos del archivo. 35 declaraciones, en los 5 breakpoints. Verificado en runtime: **0 desbordes** nuevos, comparando el DOM con la escalera vieja y la nueva.
+
+La unica exencion es `--builder-empty-icon-size` (34/30/28px), que es el glifo grande del estado vacio: misma clase de excepcion que `.act-icon` (36px) y `.ok-icon` (34px). Va por nombre, no por valor, porque mapear solo el 28 -- que coincide exacto con `--fs-2xl` -- partiria la escalera en dos vocabularios dentro de la misma variable.
+
+La auditoria ahora mira las dos formas, asi que el punto ciego esta cerrado, no solo parcheado.
+
 ## Dos defectos que aparecieron migrando
 
 Los dos estan cubiertos por tests:

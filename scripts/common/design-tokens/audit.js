@@ -45,8 +45,22 @@ function auditar(rutaRel) {
   });
 
   // ── font-size ──
+  //
+  // Se miran las dos formas. La segunda existe porque el builder declara su
+  // escalera de densidad como custom properties (--builder-node-title-size)
+  // y despues las consume con font-size:var(...): el valor es un font-size
+  // escrito donde la primera expresion no lo busca, y por eso el archivo
+  // podia auditar 0 y renderizar igual texto en 8, 9, 10, 11, 13 y 17px.
   const fs_ = [...src.matchAll(/font-size:\s*(\d+)px/gi)].map(function (m) { return Number(m[1]); });
-  const fsMalos = fs_.filter(function (n) { return !M.FONT_SIZE_EXENTOS.includes(n); });
+  const enVars = [];
+  const usadasComoFs = new Set([...src.matchAll(/font-size:\s*(?:calc\()?\s*var\((--[a-z0-9-]+)/gi)]
+    .map(function (m) { return m[1]; }));
+  [...src.matchAll(/(--[a-z0-9-]+)\s*:\s*(\d+)px/g)].forEach(function (m) {
+    if (!usadasComoFs.has(m[1])) return;
+    if (M.FONT_SIZE_VARS_EXENTAS.includes(m[1])) return;
+    enVars.push(Number(m[2]));
+  });
+  const fsMalos = fs_.concat(enVars).filter(function (n) { return !M.FONT_SIZE_EXENTOS.includes(n); });
 
   // ── margin y gap de un solo valor ──
   const sp = [...src.matchAll(/\b(?:margin|margin-top|margin-bottom|margin-left|margin-right|gap|row-gap|column-gap):\s*(\d+)px(?=\s*[;}"'])/gi)]
@@ -58,7 +72,7 @@ function auditar(rutaRel) {
     kb: Math.round(src.length / 1024),
     usosVar: (src.match(/var\(--/g) || []).length,
     colores: { total: hexes.length, malos: coloresMalos.length, valores: contar(coloresMalos) },
-    fontSize: { total: fs_.length, malos: fsMalos.length, valores: contar(fsMalos) },
+    fontSize: { total: fs_.length + enVars.length, malos: fsMalos.length, valores: contar(fsMalos) },
     espaciado: { total: sp.length, malos: spMalos.length, valores: contar(spMalos) },
     tokensNoDefinidos: tokensUsadosSinDefinir(src),
   };

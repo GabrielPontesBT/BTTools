@@ -116,16 +116,26 @@ function migrarAlto(selector, cuerpo) {
   });
 }
 
-// Solo la lista explicita de inputs de shape-map.js. Se compara el selector
-// normalizado (sin espacios extra) para no depender del formato del archivo.
+// Dos reglas distintas sobre el mismo shorthand:
+//
+// 1. Los inputs de la lista explicita de shape-map.js van a 1.5px + --border,
+//    el borde con el que el proyecto marca un campo editable (.field input).
+// 2. Cualquier otra CAJA sube de 1px a 1.5px y conserva su tono. Los
+//    border-top/bottom/left/right no entran: son separadores, y ahi los dos
+//    archivos ya coinciden en 1px.
 function migrarBordeDeInput(selector, cuerpo) {
   const normalizado = selector.trim().replace(/\s*,\s*/g, ',').replace(/\s+/g, ' ');
-  if (!M.INPUTS.includes(normalizado)) return cuerpo;
-  return cuerpo.replace(/(^|;)(\s*border\s*:\s*)1px\s+solid\s+var\(--border-l\)/g, function (todo, sep, pre) {
-    cambios.borde++;
-    detalle.borde.push(normalizado);
-    return sep + pre + '1.5px solid var(--border)';
-  });
+  const esInput = M.INPUTS.includes(normalizado);
+
+  return cuerpo.replace(/(^|;)(\s*border\s*:\s*)([\d.]+px)(\s+[a-z]+\s+)([^;]+)/g,
+    function (todo, sep, pre, ancho, estilo, color) {
+      if (ancho !== M.BORDE_CAJA.de) return todo;
+      cambios.borde++;
+      const destino = esInput ? 'var(--border)' : color;
+      detalle.borde.push(normalizado.split(',')[0].slice(0, 52) +
+        (esInput ? '   (input: tambien el tono)' : ''));
+      return sep + pre + M.BORDE_CAJA.a + estilo + destino;
+    });
 }
 
 // El tinte de los rgba() se neutraliza en TODO el archivo, no solo en las

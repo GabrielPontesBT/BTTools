@@ -102,6 +102,44 @@ function migrarFontSize(src) {
   return { out, cambios };
 }
 
+// ── font-size escondido en una custom property ───────────────
+//
+// migrarFontSize() solo ve declaraciones `font-size:Npx`. El builder de
+// Collections declara su escalera de densidad como variables
+// (--builder-node-title-size:13px) y despues las consume con
+// `font-size:var(...)`: el valor es un font-size, pero escrito donde la
+// expresion no lo busca. Por eso el archivo podia auditar "0 font-size fuera
+// de escala" y renderizar igual texto en 8, 9, 10, 11, 13 y 17px, seis
+// tamanos que no existen en ninguna otra herramienta.
+//
+// Se resuelven con el MISMO mapa que los literales: la decision de que 9-12
+// van a --fs-sm ya la tomo este pase cuando migro los 143 font-size sueltos
+// del archivo, y agregar ahora un token nuevo para el builder la contradiria.
+
+/** Las custom properties que el archivo consume como font-size. */
+function varsUsadasComoFontSize(src) {
+  const usadas = new Set();
+  [...src.matchAll(/font-size:\s*(?:calc\()?\s*var\((--[a-z0-9-]+)/gi)]
+    .forEach(function (m) { usadas.add(m[1]); });
+  return usadas;
+}
+
+function migrarFontSizeEnVars(src) {
+  const usadas = varsUsadasComoFontSize(src);
+  let cambios = 0;
+  const out = src.replace(/(--[a-z0-9-]+)(\s*:\s*)(\d+)px/g, function (todo, nombre, sep, n) {
+    if (!usadas.has(nombre)) return todo;
+    if (M.FONT_SIZE_VARS_EXENTAS.includes(nombre)) return todo;
+    const v = Number(n);
+    if (M.FONT_SIZE_EXENTOS.includes(v)) return todo;
+    const token = M.MAPA_FONT_SIZE[v];
+    if (!token) return todo;
+    cambios++;
+    return nombre + sep + 'var(' + token + ')';
+  });
+  return { out, cambios };
+}
+
 // ── margin y gap ─────────────────────────────────────────────
 //
 // Solo valores de un componente (un unico valor). Los shorthand de varios
@@ -173,6 +211,7 @@ ARCHIVOS.forEach(function (rel) {
   const c = migrarColores(src, rel); src = c.out;
   const k = colapsarFallbacksRedundantes(src); src = k.out;
   const f = migrarFontSize(src);     src = f.out;
+  const fv = migrarFontSizeEnVars(src); src = fv.out;
   const s = migrarEspaciado(src);    src = s.out;
 
   totalColor += c.cambios; totalFs += f.cambios; totalSp += s.cambios;
@@ -180,6 +219,7 @@ ARCHIVOS.forEach(function (rel) {
   console.log('\n' + rel);
   console.log('  colores    -> token: ' + c.cambios);
   console.log('  font-size  -> token: ' + f.cambios);
+  console.log('  font-size en vars  : ' + fv.cambios);
   console.log('  espaciados -> token: ' + s.cambios);
   if (k.cambios) console.log('  fallbacks redundantes colapsados: ' + k.cambios);
 

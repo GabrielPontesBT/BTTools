@@ -177,3 +177,33 @@ test('no quedaron var() malformadas de la migracion', () => {
   assert.equal((s.match(/var\((--[a-z0-9-]+),\s*var\(\1\)\)/gi) || []).length, 0,
                'hay var(--x,var(--x)): fallback redundante que dejo la migracion');
 });
+
+// ── font-size escondido en una custom property ───────────────
+//
+// migrarFontSize()/auditar() solo veian `font-size:Npx`. El builder declara su
+// escalera de densidad como variables (--builder-node-title-size:13px) y las
+// consume con `font-size:var(...)`: el archivo podia auditar 0 y renderizar
+// igual texto en 8, 9, 10, 11, 13 y 17px, seis tamaños que no existen en
+// ninguna otra herramienta.
+
+test('public/collections.css: ninguna custom property usada como font-size queda fuera de escala', () => {
+  const css = fs.readFileSync(path.join(RAIZ, 'public', 'collections.css'), 'utf8');
+  const usadas = new Set([...css.matchAll(/font-size:\s*(?:calc\()?\s*var\((--[a-z0-9-]+)/gi)]
+    .map(function (m) { return m[1]; }));
+  const fuera = [];
+  [...css.matchAll(/(--[a-z0-9-]+)\s*:\s*(\d+)px/g)].forEach(function (m) {
+    if (!usadas.has(m[1])) return;
+    if (M.FONT_SIZE_VARS_EXENTAS.includes(m[1])) return;
+    if (M.FONT_SIZE_EXENTOS.includes(Number(m[2]))) return;
+    fuera.push(m[1] + ': ' + m[2] + 'px');
+  });
+  assert.deepEqual([...new Set(fuera)], [],
+    'La escala es --fs-sm/md/base/lg/xl/2xl. Si es un glifo decorativo, va a FONT_SIZE_VARS_EXENTAS con su razon.');
+});
+
+test('la exencion por nombre es de glifos decorativos, no un escape para texto', () => {
+  M.FONT_SIZE_VARS_EXENTAS.forEach(function (v) {
+    assert.match(v, /icon|mark|glyph/,
+      v + ' no parece un glifo decorativo; una variable de TEXTO tiene que entrar en la escala');
+  });
+});

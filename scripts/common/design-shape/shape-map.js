@@ -393,11 +393,11 @@ const VARS_MUERTAS = [
 // -- Borde de los inputs --------------------------------------
 //
 // .field input en styles.css es 1.5px solid var(--border). Los inputs del
-// builder son 1px solid var(--border-l): mas finos y mas claros, que es justo
+// builder eran 1px solid var(--border-l): mas finos y mas claros, que es justo
 // lo que hace que un campo del builder al lado de uno del wizard se vea de
-// otro formulario. Solo se tocan los INPUTS, no los bordes de paneles y cards:
-// el pase de color eligio --border-l para esos a proposito (ver token-map.js),
-// y subirlos a --border los volveria pesados.
+// otro formulario. Estos van ademas a --border (el tono), no solo a 1.5px: un
+// campo editable tiene que leerse como editable, y ese es el borde con el que
+// el proyecto lo marca.
 const INPUTS = [
   '.collection-studio-config-main input',
   '.collection-builder-field-inline input',
@@ -408,6 +408,24 @@ const INPUTS = [
   '.collection-inspector-input',
   '.collection-inspector-textarea',
 ];
+
+// -- Ancho del borde de las cajas -----------------------------
+//
+// Medido sobre styles.css, la convencion del proyecto para el shorthand
+// `border:` es 1.5px (19 usos) con 2px para lo enfatizado (.ccard, .sdot,
+// .sg-chk) y un unico 1px suelto. El builder tenia 81 cajas en 1px: al lado
+// de un .svc-wrap o un .param-card del wizard se leen como de otro grosor.
+//
+// Solo sube el shorthand `border:`, que dibuja una CAJA. Los
+// border-top/bottom/left/right son SEPARADORES entre filas, y ahi los dos
+// archivos ya coinciden en 1px (styles.css 16 usos, collections.css 31).
+//
+// El TONO no se toca: se queda --border-l. El pase de color lo eligio a
+// proposito para los paneles del builder (ver token-map.js), porque sus 7
+// bordes iban de luminancia 219 a 242 y mandarlos a --border (199) los
+// hubiera vuelto notablemente mas pesados. Lo que se unifica aca es el
+// grosor, que es una dimension distinta.
+const BORDE_CAJA = { de: '1px', a: '1.5px' };
 
 module.exports = {
   TOKENS_NUEVOS,
@@ -424,6 +442,7 @@ module.exports = {
   RE_VAR_RADIO,
   VARS_MUERTAS,
   INPUTS,
+  BORDE_CAJA,
   RE_CONTROL,
   esSelectorDeControl,
   esCuadrado,

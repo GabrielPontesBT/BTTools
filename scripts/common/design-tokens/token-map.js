@@ -238,7 +238,7 @@ const MAPA_EXPLICITO = {
 // ── Escala de tipografia y espaciado ─────────────────────────
 
 const MAPA_FONT_SIZE = {
-  9: '--fs-sm', 10: '--fs-sm', 11: '--fs-sm', 12: '--fs-sm',
+  8: '--fs-sm', 9: '--fs-sm', 10: '--fs-sm', 11: '--fs-sm', 12: '--fs-sm',
   13: '--fs-md', 14: '--fs-md',
   15: '--fs-base',
   16: '--fs-lg', 17: '--fs-lg', 18: '--fs-lg', 19: '--fs-lg', 20: '--fs-lg',
@@ -248,6 +248,13 @@ const MAPA_FONT_SIZE = {
 
 // Los iconos decorativos de un solo uso quedan fuera de escala por spec.
 const FONT_SIZE_EXENTOS = [34, 36, 56];
+
+// Custom properties que guardan un tamano de GLIFO decorativo, no de texto.
+// Misma exencion que .act-icon (36px) y .ok-icon (34px) en styles.css, pero
+// por nombre: el valor cambia en cada breakpoint (34/30/28px) y mapear solo el
+// 28 -- que coincide exacto con --fs-2xl -- partiria la escalera en dos
+// vocabularios dentro de la misma variable.
+const FONT_SIZE_VARS_EXENTAS = ['--builder-empty-icon-size'];
 
 const MAPA_ESPACIADO = {
   1: '--sp-1', 2: '--sp-1', 3: '--sp-1', 4: '--sp-1',
@@ -350,6 +357,7 @@ module.exports = {
   MAPA_EXPLICITO,
   MAPA_FONT_SIZE,
   FONT_SIZE_EXENTOS,
+  FONT_SIZE_VARS_EXENTAS,
   MAPA_ESPACIADO,
   ESPACIADO_EXENTOS,
   normalizarHex,

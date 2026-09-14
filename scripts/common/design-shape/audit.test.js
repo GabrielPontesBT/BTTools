@@ -257,3 +257,24 @@ test('toda custom property --builder-* declarada se usa en algun lado', () => {
   const sinUso = declaradas.filter(function (v) { return css.split('var(' + v).length === 1; });
   assert.deepEqual(sinUso, [], 'variables declaradas y nunca usadas: mienten sobre lo que la UI hace');
 });
+
+// -- El ancho del borde de las cajas --------------------------
+//
+// El proyecto dibuja una caja con `border:1.5px` (19 usos en styles.css) y
+// 2px cuando va enfatizada (.ccard, .sdot, .sg-chk). El builder tenia 81 cajas
+// en 1px: al lado de un .svc-wrap o un .param-card del wizard se leian de otro
+// grosor. Los border-top/bottom/left/right son separadores y siguen en 1px,
+// que es lo que hacen los dos archivos.
+
+test('public/collections.css: ninguna caja queda con borde de 1px', () => {
+  const r = auditar('public/collections.css');
+  assert.deepEqual(r.bordes, [],
+    'El shorthand border: dibuja una caja y el proyecto la dibuja en 1.5px. ' +
+    'Un separador se escribe border-top/bottom/left/right, que sigue en 1px.');
+});
+
+test('el separador de fila sigue en 1px, como en styles.css', () => {
+  const css = fs.readFileSync(path.join(RAIZ, 'public', 'collections.css'), 'utf8');
+  assert.ok((css.match(/border-(?:top|bottom|left|right):\s*1px/g) || []).length > 20,
+    'subir los separadores a 1.5px no era parte del cambio: los dos archivos ya coincidian');
+});
