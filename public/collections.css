@@ -47,7 +47,7 @@
   --builder-drawer-field-gap:var(--sp-3);
   --builder-drawer-card-gap:var(--sp-3);
 }
-.wizard:has(.collection-shell-studio-builder) .wiz-bd{overflow-y:auto;overflow-x:hidden;padding-bottom:14px}
+.wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-bd{overflow-y:auto;overflow-x:hidden;padding-bottom:14px}
 #p4c.active:has(.collection-shell-studio-builder){overflow-y:auto;overflow-x:hidden}
 .collection-shell-studio > .collection-path{display:none}
 .collection-shell-studio > .ptitle,
