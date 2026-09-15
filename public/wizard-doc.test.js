@@ -2663,6 +2663,40 @@ test('con la API sin tildar el paso 5 no dibuja parametros', () => {
   assert.equal(w.llamadas, 0);
 });
 
+// toggleEjecutar dibuja el textarea de un parametro SDT con tantas filas
+// como lineas tenga su ejemplo (JSON.stringify(..., null, 2), con saltos de
+// linea reales). Antes contaba las lineas con split('\\n') -- el texto
+// literal "\n", no el caracter de salto de linea -- asi que nunca contaba
+// bien y ademas tenia un tope de 12: un SDT grande (BTPEPANaturalPerson,
+// ~30 campos) quedaba en un textarea chico con scroll interno.
+test('un SDT complejo con muchas lineas se dibuja entero, sin scroll interno', async () => {
+  const w = wizardConexion();
+  w.S.action = 'doc';
+  w.S.version = 'V4';
+  w.items = [{ service: 'PublicPersons', method: 'create' }];
+  w.document.getElementById('cb-ejecutar').checked = true;
+  const ejemplo = JSON.stringify({
+    cityId: '', colonyId: '', a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9, j: 10, k: 11,
+  }, null, 2);
+  w.fetch = function () {
+    return Promise.resolve({ json: function () {
+      return Promise.resolve({
+        ok: true,
+        params: [{ name: 'naturalPerson', type: 'SdtsBTPEPANaturalPerson', isComplex: true, example: ejemplo }],
+      });
+    } });
+  };
+
+  await w.toggleEjecutar();
+
+  const lineasReales = ejemplo.split('\n').length;
+  assert.ok(lineasReales > 12, 'el ejemplo tiene que ser mas grande que el viejo tope de 12 para que el test pruebe algo');
+  const html = w.els['params-section'].innerHTML;
+  const m = html.match(/rows="(\d+)"/);
+  assert.ok(m, 'el SDT complejo se dibuja como un textarea con "rows"');
+  assert.equal(Number(m[1]), lineasReales, 'tiene que mostrar todas las lineas del ejemplo, ni cortadas en 12 ni mal contadas por el split roto');
+});
+
 // ── Selección de servicios (Documentar): sin el campo de filtro ──────────
 // El campo "Filtrar servicios" se saco de la UI. Antes, ademas de dejar
 // escribir un prefijo a mano, tambien traia un default ("BT" en V3, "Public"

@@ -3623,8 +3623,16 @@ function buildWorkflowCard(service, workflow, uncovered) {
       if (p.type) html += '<div style="font-size:var(--fs-sm);font-weight:400;color:var(--muted)">' + p.type + '</div>';
       html += '</label>';
       if (p.isComplex) {
-        var lines = p.example ? Math.min(p.example.split('\\n').length, 12) : 3;
-        var exVal = p.example ? p.example.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : (p.itemType ? (p.itemName ? '{\\n  "' + p.itemName + '": []\\n}' : '[]') : '{}');
+        // Sin tope: un SDT grande (BTPEPANaturalPerson tiene ~30 campos) se
+        // ve entero al abrir el paso. Antes se cortaba en 12 filas y quedaba
+        // con scroll interno, escondiendo la mayoria de los campos.
+        // p.example viene de JSON.stringify(..., null, 2) (ver /api/input-params
+        // en setup.js): tiene saltos de linea reales. split('\\n') (con la
+        // barra doblemente escapada) buscaba el texto literal "\n" en vez del
+        // caracter de salto de linea, asi que nunca contaba bien las lineas y
+        // el SDT quedaba con scroll interno aunque hubiera lugar de sobra.
+        var lines = p.example ? p.example.split('\n').length : 3;
+        var exVal = p.example ? p.example.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : (p.itemType ? (p.itemName ? '{\n  "' + p.itemName + '": []\n}' : '[]') : '{}');
         html += '<textarea id="' + fid + '" rows="' + lines + '" data-example="' + exVal + '" style="flex:1;padding:var(--sp-1) var(--sp-2);border:1.5px solid var(--border);border-radius:var(--r-ctrl);font-size:var(--fs-sm);font-family:Consolas,monospace;resize:vertical;outline:none">' + exVal + '</textarea>';
       } else {
         html += '<input type="text" id="' + fid + '" placeholder="Ingresar valor..." style="flex:1;padding:var(--sp-1) var(--sp-2);border:1.5px solid var(--border);border-radius:var(--r-ctrl);font-size:var(--fs-sm);font-family:inherit;outline:none">';
@@ -3860,8 +3868,10 @@ async function toggleEjecutar() {
         if (p.type) html += ' <span style="font-weight:400;color:var(--muted)">(' + p.type + ')</span>';
         html += '</label>';
         if (p.isComplex) {
-          var lines = p.example ? Math.min(p.example.split('\\n').length, 12) : 3;
-          var exVal = p.example ? p.example.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : (p.itemType ? (p.itemName ? '{\\n  "' + p.itemName + '": []\\n}' : '[]') : '{}');
+          // Sin tope, y contando lineas reales: ver el comentario equivalente
+          // en buildWorkflowCard.
+          var lines = p.example ? p.example.split('\n').length : 3;
+          var exVal = p.example ? p.example.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : (p.itemType ? (p.itemName ? '{\n  "' + p.itemName + '": []\n}' : '[]') : '{}');
           html += '<textarea id="' + fid + '" rows="' + lines + '" data-example="' + exVal + '" style="width:100%;padding:var(--sp-2) var(--sp-3);border:1.5px solid var(--border);border-radius:var(--r-ctrl);font-size:var(--fs-sm);font-family:Consolas,monospace;resize:vertical;outline:none">' + exVal + '</textarea>';
         } else {
           html += '<input type="text" id="' + fid + '" placeholder="' + (p.type || 'Varchar') + '">';
