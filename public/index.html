@@ -12,7 +12,7 @@
 <div class="wizard">
 
   <div class="wiz-hd">
-    <div class="wiz-hd-logo" onclick="location.href='/'" role="button" title="Volver al inicio">
+    <div class="wiz-hd-logo" onclick="goHome()" role="button" title="Volver al inicio">
       <img src="/public/logo.png" alt="Bantotal">
     </div>
     <div style="margin-left:auto;display:flex;align-items:center">
@@ -28,15 +28,15 @@
 
   <div class="wiz-sidebar">
     <div class="steps-bar">
-      <div class="step-row"><div class="sdot active" id="d1"><span id="dn1">1</span></div><span class="sdot-lb" id="lb1">Ambiente</span></div>
+      <div class="step-row"><div class="sdot active" id="d1"><span class="sdot-lb" id="lb1">Ambiente</span></div></div>
       <div class="sline" id="l1"></div>
-      <div class="step-row"><div class="sdot" id="d2"><span id="dn2">2</span></div><span class="sdot-lb" id="lb2">Acción</span></div>
+      <div class="step-row"><div class="sdot" id="d2"><span class="sdot-lb" id="lb2">Acción</span></div></div>
       <div class="sline" id="l2"></div>
-      <div class="step-row"><div class="sdot" id="d3"><span id="dn3">3</span></div><span class="sdot-lb" id="lb3"> </span></div>
+      <div class="step-row"><div class="sdot" id="d3"><span class="sdot-lb" id="lb3"> </span></div></div>
       <div class="sline" id="l3"></div>
-      <div class="step-row"><div class="sdot" id="d4"><span id="dn4">4</span></div><span class="sdot-lb" id="lb4"> </span></div>
+      <div class="step-row"><div class="sdot" id="d4"><span class="sdot-lb" id="lb4"> </span></div></div>
       <div class="sline" id="l4"></div>
-      <div class="step-row"><div class="sdot" id="d5"><span id="dn5">5</span></div><span class="sdot-lb" id="lb5"> </span></div>
+      <div class="step-row"><div class="sdot" id="d5"><span class="sdot-lb" id="lb5"> </span></div></div>
     </div>
   </div>
 
@@ -47,15 +47,15 @@
     <!-- Paso 1: Ambiente (versión + motor + conexión) -->
     <div class="panel" id="p2">
       <div class="ptitle">¿Contra qué ambiente vas a trabajar?</div>
-      <div class="psub">Elegí la versión y la base de datos. Queda activo para todas las herramientas.</div>
+      <div class="psub">La elección queda activa para todas las herramientas.</div>
 
       <!-- Version + motor. El ambiente entero (version, motor y conexion) se
            elige en ESTE panel, que es el paso 1 y la primera pagina que se ve
            al abrir la app. Las ids siguen diciendo "conn"/"p2" porque el panel
            es el mismo que ademas se reusa para reconectar a mitad de una
            herramienta (PASO_CONEXION), donde este bloque se esconde. -->
-      <div id="conn-version-wrap" style="display:none;margin-bottom:var(--sp-4)">
-        <label style="display:block;font-size:var(--fs-base);font-weight:500;color:var(--text);margin-bottom:var(--sp-2)">Versión de Bantotal</label>
+      <div id="conn-version-wrap" class="card" style="display:none">
+        <label class="field-label">Versión de Bantotal</label>
         <div class="cards" style="grid-template-columns:repeat(2,1fr);gap:var(--sp-3);margin-bottom:0">
           <div class="ccard" id="conn-ver-V3" onclick="pickVersion('V3')" style="padding:var(--sp-3) var(--sp-5)">
             <span class="ccard-title" style="margin-bottom:2px">V3</span>
@@ -67,7 +67,7 @@
           </div>
         </div>
         <div id="engine-section" style="display:none;margin-top:var(--sp-7)">
-          <div class="psub" style="margin-bottom:var(--sp-3)">Motor de base de datos</div>
+          <label class="field-label">Motor de base de datos</label>
           <div class="cards" style="grid-template-columns:repeat(4,1fr)">
             <div class="ccard" id="engine-oracle" onclick="pick('engine','oracle',this)" style="padding:var(--sp-3) var(--sp-5)">
               <span class="ccard-title" style="margin-bottom:0">Oracle</span>
@@ -86,58 +86,54 @@
             </div>
           </div>
         </div>
-
-        <div style="border-top:1px solid var(--border);margin:var(--sp-4) 0 var(--sp-7)"></div>
       </div>
 
-      <div class="cres" id="db-hist-err" style="margin-bottom:var(--sp-3)"></div>
-      <div id="db-hist-wrap" style="display:none;margin-bottom:var(--sp-1)">
-        <div class="field" style="margin-bottom:var(--sp-3)">
-          <label style="margin-bottom:var(--sp-2);display:block">Conexiones guardadas <span style="font-weight:400;color:var(--muted);font-size:var(--fs-sm)">(las de la versión elegida)</span></label>
+      <div class="card">
+        <div class="cres" id="db-hist-err" style="margin-bottom:var(--sp-3)"></div>
+        <div id="db-hist-wrap" style="display:none;margin-bottom:var(--sp-1)">
+          <div class="field" style="margin-bottom:var(--sp-3)">
+            <label class="field-label">Conexiones guardadas <span style="font-weight:400;color:var(--muted);font-size:var(--fs-sm)">(las de la versión elegida)</span></label>
+            <div style="display:flex;gap:var(--sp-2);align-items:center">
+              <select id="db-hist-sel" onchange="loadDbHistEntry()" style="flex:1;height:var(--ctrl-h);border:1px solid var(--border);border-radius:var(--r-ctrl);padding:0 var(--sp-3);font-size:var(--fs-sm);background:var(--bg);color:var(--text)">
+                <option value="">-- Nueva conexión --</option>
+              </select>
+              <button id="db-hist-del" onclick="deleteDbHistEntry()" disabled style="height:var(--ctrl-h);padding:0 var(--sp-4);border-radius:var(--r-ctrl);border:1px solid var(--red);background:var(--red-l);color:var(--red);font-size:var(--fs-sm);font-weight:600;cursor:pointer;white-space:nowrap;transition:opacity .15s" onmouseover="this.style.opacity='.75'" onmouseout="this.style.opacity='1'">Eliminar</button>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--border);margin:var(--sp-4) 0 var(--sp-7)"></div>
+        </div>
+
+        <div class="field" style="margin-bottom:var(--sp-4)">
+          <label>Nombre de la conexión <span style="font-weight:400;color:var(--muted);font-size:var(--fs-sm)">(opcional)</span></label>
           <div style="display:flex;gap:var(--sp-2);align-items:center">
-            <select id="db-hist-sel" onchange="loadDbHistEntry()" style="flex:1;height:var(--ctrl-h);border:1px solid var(--border);border-radius:6px;padding:0 var(--sp-3);font-size:var(--fs-sm);background:var(--bg);color:var(--text)">
-              <option value="">-- Nueva conexión --</option>
-            </select>
-            <button id="db-hist-del" onclick="deleteDbHistEntry()" disabled style="height:var(--ctrl-h);padding:0 var(--sp-4);border-radius:6px;border:1px solid var(--red);background:var(--red-l);color:var(--red);font-size:var(--fs-sm);font-weight:600;cursor:pointer;white-space:nowrap;transition:opacity .15s" onmouseover="this.style.opacity='.75'" onmouseout="this.style.opacity='1'">Eliminar</button>
+            <input type="text" id="db-conn-name" placeholder="ej: Producción V4" autocomplete="off" style="flex:1">
+            <button class="btn btn-ghost" id="btn-save-conn" onclick="saveConnName()" style="white-space:nowrap;flex-shrink:0" title="Guardar nombre de la conexión">Guardar nombre</button>
+          </div>
+          <div id="conn-name-res" style="font-size:var(--fs-sm);margin-top:var(--sp-1);display:none"></div>
+        </div>
+
+        <div id="sql-fields">
+          <div class="frow" style="grid-template-columns:1.5fr 1.5fr 1.5fr 1fr 1fr">
+            <div class="field"><label>Usuario</label><input type="text" id="db-user-s" autocomplete="username"></div>
+            <div class="field"><label>Contraseña</label><div class="pw"><input type="password" id="db-pass-s" autocomplete="current-password"><button class="pw-btn" onclick="togglePw('db-pass-s',this)">&#128065;</button></div></div>
+            <div class="field"><label>Servidor</label><input type="text" id="db-server" placeholder="ej: 192.168.1.10"></div>
+            <div class="field"><label>Puerto</label><input type="text" id="db-port" value="1433"></div>
+            <div class="field"><label>Base de datos</label><input type="text" id="db-name" placeholder="ej: ProductoGx16"></div>
           </div>
         </div>
-        <div style="border-top:1px solid var(--border);margin:var(--sp-4) 0 var(--sp-7)"></div>
-      </div>
 
-      <div class="field" style="margin-bottom:var(--sp-4)">
-        <label>Nombre de la conexión <span style="font-weight:400;color:var(--muted);font-size:var(--fs-sm)">(opcional)</span></label>
-        <div style="display:flex;gap:var(--sp-2);align-items:center">
-          <input type="text" id="db-conn-name" placeholder="ej: Producción V4" autocomplete="off" style="flex:1">
-          <button class="btn btn-ghost" id="btn-save-conn" onclick="saveConnName()" style="white-space:nowrap;flex-shrink:0" title="Guardar nombre de la conexión">Guardar nombre</button>
+        <div id="ora-fields" style="display:none">
+          <div class="frow" style="grid-template-columns:1.5fr 1.5fr 1.5fr 1fr 1fr">
+            <div class="field"><label>Usuario</label><input type="text" id="db-user-o" autocomplete="username"></div>
+            <div class="field"><label>Contraseña</label><div class="pw"><input type="password" id="db-pass-o" autocomplete="current-password"><button class="pw-btn" onclick="togglePw('db-pass-o',this)">&#128065;</button></div></div>
+            <div class="field"><label>Host</label><input type="text" id="db-host" placeholder="ej: 10.0.0.4"></div>
+            <div class="field"><label>Puerto</label><input type="text" id="db-port-o" placeholder="1521"></div>
+            <div class="field"><label>Servicio</label><input type="text" id="db-service" placeholder="ej: btv4db"></div>
+          </div>
         </div>
-        <div id="conn-name-res" style="font-size:var(--fs-sm);margin-top:var(--sp-1);display:none"></div>
-      </div>
 
-      <div id="sql-fields">
-        <div class="frow" style="grid-template-columns:3fr 1fr">
-          <div class="field"><label>Servidor</label><input type="text" id="db-server" placeholder="ej: 192.168.1.10"></div>
-          <div class="field"><label>Puerto</label><input type="text" id="db-port" value="1433"></div>
-        </div>
-        <div class="field"><label>Base de datos</label><input type="text" id="db-name" placeholder="ej: ProductoGx16"></div>
-        <div class="frow">
-          <div class="field"><label>Usuario</label><input type="text" id="db-user-s" autocomplete="username"></div>
-          <div class="field"><label>Contraseña</label><div class="pw"><input type="password" id="db-pass-s" autocomplete="current-password"><button class="pw-btn" onclick="togglePw('db-pass-s',this)">&#128065;</button></div></div>
-        </div>
+        <div class="cres" id="cres"></div>
       </div>
-
-      <div id="ora-fields" style="display:none">
-        <div class="frow" style="grid-template-columns:3fr 1fr">
-          <div class="field"><label>Host</label><input type="text" id="db-host" placeholder="ej: 10.0.0.4"></div>
-          <div class="field"><label>Puerto</label><input type="text" id="db-port-o" placeholder="1521"></div>
-        </div>
-        <div class="frow">
-          <div class="field"><label>Usuario</label><input type="text" id="db-user-o" autocomplete="username"></div>
-          <div class="field"><label>Contraseña</label><div class="pw"><input type="password" id="db-pass-o" autocomplete="current-password"><button class="pw-btn" onclick="togglePw('db-pass-o',this)">&#128065;</button></div></div>
-        </div>
-        <div class="field"><label>Servicio</label><input type="text" id="db-service" placeholder="ej: btv4db"></div>
-      </div>
-
-      <div class="cres" id="cres"></div>
     </div>
 
     <!-- Paso 3: Acción -->
@@ -188,8 +184,8 @@
         </div>
       </div>
 
-      <div id="apimode-section" style="display:none;margin-top:var(--sp-7)">
-        <div class="psub" style="margin-bottom:var(--sp-3)">¿Con qué API vas a trabajar?</div>
+      <div id="apimode-section" class="card" style="display:none;margin-top:var(--sp-7)">
+        <label style="display:block;font-size:var(--fs-lg);font-weight:500;color:var(--text);margin-bottom:var(--sp-4)">¿Con qué API vas a trabajar?</label>
         <div class="cards" style="grid-template-columns:repeat(2,1fr)">
           <div class="ccard" id="apimode-publica" onclick="pick('apiMode','publica',this)">
             <span class="ccard-title">API Pública</span>
@@ -217,15 +213,48 @@
       </div>
 
       <div id="api-creds-wrap" style="display:none">
+        <!-- Swagger del ambiente: de acá salen las rutas reales de cada
+             endpoint (kebab-case) y, para Documentar en V4, tambien la raiz
+             de la API (servers[0].url) -- ver detectarSwagger/guardarSwaggerPegado
+             mas abajo. Va primero: es la fuente de verdad, y la URL de la API
+             a mano (#a-urls-home) queda escondida detras del link
+             "a-urls-manual-toggle" para no competir visualmente con esta
+             tarjeta. Ver scripts/common/swagger-endpoints. -->
+        <div id="a-swagger-wrap" class="card">
+          <div class="field">
+            <label>URL del Swagger <span style="font-weight:400;color:var(--muted)">(opcional)</span></label>
+            <div style="display:flex;gap:var(--sp-2)">
+              <input type="text" id="a-swagger" placeholder="pegá la URL del Swagger, o completá la URL de la API a mano" style="flex:1">
+              <button class="btn btn-outline" id="btn-detect-swagger" onclick="detectarSwagger()" style="white-space:nowrap">Detectar</button>
+            </div>
+            <div class="hint">De acá salen las rutas reales de cada endpoint (kebab-case) y el verbo HTTP. Sin Swagger, la ruta se deriva del nombre del método.</div>
+          </div>
+          <div id="swagger-res" class="cres" style="margin-bottom:0"></div>
+          <div style="margin-top:var(--sp-2)">
+            <a href="#" onclick="toggleSwaggerPaste();return false" style="font-size:var(--fs-sm)" id="swagger-paste-toggle">¿El ambiente no lo expone? Pegá el JSON</a>
+            <div id="swagger-paste-wrap" style="display:none;margin-top:var(--sp-2)">
+              <textarea id="a-swagger-json" rows="6" placeholder='Pegá acá el contenido del Swagger ({"openapi":"3.0.1", ...})' style="width:100%;font-family:monospace;font-size:var(--fs-sm)"></textarea>
+              <div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-2)">
+                <button class="btn btn-outline" onclick="guardarSwaggerPegado()" style="margin:var(--sp-2), 0, var(--sp-3)">Guardar Swagger</button>
+                <button class="btn btn-outline" onclick="borrarSwaggerPegado()" style="margin:var(--sp-2), 0, var(--sp-3)">Borrar guardado</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Las tres URLs del ambiente viven juntas en un bloque movible. En
-             Documentar se muestran arriba de todo (su lugar de siempre); en
              "Generar casos de prueba" show() las manda adentro del <details>
              de detalles tecnicos (#a-urls-tech), porque ahi no se tipean: la
-             raiz de la API sale del propio Swagger (servers[0].url) y competian
-             visualmente con lo unico que si hay que completar a mano, que son
-             las credenciales. -->
+             raiz de la API sale del propio Swagger (servers[0].url). En
+             Documentar V4 pasa lo mismo (ver detectarSwagger): el bloque
+             arranca escondido y show() lo revela solo si ya tiene un valor
+             cargado; si no, el link de abajo lo muestra a pedido, o
+             detectarSwagger lo revela solo si el Swagger no alcanza para
+             resolver la URL. En V3 (sin Swagger) sigue visible siempre, que
+             es su lugar de siempre. -->
+        <a href="#" onclick="toggleUrlsManual();return false" style="display:none;font-size:var(--fs-sm)" id="a-urls-manual-toggle">¿No hay Swagger disponible? Completá la URL de la API manualmente</a>
         <div id="a-urls-home">
-        <div id="a-urls-block">
+        <div id="a-urls-block" class="card" style="margin-top:var(--sp-4)">
         <div class="field" id="a-api-wrap">
           <label>URL de la API</label>
           <input type="text" id="a-api" placeholder="ej: http://10.0.0.7:5110/btv4core" oninput="onApiUrlInput()">
@@ -245,32 +274,6 @@
         </div>
         </div>
         </div>
-
-        <!-- Swagger del ambiente: de acá salen las rutas reales de cada
-             endpoint. Los ambientes pasaron a kebab-case y derivarlas del
-             nombre del método dejó de funcionar. Ver
-             scripts/common/swagger-endpoints. -->
-        <div id="a-swagger-wrap">
-          <div class="field">
-            <label>URL del Swagger <span style="font-weight:400;color:var(--muted)">(opcional)</span></label>
-            <div style="display:flex;gap:var(--sp-2)">
-              <input type="text" id="a-swagger" placeholder="se detecta solo desde la URL de la API publica" style="flex:1">
-              <button class="btn btn-outline" id="btn-detect-swagger" onclick="detectarSwagger()" style="white-space:nowrap">Detectar</button>
-            </div>
-            <div class="hint">De acá salen las rutas reales de cada endpoint (kebab-case) y el verbo HTTP. Sin Swagger, la ruta se deriva del nombre del método.</div>
-          </div>
-          <div id="swagger-res" class="cres" style="margin-bottom:0"></div>
-          <div style="margin-top:var(--sp-2)">
-            <a href="#" onclick="toggleSwaggerPaste();return false" style="font-size:var(--fs-sm)" id="swagger-paste-toggle">¿El ambiente no lo expone? Pegá el JSON</a>
-            <div id="swagger-paste-wrap" style="display:none;margin-top:var(--sp-2)">
-              <textarea id="a-swagger-json" rows="6" placeholder='Pegá acá el contenido del Swagger ({"openapi":"3.0.1", ...})' style="width:100%;font-family:monospace;font-size:var(--fs-sm)"></textarea>
-              <div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-2)">
-                <button class="btn btn-outline" onclick="guardarSwaggerPegado()" style="margin:var(--sp-2), 0, var(--sp-3)">Guardar Swagger</button>
-                <button class="btn btn-outline" onclick="borrarSwaggerPegado()" style="margin:var(--sp-2), 0, var(--sp-3)">Borrar guardado</button>
-              </div>
-            </div>
-          </div>
-        </div>
         <!-- Catalogo de servicios de "Generar casos de prueba". Vivia en su
              propia pantalla (la etapa "setup" del panel, #collection-config en
              panel.html), o sea: una pantalla para las credenciales y otra para
@@ -282,69 +285,77 @@
              de ese Swagger), y las URLs abajo en detalles tecnicos. Los ids no
              cambiaron: son los que leen CollectionEnvironmentManager y el
              bootstrap del builder. -->
-        <div id="collection-catalog-section" style="display:none">
-          <!-- Solo para V3 (SOAP, sin documento OpenAPI): ahi el catalogo se
-               lee de BTCBS014/BTI014 y el formato real importa. Para V4 no hay
-               eleccion posible -- ver CollectionEnvironmentManager.syncFormatUi. -->
-          <div class="field" id="collection-format-field" style="margin-bottom:var(--sp-3); display:none">
-            <label>Formato</label>
-            <select id="collection-format-select" onchange="collectionUpdateFormat(this.value)">
-              <option value="xml">XML (SOAP)</option>
-              <option value="json">JSON (experimental)</option>
-            </select>
-          </div>
-
-          <!-- Un ambiente real puede tener un swagger por microservicio (cada
-               uno en su propio host/puerto) en vez de un unico gateway: se
-               agregan de a uno y quedan en una lista; ver
-               CollectionEnvironmentManager.addSwaggerUrl/renderSwaggerUrlList. -->
-          <div class="field" id="collection-swagger-field" style="margin-bottom:var(--sp-3)">
-            <label>Ruta Swagger</label>
-            <div class="collection-swagger-url-add">
-              <input type="text" id="collection-swagger-url" placeholder="ej: http://10.0.0.5:5101/api/swagger-ui/index.html#/" onkeydown="if(event.key==='Enter'){event.preventDefault();collectionAddSwaggerUrl();}">
-              <button class="btn btn-ghost" type="button" onclick="collectionAddSwaggerUrl()">+ Agregar swagger</button>
+        <!-- class="card" va en este mismo id, no en un wrapper aparte: show()
+             solo togglea el display de #collection-catalog-section (isCollections),
+             asi que un wrapper separado se quedaria visible -- vacio, solo con el
+             padding de la tarjeta -- cada vez que este bloque se esconde en
+             Documentar. -->
+        <div id="collection-catalog-section" class="card" style="display:none">
+            <!-- Solo para V3 (SOAP, sin documento OpenAPI): ahi el catalogo se
+                lee de BTCBS014/BTI014 y el formato real importa. Para V4 no hay
+                eleccion posible -- ver CollectionEnvironmentManager.syncFormatUi. -->
+            <div class="field" id="collection-format-field" style="margin-bottom:var(--sp-3); display:none">
+              <label>Formato</label>
+              <select id="collection-format-select" onchange="collectionUpdateFormat(this.value)">
+                <option value="xml">XML (SOAP)</option>
+                <option value="json">JSON (experimental)</option>
+              </select>
             </div>
-            <div id="collection-swagger-url-list" class="collection-swagger-url-list"></div>
-            <!-- Detecta Session.userLogin ("API interna") o Authenticate/Execute
-                 ("API publica") dentro de los swaggers cargados; ver
-                 findInternaAuthOperation en index.js. Destildar cuando la
-                 deteccion le pega mal a un ambiente puntual -- ahi la
-                 autenticacion se ajusta a mano en la collection generada. -->
-            <label class="collection-auto-auth-toggle">
-              <input type="checkbox" id="collection-auto-detect-auth" checked onchange="collectionUpdateAutoDetectAuth(this.checked)">
-              Detectar autenticacion automaticamente (Session.userLogin / Authenticate)
-            </label>
-          </div>
 
-          <!-- Solo V3 + "API interna": ese ambiente resuelve el catalogo contra
-               BTCBS014/019/026 pero ejecuta contra un gateway REST propio (sin
-               el prefijo "/public/", ej. ":5107/api/platform") que no se puede
-               inferir de ningun otro dato del wizard. -->
-          <div class="field" id="collection-interna-base-field" style="margin-bottom:var(--sp-3); display:none">
-            <label>URL de la API interna</label>
-            <input type="text" id="collection-interna-base-url" placeholder="ej: http://10.0.0.7:5107/api/platform" oninput="collectionUpdateInternaBaseUrl(this.value)">
-          </div>
-
-          <div class="collection-catalog-actions">
-            <button class="btn btn-primary" type="button" id="btn-collection-load-services">Cargar servicios</button>
-          </div>
-
-          <!-- Lo que el Swagger declaro, escrito como texto y no como campos a
-               completar: raiz de la API, URL de login y cuantas operaciones
-               entraron. Es la respuesta a "contra que ambiente estoy armando
-               esto" sin tener que abrir los detalles tecnicos. -->
-          <div id="collection-env-detected" class="collection-env-detected" style="display:none"></div>
-          <div id="collection-env-status" class="cres" style="margin-top:var(--sp-4)"></div>
-
-          <details class="collection-tech-details" style="margin-top:var(--sp-3)">
-            <summary>Ver detalles tecnicos</summary>
-            <div class="collection-tech-content">
-              <!-- show() mueve #a-urls-block aca adentro cuando la herramienta
-                   es collections, y lo devuelve a #a-urls-home para Documentar. -->
-              <div id="a-urls-tech"></div>
-              <div id="collection-env-summary">Todavia no hay configuracion cargada desde el wizard.</div>
+            <!-- Un ambiente real puede tener un swagger por microservicio (cada
+                uno en su propio host/puerto) en vez de un unico gateway: se
+                agregan de a uno y quedan en una lista; ver
+                CollectionEnvironmentManager.addSwaggerUrl/renderSwaggerUrlList. -->
+            <div class="field" id="collection-swagger-field" style="margin-bottom:var(--sp-3)">
+              <label>Ruta Swagger</label>
+              <div class="collection-swagger-url-add">
+                <input type="text" id="collection-swagger-url" placeholder="ej: http://10.0.0.5:5101/api/swagger-ui/index.html#/" onkeydown="if(event.key==='Enter'){event.preventDefault();collectionAddSwaggerUrl();}">
+                <button class="btn btn-ghost" type="button" onclick="collectionAddSwaggerUrl()">+ Agregar swagger</button>
+              </div>
+              <div id="collection-swagger-url-list" class="collection-swagger-url-list"></div>
             </div>
-          </details>
+
+            <!-- Solo V3 + "API interna": ese ambiente resuelve el catalogo contra
+                BTCBS014/019/026 pero ejecuta contra un gateway REST propio (sin
+                el prefijo "/public/", ej. ":5107/api/platform") que no se puede
+                inferir de ningun otro dato del wizard. -->
+            <div class="field" id="collection-interna-base-field" style="margin-bottom:var(--sp-3); display:none">
+              <label>URL de la API interna</label>
+              <input type="text" id="collection-interna-base-url" placeholder="ej: http://10.0.0.7:5107/api/platform" oninput="collectionUpdateInternaBaseUrl(this.value)">
+            </div>
+
+            <div class="collection-catalog-actions">
+              <!-- Detecta Session.userLogin ("API interna") o Authenticate/Execute
+                  ("API publica") dentro de los swaggers cargados; ver
+                  findInternaAuthOperation en index.js. Destildar cuando la
+                  deteccion le pega mal a un ambiente puntual -- ahi la
+                  autenticacion se ajusta a mano en la collection generada.
+                  En la misma fila que "Cargar servicios": son dos controles
+                  del mismo paso y cada uno en su propia fila desperdiciaba
+                  una linea entera de alto. -->
+              <label class="collection-auto-auth-toggle">
+                <input type="checkbox" id="collection-auto-detect-auth" checked onchange="collectionUpdateAutoDetectAuth(this.checked)">
+                Detectar autenticacion automaticamente (Session.userLogin / Authenticate)
+              </label>
+              <button class="btn btn-primary" type="button" id="btn-collection-load-services">Cargar servicios</button>
+            </div>
+
+            <!-- Lo que el Swagger declaro, escrito como texto y no como campos a
+                completar: raiz de la API, URL de login y cuantas operaciones
+                entraron. Es la respuesta a "contra que ambiente estoy armando
+                esto" sin tener que abrir los detalles tecnicos. -->
+            <div id="collection-env-detected" class="collection-env-detected" style="display:none"></div>
+            <div id="collection-env-status" class="cres" style="margin-top:var(--sp-4)"></div>
+
+            <details class="collection-tech-details" style="margin-top:var(--sp-3)">
+              <summary>Ver detalles tecnicos</summary>
+              <div class="collection-tech-content">
+                <!-- show() mueve #a-urls-block aca adentro cuando la herramienta
+                    es collections, y lo devuelve a #a-urls-home para Documentar. -->
+                <div id="a-urls-tech"></div>
+                <div id="collection-env-summary">Todavia no hay configuracion cargada desde el wizard.</div>
+              </div>
+            </details>
         </div>
 
         <!-- Las credenciales van DESPUES del catalogo: contra donde se prueban
@@ -353,44 +364,44 @@
              primero invitaba a tocar "Probar Autenticacion" apuntando a una URL
              derivada de la URL base tipeada a mano, que no es necesariamente la
              que va a usar la collection. -->
-        <div class="psub" id="a-creds-title" style="display:none;margin-bottom:var(--sp-3);margin-top:var(--sp-7);border-top:1px solid var(--border);padding-top:var(--sp-4)">Credenciales de autenticación</div>
-        <div class="frow">
-          <div class="field">
-            <label>Usuario</label>
-            <input type="text" id="a-user" placeholder="ej: INSTALADOR">
-          </div>
-          <div class="field">
-            <label>Contraseña</label>
-            <div class="pw">
-              <input type="password" id="a-pass" placeholder="Contraseña">
-              <button class="pw-btn" onclick="togglePw('a-pass',this)">&#128065;</button>
+        <div class="card">
+          <div id="a-creds-title" style="display:none;margin-bottom:var(--sp-5);font-size: var(--fs-lg);font-weight: 500;color: var(--text);">Credenciales de autenticación</div>
+          <div class="frow" style="grid-template-columns:1.5fr 1.5fr 1.3fr 1.3fr 1fr">
+            <div class="field">
+              <label>Usuario</label>
+              <input type="text" id="a-user" placeholder="ej: INSTALADOR">
+            </div>
+            <div class="field">
+              <label>Contraseña</label>
+              <div class="pw">
+                <input type="password" id="a-pass" placeholder="Contraseña">
+                <button class="pw-btn" onclick="togglePw('a-pass',this)">&#128065;</button>
+              </div>
+            </div>
+            <div class="field">
+              <label>Canal</label>
+              <input type="text" id="a-canal" placeholder="ej: BTDIGITAL">
+            </div>
+            <div class="field">
+              <label>Device</label>
+              <input type="text" id="a-device" placeholder="ej: INSTALADOR">
+            </div>
+            <div class="field">
+              <label>Requerimiento</label>
+              <input type="text" id="a-requerimiento" placeholder="ej: 1">
             </div>
           </div>
-        </div>
-        <div class="frow" style="grid-template-columns:1fr 1fr 160px">
-          <div class="field">
-            <label>Canal</label>
-            <input type="text" id="a-canal" placeholder="ej: BTDIGITAL">
-          </div>
-          <div class="field">
-            <label>Device</label>
-            <input type="text" id="a-device" placeholder="ej: INSTALADOR">
-          </div>
-          <div class="field">
-            <label>Requerimiento</label>
-            <input type="text" id="a-requerimiento" placeholder="ej: 1">
-          </div>
-        </div>
-        <div id="ares" class="cres" style="margin-bottom:0"></div>
-        <button class="btn btn-outline" id="btn-test-api" onclick="testAuth()" style="margin-bottom:var(--sp-7);width:100%">Probar Autenticación</button>
+          <div id="ares" class="cres" style="margin-bottom:0"></div>
+          <button class="btn btn-outline" id="btn-test-api" onclick="testAuth()" style="margin-bottom:var(--sp-7);width:100%">Probar Autenticación</button>
 
+        </div>
       </div>
-
+      
       <div id="params-section" style="display:none;margin-bottom:var(--sp-4)"></div>
 
       <!-- Bloque propio de Documentar (tabla de errores en el .md). show() lo
            oculta en el flujo de collections, que comparte este panel. -->
-      <div id="doc-errores-section" style="border-top:1px solid var(--border);margin-top:var(--sp-7);padding-top:var(--sp-4)">
+      <div id="doc-errores-section" class="card" style="margin-top:var(--sp-4)">
         <label style="display:flex;align-items:center;gap:var(--sp-2);cursor:pointer;font-weight:600;font-size:var(--fs-sm)">
           <input type="checkbox" id="cb-doc-errores" onchange="toggleDocErrores()" style="width:15px;height:15px;cursor:pointer">
           Documentar errores posibles
@@ -412,16 +423,12 @@
     <!-- Paso 4: Seleccion de servicios (flujo doc) -->
     <div class="panel" id="p5">
       <div class="ptitle">¿Que servicios querés documentar?</div>
-      <div class="psub">Carga los servicios disponibles en la BD y selecciona los métodos. Podes agregar varios a la lista.</div>
+      <div class="psub">Carga los servicios/métodos disponibles en la base de datos. Podes agregar varios a la lista.</div>
 
       <div id="svc-load-area"></div>
 
-      <div id="svc-picker" style="display:none;margin-top:var(--sp-4)">
-        <div class="field" style="margin-bottom:var(--sp-3)">
-          <label>Filtrar servicios</label>
-          <input type="text" id="svc-filter" placeholder="Escribí para filtrar..." oninput="filterServices()">
-        </div>
-        <div class="svc-grid">
+      <div id="svc-picker" class="card" style="display:none;margin-top:var(--sp-4)">
+        <div class="svc-grid" style="grid-template-columns:1fr 1fr auto;align-items:end">
           <div class="field" style="margin:0">
             <label>Servicio</label>
             <select id="sel-svc" onchange="loadMethods(this.value)">
@@ -434,8 +441,8 @@
               <option value="">-- Seleccionar --</option>
             </select>
           </div>
+          <button class="add-btn" onclick="addItem()" style="width:auto;height:var(--ctrl-h);white-space:nowrap;margin-bottom:0">+ Agregar a la lista</button>
         </div>
-        <button class="add-btn" onclick="addItem()">+ Agregar a la lista</button>
       </div>
 
       <div id="svc-list"></div>
@@ -445,14 +452,16 @@
 
     <!-- Paso 6: Éxito (flujo doc) -->
     <div class="panel" id="p6">
-      <div class="ok-panel">
-        <div class="ok-icon">&#10003;</div>
-        <h2>Configuración guardada!</h2>
-        <button class="btn btn-primary" id="btn-generate" onclick="generateDocs()" style="margin-bottom:var(--sp-4)">Generar documentación ahora</button>
-        <div id="gen-log" class="gen-log" style="display:none"></div>
-        <p class="close-hint" id="gen-hint">Podes cerrar esta pestaña. Para cambiar la configuración, volvé a ejecutar <strong>node setup.js</strong>.</p>
-        <div id="post-gen-actions" style="display:none;margin-top:var(--sp-3)">
-          <button class="btn btn-outline" onclick="resetParaOtroServicio()" style="width:100%">&#8592; Documentar otro servicio</button>
+      <div class="card">
+        <div class="ok-panel">
+          <div class="ok-icon">&#10003;</div>
+          <h2>Configuración guardada!</h2>
+          <button class="btn btn-primary" id="btn-generate" onclick="generateDocs()" style="margin-bottom:var(--sp-4)">Generar documentación ahora</button>
+          <div id="gen-log" class="gen-log" style="display:none"></div>
+          <p class="close-hint" id="gen-hint">Podes cerrar esta pestaña. Para cambiar la configuración, volvé a ejecutar <strong>node setup.js</strong>.</p>
+          <div id="post-gen-actions" style="display:none;margin-top:var(--sp-3)">
+            <button class="btn btn-outline" onclick="resetParaOtroServicio()" style="width:100%">&#8592; Documentar otro servicio</button>
+          </div>
         </div>
       </div>
     </div>
@@ -461,103 +470,116 @@
     <div class="panel" id="p4s">
       <div class="ptitle">¿De qué servicios querés generar scripts?</div>
       <div class="psub">Agregá uno o más servicios y seleccioná los métodos de cada uno.</div>
-      <div id="sg-svc-loading" style="display:none;font-size:var(--fs-sm);color:var(--muted);margin-bottom:var(--sp-4);align-items:center;gap:var(--sp-2)"><span class="spin dk"></span>&nbsp;Cargando servicios...</div>
-      <div class="cres" id="sg-svc-err"></div>
-      <div style="display:flex;gap:var(--sp-2);margin-bottom:var(--sp-4);align-items:flex-end">
-        <div class="field" style="flex:1;margin-bottom:0"><label>Servicio</label><select id="sg-sel-svc"><option value="">-- Seleccioná un servicio --</option></select></div>
-        <button class="btn btn-primary" onclick="sgAddServiceToList()" style="flex-shrink:0;padding:var(--sp-2) var(--sp-4)">+ Agregar</button>
+      <div class="card">
+        <div id="sg-svc-loading" style="display:none;font-size:var(--fs-sm);color:var(--muted);margin-bottom:var(--sp-4);align-items:center;gap:var(--sp-2)"><span class="spin dk"></span>&nbsp;Cargando servicios...</div>
+        <div class="cres" id="sg-svc-err"></div>
+        <div style="display:flex;gap:var(--sp-2);margin-bottom:var(--sp-4);align-items:flex-end">
+          <div class="field" style="flex:1;margin-bottom:0"><label>Servicio</label><select id="sg-sel-svc"><option value="">-- Seleccioná un servicio --</option></select></div>
+          <button class="btn btn-primary" onclick="sgAddServiceToList()" style="flex-shrink:0;padding:var(--sp-2) var(--sp-4)">+ Agregar</button>
+        </div>
+        <div id="sg-service-groups"></div>
+        <div id="sg-val-block" style="display:none;margin-bottom:var(--sp-4)"></div>
       </div>
-      <div id="sg-service-groups"></div>
-      <div id="sg-val-block" style="display:none;margin-bottom:var(--sp-4)"></div>
     </div>
 
     <!-- Paso 5 Scripts: Script generado -->
     <div class="panel" id="p5s">
       <div class="ptitle" id="sg-out-title">Script generado</div>
       <div class="psub" id="sg-out-sub">Copiá el script y ejecutalo en la base de datos.</div>
-      <div class="gen-btns">
-        <button class="btn btn-outline btn-sm" onclick="sgGenerate('delete')">Solo DELETE</button>
-        <button class="btn btn-outline btn-sm" onclick="sgGenerate('insert')">Solo INSERT</button>
-        <button class="btn btn-primary btn-sm" onclick="sgGenerate('both')">DELETE + INSERT</button>
-        <button class="btn btn-success btn-sm" onclick="sgCopyScript()">Copiar</button>
-        <button class="btn btn-outline btn-sm" onclick="sgDownloadScript()">Descargar</button>
-        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('sg-sql-out').value=''">Limpiar</button>
+      <div class="card">
+        <div class="gen-btns">
+          <button class="btn btn-outline btn-sm" onclick="sgGenerate('delete')">Solo DELETE</button>
+          <button class="btn btn-outline btn-sm" onclick="sgGenerate('insert')">Solo INSERT</button>
+          <button class="btn btn-primary btn-sm" onclick="sgGenerate('both')">DELETE + INSERT</button>
+          <button class="btn btn-success btn-sm" onclick="sgCopyScript()">Copiar</button>
+          <button class="btn btn-outline btn-sm" onclick="sgDownloadScript()">Descargar</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('sg-sql-out').value=''">Limpiar</button>
+        </div>
+        <div id="sg-warnings" style="display:none;margin-bottom:var(--sp-3)"></div>
+        <textarea class="sql-out" id="sg-sql-out" readonly placeholder="Acá va a aparecer el script generado..."></textarea>
+        <div class="cres" id="sg-copy-res" style="margin-top:var(--sp-2)"></div>
       </div>
-      <div id="sg-warnings" style="display:none;margin-bottom:var(--sp-3)"></div>
-      <textarea class="sql-out" id="sg-sql-out" readonly placeholder="Acá va a aparecer el script generado..."></textarea>
-      <div class="cres" id="sg-copy-res" style="margin-top:var(--sp-2)"></div>
     </div>
 
     <!-- Paso 4 SDT Gen: Elegir SDT base -->
     <div class="panel" id="p-sdtbase">
       <div class="ptitle">¿Qué SDT querés usar como base?</div>
       <div class="psub">Elegí un SDT nativo para generar una copia no nativa a partir de él (solo se listan los SDT nativos).</div>
-      <div id="sdtgen-list-loading" style="display:none;font-size:var(--fs-sm);color:var(--muted);margin-bottom:var(--sp-4);align-items:center;gap:var(--sp-2)"><span class="spin dk"></span>&nbsp;Cargando SDTs...</div>
-      <div class="cres" id="sdtgen-list-err"></div>
-      <div class="field" style="margin-bottom:var(--sp-7)">
-        <input type="text" id="sdtgen-search" placeholder="Buscar SDT por nombre..." autocomplete="off" oninput="sdtgenFilterList()">
+      <div class="card">
+        <div id="sdtgen-list-loading" style="display:none;font-size:var(--fs-sm);color:var(--muted);margin-bottom:var(--sp-4);align-items:center;gap:var(--sp-2)"><span class="spin dk"></span>&nbsp;Cargando SDTs...</div>
+        <div class="cres" id="sdtgen-list-err"></div>
+        <div class="field" style="margin-bottom:var(--sp-7)">
+          <input type="text" id="sdtgen-search" placeholder="Buscar SDT por nombre..." autocomplete="off" oninput="sdtgenFilterList()">
+        </div>
+        <div id="sdtgen-list" class="sdtgen-list" style="margin-bottom:0"></div>
       </div>
-      <div id="sdtgen-list" class="sdtgen-list" style="margin-bottom:var(--sp-7)"></div>
     </div>
 
     <!-- Paso 5 SDT Gen: Editar copia -->
     <div class="panel" id="p-sdtedit">
       <div class="ptitle">Editá la copia de <span id="sdtgen-base-name"></span></div>
       <div class="psub">Elegí el nombre de la copia y reordená, editá o quitá campos.</div>
-      <div id="sdtgen-existing-wrap" style="display:none;margin-bottom:var(--sp-4)">
-        <div class="cres show" style="background:var(--warn-l);color:var(--warn-d);display:flex">
-          Ya existen copias no nativas de este SDT — hacé click en una para ver sus campos y confirmar si ya te sirve alguna.
+      <div class="card">
+        <div id="sdtgen-existing-wrap" style="display:none;margin-bottom:var(--sp-4)">
+          <div class="cres show" style="background:var(--warn-l);color:var(--warn-d);display:flex">
+            Ya existen copias no nativas de este SDT — hacé click en una para ver sus campos y confirmar si ya te sirve alguna.
+          </div>
+          <div id="sdtgen-existing-list" class="sdtgen-existing-list"></div>
         </div>
-        <div id="sdtgen-existing-list" class="sdtgen-existing-list"></div>
+        <div class="field">
+          <label>Nombre del nuevo SDT</label>
+          <input type="text" id="sdtgen-new-name" placeholder="ej: SdtMiCopiaPersonalizada" autocomplete="off">
+        </div>
+        <div class="cres" id="sdtgen-name-err"></div>
+        <div id="sdtgen-fields" class="sdtgen-fields"></div>
       </div>
-      <div class="field">
-        <label>Nombre del nuevo SDT</label>
-        <input type="text" id="sdtgen-new-name" placeholder="ej: SdtMiCopiaPersonalizada" autocomplete="off">
-      </div>
-      <div class="cres" id="sdtgen-name-err"></div>
-      <div id="sdtgen-fields" class="sdtgen-fields"></div>
     </div>
 
     <!-- Paso 6 SDT Gen: Resultado -->
     <div class="panel" id="p-sdtresult">
       <div class="ptitle">Script generado</div>
       <div class="psub">Copiá el script o ejecutalo directo contra la conexión activa.</div>
-      <div class="gen-btns">
-        <button class="btn btn-success btn-sm" onclick="sdtgenCopyScript()">Copiar</button>
-        <button class="btn btn-outline btn-sm" onclick="sdtgenExecute()">Ejecutar contra la conexión activa</button>
+      <div class="card">
+        <div class="gen-btns">
+          <button class="btn btn-success btn-sm" onclick="sdtgenCopyScript()">Copiar</button>
+          <button class="btn btn-outline btn-sm" onclick="sdtgenExecute()">Ejecutar contra la conexión activa</button>
+        </div>
+        <textarea class="sql-out" id="sdtgen-sql-out" readonly placeholder="Acá va a aparecer el script generado..."></textarea>
+        <div class="cres" id="sdtgen-exec-res" style="margin-top:var(--sp-2)"></div>
       </div>
-      <textarea class="sql-out" id="sdtgen-sql-out" readonly placeholder="Acá va a aparecer el script generado..."></textarea>
-      <div class="cres" id="sdtgen-exec-res" style="margin-top:var(--sp-2)"></div>
     </div>
 
     <!-- Paso 4 Editar Parametria: Elegir que editar (metodo o SDT) -->
     <div class="panel" id="p-paramsvc">
       <div class="ptitle">¿Qué querés editar?</div>
       <div class="psub">Elegí si vas a editar los parámetros de un método (BTI019) o los campos de un SDT (BTI026).</div>
-      <div style="display:flex;gap:var(--sp-2);margin-bottom:var(--sp-7)">
-        <button type="button" class="btn btn-outline pg-target-btn sel" data-mode="method" onclick="pgSetTargetMode('method')" style="flex:1">Parámetros de un método (BTI019)</button>
-        <button type="button" class="btn btn-outline pg-target-btn" data-mode="sdt" onclick="pgSetTargetMode('sdt')" style="flex:1">Campos de un SDT (BTI026)</button>
-      </div>
 
-      <div id="pg-method-picker">
-        <div id="pg-svc-loading" style="display:none;font-size:var(--fs-sm);color:var(--muted);margin-bottom:var(--sp-4);align-items:center;gap:var(--sp-2)"><span class="spin dk"></span>&nbsp;Cargando servicios...</div>
-        <div class="cres" id="pg-svc-err"></div>
-        <div class="svc-grid">
-          <div class="field" style="margin:0">
-            <label>Servicio</label>
-            <select id="pg-sel-svc" onchange="pgLoadMethods(this.value)"><option value="">-- Seleccionar --</option></select>
-          </div>
-          <div class="field" style="margin:0">
-            <label>Método</label>
-            <select id="pg-sel-mtd" onchange="pgOnMethodChange()"><option value="">-- Seleccionar --</option></select>
+      <div class="card">
+        <div style="display:flex;gap:var(--sp-2);margin-bottom:var(--sp-7)">
+          <button type="button" class="btn btn-outline pg-target-btn sel" data-mode="method" onclick="pgSetTargetMode('method')" style="flex:1">Parámetros de un método (BTI019)</button>
+          <button type="button" class="btn btn-outline pg-target-btn" data-mode="sdt" onclick="pgSetTargetMode('sdt')" style="flex:1">Campos de un SDT (BTI026)</button>
+        </div>
+
+        <div id="pg-method-picker">
+          <div id="pg-svc-loading" style="display:none;font-size:var(--fs-sm);color:var(--muted);margin-bottom:var(--sp-4);align-items:center;gap:var(--sp-2)"><span class="spin dk"></span>&nbsp;Cargando servicios...</div>
+          <div class="cres" id="pg-svc-err"></div>
+          <div class="svc-grid">
+            <div class="field" style="margin:0">
+              <label>Servicio</label>
+              <select id="pg-sel-svc" onchange="pgLoadMethods(this.value)"><option value="">-- Seleccionar --</option></select>
+            </div>
+            <div class="field" style="margin:0">
+              <label>Método</label>
+              <select id="pg-sel-mtd" onchange="pgOnMethodChange()"><option value="">-- Seleccionar --</option></select>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div id="pg-sdt-picker" style="display:none">
-        <div class="field">
-          <label>SDT</label>
-          <input type="text" id="pg-sdt-search" list="pg-sdt-list" placeholder="Buscar SDT..." autocomplete="off" oninput="pgOnSdtSearchInput()">
+        <div id="pg-sdt-picker" style="display:none">
+          <div class="field">
+            <label>SDT</label>
+            <input type="text" id="pg-sdt-search" list="pg-sdt-list" placeholder="Buscar SDT..." autocomplete="off" oninput="pgOnSdtSearchInput()">
+          </div>
         </div>
       </div>
     </div>
@@ -567,40 +589,46 @@
       <div class="ptitle">Editando <span id="pg-mtd-name"></span></div>
       <div class="psub" id="pg-edit-sub">Editá, agregá o quitá parámetros. El orden de carga define la posición (BTISRVPARPOSI) y no se puede cambiar.</div>
       <datalist id="pg-sdt-list"></datalist>
-      <div id="pg-fields" class="sdtgen-fields" style="margin-bottom:var(--sp-3)"></div>
-      <button class="btn btn-outline btn-sm" id="pg-add-param-btn" onclick="pgAddParam()">+ Agregar parámetro</button>
-      <div class="cres" id="pg-edit-err" style="margin-top:var(--sp-3)"></div>
+      <div class="card">
+        <div id="pg-fields" class="sdtgen-fields" style="margin-bottom:var(--sp-3)"></div>
+        <button class="btn btn-outline btn-sm" id="pg-add-param-btn" onclick="pgAddParam()">+ Agregar parámetro</button>
+        <div class="cres" id="pg-edit-err" style="margin-top:var(--sp-3)"></div>
+      </div>
     </div>
 
     <!-- Paso 6 Editar Parametria: Resultado -->
     <div class="panel" id="p-paramresult">
       <div class="ptitle">Script generado</div>
       <div class="psub" id="pg-result-sub">Copiá el script o ejecutalo directo contra la conexión activa (UPDATE de los parámetros existentes, INSERT de los nuevos y DELETE de los que se quitaron, sobre BTI019).</div>
-      <div class="gen-btns">
-        <button class="btn btn-success btn-sm" onclick="pgCopyScript()">Copiar</button>
-        <button class="btn btn-outline btn-sm" onclick="pgExecute()">Ejecutar contra la conexión activa</button>
+      <div class="card">
+        <div class="gen-btns">
+          <button class="btn btn-success btn-sm" onclick="pgCopyScript()">Copiar</button>
+          <button class="btn btn-outline btn-sm" onclick="pgExecute()">Ejecutar contra la conexión activa</button>
+        </div>
+        <textarea class="sql-out" id="pg-sql-out" readonly placeholder="Acá va a aparecer el script generado..."></textarea>
+        <div class="cres" id="pg-exec-res" style="margin-top:var(--sp-2)"></div>
       </div>
-      <textarea class="sql-out" id="pg-sql-out" readonly placeholder="Acá va a aparecer el script generado..."></textarea>
-      <div class="cres" id="pg-exec-res" style="margin-top:var(--sp-2)"></div>
     </div>
 
     <!-- Paso 3 Validar: Selección de carpeta y resultados -->
     <div class="panel" id="p4v">
       <div class="ptitle">Validar documentos</div>
       <div class="psub">Ingresá la ruta de la carpeta con los archivos .md a validar.</div>
-      <div style="display:flex;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-3)">
-        <input type="text" id="val-path" placeholder="ej: C:\...\V4\Customers" autocomplete="off" oninput="onValPathInput()" style="flex:1;height:var(--ctrl-h);padding:var(--sp-3) var(--sp-4);border:1.5px solid var(--border);border-radius:0.7em;font-size:var(--fs-sm);font-family:Consolas,monospace;color:var(--text);outline:none;background:#fff;transition:border-color .15s" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border)'">
-        <button class="btn btn-primary" id="btn-run-validate" onclick="runValidation()" disabled style="flex-shrink:0;white-space:nowrap">Validar &#10003;</button>
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-3)">
+          <input type="text" id="val-path" placeholder="ej: C:\...\V4\Customers" autocomplete="off" oninput="onValPathInput()" style="flex:1;height:var(--ctrl-h);padding:var(--sp-3) var(--sp-4);border:1.5px solid var(--border);border-radius:var(--r-ctrl);font-size:var(--fs-sm);font-family:Consolas,monospace;color:var(--text);outline:none;background:#fff;transition:border-color .15s" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border)'">
+          <button class="btn btn-primary" id="btn-run-validate" onclick="runValidation()" disabled style="flex-shrink:0;white-space:nowrap">Validar &#10003;</button>
+        </div>
+        <div class="cres" id="val-res"></div>
+        <div id="val-output" style="display:none;border:1.5px solid var(--border);border-radius:0.7em;font-size:var(--fs-sm);font-family:Consolas,monospace;background:var(--code-bg);overflow-y:auto;line-height:1.6"></div>
+        <div id="val-fix-bar" style="display:none;margin:1em 0;gap:var(--sp-2);align-items:center;flex-wrap:wrap">
+          <button class="btn" onclick="valSelectAll(true)" style="font-size:var(--fs-sm);padding:var(--sp-1) var(--sp-3)">Seleccionar todos</button>
+          <button class="btn" onclick="valSelectAll(false)" style="font-size:var(--fs-sm);padding:var(--sp-1) var(--sp-3)">Deseleccionar todos</button>
+          <button class="btn" id="btn-fix-selected" onclick="fixSelected()" style="background:var(--warn);color:#fff;border:none;font-size:var(--fs-sm);padding:var(--sp-1) var(--sp-4)" disabled>&#9881; Corregir seleccionados (0)</button>
+        </div>
+        <div class="cres" id="fix-res" style="margin-top:var(--sp-2)"></div>
+        <pre id="fix-output" style="display:none;border:1.5px solid var(--border);border-radius:0.7em;padding:var(--sp-3) var(--sp-4);font-size:var(--fs-sm);font-family:Consolas,monospace;background:var(--code-bg);white-space:pre-wrap;word-break:break-word;overflow-y:auto;line-height:1.5;margin-top:var(--sp-2)"></pre>
       </div>
-      <div class="cres" id="val-res"></div>
-      <div id="val-output" style="display:none;border:1.5px solid var(--border);border-radius:0.7em;font-size:var(--fs-sm);font-family:Consolas,monospace;background:var(--code-bg);overflow-y:auto;line-height:1.6"></div>
-      <div id="val-fix-bar" style="display:none;margin:1em 0;gap:var(--sp-2);align-items:center;flex-wrap:wrap">
-        <button class="btn" onclick="valSelectAll(true)" style="font-size:var(--fs-sm);padding:var(--sp-1) var(--sp-3)">Seleccionar todos</button>
-        <button class="btn" onclick="valSelectAll(false)" style="font-size:var(--fs-sm);padding:var(--sp-1) var(--sp-3)">Deseleccionar todos</button>
-        <button class="btn" id="btn-fix-selected" onclick="fixSelected()" style="background:var(--warn);color:#fff;border:none;font-size:var(--fs-sm);padding:var(--sp-1) var(--sp-4)" disabled>&#9881; Corregir seleccionados (0)</button>
-      </div>
-      <div class="cres" id="fix-res" style="margin-top:var(--sp-2)"></div>
-      <pre id="fix-output" style="display:none;border:1.5px solid var(--border);border-radius:0.7em;padding:var(--sp-3) var(--sp-4);font-size:var(--fs-sm);font-family:Consolas,monospace;background:var(--code-bg);white-space:pre-wrap;word-break:break-word;overflow-y:auto;line-height:1.5;margin-top:var(--sp-2)"></pre>
     </div>
 
       <!-- Generar Collections -->
@@ -636,5 +664,6 @@
 </div>
 <script src="/public/wizard-doc.js"></script>
 <script src="/public/collections/collections-entry.js"></script>
+<script src="/public/dev-reload.js"></script>
 </body>
 </html>

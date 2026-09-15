@@ -27,6 +27,11 @@ var LAST_ENV_KEY_STORAGE_KEY = 'bt_last_env_key';
 // La decision de trabajar sin base tambien dura la sesion: un F5 no tiene que
 // devolverte al paso de Ambiente que ya salteaste a proposito.
 var NO_DB_STORAGE_KEY = 'bt_no_db';
+// En que paso/herramienta estaba parado, tambien de sesion. Sirve para que un
+// F5 (o el auto-reload de public/dev-reload.js mientras se edita el front) no
+// te devuelva siempre a Accion: initWizard() lo usa para retomar el paso
+// exacto en vez del arranque por defecto. Ver saveWizPosition/resumeWizPosition.
+var WIZ_POSITION_STORAGE_KEY = 'bt_wiz_position';
 var sdtEnvCaptureActive = false;
 var _pendingReconnectError = null;
 // Entrada del historial que hay que dejar seleccionada en cuanto se dibuje el
@@ -1644,7 +1649,7 @@ function syncEngineSection() {
 var P2_TITULOS = {
   ambiente: {
     t: '¿Contra qué ambiente vas a trabajar?',
-    sub: 'Elegí la versión y la base de datos. Queda activo para todas las herramientas.',
+    sub: 'La elección queda activa para todas las herramientas.',
   },
   conexion: {
     t: 'Datos de conexión a la base de datos',
@@ -1725,6 +1730,23 @@ function moverUrlsDelAmbiente(aDetallesTecnicos) {
   if (!bloque || !destino || bloque.parentElement === destino) return;
   if (typeof destino.appendChild !== 'function') return;
   destino.appendChild(bloque);
+}
+
+/**
+ * Documentar en V4: la URL de la API se resuelve sola desde el Swagger
+ * (servers[0].url), asi que se esconde detras de "a-urls-manual-toggle" para
+ * no competir con la tarjeta de Swagger. visible=true la vuelve a mostrar (V3,
+ * o el usuario pidiendola a mano, o detectarSwagger sin poder resolverla).
+ */
+function setUrlsManualVisible(visible) {
+  var bloque = document.getElementById('a-urls-block');
+  var toggle = document.getElementById('a-urls-manual-toggle');
+  if (bloque) bloque.style.display = visible ? '' : 'none';
+  if (toggle) toggle.style.display = visible ? 'none' : 'block';
+}
+
+function toggleUrlsManual() {
+  setUrlsManualVisible(true);
 }
 
 function sectionVisible(id) {
@@ -1968,7 +1990,6 @@ function dots(step) {
     if (i <= maxDot) {
       if (i < pos) d.classList.add('done');
       else if (i === pos) d.classList.add('active');
-      document.getElementById('dn' + i).innerHTML = i < pos ? '&#10003;' : String(i);
     }
     if (i < 5) {
       var linea = document.getElementById('l' + i);
@@ -2028,6 +2049,7 @@ function show(step) {
   var panel = document.getElementById(pid);
   if (panel) panel.classList.add('active');
   S.step = step;
+  saveWizPosition();
   dots(step);
   foot(step);
   // Cada vez que se entra a Accion, no solo al activar el modo: asi tambien
@@ -2076,6 +2098,13 @@ function show(step) {
         swaggerWrap.style.display = mostrarSwagger ? 'block' : 'none';
         if (mostrarSwagger) refrescarEstadoSwagger();
       }
+      // Con Swagger, la URL de la API sale sola de servers[0].url (ver
+      // detectarSwagger/guardarSwaggerPegado): mostrarla a mano arriba de
+      // todo competia visualmente con la tarjeta de Swagger, que es la unica
+      // que hace falta tocar. Se esconde y queda detras de un link, igual
+      // que el JSON pegado del propio Swagger. En V3 no hay Swagger, asi que
+      // sigue visible siempre (su lugar de siempre).
+      setUrlsManualVisible(!mostrarSwagger);
 
       // Este panel es de Documentar y collections lo comparte. Documentar
       // puede generar el .md SIN llamar a la API (de ahi el checkbox
@@ -2306,6 +2335,21 @@ async function goNext() {
 
 function goBack() {
   if (sdtEnvCaptureActive) { sdtEnvCaptureCancel(); return; }
+  // El modo ejecucion de Collections vive DENTRO del mismo paso del wizard
+  // que el builder (ver panelId: los dos son 'p4c'), no en un paso propio.
+  // Sin este chequeo, "Volver" no sabia que salir de la ejecucion es lo que
+  // corresponde primero: caia directo al `show(s - 1)` de mas abajo y
+  // saltaba el builder entero (volvia al catalogo de servicios, dos
+  // pantallas atras de lo esperado), dejando la clase .collection-execution-
+  // active pegada -- eso a su vez hacia que "Volver al builder" (el boton
+  // separado que existia) apareciera de nuevo sin haber ejecucion activa, y
+  // que el sidebar del wizard quedara oculto en cualquier paso (ver la regla
+  // .wizard:has(...) .wiz-sidebar en styles.css). Con esto, "Volver" es el
+  // unico punto de salida del modo ejecucion: no hace falta un boton aparte.
+  if (S.action === 'collections' && typeof collectionIsExecutionModeActive === 'function' && collectionIsExecutionModeActive()) {
+    collectionCloseExecutionMode();
+    return;
+  }
   var s = S.step;
   // Volver desde el paso 4 tiene que saltear Conexion igual que la ida, si
   // no el usuario cae en un paso que nunca vio y que no necesita.
@@ -2313,6 +2357,22 @@ function goBack() {
   // Atras del paso de Ambiente no hay nada (es el primero): el boton Volver
   // ni se muestra ahi (ver foot).
   if (s > 1) show(s - 1);
+}
+
+/**
+ * "Volver al inicio" del logo del header. Es un reload real (no alcanza con
+ * un show() a mano: hay que descartar todo el estado de la herramienta en la
+ * que se este, lista de servicios cargada, script generado, etc., y eso es
+ * exactamente lo que un reload real tira a la basura de arriba a abajo).
+ *
+ * El unico ajuste es borrar la posicion guardada ANTES de recargar: si no,
+ * resumeWizPosition() (pensada para el F5 y el auto-reload de
+ * dev-reload.js mientras se edita el front) te devuelve al mismo paso en el
+ * que estabas, que es exactamente lo contrario de "volver al inicio".
+ */
+function goHome() {
+  try { sessionStorage.removeItem(WIZ_POSITION_STORAGE_KEY); } catch (e) {}
+  location.href = '/';
 }
 
 // ── Conexión (paso 2) ──────────────────────────────────────────
@@ -2777,6 +2837,47 @@ function openEnvSwitcher() {
   show(PASO_AMBIENTE);
 }
 
+// ── Retomar el paso donde se quedo (sessionStorage) ──────────────────────
+// Solo el paso y la herramienta, nada de las selecciones que se hicieron dentro
+// (servicios agregados a una lista, SDT elegido, script generado): eso vive en
+// variables sueltas de cada herramienta y no vale la pena tratar de revivirlo.
+// Igual resuelve el reclamo real: no tener que reelegir ambiente y herramienta
+// de nuevo por cada F5/auto-reload mientras se esta editando el front.
+
+function saveWizPosition() {
+  try {
+    sessionStorage.setItem(WIZ_POSITION_STORAGE_KEY, JSON.stringify({ step: S.step, action: S.action }));
+  } catch (e) {}
+}
+
+/**
+ * Intenta volver a mostrar el paso guardado. Devuelve true si lo logro (el
+ * llamador no tiene que hacer nada mas) y false si no habia nada que retomar
+ * o si show() no llego a terminar -- por ejemplo, un paso profundo de una
+ * herramienta que asume datos que solo existen en memoria durante esa misma
+ * sesion de edicion (la lista de servicios agregados, el SDT elegido) y que
+ * un F5 borra igual. show() ya limpia todas las .active al entrar, asi que
+ * aunque explote a mitad de camino no deja la pantalla en un estado raro: el
+ * llamador solo tiene que mostrar Accion como si esto no se hubiera intentado.
+ */
+function resumeWizPosition(excludeStep) {
+  var raw;
+  try { raw = sessionStorage.getItem(WIZ_POSITION_STORAGE_KEY); } catch (e) { return false; }
+  if (!raw) return false;
+  var pos;
+  try { pos = JSON.parse(raw); } catch (e) { return false; }
+  if (!pos || !pos.step || pos.step === PASO_ACCION) return false; // ya es el default: no hace falta nada especial
+  if (excludeStep != null && pos.step === excludeStep) return false;
+  try {
+    S.action = pos.action || null;
+    show(pos.step);
+    return true;
+  } catch (e) {
+    try { console.error('[resumeWizPosition] no se pudo retomar el paso guardado, vuelvo a Accion:', e); } catch (e2) {}
+    return false;
+  }
+}
+
 // ── Reconexión automática al último ambiente activo (localStorage) ───────
 
 function findMatchingHistEntry(saved) {
@@ -2816,7 +2917,9 @@ async function initWizard() {
     S.engine = sinBase.engine || null;
     syncVersionCards();
     renderEnvChip();
-    show(PASO_ACCION);
+    // PASO_AMBIENTE queda afuera del resume: ese paso se salteo a proposito al
+    // elegir "trabajar sin base", volver ahi contradiria esa decision.
+    if (!resumeWizPosition(PASO_AMBIENTE)) show(PASO_ACCION);
     return;
   }
 
@@ -2837,7 +2940,10 @@ async function initWizard() {
     S.activeEnv = saved;
     try { await loadDbHistory(); var m = findMatchingHistEntry(saved); if (m) _activeDbHistEntry = m; } catch (e) {}
     renderEnvChip();
-    show(PASO_ACCION); // ambiente ya activo: directo a elegir herramienta
+    // Ambiente ya activo: si habia un paso guardado de antes (F5, o el
+    // auto-reload de dev-reload.js mientras se edita el front) se retoma tal
+    // cual; si no hay nada que retomar, el default sigue siendo Accion.
+    if (!resumeWizPosition()) show(PASO_ACCION);
   } else {
     _connOk = false;
     _pendingReconnectError = 'No se pudo reconectar automáticamente al último ambiente activo: ' + (testResult.message || 'error desconocido') + '. Revisá los datos.';
@@ -3134,6 +3240,11 @@ async function detectarSwagger() {
       _swaggerRes('ok', 'Swagger OK: ' + d.operaciones + ' operaciones\n' + d.url +
                         (d.ejemplos && d.ejemplos.length ? '\nej: ' + d.ejemplos.join('  |  ') : ''));
     } else {
+      // Sin URL del Swagger ni URL de la API no hay nada contra que probar
+      // (ver descargarDocumento en setup.js): la tarjeta manual, escondida
+      // por defecto en V4, se revela sola para que el usuario pueda
+      // completarla en vez de quedar sin salida.
+      if (!v('a-swagger') && !v('a-base')) setUrlsManualVisible(true);
       _swaggerRes('err', d.message || 'No se encontro el Swagger.');
     }
   } catch (e) {
@@ -3306,9 +3417,7 @@ async function loadServices() {
     var d = await r.json();
     if (!d.ok) throw new Error(d.message);
     allServices = d.services;
-    var filterEl = document.getElementById('svc-filter');
-    if (filterEl && !filterEl.value) filterEl.value = S.version === 'V3' ? 'BT' : 'Public';
-    filterServices();
+    renderServiceOptions();
     document.getElementById('svc-picker').style.display = 'block';
     area.innerHTML = '';
   } catch(e) {
@@ -3318,14 +3427,15 @@ async function loadServices() {
   }
 }
 
-function filterServices() {
-  var filter = (document.getElementById('svc-filter').value || '').toLowerCase();
+// Llena el <select> de Servicio con TODOS los que trajo la base, sin filtro
+// (antes habia un campo de texto que por defecto acotaba a "BT"/"Public" y
+// dejaba escribir un prefijo distinto; se saco el campo y con el la unica
+// razon de tener este paso aparte).
+function renderServiceOptions() {
   var sel = document.getElementById('sel-svc');
   var prev = sel.value;
   sel.innerHTML = '<option value="">-- Seleccionar --</option>';
-  allServices.filter(function(s) {
-    return !filter || s.toLowerCase().startsWith(filter);
-  }).forEach(function(s) {
+  allServices.forEach(function(s) {
     var opt = document.createElement('option');
     opt.value = s;
     opt.textContent = s;
@@ -3400,7 +3510,13 @@ async function renderList() {
       '<button class="svc-rm" onclick="removeItem(' + i + ')">&#10005;</button>' +
       '</div>';
   });
-  el.innerHTML = '<div class="svc-wrap">' + rows.join('') + '</div>';
+  // El wrap va en una .card propia, armada aca (no en el HTML del panel):
+  // asi, sin items, el <div id="svc-list"> queda vacio y no aparece un
+  // recuadro fantasma antes de agregar el primero. margin-top a mano porque
+  // .card+.card (el margen automatico entre tarjetas hermanas) no aplica
+  // aca: esta .card no es hermana directa de #svc-picker, esta un nivel mas
+  // adentro (dentro de #svc-list).
+  el.innerHTML = '<div class="card" style="margin-top:var(--sp-4)"><div class="svc-wrap" style="margin-top:0">' + rows.join('') + '</div></div>';
 
   var checkItems = items
     .map(function(item, i) { return { i: i, service: item.service, method: item.method }; })
@@ -3527,9 +3643,9 @@ function buildWorkflowCard(service, workflow, uncovered) {
       if (p.isComplex) {
         var lines = p.example ? Math.min(p.example.split('\\n').length, 12) : 3;
         var exVal = p.example ? p.example.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : (p.itemType ? (p.itemName ? '{\\n  "' + p.itemName + '": []\\n}' : '[]') : '{}');
-        html += '<textarea id="' + fid + '" rows="' + lines + '" data-example="' + exVal + '" style="flex:1;padding:var(--sp-1) var(--sp-2);border:1.5px solid var(--border);border-radius:6px;font-size:var(--fs-sm);font-family:Consolas,monospace;resize:vertical;outline:none">' + exVal + '</textarea>';
+        html += '<textarea id="' + fid + '" rows="' + lines + '" data-example="' + exVal + '" style="flex:1;padding:var(--sp-1) var(--sp-2);border:1.5px solid var(--border);border-radius:var(--r-ctrl);font-size:var(--fs-sm);font-family:Consolas,monospace;resize:vertical;outline:none">' + exVal + '</textarea>';
       } else {
-        html += '<input type="text" id="' + fid + '" placeholder="Ingresar valor..." style="flex:1;padding:var(--sp-1) var(--sp-2);border:1.5px solid var(--border);border-radius:6px;font-size:var(--fs-sm);font-family:inherit;outline:none">';
+        html += '<input type="text" id="' + fid + '" placeholder="Ingresar valor..." style="flex:1;padding:var(--sp-1) var(--sp-2);border:1.5px solid var(--border);border-radius:var(--r-ctrl);font-size:var(--fs-sm);font-family:inherit;outline:none">';
       }
       html += '</div>';
     });
@@ -3751,7 +3867,7 @@ async function toggleEjecutar() {
         if (p.isComplex) {
           var lines = p.example ? Math.min(p.example.split('\\n').length, 12) : 3;
           var exVal = p.example ? p.example.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : (p.itemType ? (p.itemName ? '{\\n  "' + p.itemName + '": []\\n}' : '[]') : '{}');
-          html += '<textarea id="' + fid + '" rows="' + lines + '" data-example="' + exVal + '" style="width:100%;padding:var(--sp-2) var(--sp-3);border:1.5px solid var(--border);border-radius:6px;font-size:var(--fs-sm);font-family:Consolas,monospace;resize:vertical;outline:none">' + exVal + '</textarea>';
+          html += '<textarea id="' + fid + '" rows="' + lines + '" data-example="' + exVal + '" style="width:100%;padding:var(--sp-2) var(--sp-3);border:1.5px solid var(--border);border-radius:var(--r-ctrl);font-size:var(--fs-sm);font-family:Consolas,monospace;resize:vertical;outline:none">' + exVal + '</textarea>';
         } else {
           html += '<input type="text" id="' + fid + '" placeholder="' + (p.type || 'Varchar') + '">';
         }
