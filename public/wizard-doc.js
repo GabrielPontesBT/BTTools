@@ -1732,23 +1732,6 @@ function moverUrlsDelAmbiente(aDetallesTecnicos) {
   destino.appendChild(bloque);
 }
 
-/**
- * Documentar en V4: la URL de la API se resuelve sola desde el Swagger
- * (servers[0].url), asi que se esconde detras de "a-urls-manual-toggle" para
- * no competir con la tarjeta de Swagger. visible=true la vuelve a mostrar (V3,
- * o el usuario pidiendola a mano, o detectarSwagger sin poder resolverla).
- */
-function setUrlsManualVisible(visible) {
-  var bloque = document.getElementById('a-urls-block');
-  var toggle = document.getElementById('a-urls-manual-toggle');
-  if (bloque) bloque.style.display = visible ? '' : 'none';
-  if (toggle) toggle.style.display = visible ? 'none' : 'block';
-}
-
-function toggleUrlsManual() {
-  setUrlsManualVisible(true);
-}
-
 function sectionVisible(id) {
   var sec = document.getElementById(id);
   return !!sec && sec.style.display !== 'none';
@@ -2098,13 +2081,17 @@ function show(step) {
         swaggerWrap.style.display = mostrarSwagger ? 'block' : 'none';
         if (mostrarSwagger) refrescarEstadoSwagger();
       }
-      // Con Swagger, la URL de la API sale sola de servers[0].url (ver
-      // detectarSwagger/guardarSwaggerPegado): mostrarla a mano arriba de
-      // todo competia visualmente con la tarjeta de Swagger, que es la unica
-      // que hace falta tocar. Se esconde y queda detras de un link, igual
-      // que el JSON pegado del propio Swagger. En V3 no hay Swagger, asi que
-      // sigue visible siempre (su lugar de siempre).
-      setUrlsManualVisible(!mostrarSwagger);
+      // En V4, Documentar siempre resuelve la raiz de la API desde el
+      // Swagger (servers[0].url, ver detectarSwagger/guardarSwaggerPegado):
+      // no hay forma de generar sin Swagger, asi que la tarjeta manual no
+      // suma nada y solo confundia (competia visualmente con la de Swagger,
+      // que es la unica que hace falta tocar). Se saca del todo: si el
+      // Swagger no se puede resolver ni por URL ni pegando el JSON, la
+      // corrida por consola pide BASE_URL en el .env, pero el wizard ya no
+      // la ofrece. En V3 no hay Swagger, asi que sigue visible siempre (su
+      // lugar de siempre).
+      var urlsBlockV4Doc = document.getElementById('a-urls-block');
+      if (urlsBlockV4Doc) urlsBlockV4Doc.style.display = mostrarSwagger ? 'none' : '';
 
       // Este panel es de Documentar y collections lo comparte. Documentar
       // puede generar el .md SIN llamar a la API (de ahi el checkbox
@@ -3240,11 +3227,6 @@ async function detectarSwagger() {
       _swaggerRes('ok', 'Swagger OK: ' + d.operaciones + ' operaciones\n' + d.url +
                         (d.ejemplos && d.ejemplos.length ? '\nej: ' + d.ejemplos.join('  |  ') : ''));
     } else {
-      // Sin URL del Swagger ni URL de la API no hay nada contra que probar
-      // (ver descargarDocumento en setup.js): la tarjeta manual, escondida
-      // por defecto en V4, se revela sola para que el usuario pueda
-      // completarla en vez de quedar sin salida.
-      if (!v('a-swagger') && !v('a-base')) setUrlsManualVisible(true);
       _swaggerRes('err', d.message || 'No se encontro el Swagger.');
     }
   } catch (e) {
@@ -3737,7 +3719,7 @@ async function wfDrop(e, el) {
   if (!wfConfirmed) {
     html += '<button class="btn btn-outline" id="btn-confirm-wf" onclick="confirmWorkflowOrder()" style="margin-top:var(--sp-3);width:100%">Confirmar orden &#10003;</button>';
   }
-  document.getElementById('params-section').innerHTML = html;
+  renderParamsSection(html);
   if (wfConfirmed) {
     Object.keys(savedVals).forEach(function(id) {
       var inp = document.getElementById(id);
@@ -3762,7 +3744,7 @@ async function confirmWorkflowOrder() {
       html += buildWorkflowCard(it.service, workflowData[it.service].workflow, workflowData[it.service].uncovered);
     }
   });
-  document.getElementById('params-section').innerHTML = html;
+  renderParamsSection(html);
 }
 
 async function computeWorkflowUncovered(service, steps) {
@@ -3791,6 +3773,19 @@ async function computeWorkflowUncovered(service, steps) {
   return result;
 }
 
+/**
+ * #params-section es una .card (ver index.html): antes quedaban los
+ * param-card sueltos directo sobre el fondo gris del paso, sin nada que los
+ * agrupe visualmente como "esto es un solo bloque de configuracion". El
+ * titulo va siempre, incluso mientras carga o si no hay parametros, para que
+ * la tarjeta no aparezca vacia de un cabezal.
+ */
+function renderParamsSection(bodyHtml) {
+  var section = document.getElementById('params-section');
+  if (!section) return;
+  section.innerHTML = '<div style="margin-bottom:var(--sp-5);font-size:var(--fs-lg);font-weight:500;color:var(--text)">Parámetros de ejecución</div>' + bodyHtml;
+}
+
 async function toggleEjecutar() {
   var enabled = document.getElementById('cb-ejecutar').checked;
   var credsWrap = document.getElementById('api-creds-wrap');
@@ -3807,12 +3802,12 @@ async function toggleEjecutar() {
   var hasSpec = items.some(function(it) { return it.method !== '__all__'; });
 
   if (hasAll && hasSpec) {
-    section.innerHTML = '<div class="cres show err">No se puede combinar "Todos los metodos" con metodos especificos cuando la API real esta activada. Volve al paso 5 y ajusta la seleccion.</div>';
+    renderParamsSection('<div class="cres show err">No se puede combinar "Todos los metodos" con metodos especificos cuando la API real esta activada. Volve al paso 5 y ajusta la seleccion.</div>');
     return;
   }
 
   if (hasAll) {
-    section.innerHTML = '<div style="padding:var(--sp-2) 0;font-size:var(--fs-sm);color:var(--muted)"><span class="spin dk"></span>&nbsp;Analizando dependencias...</div>';
+    renderParamsSection('<div style="padding:var(--sp-2) 0;font-size:var(--fs-sm);color:var(--muted)"><span class="spin dk"></span>&nbsp;Analizando dependencias...</div>');
     var wfHtml = '';
     for (var wi = 0; wi < items.length; wi++) {
       var wfItem = items[wi];
@@ -3834,12 +3829,12 @@ async function toggleEjecutar() {
     if (wfHtml) {
       wfHtml += '<button class="btn btn-outline" id="btn-confirm-wf" onclick="confirmWorkflowOrder()" style="margin-top:var(--sp-3);width:100%">Confirmar orden &#10003;</button>';
     }
-    section.innerHTML = wfHtml || '<div style="padding:var(--sp-2) 0;font-size:var(--fs-sm);color:var(--muted)">No hay servicios para analizar.</div>';
+    renderParamsSection(wfHtml || '<div style="padding:var(--sp-2) 0;font-size:var(--fs-sm);color:var(--muted)">No hay servicios para analizar.</div>');
     return;
   }
 
   // Modo parametros individuales
-  section.innerHTML = '<div style="padding:var(--sp-2) 0;font-size:var(--fs-sm);color:var(--muted)"><span class="spin dk"></span>&nbsp;Cargando parametros...</div>';
+  renderParamsSection('<div style="padding:var(--sp-2) 0;font-size:var(--fs-sm);color:var(--muted)"><span class="spin dk"></span>&nbsp;Cargando parametros...</div>');
   var html = '';
   for (var i = 0; i < items.length; i++) {
     var item = items[i];
@@ -3879,7 +3874,7 @@ async function toggleEjecutar() {
         '<div class="param-card-bd" style="font-size:var(--fs-sm);color:var(--red)">Error: ' + ep.message + '</div></div>';
     }
   }
-  section.innerHTML = html || '<div style="padding:var(--sp-2) 0;font-size:var(--fs-sm);color:var(--muted)">No hay parametros de entrada para los servicios seleccionados.</div>';
+  renderParamsSection(html || '<div style="padding:var(--sp-2) 0;font-size:var(--fs-sm);color:var(--muted)">No hay parametros de entrada para los servicios seleccionados.</div>');
 }
 
 async function generateDocs() {

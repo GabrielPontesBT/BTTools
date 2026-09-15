@@ -216,18 +216,18 @@
         <!-- Swagger del ambiente: de acá salen las rutas reales de cada
              endpoint (kebab-case) y, para Documentar en V4, tambien la raiz
              de la API (servers[0].url) -- ver detectarSwagger/guardarSwaggerPegado
-             mas abajo. Va primero: es la fuente de verdad, y la URL de la API
-             a mano (#a-urls-home) queda escondida detras del link
-             "a-urls-manual-toggle" para no competir visualmente con esta
-             tarjeta. Ver scripts/common/swagger-endpoints. -->
+             mas abajo. En V4, Documentar SIEMPRE resuelve la API por acá: no
+             hay tarjeta de URL manual (ver #a-urls-block mas abajo), asi que
+             sin una URL de Swagger que ande, o el JSON pegado con "Pegá el
+             JSON", no hay como generar. Ver scripts/common/swagger-endpoints. -->
         <div id="a-swagger-wrap" class="card">
           <div class="field">
-            <label>URL del Swagger <span style="font-weight:400;color:var(--muted)">(opcional)</span></label>
+            <label>URL del Swagger</label>
             <div style="display:flex;gap:var(--sp-2)">
-              <input type="text" id="a-swagger" placeholder="pegá la URL del Swagger, o completá la URL de la API a mano" style="flex:1">
+              <input type="text" id="a-swagger" placeholder="ej: http://10.0.0.7:5101/api/publicapi/v1/api-docs" style="flex:1">
               <button class="btn btn-outline" id="btn-detect-swagger" onclick="detectarSwagger()" style="white-space:nowrap">Detectar</button>
             </div>
-            <div class="hint">De acá salen las rutas reales de cada endpoint (kebab-case) y el verbo HTTP. Sin Swagger, la ruta se deriva del nombre del método.</div>
+            <div class="hint">De acá salen las rutas reales de cada endpoint (kebab-case), el verbo HTTP y la raiz de la API. Sin Swagger no se puede generar la documentación de V4.</div>
           </div>
           <div id="swagger-res" class="cres" style="margin-bottom:0"></div>
           <div style="margin-top:var(--sp-2)">
@@ -246,13 +246,10 @@
              "Generar casos de prueba" show() las manda adentro del <details>
              de detalles tecnicos (#a-urls-tech), porque ahi no se tipean: la
              raiz de la API sale del propio Swagger (servers[0].url). En
-             Documentar V4 pasa lo mismo (ver detectarSwagger): el bloque
-             arranca escondido y show() lo revela solo si ya tiene un valor
-             cargado; si no, el link de abajo lo muestra a pedido, o
-             detectarSwagger lo revela solo si el Swagger no alcanza para
-             resolver la URL. En V3 (sin Swagger) sigue visible siempre, que
-             es su lugar de siempre. -->
-        <a href="#" onclick="toggleUrlsManual();return false" style="display:none;font-size:var(--fs-sm)" id="a-urls-manual-toggle">¿No hay Swagger disponible? Completá la URL de la API manualmente</a>
+             Documentar V4 pasa lo mismo, pero sin tarjeta manual de
+             respaldo: show() esconde este bloque del todo (ver el comentario
+             sobre a-swagger-wrap, arriba). En V3 (sin Swagger) sigue visible
+             siempre, que es su lugar de siempre. -->
         <div id="a-urls-home">
         <div id="a-urls-block" class="card" style="margin-top:var(--sp-4)">
         <div class="field" id="a-api-wrap">
@@ -397,7 +394,7 @@
         </div>
       </div>
       
-      <div id="params-section" style="display:none;margin-bottom:var(--sp-4)"></div>
+      <div id="params-section" class="card" style="display:none;margin-bottom:var(--sp-4)"></div>
 
       <!-- Bloque propio de Documentar (tabla de errores en el .md). show() lo
            oculta en el flujo de collections, que comparte este panel. -->
