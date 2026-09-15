@@ -9,6 +9,7 @@ const { createCollectionFeature } = require('./scripts/generar-collections');
 const { createSdtGenFeature } = require('./scripts/generar-sdt');
 const { createParamEditFeature } = require('./scripts/editar-parametria');
 const { sgToOracleBti014, sgToOracleBti019, sgToOracleBti026 } = require('./scripts/sg-cache-shape');
+const { createReloadBroadcaster, watchForReload } = require('./scripts/common/dev-reload');
 
 // Red de seguridad global: sin esto, CUALQUIER excepcion no capturada o
 // promesa rechazada sin catch en cualquier parte del proceso (no solo en el
@@ -1235,6 +1236,14 @@ const paramEditFeature = createParamEditFeature({
 
 const PUBLIC_DIR = path.join(ROOT, 'public');
 
+// Auto-reload: el navegador abre un SSE a /api/dev-reload (ver
+// public/dev-reload.js) y se recarga solo cuando algo cambia adentro de
+// /public. watchForReload devuelve null en filesystems sin soporte de watch
+// recursivo (Linux) -- ahi el auto-reload simplemente no prende, sin romper
+// nada mas.
+const reloadBroadcaster = createReloadBroadcaster();
+watchForReload(fs, PUBLIC_DIR, reloadBroadcaster);
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js':   'application/javascript; charset=utf-8',
@@ -1306,6 +1315,18 @@ http.createServer(async (req, res) => {
     } catch (e) {
       json(200, { ok: false, message: e.message });
     }
+    return;
+  }
+
+  if (req.method === 'GET' && req.url === '/api/dev-reload') {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    });
+    res.write(': connected\n\n');
+    reloadBroadcaster.add(res);
+    req.on('close', () => reloadBroadcaster.remove(res));
     return;
   }
 

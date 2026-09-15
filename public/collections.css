@@ -178,7 +178,25 @@
 .collection-var-input,.collection-var-textarea{width:100%;padding:var(--sp-2) var(--sp-3);border:1.5px solid var(--border);border-radius:var(--r-xs);font-size:var(--fs-sm);font-family:inherit;outline:none}
 .collection-var-textarea{font-family:Consolas,monospace;resize:vertical;line-height:1.4}
 .collection-var-input:focus,.collection-var-textarea:focus{border-color:var(--blue)}
-.collection-result{display:none;padding:var(--sp-3) var(--sp-3);border:1.5px solid var(--border);border-radius:var(--r);background:#fff;margin-top:var(--sp-3)}
+/* Patron "card de datos": tarjeta blanca con sombra + filas en pastilla gris
+   (clave en rojo, valor en texto normal), pedido a partir de una card de
+   referencia de otro proyecto. Reutilizable por cualquier bloque de la
+   herramienta que muestre pares clave/valor de solo lectura -- hoy el
+   resultado de "Generar collection" (.collection-result/.collection-map) y
+   la fila "Ruta:" del inspector (.collection-inspector-static-value). No es
+   un componente de formulario: para eso siguen usando .collection-inspector-
+   label + input, que es el lenguaje visual ya establecido en el resto del
+   panel. */
+.collection-kv-card{background:#fff;border:1.5px solid var(--border-l);border-radius:var(--r)}
+.collection-kv-row{display:flex;align-items:baseline;flex-wrap:wrap;gap:var(--sp-1) var(--sp-2);background:var(--surface);border-radius:var(--r-xs);padding:var(--sp-2) var(--sp-3)}
+.collection-kv-row+.collection-kv-row{margin-top:var(--sp-2)}
+.collection-kv-key{font-weight:600;color:var(--red)}
+.collection-kv-key::after{content:':'}
+.collection-kv-value{color:var(--text-2);word-break:break-word}
+/* El fondo/borde/radio/sombra salen de .collection-kv-card (ver render en
+   CollectionResultManager, que agrega esa clase junto a esta). Acá solo
+   queda lo especifico de este bloque: el toggle show/hide y el spacing. */
+.collection-result{display:none;padding:var(--sp-3) var(--sp-3);margin-top:var(--sp-3)}
 .collection-result.show{display:block}
 .collection-result h4{font-size:var(--fs-md);font-weight:600;margin-bottom:var(--sp-2)}
 .collection-result-head{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3)}
@@ -212,11 +230,13 @@
 .collection-run-toggle{margin-top:var(--sp-2)}
 .collection-run-toggle summary{cursor:pointer;font-size:var(--fs-sm);font-weight:600;color:var(--red-d);list-style:none}
 .collection-run-toggle summary::-webkit-details-marker{display:none}
-.collection-maps{border:1.5px solid var(--border);border-radius:var(--r-xs);overflow:hidden}
-.collection-map{padding:var(--sp-2) var(--sp-3);font-size:var(--fs-sm);display:flex;justify-content:space-between;gap:var(--sp-3)}
-.collection-map+.collection-map{border-top:1px solid var(--border)}
-.collection-map strong{color:var(--text)}
-.collection-map span{color:var(--muted)}
+/* Cada mapeo detectado ahora es una pastilla .collection-kv-row propia (ver
+   CollectionResultManager) en vez de filas de un list-group con separadores
+   -- mismo patron "una fila = una card chica" que .collection-inspector-
+   input-group en el inspector. .collection-maps solo aporta el espaciado
+   entre pastillas. */
+.collection-maps{display:flex;flex-direction:column;gap:var(--sp-2)}
+.collection-map{font-size:var(--fs-sm)}
 .collection-two{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)}
 .collection-builder-top{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--sp-4);margin-bottom:var(--sp-3)}
 .collection-builder-header{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);flex-wrap:wrap}
@@ -280,14 +300,6 @@
 .collection-builder-sidebar .field label{font-size:var(--fs-sm);font-weight:500;margin-bottom:var(--sp-2)}
 .collection-builder-sidebar .field input{padding:var(--sp-2) var(--sp-3);font-size:var(--fs-sm)}
 .collection-service-list{display:flex;flex-direction:column;gap:var(--sp-3);overflow-y:auto;overflow-x:hidden;flex:1;min-height:0;padding-right:var(--sp-1)}
-.collection-service-group{display:flex;flex-direction:column;gap:var(--sp-2)}
-.collection-service-group-title{font-size:var(--fs-sm);font-weight:700;color:var(--text)}
-.collection-service-card{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);padding:var(--sp-2) var(--sp-3);border:1.5px solid var(--border-l);border-radius:var(--r);background:#fff;cursor:pointer;transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease}
-.collection-service-card:hover{border-color:var(--red);box-shadow:var(--shadow-sm);transform:translateY(-1px)}
-.collection-service-card-main{min-width:0}
-.collection-service-card-name{font-size:var(--fs-sm);font-weight:700;color:var(--text)}
-.collection-service-card-meta{font-size:var(--fs-sm);color:var(--muted);margin-top:var(--sp-1);line-height:1.4}
-.collection-service-card-tag{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:var(--r-xs);background:var(--surface);color:var(--text-2);font-size:var(--fs-sm);font-weight:700}
 .collection-builder-hint{margin-top:var(--sp-2);padding:var(--sp-2) var(--sp-3);border:1.5px dashed var(--border);border-radius:var(--r);background:var(--surface);font-size:var(--fs-sm);color:var(--muted);line-height:1.45}
 .collection-chain{margin-top:var(--sp-3);flex:1;min-height:0;overflow:auto}
 .collection-canvas-stage{position:relative;border:1.5px dashed var(--border-l);border-radius:var(--r);background:radial-gradient(circle at 1px 1px,var(--border-l) 1px,transparent 0);background-size:20px 20px;height:100%;min-height:0;overflow:auto;transition:border-color .15s ease,background-color .15s ease}
@@ -363,7 +375,7 @@
 .collection-inspector-save-status-error .collection-inspector-save-icon{background:var(--red-l);color:var(--red-d)}
 .collection-inspector-field{padding-bottom:var(--sp-4)}
 .collection-inspector-field:last-child{padding-bottom:0}
-.collection-inspector-label{display:block;font-size:var(--fs-sm);font-weight:600;color:var(--text);margin-bottom:var(--sp-2)}
+.collection-inspector-label{display:block;font-size:var(--fs-sm);font-weight:600;color:var(--text);margin: var(--sp-3) 0;}
 .collection-inspector-textarea,.collection-inspector-input,.collection-inspector-select{width:100%;padding:var(--sp-2) var(--sp-3);border:1.5px solid var(--border-l);border-radius:var(--r-ctrl);font-size:12.5px;font-family:inherit;color:var(--text);outline:none;background:#fff}
 .collection-inspector-textarea{resize:vertical;line-height:1.5;color:var(--text-2)}
 .collection-inspector-textarea:focus,.collection-inspector-input:focus,.collection-inspector-select:focus{border-color:var(--red);box-shadow:var(--ring)}
@@ -371,9 +383,17 @@
 .collection-inspector-empty-inline{font-size:var(--fs-sm);color:var(--muted-l);font-style:italic}
 .collection-inspector-empty-state{font-size:var(--fs-sm);color:var(--muted);line-height:1.6;padding:var(--sp-5) var(--sp-1);text-align:center}
 .collection-inspector-notice{font-size:11.5px;color:var(--muted);line-height:1.55;padding:var(--sp-3) var(--sp-3);border-radius:var(--r);background:var(--surface);margin-top:var(--sp-2)}
-.collection-inspector-url-row{position:relative;display:flex;align-items:center;gap:var(--sp-2)}
-.collection-inspector-url{flex:1;min-width:0;padding:var(--sp-2) var(--sp-3);border:1.5px solid var(--border-l);border-radius:var(--r);background:var(--surface);font-size:var(--fs-sm);line-height:1.4;color:var(--text-2);font-family:Consolas,monospace;white-space:nowrap;overflow-x:auto;overflow-y:hidden}
-.collection-inspector-copy-btn{flex:0 0 auto;height:34px;padding:0 var(--sp-3);border:1.5px solid var(--border-l);border-radius:var(--r-xs);background:#fff;color:var(--text-2);font-size:11.5px;font-weight:500;cursor:pointer}
+/* align-items:stretch (default de flex, explicito por claridad): el boton
+   "Copiar" no tiene alto propio -- toma el del hermano mas alto de la fila,
+   que es el contenedor de la URL. Asi quedan siempre igualados sin importar
+   si la URL entra en una linea o envuelve a varias. */
+.collection-inspector-url-row{position:relative;display:flex;align-items:stretch;gap:var(--sp-2)}
+/* Sin scroll horizontal: la URL de ejecucion completa tiene que verse entera
+   -- rompe por cualquier caracter (no solo espacios, que una URL no tiene) y
+   el contenedor crece en alto en vez de scrollear a los costados. min-height
+   evita que quede mas bajo que el boton "Copiar" cuando entra en una linea. */
+.collection-inspector-url{flex:1;min-width:0;min-height:34px;padding:var(--sp-2) var(--sp-3);border:1.5px solid var(--border-l);border-radius:var(--r-ctrl);background:var(--surface);font-size:var(--fs-sm);line-height:1.4;color:var(--text-2);font-family:Consolas,monospace;overflow-wrap:anywhere;word-break:break-all}
+.collection-inspector-copy-btn{flex:0 0 auto;padding:0 var(--sp-3);border:1.5px solid var(--border-l);border-radius:var(--r-xs);background:#fff;color:var(--text-2);font-size:11.5px;font-weight:500;cursor:pointer}
 .collection-inspector-copy-btn:hover{border-color:var(--red);color:var(--red)}
 .collection-inspector-copy-btn:disabled{opacity:.5;cursor:not-allowed}
 .collection-inspector-accordion{border-bottom:1px solid var(--border-l)}
@@ -382,17 +402,28 @@
 .collection-inspector-accordion-head:hover{background:var(--surface)}
 .collection-inspector-accordion-title{display:flex;align-items:center;gap:var(--sp-2);min-width:0}
 .collection-inspector-accordion-name{font-size:var(--fs-md);font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Un grupo (carpeta de un SDT anidado, ver buildFieldGroupTree) no es un
+   campo que se configura -- es solo navegacion hacia los campos que tiene
+   adentro. Antes usaba la misma tipografia que un campo-hoja real y las dos
+   cosas se veian identicas salvo por el chevron. Mismo lenguaje visual que
+   .collection-inspector-subsection-head (mayusculas, chico, muted): asi
+   "esto es una carpeta/seccion, no un dato" se lee de un vistazo en todo el
+   panel, no solo en un lugar. */
+.collection-inspector-group-name{font-size:var(--fs-sm);font-weight:700;color:var(--muted-l);text-transform:uppercase;letter-spacing:.04em}
 .collection-inspector-type-tag{flex:0 0 auto;font-size:var(--fs-sm);font-weight:700;color:var(--muted);background:var(--surface);border-radius:var(--r-pill);padding:var(--sp-micro) var(--sp-2)}
 .collection-inspector-accordion-chevron{flex:0 0 auto;font-size:var(--fs-sm);color:var(--muted-l);transform:rotate(90deg);transition:transform .15s ease}
 .collection-inspector-accordion-open .collection-inspector-accordion-chevron{transform:rotate(90deg) scaleX(-1)}
 .collection-inspector-accordion-summary{padding:0 var(--sp-1) var(--sp-3);margin-top:-6px;font-size:11.5px;color:var(--muted-l);line-height:1.4}
-.collection-inspector-accordion-body{padding:var(--sp-1) var(--sp-1) var(--sp-4)}
+.collection-inspector-accordion-body{padding:var(--sp-1) var(--sp-2) var(--sp-4)}
 /* Grupo visual de entradas/salidas de un mismo SDT (ver buildFieldGroupTree
    y renderGroupTree en collection-inspector-manager.js, se anida un nivel
    por cada SDT real): un fondo suave + borde izquierdo lo distinguen de una
    fila normal, y sus hijos quedan indentados adentro sin heredar el borde
-   inferior de cada fila. */
+   inferior de cada fila. Su cabecera usa .collection-inspector-group-name
+   (mas chica y en mayusculas) y menos padding vertical que un campo real
+   -- es un separador de navegacion, no algo que se completa. */
 .collection-inspector-input-group{background:var(--surface);border-radius:var(--r);margin:4px 0;padding:0 var(--sp-3)}
+.collection-inspector-input-group>.collection-inspector-accordion-head{padding:var(--sp-2) var(--sp-1)}
 .collection-inspector-input-group-children{padding:0 0 var(--sp-1) var(--sp-3);margin-left:var(--sp-1);border-left:2px solid var(--border-l)}
 .collection-inspector-input-group-children>.collection-inspector-accordion{border-bottom:1px solid var(--border-l)}
 .collection-inspector-input-group-children>.collection-inspector-accordion:last-child{border-bottom:none}
@@ -424,16 +455,21 @@
 .collection-inspector-help-body p{font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:var(--sp-2)}
 .collection-inspector-filter-grid{display:grid;grid-template-columns:1fr;gap:var(--sp-2)}
 /* Secciones colapsables del panel "Configurar paso" (Origen del valor,
-   Filtro de coleccion, Salidas disponibles) — mismo lenguaje visual que
-   .collection-inspector-help (icono "i" + texto chico) para que las tres
-   se vean como parte del mismo sistema de acordeones, no como piezas sueltas. */
-.collection-inspector-subsection{margin-top:var(--sp-3);border-top:1px dashed var(--border-l);padding-top:var(--sp-3)}
-.collection-inspector-subsection:first-child{margin-top:0;border-top:none;padding-top:0}
-.collection-inspector-subsection-head{cursor:pointer;list-style:none;font-size:11.5px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:var(--sp-2)}
+   Filtro de coleccion, Salidas disponibles). Antes solo tenian un borde
+   punteado arriba: quedaban pegadas al acordeon padre, sin lectura clara de
+   "esto es un bloque aparte". Ahora son una card propia (borde + fondo +
+   padding), asi se agrupan visualmente igual que .collection-inspector-
+   input-group agrupa campos de un mismo SDT -- mismo patron "una caja por
+   concepto" en todo el panel. El titulo mantiene el mismo lenguaje visual
+   que .collection-inspector-group-name (mayusculas, chico, muted): ambos
+   son "encabezados de seccion", no campos que se completan. */
+.collection-inspector-subsection{display:block;margin-top:var(--sp-2);border:1.5px solid var(--border-l);border-radius:var(--r);background:var(--surface);padding:var(--sp-3)}
+.collection-inspector-subsection:first-child{margin-top:0}
+.collection-inspector-subsection-head{cursor:pointer;list-style:none;font-size:var(--fs-sm);font-weight:600;color:var(--muted-l);text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;gap:var(--sp-2)}
 .collection-inspector-subsection-head::-webkit-details-marker{display:none}
 .collection-inspector-subsection-head::before{content:'\25B8';font-size:var(--fs-sm);color:var(--muted-l);transition:transform .15s ease}
 .collection-inspector-subsection[open] .collection-inspector-subsection-head::before{transform:rotate(90deg)}
-.collection-inspector-subsection-body{margin-top:var(--sp-2)}
+.collection-inspector-subsection-body{margin-top:var(--sp-3)}
 .collection-inspector-subsection-hint{font-size:11.5px;color:var(--muted);line-height:1.5;margin-bottom:var(--sp-2)}
 .collection-inspector-source-summary-group{margin-bottom:var(--sp-3)}
 .collection-inspector-source-summary-group:last-child{margin-bottom:0}
@@ -445,58 +481,6 @@
 .collection-inspector-search-input:focus{border-color:var(--red);box-shadow:var(--ring)}
 .collection-inspector-progress{font-size:var(--fs-sm);color:var(--muted-l);margin-bottom:var(--sp-2)}
 
-/* Panel "Sugerir cadena" del builder. */
-.collection-chain-suggestion-drawer{left:14px;transform:translateX(-112%)}
-.collection-chain-suggestion-head{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--sp-3);padding:var(--sp-3) var(--sp-4) var(--sp-3);border-bottom:1px solid var(--border-l)}
-.collection-chain-suggestion-title{font-size:var(--fs-lg);font-weight:700;color:var(--text);line-height:1.15}
-.collection-chain-suggestion-subtitle{font-size:var(--fs-sm);color:var(--muted);line-height:1.4;margin-top:var(--sp-1)}
-.collection-chain-suggestion-close{flex:0 0 30px;width:30px;height:30px;border:1.5px solid var(--border-l);border-radius:var(--r);background:#fff;color:var(--muted);font-size:var(--fs-lg);line-height:1;cursor:pointer}
-.collection-chain-suggestion-close:hover{border-color:var(--red);color:var(--red);background:var(--red-l)}
-.collection-chain-suggestion-body{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:var(--sp-3) var(--sp-4) var(--sp-4)}
-.collection-suggest-field{padding-bottom:var(--sp-3)}
-.collection-suggest-label{display:block;font-size:var(--fs-sm);font-weight:600;color:var(--text);margin-bottom:var(--sp-2)}
-.collection-suggest-select{width:100%;height:40px;padding:0 var(--sp-3);border:1.5px solid var(--border);border-radius:var(--r-ctrl);background:#fff;font-size:12.5px;color:var(--text);outline:none;font-family:inherit}
-.collection-suggest-select:focus{border-color:var(--red);box-shadow:var(--ring)}
-.collection-suggest-scope-list{display:flex;flex-direction:column;gap:var(--sp-2)}
-.collection-suggest-scope-option{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-2) var(--sp-3);border:1.5px solid var(--border-l);border-radius:var(--r);cursor:pointer;font-size:12.5px;color:var(--text-2)}
-.collection-suggest-scope-option:hover{border-color:var(--border)}
-.collection-suggest-scope-option-selected{border-color:var(--red);background:var(--red-l);color:var(--text);font-weight:700}
-.collection-suggest-scope-option input{margin:0}
-.collection-suggest-scope-count{margin-left:auto;font-size:var(--fs-sm);font-weight:600;color:var(--muted-l);background:var(--surface);border-radius:var(--r-pill);padding:var(--sp-micro) var(--sp-2)}
-.collection-suggest-scope-option-selected .collection-suggest-scope-count{background:#fff;color:var(--red)}
-.collection-suggest-search-btn{width:100%;height:var(--ctrl-h);margin-top:var(--sp-1);margin-bottom:var(--sp-4)}
-.collection-suggest-status{padding:var(--sp-4) var(--sp-2);text-align:center;font-size:var(--fs-sm);color:var(--muted);line-height:1.6}
-.collection-suggest-status-error{color:var(--red-d)}
-.collection-suggest-results-head{font-size:var(--fs-sm);font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-l);margin-bottom:var(--sp-3)}
-.collection-suggest-card{border:1.5px solid var(--border-l);border-radius:var(--r);margin-bottom:var(--sp-3);overflow:hidden;background:#fff}
-.collection-suggest-card-review{border-color:var(--red)}
-.collection-suggest-card-head{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);width:100%;padding:var(--sp-3) var(--sp-3);border:none;background:none;cursor:pointer;font-family:inherit;text-align:left}
-.collection-suggest-card-head:hover{background:var(--surface)}
-.collection-suggest-card-title{font-size:12.5px;font-weight:700;color:var(--text)}
-.collection-suggest-confidence-badge{font-size:var(--fs-sm);font-weight:700;padding:var(--sp-micro) var(--sp-2);border-radius:var(--r-pill);white-space:nowrap}
-.collection-suggest-confidence-high{background:var(--green-l);color:var(--green)}
-.collection-suggest-confidence-medium{background:var(--warn-l);color:var(--warn-d)}
-.collection-suggest-confidence-review{background:var(--red-l);color:var(--red-d)}
-.collection-suggest-chain-preview{display:flex;align-items:center;flex-wrap:wrap;gap:var(--sp-2);padding:0 var(--sp-3) var(--sp-3);font-size:11.5px}
-.collection-suggest-chain-step{display:flex;flex-direction:column;line-height:1.3}
-.collection-suggest-chain-step strong{font-size:var(--fs-sm);color:var(--text)}
-.collection-suggest-chain-verb{font-size:var(--fs-sm);font-weight:600;color:var(--muted-l)}
-.collection-suggest-chain-arrow{color:var(--muted-l);font-size:var(--fs-sm)}
-.collection-suggest-card-footer{padding:var(--sp-2) var(--sp-3);border-top:1px solid var(--border-l);font-size:var(--fs-sm);color:var(--muted)}
-.collection-suggest-detail{padding:var(--sp-1) var(--sp-3) var(--sp-3)}
-.collection-suggest-warning{padding:var(--sp-2) var(--sp-3);border-radius:var(--r-xs);background:var(--warn-l);color:var(--warn-d);font-size:11.5px;line-height:1.5;margin-bottom:var(--sp-3)}
-.collection-suggest-detail-step{padding:var(--sp-2) 0;border-top:1px dashed var(--border-l)}
-.collection-suggest-detail-step:first-child{border-top:none;padding-top:0}
-.collection-suggest-detail-step-title{font-size:var(--fs-sm);font-weight:700;color:var(--text);margin-bottom:var(--sp-1)}
-.collection-suggest-detail-note{font-size:var(--fs-sm);color:var(--muted-l)}
-.collection-suggest-detail-label{font-size:var(--fs-sm);font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-l);margin-top:var(--sp-2);margin-bottom:var(--sp-1)}
-.collection-suggest-detail-connection{padding:var(--sp-2) var(--sp-2);border-radius:var(--r-xs);background:var(--surface);margin-bottom:var(--sp-1)}
-.collection-suggest-detail-connection-pending{background:var(--warn-l)}
-.collection-suggest-detail-connection-fields{font-size:11.5px;font-weight:700;color:var(--text)}
-.collection-suggest-detail-connection-reason{font-size:10.5px;color:var(--muted);margin-top:var(--sp-1)}
-.collection-suggest-detail-manual-list{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
-.collection-suggest-detail-manual-chip{font-size:10.5px;font-weight:700;color:var(--muted);background:var(--surface);border-radius:var(--r-pill);padding:var(--sp-micro) var(--sp-2)}
-.collection-suggest-add-btn{width:100%;height:var(--ctrl-h);margin-top:var(--sp-4)}
 .collection-shell-studio-builder #collection-flow-wrap,
 .collection-shell-studio-builder #collection-vars-wrap{display:none!important}
 .collection-execution-mode{margin-top:var(--sp-3);display:flex;flex-direction:column;flex:1;min-height:0}
@@ -505,21 +489,18 @@
 .collection-execution-active .collection-builder-context-fields{display:none}
 
 
-/* Volver + menu de la corrida: solo existen visualmente en modo ejecucion,
-   reemplazando la fila de resumen que antes vivia arriba del canvas. Se
-   apoyan en --builder-button-height para escalar igual que el resto de la
-   barra en cada breakpoint, sin necesitar sus propios ajustes responsive. */
-#btn-collection-exec-back,#collection-exec-header-menu-slot{display:none}
-.collection-execution-active #btn-collection-exec-back{display:inline-flex}
-
+/* Menu de la corrida: solo existe visualmente en modo ejecucion, reemplazando
+   la fila de resumen que antes vivia arriba del canvas. Se apoya en
+   --builder-button-height para escalar igual que el resto de la barra en
+   cada breakpoint, sin necesitar sus propios ajustes responsive. El boton
+   dedicado "Volver al builder" que vivia al lado se saco: goBack() (el
+   "Volver" generico del wizard, wizard-doc.js) ya cierra el modo ejecucion
+   el solo cuando esta activo -- tener los dos era una segunda salida
+   redundante y, si goBack() no la conocia, la causa de que el modo ejecucion
+   quedara "pegado" (ver .wizard:has(#p4c.active .collection-execution-active)
+   mas abajo). */
+#collection-exec-header-menu-slot{display:none}
 .collection-execution-active #collection-exec-header-menu-slot{display:flex;align-items:center}
-.collection-exec-back-icon-btn{
-  flex:0 0 auto;width:var(--builder-button-height,40px);height:var(--builder-button-height,40px);
-  display:inline-flex;align-items:center;justify-content:center;
-  border:1.5px solid var(--border-l);border-radius:var(--r-ctrl);background:#fff;color:var(--text-2);
-  font-size:var(--fs-base);cursor:pointer;margin-right:auto
-}
-.collection-exec-back-icon-btn:hover{border-color:var(--red);color:var(--red)}
 #collection-exec-header-menu-slot .collection-exec-menu-trigger{
   width:var(--builder-button-height,40px);height:var(--builder-button-height,40px);font-size:var(--fs-base)
 }
@@ -761,24 +742,21 @@
 .collection-builder-canvas-shell .collection-chain{flex:1;min-height:0;height:100%;margin-top:0;padding:0}
 .collection-builder-backdrop{position:absolute;inset:0;border:none;background:rgba(18,20,24,.16);opacity:0;pointer-events:none;transition:opacity .2s ease;z-index:14}
 .collection-builder-backdrop.show{opacity:1;pointer-events:auto}
-.collection-builder-service-drawer,.collection-builder-inspector-drawer,.collection-chain-suggestion-drawer{position:absolute;top:14px;bottom:14px;width:340px;border:1.5px solid var(--border-l);border-radius:var(--r);background:#fff;box-shadow:var(--shadow-md);display:flex;flex-direction:column;min-height:0;z-index:18;transition:transform .24s ease,opacity .24s ease;opacity:0}
+.collection-builder-service-drawer,.collection-builder-inspector-drawer{position:absolute;top:14px;bottom:14px;width:340px;border:1.5px solid var(--border-l);border-radius:var(--r);background:#fff;box-shadow:var(--shadow-md);display:flex;flex-direction:column;min-height:0;z-index:18;transition:transform .24s ease,opacity .24s ease;opacity:0}
 .collection-builder-service-drawer{left:14px;transform:translateX(-112%)}
 .collection-builder-inspector-drawer{right:14px;transform:translateX(112%)}
 .collection-builder-workspace.collection-builder-service-open .collection-builder-service-drawer{transform:translateX(0);opacity:1}
 .collection-builder-workspace.collection-builder-inspector-open .collection-builder-inspector-drawer{transform:translateX(0);opacity:1}
-.collection-builder-workspace.collection-builder-suggestion-open .collection-chain-suggestion-drawer{transform:translateX(0);opacity:1}
-.collection-builder-workspace.collection-builder-token-sources-open .collection-token-sources-drawer{transform:translateX(0);opacity:1}
-.collection-chain-suggestion-drawer{width:clamp(360px,32vw,440px)}
 .collection-builder-drawer-head{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--sp-4);padding:var(--sp-4) var(--sp-4) var(--sp-3);border-bottom:1px solid var(--border-l)}
 .collection-builder-drawer-kicker{font-size:var(--fs-sm);font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted-l)}
 /* peso maximo 700 (no 800): el titulo de panel no debe competir en peso con
    el titulo de pantalla (.collection-studio-title en modo builder). */
-.collection-builder-drawer-title{font-size:var(--fs-xl);font-weight:700;color:var(--text);line-height:1.1;margin-top:var(--sp-1)}
+.collection-builder-drawer-title{font-size:var(--fs-xl);font-weight:700;color:var(--text);line-height:1.1;margin-top:var(--sp-3)}
 .collection-builder-drawer-meta{font-size:var(--fs-sm);color:var(--muted);line-height:1.5;margin-top:var(--sp-2)}
 .collection-builder-drawer-close{width:36px;height:36px;border:1.5px solid var(--border-l);border-radius:var(--r);background:#fff;color:var(--muted);font-size:var(--fs-lg);line-height:1;cursor:pointer}
 .collection-builder-drawer-close:hover{border-color:var(--border);color:var(--muted);background:var(--surface)}
 /* Selector de servicios y metodos (panel "Agregar servicios" del builder). */
-.collection-service-selector-head{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--sp-3);padding:var(--sp-3) var(--sp-4) var(--sp-3);border-bottom:1px solid var(--border-l)}
+.collection-service-selector-head{display:flex;justify-content:space-between;align-items:center;gap:var(--sp-3);padding:var(--sp-3) var(--sp-4) var(--sp-3);border-bottom:1px solid var(--border-l)}
 .collection-service-selector-title{font-size:var(--fs-lg);font-weight:700;color:var(--text);line-height:1.15}
 .collection-service-selector-subtitle{font-size:var(--fs-sm);color:var(--muted);line-height:1.4;margin-top:var(--sp-1)}
 .collection-service-selector-close{flex:0 0 30px;width:30px;height:30px;border:1.5px solid var(--border-l);border-radius:var(--r);background:#fff;color:var(--muted);font-size:var(--fs-lg);line-height:1;cursor:pointer}
@@ -803,13 +781,19 @@
 .collection-service-group-title:hover{background:var(--surface)}
 .collection-service-group-chevron{flex:0 0 auto;display:inline-flex;font-size:var(--fs-sm);color:var(--muted-l);transform:rotate(90deg);transition:transform .15s ease}
 .collection-service-group-collapsed .collection-service-group-chevron{transform:rotate(0deg)}
-.collection-service-group-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-sm);font-weight:700;color:var(--text)}
+.collection-service-group-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-base);font-weight:700;color:var(--text)}
 .collection-service-group-count{flex:0 0 auto;font-size:var(--fs-sm);font-weight:600;color:var(--muted-l);background:var(--surface);border-radius:var(--r-pill);padding:var(--sp-micro) var(--sp-2)}
 .collection-service-group-body{display:flex;flex-direction:column;gap:var(--sp-1);padding:var(--sp-1) 0 var(--sp-2)}
 .collection-service-group-collapsed .collection-service-group-body{display:none}
-.collection-service-card{display:grid;grid-template-columns:20px minmax(0,1fr) auto auto;align-items:center;gap:var(--sp-2);padding:var(--sp-2);border:1.5px solid transparent;border-radius:var(--r);cursor:pointer;transition:background-color .15s ease,border-color .15s ease}
-.collection-service-card:hover{background:var(--surface)}
-.collection-service-card-selected{background:var(--red-l);border-color:var(--red)}
+/* Fondo blanco + sombra en hover/selected, mismo lenguaje que
+   .collection-kv-card: no se convierte en una card de pares clave/valor
+   (es una lista densa de decenas de metodos, forzar ese patron ahi
+   perjudicaria la densidad que ya se ajusto para eso mismo -- ver el
+   colapso por defecto de los grupos), pero adopta el mismo acabado visual
+   "tarjeta con sombra" de la card de referencia. */
+.collection-service-card{display:grid;grid-template-columns:20px minmax(0,1fr) auto auto;align-items:center;gap:var(--sp-2);padding:var(--sp-2);border:1.5px solid transparent;border-radius:var(--r);background:#fff;cursor:pointer;transition:background-color .15s ease,border-color .15s ease,box-shadow .15s ease}
+.collection-service-card:hover{background:var(--surface);box-shadow:var(--shadow-sm)}
+.collection-service-card-selected{background:var(--red-l);border-color:var(--red);box-shadow:var(--shadow-sm)}
 /* padding+margin negativo: agranda el area clickeable bien mas alla del
    cuadradito visual de 15px (que obligaba a clickear con precision de pixel)
    sin correr el resto de la fila -- la columna del grid sigue midiendo 20px. */
@@ -849,31 +833,20 @@
 .collection-swagger-url-add input{flex:1}
 .collection-swagger-url-list{margin-top:var(--sp-2);display:flex;flex-direction:column;gap:var(--sp-2)}
 .collection-swagger-url-empty{font-size:var(--fs-sm);color:var(--muted-l)}
-.collection-swagger-url-row{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);padding:var(--sp-2) var(--sp-3);border:1.5px solid var(--border-l);border-radius:var(--r);background:var(--surface)}
+.collection-swagger-url-row{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);padding:var(--sp-2) var(--sp-3);border:1.5px solid var(--border-l);border-radius:var(--r-ctrl);background:var(--surface)}
 .collection-swagger-url-text{font-size:var(--fs-sm);color:var(--text-2);word-break:break-all}
 .collection-swagger-url-remove{border:none;background:none;color:var(--red);font-size:var(--fs-sm);font-weight:500;cursor:pointer;padding:var(--sp-1) var(--sp-2)}
 .collection-swagger-url-remove:hover{text-decoration:underline}
-.collection-auto-auth-toggle{display:flex;align-items:center;gap:var(--sp-2);margin-top:var(--sp-3);font-size:var(--fs-sm);color:var(--text-2);cursor:pointer}
+.collection-auto-auth-toggle{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-sm);color:var(--text-2);cursor:pointer}
 .collection-auto-auth-toggle input{margin:0;width:16px;height:16px;flex:none}
-#collection-swagger-field .collection-auto-auth-toggle{display:flex;margin-bottom:0}
-#collection-swagger-field .collection-auto-auth-toggle input{width:16px;height:16px;flex:none}
-.collection-catalog-actions{display:flex;justify-content:flex-end;align-items:end}
-.collection-catalog-actions .btn{min-width:180px}
 .collection-tech-details{margin-top:var(--sp-4);border:1.5px solid var(--border-l);border-radius:var(--r);background:var(--surface);overflow:hidden}
 .collection-tech-details summary{cursor:pointer;list-style:none;padding:var(--sp-3) var(--sp-4);font-size:var(--fs-sm);font-weight:600;color:var(--text-2)}
 .collection-tech-details summary::-webkit-details-marker{display:none}
 .collection-tech-content{padding:0 var(--sp-4) var(--sp-4);font-size:var(--fs-sm);color:var(--muted);line-height:1.6;word-break:break-word}
 .collection-builder-top h3{font-size:var(--fs-2xl);font-weight:600;color:var(--text)}
 .collection-builder-top .collection-inline-note{font-size:var(--fs-md);max-width:720px}
-/* Acento violeta reservado para la unica accion asistida por IA de la barra
-   (Sugerir cadena) — separado de .btn-outline (rojo de marca) para que se
-   note que es un camino distinto (heuristica/sugerencia) de las acciones
-   deterministicas de al lado. Reusa el mismo violeta ya establecido en el
-   panel de ejecucion (.collection-exec-node-chip y afines), no un color nuevo. */
-.collection-builder-actions .btn-ai-accent{color:var(--red-d);border-color:var(--red-l)}
-.collection-builder-actions .btn-ai-accent:hover{background:var(--surface);border-color:var(--red);color:var(--red-d)}
 .collection-builder-workspace{height:calc(100vh - 320px);min-height:620px}
-.collection-catalog-actions{display:flex;justify-content:flex-start;align-items:end}
+.collection-catalog-actions{display:flex;justify-content:space-between;align-items:center}
 .collection-catalog-actions .btn{min-width:auto;height:var(--ctrl-h);padding:0 var(--sp-4);white-space:nowrap}
 .collection-tech-details{margin-top:var(--sp-3);border:none;background:transparent;border-radius:0;overflow:visible}
 .collection-tech-details summary{display:inline-flex;align-items:center;gap:var(--sp-2);cursor:pointer;list-style:none;padding:var(--sp-1) 0;font-size:var(--fs-sm);font-weight:600;color:var(--muted)}
@@ -893,7 +866,13 @@
 .collection-builder-v2{display:flex;flex-direction:column;flex:1;gap:var(--builder-gap-sm);min-height:0}
 .collection-shell-studio-builder .collection-builder-mode-v2{flex:1;min-height:0}
 .collection-builder-top{justify-content:flex-start;align-items:center;gap:var(--builder-gap-sm);margin-bottom:0}
-.collection-builder-actions{justify-content:flex-end;gap:var(--builder-gap-sm)}
+/* Fallback a --sp-3: collectionDockActionsInWizardFooter() muda este nodo al
+   footer del wizard (#ft-r), fuera de .collection-shell-studio-builder, que
+   es el unico ancestro donde --builder-gap-sm esta definida. Sin fallback,
+   var() con la custom property fuera de scope cae al valor inicial de gap
+   (normal = 0), y los botones quedan pegados justo en el footer -- que es el
+   unico lugar donde esta barra se ve en la practica. */
+.collection-builder-actions{justify-content:flex-end;gap:var(--builder-gap-sm, var(--sp-3))}
 .collection-builder-actions .btn{min-width:100px;height:var(--builder-button-height);display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-2);padding:0 var(--builder-button-padding-x);font-size:var(--builder-control-font-size);font-weight:600}
 .collection-builder-actions .btn-primary{min-width:112px}
 .collection-builder-feedback{gap:var(--builder-gap-sm);margin-bottom:0;min-height:0}
@@ -911,7 +890,7 @@
 .collection-service-group-title{font-size:calc(var(--builder-label-size) + 1px)}
 .collection-service-card{gap:var(--sp-2);padding:var(--sp-2) var(--sp-3);border-radius:var(--r)}
 .collection-service-card input[type=checkbox]{transform:scale(.95)}
-.collection-service-card-name{font-size:calc(var(--builder-control-font-size) - 1px)}
+.collection-service-card-name{font-size: var(--fs-sm)}
 .collection-service-card-meta{font-size:calc(var(--builder-node-copy-size) - 1px);margin-top:var(--sp-1)}
 .collection-service-card-badge{font-size:calc(var(--builder-chip-size) + 1px)}
 .collection-canvas-empty{min-height:100%;max-width:340px;margin:0 auto;padding:var(--sp-4) var(--sp-3);gap:var(--builder-gap-sm);background:transparent;box-shadow:none;border:none}
@@ -1430,10 +1409,10 @@
 }
 
 @media (max-width: 1440px){
-  .collection-builder-service-drawer,.collection-builder-inspector-drawer,.collection-chain-suggestion-drawer{
+  .collection-builder-service-drawer,.collection-builder-inspector-drawer{
     top:10px;bottom:10px;width:min(300px,calc(100% - 22px));border-radius:var(--r)}
   .collection-builder-service-drawer{width:clamp(340px,29vw,380px)}
-  .collection-builder-inspector-drawer,.collection-chain-suggestion-drawer{width:clamp(340px,32vw,390px)}
+  .collection-builder-inspector-drawer{width:clamp(340px,32vw,390px)}
   .collection-builder-drawer-head{
     padding:var(--sp-3) var(--sp-4) var(--sp-3);
     gap:var(--sp-3)
@@ -1443,8 +1422,6 @@
   .collection-inspector-tabs{padding:0 var(--sp-4)}
   .collection-inspector-footer{padding:var(--sp-3) var(--sp-4)}
   .collection-step-config{padding:0 var(--sp-4) var(--sp-3)}
-  .collection-chain-suggestion-head{padding:var(--sp-3) var(--sp-4) var(--sp-3)}
-  .collection-chain-suggestion-body{padding:var(--sp-3) var(--sp-4) var(--sp-3)}
   .collection-service-search-wrap{padding:var(--sp-2) 14px var(--sp-2)}
   .collection-service-list{padding:var(--sp-2) var(--sp-4) var(--sp-3)}
   .collection-service-drawer-scroll{gap:var(--sp-2)}
@@ -1462,11 +1439,11 @@
 }
 
 @media (max-width: 1366px){
-  .collection-builder-service-drawer,.collection-builder-inspector-drawer,.collection-chain-suggestion-drawer{
+  .collection-builder-service-drawer,.collection-builder-inspector-drawer{
     width:min(286px,calc(100% - 18px));top:8px;bottom:8px
   }
   .collection-builder-service-drawer{width:clamp(340px,29vw,380px)}
-  .collection-builder-inspector-drawer,.collection-chain-suggestion-drawer{width:clamp(340px,32vw,390px)}
+  .collection-builder-inspector-drawer{width:clamp(340px,32vw,390px)}
   .collection-builder-drawer-head{padding:var(--sp-3) var(--sp-3) var(--sp-2)}
   .collection-builder-drawer-title{font-size:var(--fs-md)}
   .collection-service-search-wrap{padding:var(--sp-2) 12px var(--sp-2)}
@@ -1520,7 +1497,6 @@
 .wiz-ft .collection-builder-actions .btn{padding:0 var(--sp-4)}
 .wiz-ft .collection-builder-menu-trigger{padding:0 var(--sp-4)}
 .wiz-ft .collection-builder-actions .collection-btn-icon{font-size:var(--fs-base)}
-.wiz-ft .collection-exec-back-icon-btn{width:var(--ctrl-h);height:var(--ctrl-h);margin-right:0}
 /* El popover abre hacia ARRIBA: desde el footer, hacia abajo se sale de la
    ventana y el menú queda inalcanzable. */
 .wiz-ft .collection-builder-menu-popover{top:auto;bottom:calc(100% + var(--sp-2))}
@@ -1535,11 +1511,9 @@
 .collection-shell-studio-builder .collection-builder-top,
 .collection-shell-studio-builder .collection-builder-header{justify-content:flex-start}
 
-/* El modo ejecucion agrega dos cosas a la barra: el "volver al builder" y el
-   menu de la corrida. Sus reglas eran descendientes de .collection-execution-active,
-   que vive en el shell del panel; con la barra mudada al footer ese selector
-   dejo de alcanzarla y los dos quedaban invisibles. Se re-anclan desde .wizard,
-   que es el ancestro comun de los dos (mismo patron que styles.css ya usa para
-   esconder el stepper en ejecucion). */
-.wizard:has(.collection-execution-active) .wiz-ft #btn-collection-exec-back{display:inline-flex}
+/* El modo ejecucion agrega el menu de la corrida a la barra. Su regla era
+   descendiente de .collection-execution-active, que vive en el shell del
+   panel; con la barra mudada al footer ese selector dejo de alcanzarla y
+   quedaba invisible. Se re-ancla desde .wizard, que es el ancestro comun
+   (mismo patron que styles.css ya usa para esconder el stepper en ejecucion). */
 .wizard:has(.collection-execution-active) .wiz-ft #collection-exec-header-menu-slot{display:flex;align-items:center}

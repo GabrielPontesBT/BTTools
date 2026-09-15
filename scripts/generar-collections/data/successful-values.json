@@ -2409,5 +2409,94 @@
     "systemDate": [
       "2028-04-27"
     ]
+  },
+  "V4::oracle::10.0.0.4:1521/btv4db::http://10.0.0.7:5110/btv4core": {
+    "channel": [
+      "BTPUBLIC"
+    ],
+    "username": [
+      "INSTALADOR"
+    ],
+    "device": [
+      "GP"
+    ],
+    "requirement": [
+      "1"
+    ],
+    "systemDate": [
+      "2028-04-27"
+    ],
+    "general_system_date_systemDate": [
+      "2028-04-27"
+    ],
+    "hasNext": [
+      "true"
+    ],
+    "general_document_types_hasNext": [
+      "true"
+    ],
+    "offset": [
+      "0"
+    ],
+    "limit": [
+      "10"
+    ],
+    "appliesTo": [
+      "F"
+    ],
+    "appliesToFI": [
+      "N"
+    ],
+    "documentTypeDescription": [
+      "CURP"
+    ],
+    "documentTypeId": [
+      "1"
+    ],
+    "format": [
+      "A"
+    ],
+    "mainDocument": [
+      "true"
+    ],
+    "maximumLength": [
+      "18"
+    ],
+    "minimumLength": [
+      "18"
+    ],
+    "personType": [
+      "F"
+    ],
+    "shortDescription": [
+      "CURP"
+    ],
+    "general_document_types_documentTypes_documentType_item_documentTypeDescription": [
+      "CURP"
+    ],
+    "general_document_types_documentTypes_documentType_item_minimumLength": [
+      "18"
+    ],
+    "general_document_types_documentTypes_documentType_item_maximumLength": [
+      "18"
+    ],
+    "general_document_types_documentTypes_documentType_item_appliesToFI": [
+      "N"
+    ],
+    "general_document_types_documentTypes_documentType_item_documentTypeId": [
+      "1"
+    ],
+    "general_document_types_documentTypes_documentType_item_format": [
+      "A"
+    ],
+    "general_document_types_documentTypes_documentType_item_shortDescription": [
+      "CURP"
+    ],
+    "general_document_types_documentTypes_documentType_item_personType": [
+      "F"
+    ],
+    "general_document_types_documentTypes_documentType_item_mainDocument": [
+      "true"
+    ]
   }
 }

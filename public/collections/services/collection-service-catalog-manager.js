@@ -224,7 +224,7 @@
         '<div id="collection-builder-selection-count" class="collection-service-selection-count">' + selectionCount + ' seleccionado' + (selectionCount === 1 ? '' : 's') + '</div>' +
         '<div class="collection-service-drawer-actions">' +
           (selectionCount ? '<button type="button" class="collection-service-clear-selection" onclick="collectionClearCatalogSelection()">Limpiar</button>' : '') +
-          '<button type="button" class="btn btn-primary" id="btn-collection-add-selected" onclick="collectionAddSelectedCatalogOperations()" disabled>Agregar al flujo</button>' +
+          '<button type="button" class="btn btn-primary" id="btn-collection-add-selected" onclick="collectionAddSelectedCatalogOperations()" disabled>Agregar</button>' +
         '</div>' +
       '</div>';
 

@@ -52,6 +52,21 @@
     global.collectionGetExecutionCenter().close();
   };
 
+  /**
+   * Le permite a goBack() (wizard-doc.js) saber si el "Volver" generico del
+   * wizard tiene que cerrar el modo ejecucion en vez de navegar de paso --
+   * ver la nota en goBack() sobre por que los dos viven en el mismo paso del
+   * wizard ('p4c'). Lee el estado real en vez de inspeccionar el DOM
+   * (`.collection-execution-active`) porque wizard-doc.js no tiene por que
+   * conocer esa clase, y porque un querySelector generico es fragil de
+   * testear (un stub de test que siempre devuelve un elemento truthy no
+   * distingue selectores).
+   */
+  global.collectionIsExecutionModeActive = function collectionIsExecutionModeActiveAdapter() {
+    var center = global.collectionGetExecutionCenter();
+    return !!(center && center.executionState && center.executionState.active);
+  };
+
   global.collectionSelectExecutionStep = function collectionSelectExecutionStepAdapter(stepId) {
     global.collectionGetExecutionCenter().selectStep(stepId);
   };

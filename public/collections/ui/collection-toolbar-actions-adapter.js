@@ -4,14 +4,10 @@
   /**
    * Adapter de compatibilidad: las acciones de la barra del builder que no
    * son "ejecutar flujo" (esa vive en execution/collection-execution-adapter.js)
-   * — completar datos, generar la collection y mostrar su resultado.
-   * Invocadas por nombre desde el HTML del panel. Ver la nota de
-   * arquitectura en shared/collection-utils-adapter.js.
+   * — generar la collection y mostrar su resultado. Invocadas por nombre
+   * desde el HTML del panel. Ver la nota de arquitectura en
+   * shared/collection-utils-adapter.js.
    */
-
-  global.collectionFillData = async function collectionFillDataAdapter() {
-    return global.collectionGetRequestDataManager().fillData();
-  };
 
   global.collectionRenderResult = function collectionRenderResultAdapter(data) {
     // El resumen final de generacion queda en un manager visual chico y reutilizable.
@@ -79,11 +75,7 @@
             inputMappings: scenario.inputMappings,
             inputAliases: scenario.inputAliases,
             outputAliases: scenario.outputAliases,
-            repeatableOverrides: scenario.repeatableOverrides,
-            // Por sourceBaseUrl, que salida alimenta el header Token de ese
-            // grupo (ver CollectionTokenSourceManager) -- para cuando distintos
-            // swaggers/microservicios se autentican con tokens distintos.
-            tokenSources: scenario.tokenSources || {}
+            repeatableOverrides: scenario.repeatableOverrides
           };
         })
       });

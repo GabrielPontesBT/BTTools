@@ -59,23 +59,13 @@
                        en collections.css): reemplaza la fila de resumen que antes
                        vivia arriba del canvas (Volver + Ejecucion #N + menu), que
                        repetia info ya visible en el step card. -->
-                  <button type="button" class="collection-exec-back-icon-btn" id="btn-collection-exec-back" onclick="collectionCloseExecutionMode()" title="Volver al builder" aria-label="Volver al builder"><span aria-hidden="true">&#8592;</span></button>
                   <button class="btn btn-outline" id="btn-collection-add-service-top" onclick="collectionOpenServiceDrawer()"><span class="collection-btn-icon">＋</span><span>Agregar servicio</span></button>
                   <button class="btn btn-outline" id="btn-collection-execute" onclick="collectionExecuteFlow()" disabled title="Agrega y configura al menos un servicio para probar."><span class="collection-btn-icon">▶</span><span>Probar</span></button>
-                  <!-- btn-ai-accent: unica accion asistida por IA de esta barra;
-                       usa un acento violeta (no el rojo de marca) para separarla
-                       visualmente de las acciones deterministicas de al lado. -->
-                  <button class="btn btn-outline btn-ai-accent" id="btn-collection-suggest-chain" onclick="collectionOpenChainSuggestionDrawer()" title="Descubre metodos que se conectan por sus datos."><span class="collection-btn-icon">&#10024;</span><span>Sugerir cadena</span></button>
                   <details class="collection-builder-menu">
                     <summary class="collection-builder-menu-trigger" onclick="event.stopPropagation()"><span>Más</span><span aria-hidden="true">&#9662;</span></summary>
                     <div class="collection-builder-menu-popover" onclick="event.stopPropagation()">
-                      <button type="button" class="collection-builder-menu-item" id="btn-collection-fill-data" onclick="collectionFillData()" disabled title="Agrega servicios para completar datos de entrada."><span class="collection-btn-icon">◫</span><span>Rellenar datos</span></button>
                       <button type="button" class="collection-builder-menu-item" id="btn-collection-open-console" onclick="if(typeof collectionOpenExecutionConsole==='function'){collectionOpenExecutionConsole();}" disabled title="Ejecuta la cadena para ver los resultados."><span class="collection-btn-icon">◉</span><span>Ver ejecucion</span></button>
                       <button type="button" class="collection-builder-menu-item" id="btn-collection-import" onclick="collectionTriggerImportCollection()" title="Reconstruye casos de uso a partir de una collection generada antes por esta app. Requiere tener los servicios del ambiente ya cargados."><span class="collection-btn-icon">&#8593;</span><span>Importar collection</span></button>
-                      <!-- Solo tiene sentido cuando hay mas de un swagger/microservicio
-                           en juego, cada uno con su propio token -- ver
-                           CollectionTokenSourceManager. -->
-                      <button type="button" class="collection-builder-menu-item" id="btn-collection-token-sources" onclick="collectionOpenTokenSourcesDrawer()" title="Elegi que salida alimenta el header Token cuando distintos servicios se autentican con tokens distintos."><span class="collection-btn-icon">&#128273;</span><span>Fuentes de token</span></button>
                     </div>
                   </details>
                   <!-- Oculto: dispara collectionImportCollectionFile al elegir un
@@ -150,27 +140,6 @@
                   <div id="collection-step-config" class="collection-step-config"></div>
                 </aside>
 
-                <aside id="collection-chain-suggestion-drawer" class="collection-chain-suggestion-drawer">
-                  <div class="collection-chain-suggestion-head">
-                    <div>
-                      <div class="collection-chain-suggestion-title">&#10024; Sugerir cadena</div>
-                      <div class="collection-chain-suggestion-subtitle">Encuentra metodos que se conectan por sus datos.</div>
-                    </div>
-                    <button type="button" class="collection-chain-suggestion-close" onclick="collectionCloseChainSuggestionDrawer()" aria-label="Cerrar">&times;</button>
-                  </div>
-                  <div id="collection-chain-suggestion-body" class="collection-chain-suggestion-body"></div>
-                </aside>
-
-                <aside id="collection-token-sources-drawer" class="collection-chain-suggestion-drawer collection-token-sources-drawer">
-                  <div class="collection-chain-suggestion-head">
-                    <div>
-                      <div class="collection-chain-suggestion-title">&#128273; Fuentes de token</div>
-                      <div class="collection-chain-suggestion-subtitle">Elegi que salida alimenta el header Token de cada grupo de servicios (por swagger/microservicio).</div>
-                    </div>
-                    <button type="button" class="collection-chain-suggestion-close" onclick="collectionCloseTokenSourcesDrawer()" aria-label="Cerrar">&times;</button>
-                  </div>
-                  <div id="collection-token-sources-body" class="collection-chain-suggestion-body"></div>
-                </aside>
               </div>
 
               <div id="collection-flow-wrap" class="collection-flow-wrap" style="display:none">

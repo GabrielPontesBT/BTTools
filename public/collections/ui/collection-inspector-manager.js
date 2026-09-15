@@ -271,7 +271,7 @@
         html += '<div class="collection-inspector-accordion collection-inspector-input-group' + (isExpanded ? ' collection-inspector-accordion-open' : '') + '">' +
           '<button type="button" class="collection-inspector-accordion-head" aria-expanded="' + (isExpanded ? 'true' : 'false') + '" onclick="collectionToggleInspectorInputGroup(\'' + escapedGroupKey + '\')">' +
             '<span class="collection-inspector-accordion-title">' +
-              '<span class="collection-inspector-accordion-name" title="' + escapedSegment + '">' + escapedSegment + '</span>' +
+              '<span class="collection-inspector-accordion-name collection-inspector-group-name" title="' + escapedSegment + '">' + escapedSegment + '</span>' +
             '</span>' +
             '<span class="collection-inspector-accordion-chevron" aria-hidden="true">&#9656;</span>' +
           '</button>' +
@@ -340,7 +340,7 @@
         (isExpanded ? '<div class="collection-inspector-accordion-body">' +
           '<div class="collection-inspector-field">' +
             '<label class="collection-inspector-label">Nombre funcional</label>' +
-            '<input data-inspector-key="' + this.options.escapeHtml('input-alias:' + mappingKey) + '" class="collection-inspector-input" type="text" value="' + this.options.escapeHtml(input.alias || '') + '" placeholder="Nombre funcional para match" oninput="collectionUpdateInputAlias(\'' + escapedMappingKey + '\', this.value)">' +
+            '<input data-inspector-key="' + this.options.escapeHtml('input-alias:' + mappingKey) + '" class="collection-inspector-input" type="text" value="' + this.options.escapeHtml(input.alias || '') + '" placeholder="Alias opcional para identificar este campo" oninput="collectionUpdateInputAlias(\'' + escapedMappingKey + '\', this.value)">' +
           '</div>' +
           // Secciones colapsables en vez de scroll continuo: "Origen del valor"
           // arranca abierta (es la config principal), "Filtro" tambien cuando
@@ -557,10 +557,10 @@
           '<span class="collection-inspector-accordion-chevron" aria-hidden="true">&#9656;</span>' +
         '</button>' +
         (isExpanded ? '<div class="collection-inspector-accordion-body">' +
-          '<div class="collection-inspector-static-value">Ruta: ' + this.options.escapeHtml(output.pathLabel || output.displayLabel || output.sourceVarKey) + '</div>' +
+          '<div class="collection-kv-row"><span class="collection-kv-key">Ruta</span><span class="collection-kv-value">' + this.options.escapeHtml(output.pathLabel || output.displayLabel || output.sourceVarKey) + '</span></div>' +
           '<div class="collection-inspector-field">' +
             '<label class="collection-inspector-label">Nombre funcional</label>' +
-            '<input data-inspector-key="' + this.options.escapeHtml('output-alias:' + output.sourceVarKey) + '" class="collection-inspector-input" type="text" value="' + this.options.escapeHtml(output.alias || '') + '" placeholder="Renombre funcional" oninput="collectionUpdateOutputAlias(\'' + escapedKey + '\', this.value)">' +
+            '<input data-inspector-key="' + this.options.escapeHtml('output-alias:' + output.sourceVarKey) + '" class="collection-inspector-input" type="text" value="' + this.options.escapeHtml(output.alias || '') + '" placeholder="Alias opcional para identificar este campo" oninput="collectionUpdateOutputAlias(\'' + escapedKey + '\', this.value)">' +
           '</div>' +
         '</div>' : '') +
       '</div>';

@@ -1193,6 +1193,43 @@ test('volver desde el paso 4 pasa por Conexion cuando si hace falta', () => {
   assert.equal(w.S.step, w.PASO_CONEXION);
 });
 
+test('volver durante el modo ejecucion de Collections cierra la ejecucion en vez de saltar de paso', () => {
+  // Regresion: goBack() no sabia que el modo ejecucion vive DENTRO del
+  // mismo paso del wizard que el builder (los dos son 'p4c', ver panelId).
+  // Sin este chequeo caia directo al show(s - 1) generico y saltaba el
+  // builder entero -- "Volver" terminaba dos pantallas atras de lo
+  // esperado, dejando el estado de ejecucion pegado (ver el bug reportado:
+  // aparecia un boton "Volver al builder" que no debia, y el sidebar del
+  // wizard quedaba oculto en cualquier paso).
+  const w = wizardNavegable();
+  w.S.action = 'collections';
+  w.S.step = 5; // paso del builder ('p4c'), donde tambien vive la ejecucion
+
+  var closed = false;
+  w.collectionIsExecutionModeActive = function () { return true; };
+  w.collectionCloseExecutionMode = function () { closed = true; };
+
+  w.goBack();
+
+  assert.equal(closed, true, 'goBack() tiene que cerrar el modo ejecucion');
+  assert.equal(w.S.step, 5, 'no tiene que navegar de paso: el cierre de ejecucion ya deja ver el builder');
+});
+
+test('volver sin modo ejecucion activo navega el wizard como siempre', () => {
+  const w = wizardNavegable();
+  w.S.action = 'collections';
+  w.S.step = 5;
+
+  var closed = false;
+  w.collectionIsExecutionModeActive = function () { return false; };
+  w.collectionCloseExecutionMode = function () { closed = true; };
+
+  w.goBack();
+
+  assert.equal(closed, false, 'sin ejecucion activa no hay nada que cerrar');
+  assert.equal(w.S.step, 4, 'navega al paso anterior como cualquier otro Volver');
+});
+
 test('volver desde Conexion lleva a Accion, y desde Accion al Ambiente', () => {
   const w = wizardNavegable();
   w.S.action = 'doc';
@@ -1203,6 +1240,23 @@ test('volver desde Conexion lleva a Accion, y desde Accion al Ambiente', () => {
 
   w.goBack();
   assert.equal(w.S.step, w.PASO_AMBIENTE);
+});
+
+test('goHome borra la posicion guardada antes de mandar a la raiz', () => {
+  // "Volver al inicio" (el logo del header) es un reload real a proposito:
+  // es lo unico que descarta de una el estado entero de la herramienta en
+  // curso. Lo unico que le toca a mano es borrar bt_wiz_position ANTES de
+  // recargar -- si no, resumeWizPosition() (pensada para el F5 y el
+  // auto-reload de dev-reload.js) te devuelve al mismo paso en el que
+  // estabas, justo lo contrario de "ir al inicio".
+  const w = loadWizard();
+  w.sessionStorage.setItem('bt_wiz_position', JSON.stringify({ step: 4, action: 'scripts' }));
+  w.location = { href: '' };
+
+  w.goHome();
+
+  assert.equal(w.sessionStorage.getItem('bt_wiz_position'), null);
+  assert.equal(w.location.href, '/');
 });
 
 test('elegir otra herramienta limpia la fuente: no se arrastra de una vuelta anterior', () => {
@@ -2351,12 +2405,18 @@ test('el encabezado del panel dice para que se lo esta usando', () => {
   w.S.step = w.PASO_AMBIENTE;
   w.applyP2Titles();
   assert.match(w.titulo.textContent, /ambiente/i, 'paso 1: se elige el ambiente entero');
-  assert.match(w.subtitulo.textContent, /versión/i);
+  const subAmbiente = w.subtitulo.textContent;
 
   w.S.step = w.PASO_CONEXION;
   w.applyP2Titles();
   assert.match(w.titulo.textContent, /conexión/i, 'reconexion: solo la base');
-  assert.doesNotMatch(w.subtitulo.textContent, /versión/i, 'la version ya esta decidida');
+  const subConexion = w.subtitulo.textContent;
+
+  // No importa la redaccion exacta de cada subtitulo (eso es contenido, no
+  // contrato) -- lo que no puede pasar es que los dos pasos terminen
+  // mostrando el mismo texto, porque son situaciones distintas (elegir
+  // ambiente de cero vs. reconectarse con la version ya decidida).
+  assert.notEqual(subAmbiente, subConexion, 'cada paso tiene que tener su propio subtitulo');
 });
 
 test('salir de la conexion de Generar SDT re-aplica el encabezado que va', () => {
@@ -2462,6 +2522,106 @@ test('sesion nueva con conexiones guardadas: mismo paso, con la ultima lista', a
   assert.equal(w.els['db-host'].value, '10.0.0.4', 'la conexion queda cargada');
 });
 
+// ── Retomar el paso donde se quedo (F5 / auto-reload) ────────────────────
+// Antes, con el ambiente ya activo, initWizard() siempre mandaba a Accion sin
+// importar en que paso estuviera el usuario. Molesta en especial con el
+// auto-reload de public/dev-reload.js: cada guardado del front devolvia a la
+// pantalla de elegir herramienta.
+
+function activeEnvOk(w) {
+  w.sessionStorage.setItem('bt_active_environment', JSON.stringify(envOracle()));
+  w.fetch = function () { return Promise.resolve({ json: function () { return Promise.resolve({ ok: true }); } }); };
+}
+
+test('show() guarda el paso y la herramienta actual, para poder retomarlo despues', () => {
+  const w = wizardConexion();
+  w.S.action = 'scripts';
+  w.show(4);
+  assert.deepEqual(JSON.parse(w.sessionStorage.getItem('bt_wiz_position')), { step: 4, action: 'scripts' });
+});
+
+test('un F5 con el ambiente ya activo retoma el paso en el que estaba (no vuelve a Accion)', async () => {
+  const w = wizardConexion();
+  activeEnvOk(w);
+  w.sessionStorage.setItem('bt_wiz_position', JSON.stringify({ step: w.PASO_AMBIENTE, action: null }));
+
+  await w.initWizard();
+
+  assert.equal(w.S.step, w.PASO_AMBIENTE, 'retoma Ambiente en vez de saltar a Accion');
+});
+
+test('el resume tambien alcanza un paso profundo de una herramienta concreta', async () => {
+  const w = wizardConexion();
+  activeEnvOk(w);
+  w.sessionStorage.setItem('bt_wiz_position', JSON.stringify({ step: 4, action: 'scripts' }));
+
+  await w.initWizard();
+
+  assert.equal(w.S.step, 4);
+  assert.equal(w.S.action, 'scripts');
+});
+
+test('sin una posicion guardada, initWizard sigue yendo a Accion como siempre', async () => {
+  const w = wizardConexion();
+  activeEnvOk(w);
+
+  await w.initWizard();
+
+  assert.equal(w.S.step, w.PASO_ACCION);
+});
+
+test('una posicion guardada en Accion no dispara nada especial (ya es el default)', async () => {
+  const w = wizardConexion();
+  activeEnvOk(w);
+  w.sessionStorage.setItem('bt_wiz_position', JSON.stringify({ step: w.PASO_ACCION, action: null }));
+
+  await w.initWizard();
+
+  assert.equal(w.S.step, w.PASO_ACCION);
+});
+
+test('una posicion guardada corrupta no rompe el arranque: cae a Accion', async () => {
+  const w = wizardConexion();
+  activeEnvOk(w);
+  w.sessionStorage.setItem('bt_wiz_position', 'esto no es JSON{{{');
+
+  await w.initWizard();
+
+  assert.equal(w.S.step, w.PASO_ACCION);
+});
+
+test('si retomar el paso guardado explota, resumeWizPosition no revienta: devuelve false', () => {
+  const w = wizardConexion();
+  w.sessionStorage.setItem('bt_wiz_position', JSON.stringify({ step: 5, action: 'paramgen' }));
+  const showOriginal = w.show;
+  w.show = function (step) { if (step === 5) throw new Error('boom: falta info en memoria'); return showOriginal(step); };
+
+  const resultado = w.resumeWizPosition();
+
+  assert.equal(resultado, false, 'el llamador tiene que poder caer a Accion sin que esto tire para arriba');
+});
+
+test('en modo "sin base", el resume nunca retoma el paso de Ambiente (esta salteado a proposito)', async () => {
+  const w = wizardConexion();
+  w.sessionStorage.setItem('bt_no_db', JSON.stringify({ noDb: true, version: 'V4', platform: 'oracle', engine: 'oracle' }));
+  w.sessionStorage.setItem('bt_wiz_position', JSON.stringify({ step: w.PASO_AMBIENTE, action: null }));
+
+  await w.initWizard();
+
+  assert.equal(w.S.step, w.PASO_ACCION, 'ambiente sigue vedado aunque haya quedado guardado como ultima posicion');
+});
+
+test('en modo "sin base", un paso profundo guardado si se retoma', async () => {
+  const w = wizardConexion();
+  w.sessionStorage.setItem('bt_no_db', JSON.stringify({ noDb: true, version: 'V4', platform: 'oracle', engine: 'oracle' }));
+  w.sessionStorage.setItem('bt_wiz_position', JSON.stringify({ step: 4, action: 'scripts' }));
+
+  await w.initWizard();
+
+  assert.equal(w.S.step, 4);
+  assert.equal(w.S.action, 'scripts');
+});
+
 // Los parametros de invocacion del paso 5 (doc) los dibuja toggleEjecutar, que
 // solo corre al tocar el checkbox. Volver al paso 4, cambiar de metodo y
 // avanzar de nuevo dejaba en pantalla los parametros del metodo anterior.
@@ -2501,4 +2661,87 @@ test('con la API sin tildar el paso 5 no dibuja parametros', () => {
   w.items = [{ service: 'General', method: 'getDocumentTypes' }];
   w.show(5);
   assert.equal(w.llamadas, 0);
+});
+
+// ── Selección de servicios (Documentar): sin el campo de filtro ──────────
+// El campo "Filtrar servicios" se saco de la UI. Antes, ademas de dejar
+// escribir un prefijo a mano, tambien traia un default ("BT" en V3, "Public"
+// en V4) que acotaba el combo. Ahora el combo de Servicio muestra TODO lo que
+// devuelve la base, sin ningun filtro.
+
+function wizardServicios() {
+  const w = loadWizard();
+  const els = {};
+  const svcSel = stubEl(); svcSel.opciones = [];
+  svcSel.appendChild = function (o) { svcSel.opciones.push(o); return o; };
+  els['sel-svc'] = svcSel;
+  const mtdSel = stubEl(); mtdSel.opciones = [];
+  mtdSel.appendChild = function (o) { mtdSel.opciones.push(o); return o; };
+  els['sel-mtd'] = mtdSel;
+  w.document = makeDomStub();
+  w.document.getElementById = function (id) { els[id] = els[id] || stubEl(); return els[id]; };
+  w.document.createElement = function () { return stubEl(); };
+  w.els = els;
+  return w;
+}
+
+test('renderServiceOptions lista todos los servicios, sin filtrar por prefijo', () => {
+  const w = wizardServicios();
+  w.allServices = ['BTLoans', 'PublicApi', 'OtroServicioCualquiera'];
+  w.renderServiceOptions();
+  const nombres = w.els['sel-svc'].opciones.map(function (o) { return o.value; });
+  assert.deepEqual(nombres, ['BTLoans', 'PublicApi', 'OtroServicioCualquiera'],
+    'sin el campo de filtro, el combo lista todo lo que trajo la base');
+});
+
+test('renderServiceOptions marca como seleccionada la opcion que ya estaba elegida', () => {
+  const w = wizardServicios();
+  w.allServices = ['A', 'B'];
+  w.els['sel-svc'].value = 'B';
+  w.renderServiceOptions();
+  const marcada = w.els['sel-svc'].opciones.filter(function (o) { return o.selected; });
+  assert.deepEqual(marcada.map(function (o) { return o.value; }), ['B']);
+});
+
+test('loadServices ya no toca el campo de filtro: se saco de index.html', async () => {
+  const w = wizardServicios();
+  const pedidos = [];
+  const getElementByIdOriginal = w.document.getElementById;
+  w.document.getElementById = function (id) { pedidos.push(id); return getElementByIdOriginal(id); };
+  w.fetch = function () { return Promise.resolve({ json: function () { return Promise.resolve({ ok: true, services: ['X'] }); } }); };
+
+  await w.loadServices();
+
+  assert.equal(pedidos.indexOf('svc-filter'), -1,
+    'si esto pide "svc-filter" explota en el navegador real: ese id ya no existe en el HTML');
+  assert.deepEqual(w.els['sel-svc'].opciones.map(function (o) { return o.value; }), ['X']);
+});
+
+test('renderList envuelve la lista de servicios agregados en su propia .card', async () => {
+  // Antes de esto, los items agregados quedaban sueltos sobre el fondo gris
+  // del .wiz-bd (sin tarjeta). El pedido: que tambien vivan en una .card,
+  // creciendo con el contenido, igual que el resto del wizard.
+  const w = loadWizard();
+  const listEl = stubEl();
+  w.document = makeDomStub();
+  w.document.getElementById = function (id) { return id === 'svc-list' ? listEl : stubEl(); };
+  w.items = [{ service: 'General', method: 'getCountries' }];
+
+  await w.renderList();
+
+  assert.match(listEl.innerHTML, /class="card"/);
+  assert.match(listEl.innerHTML, /svc-wrap/);
+});
+
+test('renderList sin items deja el contenedor vacio, sin una tarjeta fantasma', async () => {
+  const w = loadWizard();
+  const listEl = stubEl();
+  listEl.innerHTML = 'lo que hubiera quedado de una lista anterior';
+  w.document = makeDomStub();
+  w.document.getElementById = function (id) { return id === 'svc-list' ? listEl : stubEl(); };
+  w.items = [];
+
+  await w.renderList();
+
+  assert.equal(listEl.innerHTML, '', 'sin items no tiene que aparecer un recuadro blanco vacio');
 });

@@ -43,7 +43,7 @@ documentTypes | [documentType](#documenttype) | Listados de tipos de documento.
 
 Código | Descripción
 :--------- | :---------
-99990010002 | Datos de Paginación Incorrectos.
+Completar manualmente | Completar manualmente
 
 :::
 <!-- CIERRA TABLA DE DATOS -->
@@ -57,12 +57,8 @@ Código | Descripción
 @tab cURL
 ```bash
 curl -X GET \
-  '{{baseUrl}}/public/General/v1/documentTypes?offset=0&limit=10&appliesTo=F' \
-  -H 'Device: {{device}}' \
-  -H 'Usuario: {{usuario}}' \
-  -H 'Requerimiento: {{requerimiento}}' \
-  -H 'Canal: {{canal}}' \
-  -H 'Token: {{token}}'
+  '{{baseUrl}}/public/General/v1/documentTypes' \
+  -H 'Authorization: Bearer {{token}}'
 ```
 
 :::
@@ -75,121 +71,13 @@ curl -X GET \
 @tab JSON
 ```json
 {
-  "documentTypes": {
-    "documentType": [
-      {
-        "appliesToFI": "N",
-        "documentTypeDescription": "CURP",
-        "documentTypeId": 1,
-        "format": "A",
-        "mainDocument": true,
-        "maximumLength": 18,
-        "minimumLength": 18,
-        "personType": "F",
-        "shortDescription": "CURP"
-      },
-      {
-        "appliesToFI": "N",
-        "documentTypeDescription": "PASAPORTE",
-        "documentTypeId": 3,
-        "format": "A",
-        "mainDocument": true,
-        "maximumLength": 18,
-        "minimumLength": 6,
-        "personType": "F",
-        "shortDescription": "PAS"
-      },
-      {
-        "appliesToFI": "N",
-        "documentTypeDescription": "LIBRETA DE ENROLAMIE",
-        "documentTypeId": 6,
-        "format": "N",
-        "mainDocument": false,
-        "maximumLength": 99,
-        "minimumLength": 1,
-        "personType": "F",
-        "shortDescription": "LEN"
-      },
-      {
-        "appliesToFI": "N",
-        "documentTypeDescription": "CIA(ARGENT.C.DE ID.)",
-        "documentTypeId": 7,
-        "format": "N",
-        "mainDocument": false,
-        "maximumLength": 99,
-        "minimumLength": 1,
-        "personType": "F",
-        "shortDescription": "CIA"
-      },
-      {
-        "appliesToFI": "N",
-        "documentTypeDescription": "Cadastro de Pessoas",
-        "documentTypeId": 9,
-        "format": "N",
-        "mainDocument": true,
-        "maximumLength": 99,
-        "minimumLength": 1,
-        "personType": "F",
-        "shortDescription": "CPF"
-      },
-      {
-        "appliesToFI": "N",
-        "documentTypeDescription": "CIP(PARAG.C.DE ID.)",
-        "documentTypeId": 10,
-        "format": "N",
-        "mainDocument": false,
-        "maximumLength": 99,
-        "minimumLength": 1,
-        "personType": "F",
-        "shortDescription": "CIP"
-      },
-      {
-        "appliesToFI": "N",
-        "documentTypeDescription": "D.N.I.",
-        "documentTypeId": 11,
-        "format": "N",
-        "mainDocument": true,
-        "maximumLength": 8,
-        "minimumLength": 8,
-        "personType": "F",
-        "shortDescription": "DNI"
-      },
-      {
-        "appliesToFI": "N",
-        "documentTypeDescription": "III(OTRS.DOC.REST.P.",
-        "documentTypeId": 12,
-        "format": "N",
-        "mainDocument": false,
-        "maximumLength": 9,
-        "minimumLength": 1,
-        "personType": "F",
-        "shortDescription": "III"
-      },
-      {
-        "appliesToFI": "N",
-        "documentTypeDescription": "LIBRETA CÍVICA",
-        "documentTypeId": 13,
-        "format": "N",
-        "mainDocument": true,
-        "maximumLength": 9,
-        "minimumLength": 1,
-        "personType": "F",
-        "shortDescription": "LCI"
-      },
-      {
-        "appliesToFI": "N",
-        "documentTypeDescription": "Carnet Extranjería",
-        "documentTypeId": 14,
-        "format": "A",
-        "mainDocument": true,
-        "maximumLength": 12,
-        "minimumLength": 9,
-        "personType": "F",
-        "shortDescription": "C.E."
-      }
-    ]
-  },
-  "hasNext": true
+  "path": "/api/publicapi/public/General/v1/documentTypes",
+  "status": 404,
+  "error": "Not Found",
+  "timestamp": "2026-09-11T14:19:14.05272784",
+  "messages": {
+    "global": "No static resource public/General/v1/documentTypes for request '/api/publicapi/public/General/v1/documentTypes'."
+  }
 }
 ```
 :::

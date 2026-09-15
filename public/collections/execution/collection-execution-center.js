@@ -518,11 +518,7 @@
         variableOverrides: safeScenario.variableOverrides || {},
         inputMappings: safeScenario.inputMappings || {},
         outputAliases: safeScenario.outputAliases || {},
-        repeatableOverrides: safeScenario.repeatableOverrides || {},
-        // Por sourceBaseUrl, que salida alimenta el header Token de ese grupo
-        // (ver CollectionTokenSourceManager) -- distinto de swaggerAuthKind,
-        // que es el mecanismo del Authenticate automatico, no un override manual.
-        tokenSources: safeScenario.tokenSources || {}
+        repeatableOverrides: safeScenario.repeatableOverrides || {}
       };
     }
 
@@ -1242,18 +1238,12 @@
      */
     syncButtons(isBusy) {
       var executeButton = document.getElementById('btn-collection-execute');
-      var fillButton = document.getElementById('btn-collection-fill-data');
       var openButton = document.getElementById('btn-collection-open-console');
 
       if (executeButton) {
         executeButton.disabled = !!isBusy;
         executeButton.innerHTML = isBusy ? '<span class="spin dk"></span>&nbsp;Probando...' : 'Probar';
         executeButton.classList.toggle('btn-soft-disabled', executeButton.disabled);
-      }
-      if (fillButton) {
-        fillButton.disabled = !!isBusy;
-        fillButton.innerHTML = isBusy ? '<span class="spin dk"></span>&nbsp;Esperando...' : 'Rellenar datos';
-        fillButton.classList.toggle('btn-soft-disabled', fillButton.disabled);
       }
       if (openButton) {
         openButton.disabled = !this.executionState.run && !isBusy;

@@ -31,6 +31,11 @@
 // vale 20px, asi que los 24 usos existentes de var(--sp-5) pasan a
 // var(--sp-7) ANTES de redefinir el :root. Queda una sola escala,
 // continua, de 4 en 4, para margin, gap y padding.
+//
+// --sp-8 (32px) se agrego despues, para el padding de las .card del
+// wizard: --sp-7 (28px) se sentia corto contra la sombra nueva de
+// --box-shadow. Mismo criterio que el resto de la escala (grilla de 4px,
+// sin saltos), un paso mas.
 const ESCALA = [
   { token: '--sp-1', valor: 4 },
   { token: '--sp-2', valor: 8 },
@@ -39,6 +44,7 @@ const ESCALA = [
   { token: '--sp-5', valor: 20 },  // nuevo
   { token: '--sp-6', valor: 24 },  // nuevo
   { token: '--sp-7', valor: 28 },  // era --sp-5
+  { token: '--sp-8', valor: 32 },
 ];
 
 const PASOS = ESCALA.map(function (e) { return e.valor; });
@@ -66,7 +72,7 @@ const RENOMBRE = { de: '--sp-5', a: '--sp-7', valorViejo: '28px' };
 // 267 componentes, el 44%, con el mismo padding. Eso aplana la jerarquia
 // entre una fila y una card, que es informacion real. Van por ROL, igual
 // que el pase de color resolvia un hex por rol y no por cercania.
-const FRECUENCIA = { 4: 33, 8: 54, 12: 88, 16: 49, 20: 17, 24: 7, 28: 8 };
+const FRECUENCIA = { 4: 33, 8: 54, 12: 88, 16: 49, 20: 17, 24: 7, 28: 8, 32: 1 };
 
 // -- Los dos valores que van por rol ---------------------------
 //

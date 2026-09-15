@@ -367,8 +367,7 @@ function cloneScenarioPayloads(source) {
         inputMappings: scenario.inputMappings || {},
         inputAliases: scenario.inputAliases || {},
         outputAliases: scenario.outputAliases || {},
-        repeatableOverrides: scenario.repeatableOverrides || {},
-        tokenSources: scenario.tokenSources || {}
+        repeatableOverrides: scenario.repeatableOverrides || {}
       });
     }).filter(function keepNonEmptyScenario(scenario) {
       return Array.isArray(scenario.items) && scenario.items.length > 0;
@@ -383,8 +382,7 @@ function cloneScenarioPayloads(source) {
     inputMappings: source && source.inputMappings || {},
     inputAliases: source && source.inputAliases || {},
     outputAliases: source && source.outputAliases || {},
-    repeatableOverrides: source && source.repeatableOverrides || {},
-    tokenSources: source && source.tokenSources || {}
+    repeatableOverrides: source && source.repeatableOverrides || {}
   })].filter(function keepLegacyScenario(scenario) {
     return Array.isArray(scenario.items) && scenario.items.length > 0;
   });

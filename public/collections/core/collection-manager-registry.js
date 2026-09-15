@@ -86,12 +86,9 @@
   var collectionInspectorManager = null;
   var collectionScenarioManager = null;
   var collectionServiceCatalogManager = null;
-  var collectionChainSuggestionManager = null;
-  var collectionTokenSourceManager = null;
   var collectionImportManager = null;
   var collectionPreviewManager = null;
   var collectionExecutionCenter = null;
-  var collectionRequestDataManager = null;
   var collectionEnvironmentManager = null;
   var collectionBootstrapManager = null;
   var collectionResultManager = null;
@@ -215,33 +212,6 @@
     return collectionServiceCatalogManager;
   };
 
-  global.collectionGetChainSuggestionManager = function collectionGetChainSuggestionManager() {
-    if (collectionChainSuggestionManager) return collectionChainSuggestionManager;
-    collectionChainSuggestionManager = new window.BTCollectionModules.CollectionChainSuggestionManager({
-      getState: function() { return global.collectionState; },
-      getActiveScenario: global.collectionGetActiveScenario,
-      getSelectedItem: global.collectionGetSelectedItem,
-      getPreviewManager: global.collectionGetPreviewManager,
-      apiClient: global.collectionApiClient,
-      insertOperation: global.collectionInsertOperation,
-      updateInputMapping: global.collectionUpdateInputMapping,
-      selectItem: global.collectionCanvasNodeClick,
-      showStatus: global.collectionShowStatus,
-      escapeHtml: global.collectionEscapeHtml
-    });
-    return collectionChainSuggestionManager;
-  };
-
-  global.collectionGetTokenSourceManager = function collectionGetTokenSourceManager() {
-    if (collectionTokenSourceManager) return collectionTokenSourceManager;
-    collectionTokenSourceManager = new window.BTCollectionModules.CollectionTokenSourceManager({
-      getActiveScenario: global.collectionGetActiveScenario,
-      getPreviewManager: global.collectionGetPreviewManager,
-      escapeHtml: global.collectionEscapeHtml
-    });
-    return collectionTokenSourceManager;
-  };
-
   global.collectionGetImportManager = function collectionGetImportManager() {
     if (collectionImportManager) return collectionImportManager;
     collectionImportManager = new window.BTCollectionModules.CollectionImportManager({
@@ -278,37 +248,6 @@
       pathSupported: global.collectionPathSupported
     });
     return collectionPreviewManager;
-  };
-
-  global.collectionGetRequestDataManager = function collectionGetRequestDataManager() {
-    if (collectionRequestDataManager) return collectionRequestDataManager;
-
-    collectionRequestDataManager = new window.BTCollectionModules.CollectionRequestDataManager({
-      apiClient: global.collectionApiClient,
-      getState: function() { return global.collectionState; },
-      getFormat: function() { return global.collectionState.format; },
-      getTarget: function() { return global.collectionState.target; },
-      getVersion: function() { return typeof S !== 'undefined' ? S.version : ''; },
-      getPlatform: function() { return typeof S !== 'undefined' ? S.platform : ''; },
-      getApiMode: function() { return typeof S !== 'undefined' ? S.apiMode : ''; },
-      getDb: function() { return typeof getDb === 'function' ? getDb() : {}; },
-      getApi: function() { return typeof getApi === 'function' ? getApi() : {}; },
-      getSwaggerBaseUrl: function() { return global.collectionState.swaggerBaseUrl; },
-      getSwaggerAuthUrl: function() { return global.collectionState.swaggerAuthUrl; },
-      getSwaggerAuthKind: function() { return global.collectionState.swaggerAuthKind; },
-      getCollectionName: function() { return global.collectionState.collectionName; },
-      pathSupported: global.collectionPathSupported,
-      syncInspectorInputs: global.collectionSyncInspectorInputs,
-      refreshContext: global.collectionRefreshContext,
-      resetResult: global.collectionResetResult,
-      resetExecution: global.collectionResetExecution,
-      renderItems: global.collectionRenderItems,
-      renderVariableEditor: global.collectionRenderVariableEditor,
-      loadPreview: global.collectionLoadPreview,
-      showStatus: global.collectionShowStatus
-    });
-
-    return collectionRequestDataManager;
   };
 
   global.collectionGetEnvironmentManager = function collectionGetEnvironmentManager() {

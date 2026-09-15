@@ -174,7 +174,7 @@ test('lo que se edita queda arriba y lo que se ejecuta abajo', () => {
 
   const abajo = html.slice(html.indexOf('collection-builder-actions'));
   ['btn-collection-add-service-top', 'btn-collection-execute',
-   'btn-collection-suggest-chain', 'btn-collection-generate'].forEach(function (id) {
+   'btn-collection-generate'].forEach(function (id) {
     assert.match(abajo, new RegExp('id="' + id + '"'), id + ' tiene que estar en la barra');
   });
 });
@@ -182,11 +182,11 @@ test('lo que se edita queda arriba y lo que se ejecuta abajo', () => {
 test('el modo ejecucion alcanza la barra desde el footer', () => {
   // .collection-execution-active vive en el shell del panel; con la barra
   // mudada al footer, un selector descendiente de esa clase ya no la alcanza.
-  // Los dos controles que el modo ejecucion agrega tienen que anclarse desde
-  // .wizard, que es el ancestro comun.
+  // El menu que el modo ejecucion agrega tiene que anclarse desde .wizard,
+  // que es el ancestro comun. (El boton separado "Volver al builder" que
+  // existia antes se saco: goBack(), en wizard-doc.js, ya cierra el modo
+  // ejecucion cuando esta activo.)
   const css = leer('public/collections.css');
-  ['btn-collection-exec-back', 'collection-exec-header-menu-slot'].forEach(function (id) {
-    assert.match(css, new RegExp('\\.wizard:has\\(\\.collection-execution-active\\)[^{]*#' + id),
-      id + ' quedaria invisible en modo ejecucion');
-  });
+  assert.match(css, /\.wizard:has\(\.collection-execution-active\)[^{]*#collection-exec-header-menu-slot/,
+    'collection-exec-header-menu-slot quedaria invisible en modo ejecucion');
 });

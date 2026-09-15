@@ -38,13 +38,7 @@
         inputMappings: {},
         inputAliases: {},
         outputAliases: {},
-        repeatableOverrides: {},
-        // Por cada sourceBaseUrl distinto entre los items del escenario (un
-        // swagger/microservicio puede autenticarse con un token propio -- ver
-        // CollectionTokenSourceManager), que salida de que paso alimenta su
-        // header Token. Sin entrada para un baseUrl, ese grupo sigue usando
-        // el token del Authenticate automatico (comportamiento historico).
-        tokenSources: {}
+        repeatableOverrides: {}
       };
     }
 

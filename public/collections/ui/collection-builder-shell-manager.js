@@ -24,7 +24,10 @@
           inspectorDrawerOpen: false,
           pendingInsertIndex: null,
           selectedCatalogOperations: [],
-          collapsedServiceGroups: [],
+          // Lista blanca de servicios EXPANDIDOS (no de colapsados): con la
+          // cantidad real de metodos por ambiente, arrancar todo expandido
+          // hacia un scroll de cientos de tarjetas. Vacio = todo colapsado.
+          expandedServiceGroups: [],
           inspectorTab: 'general',
           expandedInspectorInput: '',
           expandedInspectorInputGroups: [],
@@ -40,8 +43,8 @@
         state.builderUi.selectedCatalogOperations = [];
       }
 
-      if (!Array.isArray(state.builderUi.collapsedServiceGroups)) {
-        state.builderUi.collapsedServiceGroups = [];
+      if (!Array.isArray(state.builderUi.expandedServiceGroups)) {
+        state.builderUi.expandedServiceGroups = [];
       }
 
       if (!Array.isArray(state.builderUi.expandedSourceGroups)) {
@@ -195,10 +198,12 @@
     }
 
     /**
-     * Indica si el usuario colapso manualmente el grupo de un servicio.
+     * Indica si el grupo de un servicio esta colapsado. Arranca colapsado
+     * (ver expandedServiceGroups en ensureUiState) y el usuario lo expande
+     * a mano.
      */
     isServiceGroupCollapsed(service) {
-      return this.ensureUiState().collapsedServiceGroups.indexOf(service) >= 0;
+      return this.ensureUiState().expandedServiceGroups.indexOf(service) < 0;
     }
 
     /**
@@ -206,10 +211,10 @@
      */
     toggleServiceGroup(service) {
       var uiState = this.ensureUiState();
-      var index = uiState.collapsedServiceGroups.indexOf(service);
+      var index = uiState.expandedServiceGroups.indexOf(service);
 
-      if (index >= 0) uiState.collapsedServiceGroups.splice(index, 1);
-      else uiState.collapsedServiceGroups.push(service);
+      if (index >= 0) uiState.expandedServiceGroups.splice(index, 1);
+      else uiState.expandedServiceGroups.push(service);
 
       this.options.renderServiceCatalog();
     }

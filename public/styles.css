@@ -5,11 +5,11 @@
   --red:#c42e2c;--red-l:#fdf3f3;
   --warn:#D97706;--warn-l:#FFFBEB;
   --text:#121418;--muted:#636768;--border:#c6c7c7;--bg:#f2f2f2;
-  --r:12px;--shadow:0 8px 40px rgba(18,20,24,.14);
+  --r:20px;--shadow:0 8px 40px rgba(18,20,24,.14);
   --warn-d:#92400e;--code-bg:#f8fafc;--code-text:#1e293b;
   --fs-sm:12px;--fs-md:14px;--fs-base:15px;--fs-lg:16px;--fs-xl:22px;--fs-2xl:28px;
   --ctrl-h:40px;
-  --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;--sp-7:28px;
+  --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;--sp-7:28px;--sp-8:32px;
   /* Sub-paso de badges, FUERA de la grilla de 4px a proposito: un badge
      abraza su texto y el paso mas chico de la escala le cambia la silueta.
      El porque y los 10 selectores que lo usan estan en
@@ -25,8 +25,24 @@
      seguia viendose de otra app, porque tenia 47 sombras con tinte slate y
      19 radios distintos. El porque de cada token esta en
      scripts/common/design-shape/shape-map.js */
-  --r-xs:6px;--r-ctrl:0.7em;--r-pill:20px;--shadow-sm:0 2px 8px rgba(18,20,24,.08);--shadow-md:0 8px 24px rgba(18,20,24,.10);--ring:0 0 0 3px var(--red-l)
+  --r-xs:6px;--r-ctrl:10px;--r-pill:20px;--shadow-sm:0 2px 8px rgba(18,20,24,.08);--shadow-md:0 8px 24px rgba(18,20,24,.10);--ring:0 0 0 3px var(--red-l);
+  /* Sombra de las .card, traida de otro proyecto para que las tarjetas del
+     wizard tengan el mismo aire (borde de 1px + halo suave) en vez de la
+     sombra generica --shadow-sm. */
+  --ring-light:rgb(0 0 0 / 0.07);--shadow-light:rgb(0 0 0 / 0.14);
+  --box-shadow:0 0 0 1px var(--ring-light),0 0 4px var(--shadow-light),0 0 20px var(--shadow-light)
 }
+/* Scroll fino en todo el wizard (todas las herramientas: este archivo se
+   carga siempre en index.html). Firefox usa la propiedad estandar; el resto
+   necesita el pseudo-elemento -- sin ambas, la barra por defecto del SO
+   ocupa hasta 17px y compite por espacio con paneles angostos como el
+   catalogo de servicios de Collections. */
+*{scrollbar-width:thin;scrollbar-color:var(--blue) transparent}
+*::-webkit-scrollbar{width:8px;height:8px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:var(--border);border-radius:var(--r-pill)}
+*::-webkit-scrollbar-thumb:hover{background:var(--muted-l)}
+
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);height:100vh;overflow:hidden;display:flex;align-items:stretch;justify-content:center;padding:0;color:var(--text)}
 .wizard{background:#fff;border-radius:0;box-shadow:none;width:100%;height:100vh;overflow:hidden;display:flex;flex-direction:column}
 
@@ -38,15 +54,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 
   .wiz-main{flex:1;min-height:0;display:flex;overflow:hidden}
 
-  .wiz-sidebar{width:160px;flex-shrink:0;background:#fff;border-right:1px solid var(--border);display:flex;align-items:center}
-  .steps-bar{display:flex;flex-direction:column;padding-left:30px}
-  .step-row{display:flex;align-items:center;gap:var(--sp-3)}
-.sdot{width:34px;height:34px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:var(--fs-base);font-weight:700;color:var(--muted);transition:all .3s;flex-shrink:0;cursor:default}
+  .wiz-sidebar{width:160px;flex-shrink:0;background:#fff;border-right:1px solid var(--border);display:flex;align-items:center;justify-content:center}
+  .steps-bar{display:flex;flex-direction:column;align-items:center}
+  .step-row{display:flex;align-items:center;justify-content:center}
+.sdot{height:34px;padding:0 var(--sp-4);border-radius:var(--r-pill);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;gap:var(--sp-2);font-size:var(--fs-base);font-weight:700;color:var(--muted);transition:all .3s;flex-shrink:0;cursor:default;white-space:nowrap}
 .sdot.done{background:var(--blue-l);border-color:var(--blue);color:var(--blue)}
 .sdot.active{background:var(--blue);border-color:var(--blue);color:#fff}
-.sdot-lb{font-size:var(--fs-base);white-space:nowrap;color:var(--muted);font-weight:400}
-.sdot.active~.sdot-lb,.sdot.done~.sdot-lb{color:var(--text);font-weight:600}
-.sline{width:2px;height:46px;background:var(--border);margin-left:var(--sp-4);transition:background .3s}
+.sdot.done::before{content:'\2713';font-weight:700}
+.sdot-lb{font-size:inherit;color:inherit;font-weight:inherit;white-space:nowrap}
+.sline{width:2px;height:46px;background:var(--border);transition:background .3s}
   .sline.done{background:var(--blue)}
 
   .wiz-content{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}
@@ -56,8 +72,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
      borde del footer. Como .wiz-bd es el contenedor con scroll, el padding
      tambien se respeta al final del scroll, no solo cuando el panel entra
      completo. */
-  .wiz-bd{padding:var(--sp-7) 8vw var(--sp-7);flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column}
+  .wiz-bd{padding:var(--sp-7) 8vw var(--sp-7);flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;background:#f5f5f7}
   .panel{display:none;animation:fadeIn .2s ease}.panel.active{display:block}
+  /* Tarjeta suelta para agrupar a mano un pedazo de contenido, no el panel
+     entero: se abre con <div class="card"> antes del primer elemento que
+     tiene que quedar adentro y se cierra con </div> despues del ultimo. Un
+     panel puede tener ninguna, una o varias, cada una con lo que se decida
+     meter. La barra de arriba es opcional -- agregar "card-accent" solo si
+     hace falta la franja roja del ejemplo. */
+  .card{background:#fff;border-radius:var(--r);box-shadow:var(--box-shadow);padding:var(--sp-8);position:relative}
+  .card+.card{margin-top:var(--sp-4)}
+  /* #a-urls-block es .card en su lugar de siempre (Documentar, #a-urls-home),
+     pero moverUrlsDelAmbiente() lo reubica DENTRO de los detalles tecnicos de
+     Collections (#a-urls-tech) sin sacarle la clase -- ahi ya esta adentro de
+     otra .card (el catalogo) y de la superficie gris de .collection-tech-content,
+     asi que una tercera caja blanca con sombra y 32px de padding se ve amontonada.
+     Se neutraliza por contexto en vez de duplicar el markup con dos variantes. */
+  #a-urls-tech .card{background:none;box-shadow:none;padding:0;border-radius:0;position:static}
+  .card-accent{overflow:hidden}
+  .card-accent::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:var(--blue)}
   #p4c.active{display:flex;flex-direction:column;flex:1;min-height:0;overflow-y:auto}
   .wizard:has(#p4c.active) .wiz-bd{padding:var(--sp-4) var(--sp-6) var(--sp-4)}
   /* El footer NO se oculta en collections: el builder muda ahi su barra de
@@ -69,24 +102,58 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-hd{padding:var(--sp-3) 2.4vw var(--sp-3);gap:24px}
 .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-hd-logo img{height:68px}
 .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-hd-steps{padding-bottom:var(--sp-3)}
-.wizard:has(#p4c.active .collection-shell-studio-builder) .sdot{width:30px;height:30px;font-size:12px}
-.wizard:has(#p4c.active .collection-shell-studio-builder) .sdot-lb{top:34px;font-size:10px}
+.wizard:has(#p4c.active .collection-shell-studio-builder) .sdot{height:30px;padding:0 var(--sp-3);font-size:12px}
 .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-bd{padding:var(--sp-3) var(--sp-4) var(--sp-3)}
 .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-sidebar{width:152px}
-.wizard:has(#p4c.active .collection-shell-studio-builder) .steps-bar{padding-left:var(--sp-6)}
-.wizard:has(#p4c.active .collection-shell-studio-builder) .sline{height:42px;margin-left:14px}
+.wizard:has(#p4c.active .collection-shell-studio-builder) .sline{height:42px}
 /* En el panel de ejecucion los pasos del wizard ya estan completos y no aportan
-   nada mas: se ocultan para darle todo ese ancho al diagnostico. */
-.wizard:has(.collection-execution-active) .wiz-sidebar{display:none}
+   nada mas: se ocultan para darle todo ese ancho al diagnostico. Escopeado a
+   "#p4c.active .collection-execution-active" (no solo ".collection-execution-active"
+   suelto): el nodo con esa clase no se destruye al cambiar de paso del wizard
+   (colectionUpgradeStudioLayout lo monta una sola vez por sesion), asi que sin
+   el scope al panel activo, si alguna vez queda pegada (ver goBack() en
+   wizard-doc.js, que ahora la limpia) el sidebar desaparecia en CUALQUIER
+   paso del wizard, no solo durante la ejecucion. */
+.wizard:has(#p4c.active .collection-execution-active) .wiz-sidebar{display:none}
 #p4v.active{display:flex;flex-direction:column;flex:1;min-height:0}
+/* Mismo defecto que #p4s.active .card / #p5s.active .card mas abajo:
+   #val-output (flex:1;min-height:0) quedo adentro de una .card comun, sin
+   nadie repartiendo flex, y la tarjeta se pegaba al footer en vez de dejar
+   scrollear solo el resultado de la validacion. */
+#p4v.active .card{flex:1;min-height:0;display:flex;flex-direction:column}
 #val-output{flex:1;min-height:0;overflow-y:auto;margin-bottom: var(--sp-3);}
 #fix-output{max-height:160px}
 #p4s.active{display:flex;flex-direction:column;flex:1;min-height:0}
+/* La lista de servicios/metodos quedo envuelta en una .card (el mismo
+   patron de tarjeta que el resto del wizard), pero .card es un bloque
+   comun, no un contenedor flex: sin esta regla, #sg-service-groups.flex:1
+   de abajo queda inerte (le pide crecer a un padre que no reparte flex), la
+   tarjeta entera pasa a medir lo que mida la lista completa y el .wiz-bd
+   scrollea el panel entero en vez de scrollear solo la lista. El sintoma
+   visible era la tarjeta pegada al footer, sin el aire de abajo del
+   .wiz-bd, apenas la lista de metodos era un poco larga. Reponiendo la
+   cadena flex:1 ahi adentro, #sg-service-groups vuelve a ser el UNICO que
+   scrollea y la tarjeta (titulo, fila de "Agregar" y validacion) queda fija. */
+#p4s.active .card{flex:1;min-height:0;display:flex;flex-direction:column}
 #sg-service-groups{flex:1;min-height:0;display:flex;flex-direction:column;overflow-y:auto}
+/* Mismo defecto y mismo arreglo que #p4s.active .card de arriba: el
+   textarea .sql-out (flex:1;min-height:0, mas abajo) tambien quedo envuelto
+   en una .card comun, sin nadie repartiendo flex por adentro. */
 #p5s.active{display:flex;flex-direction:column;flex:1;min-height:0}
+#p5s.active .card{flex:1;min-height:0;display:flex;flex-direction:column}
+/* Mismo defecto y arreglo que #p4s/#p5s/#p4v .card de arriba: .sdtgen-list
+   (flex:1;min-height:0) quedo envuelta en una .card comun. */
 #p-sdtbase.active{display:flex;flex-direction:column;flex:1;min-height:0}
+#p-sdtbase.active .card{flex:1;min-height:0;display:flex;flex-direction:column}
+/* Idem, para el .sql-out del script generado de Generar SDT. */
 #p-sdtresult.active{display:flex;flex-direction:column;flex:1;min-height:0}
+#p-sdtresult.active .card{flex:1;min-height:0;display:flex;flex-direction:column}
+/* Mismo defecto y arreglo que #p4s.active .card / #p5s.active .card /
+   #p4v.active .card de arriba: #pg-sql-out (flex:1;min-height:0, es la
+   misma clase .sql-out) quedo envuelto en una .card comun al agregarle el
+   estilo de tarjeta a este paso. */
 #p-paramresult.active{display:flex;flex-direction:column;flex:1;min-height:0}
+#p-paramresult.active .card{flex:1;min-height:0;display:flex;flex-direction:column}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 .ptitle{font-size:var(--fs-2xl);font-weight:600;margin-bottom:var(--sp-2)}
 .psub{font-size:var(--fs-base);color:var(--muted);margin-bottom:var(--sp-7);line-height:1.5}
@@ -101,11 +168,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .ccard-disabled{cursor:not-allowed;pointer-events:none;opacity:.5}
 .ccard-disabled:hover{border-color:var(--border);background:#fff}
 .act-icon{font-size:36px;display:block;margin-bottom:var(--sp-3)}
-.act-ccard{padding:var(--sp-7) var(--sp-5)}
+/* Las tarjetas del paso Accion funcionan como botones (eligen la
+   herramienta) pero tienen que verse como el resto de las .card del wizard
+   -- fondo blanco con sombra en vez del borde grueso de .ccard. El feedback
+   de click/seleccion se mantiene (borde + fondo rojo claro + sombra mas
+   marcada), sin mover la tarjeta (nada de translateY: con varias tarjetas
+   en fila el levante de una sola se siente como un tironeo del layout).
+   Estas reglas van DESPUES de .ccard/.ccard:hover/.ccard.sel a proposito:
+   misma especificidad, gana la ultima declarada. */
+.act-ccard{padding:var(--sp-7) var(--sp-5);border:1px solid var(--border-l);border-radius:var(--r);box-shadow:var(--box-shadow);background:#fff}
+.act-ccard:hover{border-color:var(--blue);background:var(--blue-l);box-shadow:var(--box-shadow),0 8px 20px rgba(18,20,24,.10)}
+.act-ccard.sel{border-color:var(--blue);background:var(--blue-l);box-shadow:var(--box-shadow),0 0 0 1px var(--blue)}
 
-.field{margin-bottom:var(--sp-7)}
-.field label{display:block;font-size:var(--fs-base);font-weight:500;color:var(--text);margin-bottom:var(--sp-2)}
-.field input,.field select{width:100%;height:var(--ctrl-h);padding:var(--sp-2) var(--sp-4);border:1.5px solid var(--border);border-radius:0.7em;font-size:var(--fs-base) !important;color:var(--text);outline:none;transition:border-color .15s;background:#fff;font-family:inherit}
+.field{margin-bottom:var(--sp-5)}
+/* Estilo unico para toda etiqueta del wizard, tenga o no un <input> debajo:
+   desde "Usuario"/"Host" (dentro de un .field) hasta encabezados de grupo
+   como "Versión de Bantotal" o "Conexiones guardadas" (sueltos, sin .field
+   alrededor). Antes cada label suelto repetia el mismo estilo a mano en el
+   atributo style de index.html -- .field-label es esa regla, ahora en un
+   solo lugar. */
+.field label,.field-label{display:block;font-size:var(--fs-base);font-weight:500;color:var(--text);margin-bottom:var(--sp-2)}
+.field input,.field select{width:100%;height:var(--ctrl-h);padding:var(--sp-2) var(--sp-4);border:1.5px solid var(--border);border-radius:var(--r-ctrl);font-size:var(--fs-base) !important;color:var(--text);outline:none;transition:border-color .15s;background:#fff;font-family:inherit}
 .field input:focus,.field select:focus{border-color:var(--blue)}
 .field select{cursor:pointer}
 .field .hint{font-size:var(--fs-base);color:var(--muted);margin-top:var(--sp-2)}
@@ -117,7 +200,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
    white-space:pre-wrap para que un mensaje de varias lineas se lea completo
    (ej. el error de lectura de Swagger lista cada ruta probada y su motivo).
    Sin esto los saltos se colapsan y el detalle queda ilegible en un parrafo. */
-.cres{display:none;padding:var(--sp-3) var(--sp-3);border-radius:0.7em;font-size:var(--fs-sm);margin-bottom:var(--sp-4);align-items:flex-start;gap:var(--sp-2);line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+.cres{display:none;padding:var(--sp-3) var(--sp-3);border-radius:0.7em;font-size:var(--fs-sm);align-items:flex-start;gap:var(--sp-2);line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
 .cres.show{display:flex}
 .cres.warn{background:var(--warn-l);color:var(--warn-d)}
 .cres.info{background:var(--bg);color:var(--text-2)}
@@ -147,11 +230,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .svc-row .svc-mtd{color:var(--muted);margin-left:var(--sp-1)}
 .svc-rm{background:none;border:none;cursor:pointer;color:var(--muted);padding:0 var(--sp-1);line-height:1;font-size:var(--fs-lg);transition:color .15s}
 .svc-rm:hover{color:var(--red)}
-.add-btn{width:100%;padding:var(--sp-3);border:1.5px dashed var(--border);border-radius:0.7em;background:none;font-size:var(--fs-base);color:var(--muted);cursor:pointer;transition:all .15s;font-family:inherit;margin-bottom:var(--sp-1)}
+.add-btn{width:100%;padding:0 var(--sp-3);border:1.5px dashed var(--border);border-radius:var(--r-ctrl);background:none;font-size:var(--fs-base);color:var(--muted);cursor:pointer;transition:all .15s;font-family:inherit;margin-bottom:var(--sp-1)}
 .add-btn:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-l)}
 
-.wiz-ft{display:flex;justify-content:space-between;align-items:center;padding:var(--sp-5) 8vw;border-top:1px solid var(--border);background:#f5f5f5;flex-shrink:0}
-.btn{height:var(--ctrl-h);padding:var(--sp-2) var(--sp-4);border-radius:0.7em;font-size:var(--fs-base);font-weight:500;cursor:pointer;border:none;transition:all .17s;font-family:inherit;display:inline-flex;align-items:center;gap:var(--sp-2);text-decoration:none}
+.wiz-ft{display:flex;justify-content:space-between;align-items:center;padding:var(--sp-5) 8vw;border-top:1px solid var(--border);background:#fff;flex-shrink:0}
+.btn{height:var(--ctrl-h);padding:var(--sp-2) var(--sp-4);border-radius:var(--r-ctrl);font-size:var(--fs-base);font-weight:500;cursor:pointer;border:none;transition:all .17s;font-family:inherit;display:inline-flex;align-items:center;gap:var(--sp-2);text-decoration:none}
 .btn:disabled{opacity:.45;cursor:not-allowed;pointer-events:none}
 .btn-ghost{background:none;color:var(--muted);border:1.5px solid var(--border)}.btn-ghost:hover{border-color:#9a9a9a;color:var(--text)}
 .btn-primary{background:var(--blue);color:#fff}.btn-primary:hover{background:var(--blue-h)}
@@ -188,10 +271,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-hd{padding:var(--sp-2) var(--sp-4);gap:18px}
   .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-hd-logo img{height:60px}
   .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-sidebar{width:146px}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .steps-bar{padding-left:var(--sp-5)}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .sdot{width:28px;height:28px;font-size:11px}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .sdot-lb{font-size:9px}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .sline{height:38px;margin-left:13px}
+  .wizard:has(#p4c.active .collection-shell-studio-builder) .sdot{height:28px;padding:0 var(--sp-2);font-size:11px}
+  .wizard:has(#p4c.active .collection-shell-studio-builder) .sline{height:38px}
   .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-bd{padding:var(--sp-3) var(--sp-4) var(--sp-3)}
 }
 
@@ -199,10 +280,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-hd{padding:var(--sp-2) var(--sp-4);gap:14px}
   .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-hd-logo img{height:52px}
   .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-sidebar{width:132px}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .steps-bar{padding-left:var(--sp-5)}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .sdot{width:26px;height:26px;font-size:10px}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .sdot-lb{font-size:8px}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .sline{height:30px;margin-left:12px}
+  .wizard:has(#p4c.active .collection-shell-studio-builder) .sdot{height:26px;padding:0 var(--sp-2);font-size:10px}
+  .wizard:has(#p4c.active .collection-shell-studio-builder) .sline{height:30px}
   .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-bd{padding:var(--sp-2) var(--sp-3) var(--sp-3)}
 }
 
@@ -210,10 +289,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-hd{padding:var(--sp-2) var(--sp-4);gap:14px}
   .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-hd-logo img{height:54px}
   .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-sidebar{width:136px}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .steps-bar{padding-left:var(--sp-5)}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .sdot{width:26px;height:26px;font-size:10px}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .sdot-lb{font-size:8px}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .sline{height:32px;margin-left:12px}
+  .wizard:has(#p4c.active .collection-shell-studio-builder) .sdot{height:26px;padding:0 var(--sp-2);font-size:10px}
+  .wizard:has(#p4c.active .collection-shell-studio-builder) .sline{height:32px}
   .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-bd{padding:var(--sp-3) var(--sp-3) var(--sp-3)}
 }
 
@@ -232,9 +309,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .param-card-hd{padding:var(--sp-3) var(--sp-4);background:#f5f5f5;border-bottom:1px solid var(--border);font-size:var(--fs-base);font-weight:600}
 .param-card-bd{padding:var(--sp-3) var(--sp-4)}
 .param-f{margin-bottom:var(--sp-3)}.param-f label{display:block;font-size:var(--fs-sm);font-weight:500;margin-bottom:var(--sp-1)}
-.param-f input{width:100%;padding:var(--sp-2) var(--sp-3);border:1.5px solid var(--border);border-radius:6px;font-size:var(--fs-base);outline:none;font-family:inherit}
+.param-f input{width:100%;padding:var(--sp-2) var(--sp-3);border:1.5px solid var(--border);border-radius:var(--r-ctrl);font-size:var(--fs-base);outline:none;font-family:inherit}
 .param-f input:focus,.param-f textarea:focus{border-color:var(--blue)}
-.param-f textarea{width:100%;padding:var(--sp-2) var(--sp-3);border:1.5px solid var(--border);border-radius:6px;font-size:var(--fs-sm);font-family:Consolas,monospace;resize:vertical;outline:none;line-height:1.4}
+.param-f textarea{width:100%;padding:var(--sp-2) var(--sp-3);border:1.5px solid var(--border);border-radius:var(--r-ctrl);font-size:var(--fs-sm);font-family:Consolas,monospace;resize:vertical;outline:none;line-height:1.4}
 
 .wf-step{cursor:grab;user-select:none;transition:background .1s}.wf-step:active{cursor:grabbing}
 .wf-step.wf-dragging{opacity:.35}.wf-step.wf-over{border-top:2px solid var(--blue) !important}
@@ -261,7 +338,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .sdtgen-row:last-child{border-bottom:none}
 .sdtgen-row:hover{background:var(--blue-l)}
 .sdtgen-row.sel{background:var(--blue-l);color:var(--blue);font-weight:600}
-.sdtgen-fields{border:1.5px solid var(--border);border-radius:10px}
+.sdtgen-fields{border:1.5px solid var(--border)}
 .sdtgen-fields-header{display:grid;gap:var(--sp-2);align-items:center;padding:var(--sp-2) var(--sp-4);background:#f5f5f5;border-bottom:1px solid var(--border);font-size:var(--fs-sm);font-weight:600;color:var(--muted);position:sticky;top:0;z-index:1}
 .sdtgen-field-item{display:grid;gap:var(--sp-2);align-items:center;padding:var(--sp-2) var(--sp-4);border-bottom:1px solid var(--border);background:#fff;cursor:grab}
 .sdtgen-field-item:last-child{border-bottom:none}
@@ -270,7 +347,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .sdtgen-field-item .sdtgen-drag-handle{color:var(--muted);font-size:16px;flex-shrink:0}
 .sdtgen-field-item .sdtgen-field-type{color:var(--muted);font-size:var(--fs-sm)}
 .sdtgen-field-item .sdtgen-field-rm{border:none;background:none;color:var(--red);font-size:18px;cursor:pointer;padding:0 var(--sp-1)}
-.sdtgen-field-input{border:1px solid var(--border);border-radius:6px;padding:var(--sp-1) var(--sp-2);font-size:var(--fs-sm);color:var(--text);font-family:inherit;width:100%;box-sizing:border-box}
+.sdtgen-field-input{border:1px solid var(--border);border-radius:var(--r-ctrl);padding:var(--sp-1) var(--sp-2);font-size:var(--fs-sm);color:var(--text);font-family:inherit;width:100%;box-sizing:border-box}
 .sdtgen-field-input-nom{font-weight:600}
 .sdtgen-field-err{grid-column:1/-1;color:var(--red);font-size:var(--fs-sm);padding-left:var(--sp-6);min-height:1em}
 .pg-param-card{padding:var(--sp-3) var(--sp-4);border-bottom:1px solid var(--border);background:#fff}
@@ -301,9 +378,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .sdtgen-existing-body{padding:0 var(--sp-4) var(--sp-3) var(--sp-7)}
 .sdtgen-existing-loading{font-size:var(--fs-sm);color:var(--muted)}
 .sdtgen-existing-field{display:grid;grid-template-columns:160px 90px 1fr;gap:var(--sp-2);font-size:var(--fs-sm);padding:var(--sp-1) 0;color:var(--text)}
-.btn-pill{padding:var(--sp-1) var(--sp-3);border-radius:20px;font-size:var(--fs-sm);font-weight:600;cursor:pointer;font-family:inherit;line-height:1.5;transition:all .15s;border:1.5px solid var(--border);background:#fff;color:var(--muted)}
+.btn-pill{padding:var(--sp-1) var(--sp-3);border-radius:var(--r-ctrl);font-size:var(--fs-sm);font-weight:600;cursor:pointer;font-family:inherit;line-height:1.5;transition:all .15s;border:1.5px solid var(--border);background:#fff;color:var(--muted)}
 .btn-pill:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-l)}
-.pinput{border:1.5px solid var(--border);border-radius:6px;padding:var(--sp-2) var(--sp-2);font-size:var(--fs-sm);font-family:inherit;outline:none;background:#fff;color:var(--text)}
+.pinput{border:1.5px solid var(--border);border-radius:var(--r-ctrl);padding:var(--sp-2) var(--sp-2);font-size:var(--fs-sm);font-family:inherit;outline:none;background:#fff;color:var(--text)}
 .pinput:focus{border-color:var(--blue)}
 .pin-rm{background:none;border:none;cursor:pointer;color:var(--muted);font-size:var(--fs-lg);padding:var(--sp-1) var(--sp-2);line-height:1;transition:color .15s}
 .pin-rm:hover{color:var(--red)}

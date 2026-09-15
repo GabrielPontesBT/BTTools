@@ -25,11 +25,11 @@
       var mapHtml = mappings.length
         ? '<div class="collection-maps">' + mappings.map(function renderMap(map) {
             var label = (map.scenario ? map.scenario + ' / ' : '') + map.target + ' / ' + map.input;
-            return '<div class="collection-map"><strong>' + label + '</strong><span>' + map.source + '</span></div>';
+            return '<div class="collection-map collection-kv-row"><span class="collection-kv-key">' + label + '</span><span class="collection-kv-value">' + map.source + '</span></div>';
           }).join('') + '</div>'
         : '<p>No se detectaron variables top-level para machear automaticamente en esta primera version.</p>';
 
-      result.className = 'collection-result show';
+      result.className = 'collection-result collection-kv-card show';
       result.innerHTML =
         '<div class="collection-result-head">' +
           '<h4>Collection generada</h4>' +

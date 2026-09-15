@@ -20,7 +20,7 @@ ARCHIVOS_VIGILADOS.forEach(function (archivo) {
   test(archivo + ': todo border-radius es un token, 50% o 0', () => {
     const r = auditar(archivo);
     assert.deepEqual(r.radios, [],
-      'La escala es --r-xs (6px), --r-ctrl (0.7em), --r (12px) y --r-pill (20px). ' +
+      'La escala es --r-xs (6px), --r-ctrl (10px), --r (12px) y --r-pill (20px). ' +
       'Un circulo se escribe 50%, como .sdot y .ok-icon.');
   });
 

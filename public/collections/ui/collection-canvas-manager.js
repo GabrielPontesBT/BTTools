@@ -278,13 +278,10 @@
       if (generateButton) generateButton.disabled = !totalItems || !this.options.pathSupported();
       var executeButton = document.getElementById('btn-collection-execute');
       if (executeButton) executeButton.disabled = !items.length || !this.options.pathSupported();
-      var fillButton = document.getElementById('btn-collection-fill-data');
-      if (fillButton) fillButton.disabled = !items.length || !this.options.pathSupported();
       var addServiceWrap = document.getElementById('collection-builder-add-service-wrap');
       if (addServiceWrap) addServiceWrap.style.display = items.length ? 'flex' : 'none';
       if (generateButton) generateButton.classList.toggle('btn-soft-disabled', generateButton.disabled);
       if (executeButton) executeButton.classList.toggle('btn-soft-disabled', executeButton.disabled);
-      if (fillButton) fillButton.classList.toggle('btn-soft-disabled', fillButton.disabled);
       var openConsoleButton = document.getElementById('btn-collection-open-console');
       if (openConsoleButton) openConsoleButton.classList.toggle('btn-soft-disabled', openConsoleButton.disabled);
       if (typeof collectionSyncBuilderShellState === 'function') collectionSyncBuilderShellState();

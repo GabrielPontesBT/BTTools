@@ -31,7 +31,6 @@ carpeta hermana, no se acumula en `index.js`:
 | Carpeta/archivo | Responsabilidad |
 |---|---|
 | `request-data-resolver/` | Resuelve valores realistas para los campos de un request (clasificación semántica, generación de valores, catálogo de campos de respuesta) |
-| `chain-suggestion/` | Sugiere cadenas de llamadas entre servicios (grafo, path-finder, reglas de seguridad) |
 | `swagger-candidates/` | Qué URLs probar para encontrar el documento Swagger/OpenAPI de un ambiente, y en qué orden. Función pura, sin I/O — el fetch queda en `index.js` |
 | `data/` | Datos estáticos de referencia (ej. `successful-values.json`) |
 | `docs/` | Notas de diseño (mockups, decisiones) — no código |
@@ -46,8 +45,8 @@ carpeta hermana, no se acumula en `index.js`:
   entre ambas). No sumar responsabilidades nuevas ahí.
 - Toda lógica nueva que sea separable se extrae a una carpeta hermana nueva en
   el mismo cambio que la necesita — mismo criterio que ya se aplicó con
-  `request-data-resolver/` y `chain-suggestion/`. No se espera a que el
-  archivo sea "un problema" para recién ahí dividirlo.
+  `request-data-resolver/`. No se espera a que el archivo sea "un problema"
+  para recién ahí dividirlo.
 - Antes de agregar una función a `index.js`, preguntarse: ¿pertenece a una
   pipeline existente, a un módulo hermano, o es un dominio nuevo que merece su
   propia carpeta?

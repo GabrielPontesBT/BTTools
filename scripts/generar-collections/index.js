@@ -3,7 +3,6 @@
 const fs = require('fs');
 const path = require('path');
 const { resolveCollectionRequestData } = require('./request-data-resolver');
-const { suggestChains } = require('./chain-suggestion');
 const { buildSwaggerCandidateUrls, SUFIJOS_SWAGGER } = require('./swagger-candidates');
 const btUrls = require('../common/bantotal-urls');
 const describeAuthFailure = btUrls.describeAuthFailure;
@@ -2168,8 +2167,7 @@ function createCollectionFeature(deps) {
         inputMappings: scenario.inputMappings || {},
         inputAliases: scenario.inputAliases || {},
         outputAliases: scenario.outputAliases || {},
-        repeatableOverrides: scenario.repeatableOverrides || {},
-        tokenSources: scenario.tokenSources || {}
+        repeatableOverrides: scenario.repeatableOverrides || {}
       };
       }).filter(function(scenario) {
         return scenario.items.length > 0;
@@ -2184,8 +2182,7 @@ function createCollectionFeature(deps) {
       inputMappings: body.inputMappings || {},
       inputAliases: body.inputAliases || {},
       outputAliases: body.outputAliases || {},
-      repeatableOverrides: body.repeatableOverrides || {},
-      tokenSources: body.tokenSources || {}
+      repeatableOverrides: body.repeatableOverrides || {}
     }].filter(function(scenario) {
       return scenario.items.length > 0;
     });
@@ -2236,7 +2233,6 @@ function createCollectionFeature(deps) {
           inputAliases: scenario.inputAliases || {},
           outputAliases: scenario.outputAliases || {},
           variableOverrides: scenario.variableOverrides || {},
-          tokenSources: scenario.tokenSources || {},
           stepInputOverrides: (scenario.items || []).map(function(item) {
             return item.inputOverrides || {};
           })
@@ -2714,14 +2710,7 @@ function createCollectionFeature(deps) {
       return resolveMappedVariableName(operation, input, scenario);
     }, operationBaseUrl);
     const resolvedUrl = buildJsonResolvedUrl(operationBaseUrl || resolveJsonBaseUrl(api), operation.path, operation.manualInputs || [], resolvedOverrides);
-    // Si este grupo (su sourceBaseUrl -- un swagger/microservicio puede tener
-    // su propio token) tiene una "Fuente de token" configurada (ver
-    // CollectionTokenSourceManager), el header Token apunta directo a esa
-    // variable de salida en vez de la global {{token}} -- el paso fuente ya
-    // la publica como collection variable via su propio test script
-    // (buildPostmanTestScript), no hace falta nada mas para que funcione.
-    const tokenSourceKey = (scenario && scenario.tokenSources) ? scenario.tokenSources[operationBaseUrl] : null;
-    const tokenVariableRef = '{{' + (tokenSourceKey || 'token') + '}}';
+    const tokenVariableRef = '{{token}}';
     // V3 lleva Canal/Usuario/Device/Requerimiento/Token dentro del body (Btinreq),
     // no como headers custom: asi es como responde el servlet real (ver authenticateSession).
     //
@@ -3308,17 +3297,7 @@ function createCollectionFeature(deps) {
           const requestUrl = buildJsonExecutionUrl(stepBaseUrl, item.path, item.manualInputs || [], stepRuntimeValues);
           const isV3 = body.version === 'V3';
           const filledBodyValue = item.bodyTemplate ? fillJsonTemplate(item.bodyTemplate, stepRuntimeValues) : null;
-          // Si el grupo de este item (su sourceBaseUrl) tiene una "Fuente de
-          // token" configurada (ver CollectionTokenSourceManager), y esa
-          // salida ya se resolvio en algun paso anterior de este mismo
-          // flujo, manda sobre el token global de Authenticate -- necesario
-          // cuando distintos swaggers/microservicios se autentican con
-          // tokens distintos. Sin override (o si el paso fuente todavia no
-          // corrio), sigue usando el token global de siempre.
-          const groupTokenKey = (body.tokenSources || {})[item.sourceBaseUrl || ''];
-          const effectiveToken = (groupTokenKey && Object.prototype.hasOwnProperty.call(stepRuntimeValues, groupTokenKey))
-            ? stepRuntimeValues[groupTokenKey]
-            : stepRuntimeValues.token;
+          const effectiveToken = stepRuntimeValues.token;
           // V3 manda Canal/Usuario/Device/Requerimiento/Token dentro del body (Btinreq),
           // no como headers custom (ver authenticateSession, que ya hace lo mismo para el auth).
           const headers = isV3 ? {} : buildBantotalJsonHeaders({
@@ -3725,48 +3704,6 @@ function createCollectionFeature(deps) {
       return true;
     }
 
-    if (req.method === 'POST' && req.url === '/api/collection/suggest-chain') {
-      try {
-        const body = await readBody(req);
-        const result = suggestChains(body);
-        if (!result.ok) {
-          json(200, { ok: false, message: result.message });
-          return true;
-        }
-        json(200, { ok: true, suggestions: result.suggestions });
-      } catch (e) {
-        json(200, { ok: false, message: e.message });
-      }
-      return true;
-    }
-
-    if (req.method === 'POST' && req.url === '/api/collection/fill-data') {
-      try {
-        const body = await readBody(req);
-        const hasScenarioItems = Array.isArray(body.scenarios) && body.scenarios.some(function(scenario) {
-          return Array.isArray(scenario.items) && scenario.items.length > 0;
-        });
-        const hasLegacyItems = Array.isArray(body.items) && body.items.length > 0;
-        if (!hasScenarioItems && !hasLegacyItems) {
-          json(200, { ok: false, message: 'Agrega al menos un metodo antes de rellenar datos.' });
-          return true;
-        }
-
-        const resolution = resolveCollectionRequestData(body, { mode: 'preview' });
-        json(200, {
-          ok: true,
-          scenarios: resolution.scenarios,
-          summary: resolution.summary,
-          warnings: resolution.warnings,
-          linkedFields: resolution.linkedFields,
-          generatedFields: resolution.generatedFields,
-          unresolvedFields: resolution.unresolvedFields
-        });
-      } catch (e) {
-        json(200, { ok: false, message: e.message });
-      }
-      return true;
-    }
     if (req.method === 'POST' && req.url === '/api/collection/record-success') {
       try {
         const body = await readBody(req);

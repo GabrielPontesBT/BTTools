@@ -31,7 +31,7 @@ const RE_DECL = /(padding(?:-top|-bottom|-left|-right|-block|-inline)?)\s*:\s*([
 // Un componente valido es un token de la escala, un cero, o una unidad que no
 // es px (%, vw, em, auto, calc). Un px pelado es lo que este gate persigue.
 function componenteValido(p) {
-  if (/^var\(--sp-[1-7]\)$/.test(p)) return true;
+  if (/^var\(--sp-[1-8]\)$/.test(p)) return true;
   if (p === 'var(' + M.PISO_MICRO.token + ')') return true;
   if (p === '0' || p === '0px') return true;
   if (!/\d+px/.test(p)) return true;

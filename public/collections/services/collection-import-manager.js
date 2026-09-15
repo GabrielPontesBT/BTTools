@@ -195,7 +195,6 @@
       scenario.inputAliases = Object.assign({}, scenario.inputAliases, storedConfig.inputAliases || {});
       scenario.outputAliases = Object.assign({}, scenario.outputAliases, storedConfig.outputAliases || {});
       scenario.variableOverrides = Object.assign({}, scenario.variableOverrides, storedConfig.variableOverrides || {});
-      scenario.tokenSources = Object.assign({}, scenario.tokenSources, storedConfig.tokenSources || {});
 
       (storedConfig.stepInputOverrides || []).forEach(function restoreStepOverrides(overrides, index) {
         var inserted = insertedSteps[index];

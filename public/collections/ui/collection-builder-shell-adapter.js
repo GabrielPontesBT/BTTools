@@ -9,7 +9,6 @@
    */
 
   global.collectionOpenServiceDrawer = function collectionOpenServiceDrawerAdapter() {
-    global.collectionGetChainSuggestionManager().close();
     global.collectionGetBuilderShellManager().openServiceDrawer();
   };
 
@@ -27,7 +26,6 @@
 
   global.collectionHandleBuilderBackdropClick = function collectionHandleBuilderBackdropClickAdapter() {
     global.collectionGetBuilderShellManager().handleBackdropClick();
-    global.collectionGetChainSuggestionManager().close();
   };
 
   global.collectionToggleCatalogSelection = function collectionToggleCatalogSelectionAdapter(service, operationKey, checked) {

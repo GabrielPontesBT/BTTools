@@ -50,10 +50,12 @@ const TOKENS_NUEVOS = [
             '.sg-chk y .casing-opt en styles.css. Absorbe los 5/7/8/9px del builder.',
   },
   {
-    nombre: '--r-ctrl', valor: '0.7em',
-    porque: 'Radio de inputs, selects y botones. Mismo valor literal que .field input ' +
-            'y .btn ya tienen escrito a mano 9 veces en styles.css: se le pone nombre ' +
-            'en vez de repetirlo. Es em a proposito, como en el original.',
+    nombre: '--r-ctrl', valor: '10px',
+    porque: 'Radio de inputs, selects y botones. Era 0.7em (em a proposito, calculado ' +
+            'sobre el font-size de CADA control) hasta que Gabriel pidio 10px fijos para ' +
+            'todos los botones y fields por igual -- con em, .btn-sm (font-size mas chico) ' +
+            'terminaba con un radio mas chico que los botones normales, que es exactamente ' +
+            'lo que se queria dejar de tener.',
   },
   {
     nombre: '--r-pill', valor: '20px',

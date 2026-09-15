@@ -13,7 +13,7 @@ Método para obtener un listado de países.
 
 **Alcance:** Global
 
-**Endpoint:** /public/General/v1/countries
+**Endpoint:** /public/general/v1/countries
 :::
 <!-- CIERRA DATOS DEL MÉTODO -->
 
@@ -44,7 +44,8 @@ countries | [country](#country) | Listado de paises.
 
 Código | Descripción
 :--------- | :---------
-99990010002 | Datos de Paginación Incorrectos.
+Completar manualmente | Completar manualmente
+
 :::
 <!-- CIERRA TABLA DE DATOS -->
 
@@ -57,13 +58,10 @@ Código | Descripción
 @tab cURL
 ```bash
 curl -X GET \
-  '{{baseUrl}}/public/General/v1/countries?offset=0&limit=10' \
-  -H 'Device: {{device}}' \
-  -H 'Usuario: {{usuario}}' \
-  -H 'Requerimiento: {{requerimiento}}' \
-  -H 'Canal: {{canal}}' \
-  -H 'Token: {{token}}'
+  '{{baseUrl}}/public/general/v1/countries?offset=0&limit=10' \
+  -H 'Authorization: Bearer {{token}}'
 ```
+
 :::
 <!-- CIERRA EJEMPLO DE INVOCACIÓN -->
 

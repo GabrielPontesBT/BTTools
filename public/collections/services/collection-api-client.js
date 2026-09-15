@@ -93,24 +93,10 @@
     }
 
     /**
-     * Pide al backend completar datos encadenados y autogenerables sin ejecutar requests.
-     */
-    async fillRequestData(payload) {
-      return this.postJson('/api/collection/fill-data', payload);
-    }
-
-    /**
      * Genera el archivo Postman final listo para descargar.
      */
     async generateCollection(payload) {
       return this.postJson('/api/collection/generate', payload);
-    }
-
-    /**
-     * Pide sugerencias de cadena a partir de un metodo inicial y un pool de operaciones ya acotado por alcance.
-     */
-    async suggestChains(payload) {
-      return this.postJson('/api/collection/suggest-chain', payload);
     }
   }
 

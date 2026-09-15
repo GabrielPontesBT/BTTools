@@ -21,7 +21,7 @@ ARCHIVOS_VIGILADOS.forEach(function (archivo) {
   test(archivo + ': todo padding esta en la escala', () => {
     const r = auditar(archivo);
     assert.deepEqual([...new Set(r.sueltos)], [],
-      'La escala es --sp-1 a --sp-7 (4/8/12/16/20/24/28px). Si el valor reserva el hueco de un ' +
+      'La escala es --sp-1 a --sp-8 (4/8/12/16/20/24/28/32px). Si el valor reserva el hueco de un ' +
       'elemento absoluto, va a GEOMETRIA en pad-map.js con su razon.');
   });
 
@@ -41,7 +41,7 @@ ARCHIVOS_VIGILADOS.forEach(function (archivo) {
 
 // -- La escala existe y es una grilla de 4px -------------------
 
-test('los 7 pasos estan definidos en el :root de styles.css', () => {
+test('los 8 pasos estan definidos en el :root de styles.css', () => {
   const root = (leer('public/styles.css').match(/:root\{[\s\S]*?\}/) || [''])[0];
   assert.ok(root, 'no se encontro el bloque :root');
   M.ESCALA.forEach(function (e) {
@@ -156,10 +156,10 @@ test('migrarPaddingEnVars no toca la definicion de la escala', () => {
   assert.equal(migrarPaddingEnVars(css), css);
 });
 
-test('esTokenDeEscala reconoce los 7 pasos y el sub-paso, y nada mas', () => {
+test('esTokenDeEscala reconoce los 8 pasos y el sub-paso, y nada mas', () => {
   M.ESCALA.forEach(function (e) { assert.equal(M.esTokenDeEscala(e.token), true, e.token); });
   assert.equal(M.esTokenDeEscala(M.PISO_MICRO.token), true, 'el sub-paso tambien se consume como padding');
-  assert.equal(M.esTokenDeEscala('--sp-8'), false);
+  assert.equal(M.esTokenDeEscala('--sp-9'), false);
   assert.equal(M.esTokenDeEscala('--builder-node-padding'), false);
 });
 
