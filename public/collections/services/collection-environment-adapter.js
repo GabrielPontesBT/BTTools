@@ -102,4 +102,36 @@
     // La carga de Swagger y el authenticate posterior quedan centralizados en el manager de ambiente.
     return global.collectionGetEnvironmentManager().loadServices();
   };
+
+  /**
+   * Desplegable "Ambientes Swagger guardados": carga la lista de URLs y el
+   * checkbox del ambiente elegido. Ver CollectionEnvironmentManager.loadSwaggerHistEntry.
+   */
+  global.collectionLoadSwaggerHistEntry = function collectionLoadSwaggerHistEntryAdapter() {
+    global.collectionGetEnvironmentManager().loadSwaggerHistEntry();
+  };
+
+  global.collectionDeleteSwaggerHistEntry = async function collectionDeleteSwaggerHistEntryAdapter() {
+    return global.collectionGetEnvironmentManager().deleteSwaggerHistEntry();
+  };
+
+  /**
+   * Boton "Guardar nombre" junto al campo de nombre del ambiente Swagger.
+   * Mismo patron de feedback inline que saveConnName() en wizard-doc.js.
+   */
+  global.collectionSaveSwaggerHistName = async function collectionSaveSwaggerHistNameAdapter() {
+    var fb = document.getElementById('collection-swagger-hist-name-res');
+    if (fb) {
+      fb.style.display = '';
+      fb.style.color = 'var(--muted)';
+      fb.textContent = 'Guardando...';
+    }
+    var data = await global.collectionGetEnvironmentManager().saveSwaggerHistEntry();
+    if (fb) {
+      fb.style.display = '';
+      fb.style.color = data.ok ? 'var(--success)' : 'var(--danger)';
+      fb.textContent = data.ok ? 'Nombre guardado.' : (data.message || 'No se pudo guardar el ambiente Swagger.');
+      if (data.ok) setTimeout(function() { fb.style.display = 'none'; }, 2500);
+    }
+  };
 })(window);

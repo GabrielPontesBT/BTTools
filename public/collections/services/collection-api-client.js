@@ -79,6 +79,27 @@
     }
 
     /**
+     * Trae los ambientes Swagger guardados (nombre + lista de URLs).
+     */
+    async listSwaggerHistory() {
+      return this.postJson('/api/collection/swagger-history', { action: 'list' });
+    }
+
+    /**
+     * Guarda (o actualiza, si el set de URLs ya existia) un ambiente Swagger con nombre.
+     */
+    async saveSwaggerHistory(payload) {
+      return this.postJson('/api/collection/swagger-history', Object.assign({ action: 'save' }, payload));
+    }
+
+    /**
+     * Elimina un ambiente Swagger guardado por id.
+     */
+    async deleteSwaggerHistory(id) {
+      return this.postJson('/api/collection/swagger-history', { action: 'delete', id: id });
+    }
+
+    /**
      * Pide el detalle completo de un metodo puntual cuando el origen es Base de datos.
      */
     async loadDatabaseOperation(payload) {

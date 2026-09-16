@@ -16,6 +16,12 @@
      */
     constructor(options) {
       this.options = options || {};
+      // Cache local de ambientes Swagger guardados (nombre + lista de URLs).
+      // Vive en la instancia, no en collectionState: es un catalogo del
+      // usuario para toda la sesion, no algo que deba resetearse cuando
+      // cambia el ambiente activo (ver resetLoadedData).
+      this._swaggerHistory = [];
+      this._swaggerHistoryLoaded = false;
     }
 
     /**
@@ -38,7 +44,15 @@
       var loadButton = document.getElementById('btn-collection-load-services');
 
       if (swaggerField) swaggerField.style.display = source === 'swagger' ? 'block' : 'none';
-      if (source === 'swagger') this.renderSwaggerUrlList();
+      if (source === 'swagger') {
+        this.renderSwaggerUrlList();
+        // Se carga una sola vez por sesion (no en cada refreshContext): es un
+        // catalogo del usuario, no algo que cambie con el ambiente activo.
+        if (!this._swaggerHistoryLoaded) {
+          this._swaggerHistoryLoaded = true;
+          this.loadSwaggerHistory();
+        }
+      }
       // La URL de la API interna (gateway REST distinto del de API publica,
       // ej. ':5107/api/platform' en vez de ':5101/api/publicapi') solo hace
       // falta cuando el catalogo viene de Base de datos y el ambiente es
@@ -271,6 +285,131 @@
           '<button type="button" class="collection-swagger-url-remove" onclick="collectionRemoveSwaggerUrl(' + index + ')">Quitar</button>' +
           '</div>';
       }).join('');
+    }
+
+    // ── Historial de ambientes Swagger guardados ──────────────────────
+    // Mismo patron que el historial de conexiones de base (db-history en
+    // setup.js/wizard-doc.js): nombre opcional + datos del ambiente, listado
+    // en un desplegable, con alta/baja. Ver /api/collection/swagger-history.
+
+    /**
+     * Trae el historial guardado del backend y redibuja el desplegable.
+     */
+    async loadSwaggerHistory() {
+      try {
+        var data = await this.options.apiClient.listSwaggerHistory();
+        if (data.ok) {
+          this._swaggerHistory = data.history || [];
+          this.renderSwaggerHistory();
+        }
+      } catch (e) {
+        // Silencioso: si el historial no carga, el usuario sigue pudiendo
+        // tipear la URL a mano -- no es un error que deba bloquear el paso.
+      }
+    }
+
+    /**
+     * Redibuja el desplegable "Ambientes Swagger guardados" a partir de la cache local.
+     */
+    renderSwaggerHistory() {
+      var wrap = document.getElementById('collection-swagger-hist-wrap');
+      var sel = document.getElementById('collection-swagger-hist-sel');
+      if (!wrap || !sel) return;
+      var list = this._swaggerHistory || [];
+
+      sel.innerHTML = '<option value="">-- Nuevo --</option>';
+      list.forEach(function(entry) {
+        var opt = document.createElement('option');
+        opt.value = entry.id;
+        opt.textContent = entry.label;
+        sel.appendChild(opt);
+      });
+      wrap.style.display = list.length ? '' : 'none';
+
+      var del = document.getElementById('collection-swagger-hist-del');
+      if (del) del.disabled = true;
+    }
+
+    /**
+     * Carga en la UI (lista de swaggers + checkbox) el ambiente elegido en el desplegable.
+     */
+    loadSwaggerHistEntry() {
+      var sel = document.getElementById('collection-swagger-hist-sel');
+      if (!sel) return;
+      var del = document.getElementById('collection-swagger-hist-del');
+      if (del) del.disabled = !sel.value;
+
+      var nameInput = document.getElementById('collection-swagger-hist-name');
+      if (!sel.value) {
+        if (nameInput) nameInput.value = '';
+        return;
+      }
+
+      var entry = (this._swaggerHistory || []).find(function(e) { return e.id === sel.value; });
+      if (!entry) return;
+
+      var state = this.options.getState();
+      state.swaggerUrls = (entry.swaggerUrls || []).slice();
+      state.autoDetectAuth = entry.autoDetectAuth !== false;
+      if (nameInput) nameInput.value = entry.label || '';
+
+      var checkbox = document.getElementById('collection-auto-detect-auth');
+      if (checkbox) checkbox.checked = state.autoDetectAuth;
+
+      this.renderSwaggerUrlList();
+    }
+
+    /**
+     * Elimina el ambiente Swagger seleccionado en el desplegable.
+     */
+    async deleteSwaggerHistEntry() {
+      var sel = document.getElementById('collection-swagger-hist-sel');
+      if (!sel || !sel.value) return;
+      var id = sel.value;
+      try {
+        await this.options.apiClient.deleteSwaggerHistory(id);
+        this._swaggerHistory = (this._swaggerHistory || []).filter(function(e) { return e.id !== id; });
+        this.renderSwaggerHistory();
+      } catch (e) {
+        // Si el delete falla en el backend, el desplegable sigue mostrando la
+        // entrada -- el usuario puede reintentar sin perder nada.
+      }
+    }
+
+    /**
+     * Guarda (con el nombre tipeado, si lo hay) la lista de swaggers y el checkbox actuales.
+     */
+    async saveSwaggerHistEntry() {
+      var state = this.options.getState();
+      var urls = (Array.isArray(state.swaggerUrls) ? state.swaggerUrls : [])
+        .map(function(url) { return String(url || '').trim(); })
+        .filter(Boolean);
+      if (!urls.length) {
+        return { ok: false, message: 'Agrega al menos una ruta Swagger antes de guardar.' };
+      }
+
+      var nameInput = document.getElementById('collection-swagger-hist-name');
+      var label = nameInput ? nameInput.value.trim() : '';
+
+      try {
+        var data = await this.options.apiClient.saveSwaggerHistory({
+          label: label,
+          swaggerUrls: urls,
+          autoDetectAuth: state.autoDetectAuth !== false
+        });
+        if (data.ok) {
+          await this.loadSwaggerHistory();
+          var sel = document.getElementById('collection-swagger-hist-sel');
+          if (sel && data.id) {
+            sel.value = data.id;
+            var del = document.getElementById('collection-swagger-hist-del');
+            if (del) del.disabled = false;
+          }
+        }
+        return data;
+      } catch (e) {
+        return { ok: false, message: 'No se pudo guardar el ambiente Swagger.' };
+      }
     }
 
     /**

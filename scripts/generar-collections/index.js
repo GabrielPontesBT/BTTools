@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { resolveCollectionRequestData } = require('./request-data-resolver');
 const { buildSwaggerCandidateUrls, SUFIJOS_SWAGGER } = require('./swagger-candidates');
+const { createSwaggerHistoryStore } = require('./swagger-history-store');
 const btUrls = require('../common/bantotal-urls');
 const describeAuthFailure = btUrls.describeAuthFailure;
 const extract = require('./swagger-candidates/extract-spec-url');
@@ -26,6 +27,10 @@ function createCollectionFeature(deps) {
   const outputDir = path.join(ROOT, 'scripts', 'generar-collections', 'output');
   const dataDir = path.join(ROOT, 'scripts', 'generar-collections', 'data');
   const successfulValuesPath = path.join(dataDir, 'successful-values.json');
+  // dir inyectable solo para tests (evita escribir en el %APPDATA% real del
+  // usuario que corre la suite); en produccion usa la carpeta de datos del
+  // usuario, igual que el historial de conexiones de base.
+  const swaggerHistoryStore = createSwaggerHistoryStore({ dir: deps.swaggerHistoryDir });
 
   function ensureOutputDir() {
     fs.mkdirSync(outputDir, { recursive: true });
@@ -3614,6 +3619,56 @@ function createCollectionFeature(deps) {
           services,
           operationsByService
         });
+      } catch (e) {
+        json(200, { ok: false, message: e.message });
+      }
+      return true;
+    }
+
+    // Historial de ambientes Swagger guardados (nombre + lista de URLs +
+    // checkbox de autodeteccion de auth). Mismo patron accion/list/save/delete
+    // que /sg/api/db-history en setup.js, pero self-contained en este feature
+    // porque no lleva credenciales de base ni de API.
+    if (req.method === 'POST' && req.url === '/api/collection/swagger-history') {
+      try {
+        const body = await readBody(req);
+        const action = body.action;
+
+        if (action === 'list') {
+          json(200, { ok: true, history: swaggerHistoryStore.read() });
+        } else if (action === 'save') {
+          const urls = (Array.isArray(body.swaggerUrls) ? body.swaggerUrls : [])
+            .map(function(u) { return String(u || '').trim(); })
+            .filter(Boolean);
+          if (!urls.length) {
+            json(200, { ok: false, message: 'Agrega al menos una ruta Swagger antes de guardar.' });
+            return true;
+          }
+          const list = swaggerHistoryStore.read();
+          // Clave de dedupe: el mismo set de URLs (orden no importa) actualiza
+          // la entrada existente en vez de duplicarla, igual que db-history
+          // dedupea por server/database/user.
+          const key = urls.slice().sort().join('|');
+          const idx = list.findIndex(function(e) { return e.key === key; });
+          const entry = {
+            id: idx >= 0 ? list[idx].id : String(Date.now()),
+            key,
+            label: String(body.label || '').trim() || urls[0],
+            swaggerUrls: urls,
+            autoDetectAuth: body.autoDetectAuth !== false,
+            savedAt: new Date().toISOString()
+          };
+          if (idx >= 0) list.splice(idx, 1);
+          list.unshift(entry);
+          if (list.length > 50) list.length = 50;
+          swaggerHistoryStore.write(list);
+          json(200, { ok: true, id: entry.id, updated: idx >= 0 });
+        } else if (action === 'delete') {
+          swaggerHistoryStore.write(swaggerHistoryStore.read().filter(function(e) { return e.id !== body.id; }));
+          json(200, { ok: true });
+        } else {
+          json(200, { ok: false, message: 'Accion desconocida' });
+        }
       } catch (e) {
         json(200, { ok: false, message: e.message });
       }
