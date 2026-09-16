@@ -319,21 +319,33 @@
                 </div>
               </div>
 
-              <label>Ruta Swagger</label>
-              <div class="collection-swagger-url-add">
-                <input type="text" id="collection-swagger-url" placeholder="ej: http://10.0.0.5:5101/api/swagger-ui/index.html#/" onkeydown="if(event.key==='Enter'){event.preventDefault();collectionAddSwaggerUrl();}">
-                <button class="btn btn-ghost" type="button" onclick="collectionAddSwaggerUrl()">+ Agregar swagger</button>
-              </div>
-              <div id="collection-swagger-url-list" class="collection-swagger-url-list"></div>
+              <!-- Ruta Swagger y nombre del ambiente van en la misma fila:
+                  son dos datos del mismo paso (que URLs, con que nombre se
+                  guardan) y cada uno en su propia fila desperdiciaba una
+                  linea entera de alto. -->
+              <div style="display:flex;gap:var(--sp-4);align-items:flex-start">
+                <div style="flex:1">
+                  <label>Ruta Swagger</label>
+                  <div class="collection-swagger-url-add">
+                    <input type="text" id="collection-swagger-url" placeholder="ej: http://10.0.0.5:5101/api/swagger-ui/index.html#/" onkeydown="if(event.key==='Enter'){event.preventDefault();collectionAddSwaggerUrl();}">
+                    <button class="btn btn-ghost" type="button" onclick="collectionAddSwaggerUrl()">+ Agregar swagger</button>
+                  </div>
+                </div>
 
-              <!-- Nombre + "Guardar nombre": guarda la lista de swaggers de
-                  arriba (y el checkbox de autodeteccion) como un ambiente
-                  reutilizable. Sin nombre, se guarda con la primer URL como
-                  label -- ver CollectionEnvironmentManager.saveSwaggerHistEntry. -->
-              <div style="display:flex;gap:var(--sp-2);align-items:center;margin-top:var(--sp-3)">
-                <input type="text" id="collection-swagger-hist-name" placeholder="Nombre del ambiente (opcional, ej: Produccion V4)" autocomplete="off" style="flex:1">
-                <button class="btn btn-ghost" id="btn-collection-save-swagger-hist" onclick="collectionSaveSwaggerHistName()" style="white-space:nowrap;flex-shrink:0" title="Guardar este ambiente Swagger con un nombre">Guardar nombre</button>
+                <!-- Nombre + "Guardar nombre": guarda la lista de swaggers de
+                    al lado (y el checkbox de autodeteccion) como un ambiente
+                    reutilizable. Sin nombre, se guarda con la primer URL como
+                    label -- ver CollectionEnvironmentManager.saveSwaggerHistEntry. -->
+                <div style="flex:1">
+                  <label>Nombre del ambiente <span style="font-weight:400;color:var(--muted);font-size:var(--fs-sm)">(opcional)</span></label>
+                  <div style="display:flex;gap:var(--sp-2);align-items:center">
+                    <input type="text" id="collection-swagger-hist-name" placeholder="ej: Produccion V4" autocomplete="off" style="flex:1">
+                    <button class="btn btn-ghost" id="btn-collection-save-swagger-hist" onclick="collectionSaveSwaggerHistName()" style="white-space:nowrap;flex-shrink:0" title="Guardar este ambiente Swagger con un nombre">Guardar nombre</button>
+                  </div>
+                </div>
               </div>
+
+              <div id="collection-swagger-url-list" class="collection-swagger-url-list"></div>
               <div id="collection-swagger-hist-name-res" style="font-size:var(--fs-sm);margin-top:var(--sp-1);display:none"></div>
             </div>
 
