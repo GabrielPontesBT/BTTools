@@ -46,6 +46,24 @@
     }
 
     contenedor() {
+      // #p4c.active es la fuente de verdad de "estoy en el canvas" (la pone
+      // show() en wizard-doc.js). Se chequea PRIMERO y a proposito: el
+      // catalogo de abajo (#collection-catalog-section) vive en el panel de
+      // Ambiente (#p4), no en el canvas, y show() solo actualiza su
+      // style.display inline cuando renderiza el paso de Ambiente -- al
+      // pasar al canvas (paso 5, #p4c) ese inline style queda pegado en
+      // 'block' de la ultima vez que se vio el paso de Ambiente, sin que
+      // nada lo reponga a 'none'. Antes de este chequeo, showStatus()
+      // terminaba escribiendo el aviso adentro de #collection-env-status
+      // (dentro del panel de Ambiente, oculto) mientras el usuario miraba el
+      // canvas -- por eso un import fallaba o funcionaba en silencio, sin
+      // ningun indicador visible (ver Importar collection).
+      var panelCanvas = document.getElementById('p4c');
+      if (panelCanvas && panelCanvas.classList && panelCanvas.classList.contains('active')) {
+        var enCanvas = document.getElementById(ID_CONTENEDOR);
+        if (enCanvas) return enCanvas;
+      }
+
       var seccionAmbiente = document.getElementById('collection-catalog-section');
       if (seccionAmbiente && seccionAmbiente.style && seccionAmbiente.style.display !== 'none') {
         var enAmbiente = document.getElementById(ID_CONTENEDOR_AMBIENTE);

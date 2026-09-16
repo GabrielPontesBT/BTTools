@@ -18,6 +18,16 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
+// classList minimo (Set adentro) para los elementos que se crean a demanda.
+function makeClassList(inicial) {
+  const set = new Set(inicial || []);
+  return {
+    contains: function (c) { return set.has(c); },
+    add: function (c) { set.add(c); },
+    remove: function (c) { set.delete(c); },
+  };
+}
+
 // DOM minimo: solo getElementById sobre un mapa de elementos creados a demanda.
 function makeDom(elementos) {
   const els = elementos || {};
@@ -27,6 +37,7 @@ function makeDom(elementos) {
       if (!els[id]) {
         els[id] = {
           style: {}, className: '', innerHTML: '', textContent: '',
+          classList: makeClassList(),
           setAttribute: function () {}, removeAttribute: function () {},
           querySelector: function () { return null; },
         };
@@ -137,4 +148,34 @@ test('en el builder, los avisos siguen yendo al bloque de siempre', () => {
 
   assert.match(dom.getElementById('collection-status').innerHTML, /Collection generada/);
   assert.equal(dom.getElementById('collection-env-status').innerHTML, '');
+});
+
+// Bug real: show() (wizard-doc.js) solo actualiza el style.display inline de
+// #collection-catalog-section cuando renderiza el paso 4 (Ambiente, #p4). Al
+// pasar al paso 5 (#p4c, el canvas) ese inline style queda pegado en 'block'
+// de la ultima vez que se vio Ambiente -- nada lo repone a 'none'. Con la
+// version vieja de contenedor() (que solo miraba ese style.display), TODO el
+// feedback del canvas -- incluido el resumen de "Importar collection" --
+// terminaba escrito adentro de #collection-env-status, dentro del panel de
+// Ambiente ya oculto: invisible. Sintoma reportado: "importe una collection
+// y no paso nada, ni error ni loading".
+test('con el canvas activo (#p4c.active), el aviso va a su bloque aunque el catalogo haya quedado con display:block pegado', () => {
+  const { manager, dom } = managerDeFeedback();
+  dom.getElementById('collection-catalog-section').style.display = 'block';
+  dom.getElementById('p4c').classList.add('active');
+
+  manager.showStatus('err', 'No se pudo importar ningun paso.');
+
+  assert.match(dom.getElementById('collection-status').innerHTML, /No se pudo importar ningun paso/,
+               'con #p4c.active el usuario esta mirando el canvas, sin importar el display viejo del catalogo');
+  assert.equal(dom.getElementById('collection-env-status').innerHTML, '',
+               'no tiene que escribirse en el panel de Ambiente, que en ese momento esta oculto');
+});
+
+test('sin #p4c en el DOM (defensivo), no explota y sigue evaluando el catalogo de Ambiente', () => {
+  const { manager, dom } = managerDeFeedback();
+  dom.getElementById('collection-catalog-section').style.display = 'block';
+
+  assert.doesNotThrow(function () { manager.showStatus('ok', 'x'); });
+  assert.match(dom.getElementById('collection-env-status').innerHTML, /x/);
 });
