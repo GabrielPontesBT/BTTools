@@ -105,6 +105,16 @@
         shell.classList.toggle('collection-shell-studio-builder', stage === 'builder');
       }
 
+      // El chrome compacto del wizard (sidebar angosta, header chico) ya no
+      // depende de un :has() que suba desde este shell hasta .wizard -- ver
+      // syncCollectionBuilderShrinkClass en wizard-doc.js para el motivo (no
+      // siempre invalidaba el estilo del sidebar). Este es el otro punto
+      // donde cambia una de las dos condiciones que esa funcion evalua (el
+      // stage del studio), asi que hay que re-sincronizar aca tambien.
+      if (typeof window.syncCollectionBuilderShrinkClass === 'function') {
+        window.syncCollectionBuilderShrinkClass();
+      }
+
       if (studioTitle) {
         studioTitle.textContent = 'Casos de uso';
       }

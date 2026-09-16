@@ -41,7 +41,10 @@
   --builder-drawer-field-gap:var(--sp-3);
   --builder-drawer-card-gap:var(--sp-3);
 }
-.wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-bd{overflow-y:auto;overflow-x:hidden;padding-bottom:var(--sp-3)}
+/* Mismo motivo que en styles.css: clase directa en .wizard en vez de este
+   :has() de dos saltos, que en la practica no siempre invalidaba el estilo
+   del lado del sidebar. */
+.wizard.wizard-collection-builder .wiz-bd{overflow-y:auto;overflow-x:hidden;padding-bottom:var(--sp-3)}
 #p4c.active:has(.collection-shell-studio-builder){overflow-y:auto;overflow-x:hidden}
 .collection-shell-studio > .collection-path{display:none}
 .collection-shell-studio > .ptitle,

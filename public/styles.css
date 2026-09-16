@@ -99,13 +99,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
      .wiz-bd del builder (24px) en vez del 8vw del resto de los pasos, para que
      los botones queden alineados con el canvas y no flotando en el medio. */
   .wizard:has(#p4c.active) .wiz-ft{padding:var(--sp-3) var(--sp-6)}
-.wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-hd{padding:var(--sp-3) 2.4vw var(--sp-3);gap:24px}
-.wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-hd-logo img{height:68px}
-.wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-hd-steps{padding-bottom:var(--sp-3)}
-.wizard:has(#p4c.active .collection-shell-studio-builder) .sdot{height:30px;padding:0 var(--sp-3);font-size:12px}
-.wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-bd{padding:var(--sp-3) var(--sp-4) var(--sp-3)}
-.wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-sidebar{width:152px}
-.wizard:has(#p4c.active .collection-shell-studio-builder) .sline{height:42px}
+/* Antes esto era un selector .wizard:has(...) con #p4c.active y
+   .collection-shell-studio-builder anidados adentro apuntando a .sdot (y lo
+   mismo para wiz-hd/wiz-sidebar/wiz-bd/sline): un :has() de dos
+   saltos (subir a .wizard, bajar a un hijo profundo de OTRO hijo -- .sdot
+   vive en .wiz-sidebar, la clase que dispara todo esto vive 5 niveles abajo
+   de #p4c, del otro lado del arbol). Confirmado a mano en el navegador que
+   ese patron no siempre invalida el estilo de .sdot/.wiz-sidebar cuando la
+   clase profunda cambia: `.matches()` decia que el selector matcheaba, pero
+   el motor de estilos no lo aplicaba (ni forzando una regla nueva con
+   !important). Por eso el "reescala" raro al entrar al canvas: a veces el
+   sidebar se achicaba, a veces se quedaba en su tamano normal contra un
+   canvas que si se hizo mas ancho. Ver syncCollectionBuilderShrinkClass en
+   wizard-doc.js (la llaman show() y CollectionStudioManager.renderStage) --
+   pone/saca esta clase directo en .wizard, sin pasar por :has(). */
+.wizard.wizard-collection-builder .wiz-hd{padding:var(--sp-3) 2.4vw var(--sp-3);gap:24px}
+.wizard.wizard-collection-builder .wiz-hd-logo img{height:68px}
+.wizard.wizard-collection-builder .wiz-hd-steps{padding-bottom:var(--sp-3)}
+.wizard.wizard-collection-builder .sdot{height:30px;padding:0 var(--sp-3);font-size:12px}
+.wizard.wizard-collection-builder .wiz-bd{padding:var(--sp-3) var(--sp-4) var(--sp-3)}
+.wizard.wizard-collection-builder .wiz-sidebar{width:152px}
+.wizard.wizard-collection-builder .sline{height:42px}
 /* En el panel de ejecucion los pasos del wizard ya estan completos y no aportan
    nada mas: se ocultan para darle todo ese ancho al diagnostico. Escopeado a
    "#p4c.active .collection-execution-active" (no solo ".collection-execution-active"
@@ -268,30 +282,30 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .close-hint{font-size:var(--fs-base);color:var(--muted)}
 
 @media (max-width:1600px){
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-hd{padding:var(--sp-2) var(--sp-4);gap:18px}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-hd-logo img{height:60px}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-sidebar{width:146px}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .sdot{height:28px;padding:0 var(--sp-2);font-size:11px}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .sline{height:38px}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-bd{padding:var(--sp-3) var(--sp-4) var(--sp-3)}
+  .wizard.wizard-collection-builder .wiz-hd{padding:var(--sp-2) var(--sp-4);gap:18px}
+  .wizard.wizard-collection-builder .wiz-hd-logo img{height:60px}
+  .wizard.wizard-collection-builder .wiz-sidebar{width:146px}
+  .wizard.wizard-collection-builder .sdot{height:28px;padding:0 var(--sp-2);font-size:11px}
+  .wizard.wizard-collection-builder .sline{height:38px}
+  .wizard.wizard-collection-builder .wiz-bd{padding:var(--sp-3) var(--sp-4) var(--sp-3)}
 }
 
 @media (max-width:1440px){
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-hd{padding:var(--sp-2) var(--sp-4);gap:14px}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-hd-logo img{height:52px}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-sidebar{width:132px}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .sdot{height:26px;padding:0 var(--sp-2);font-size:10px}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .sline{height:30px}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-bd{padding:var(--sp-2) var(--sp-3) var(--sp-3)}
+  .wizard.wizard-collection-builder .wiz-hd{padding:var(--sp-2) var(--sp-4);gap:14px}
+  .wizard.wizard-collection-builder .wiz-hd-logo img{height:52px}
+  .wizard.wizard-collection-builder .wiz-sidebar{width:132px}
+  .wizard.wizard-collection-builder .sdot{height:26px;padding:0 var(--sp-2);font-size:10px}
+  .wizard.wizard-collection-builder .sline{height:30px}
+  .wizard.wizard-collection-builder .wiz-bd{padding:var(--sp-2) var(--sp-3) var(--sp-3)}
 }
 
 @media (max-width:1366px){
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-hd{padding:var(--sp-2) var(--sp-4);gap:14px}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-hd-logo img{height:54px}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-sidebar{width:136px}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .sdot{height:26px;padding:0 var(--sp-2);font-size:10px}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .sline{height:32px}
-  .wizard:has(#p4c.active .collection-shell-studio-builder) .wiz-bd{padding:var(--sp-3) var(--sp-3) var(--sp-3)}
+  .wizard.wizard-collection-builder .wiz-hd{padding:var(--sp-2) var(--sp-4);gap:14px}
+  .wizard.wizard-collection-builder .wiz-hd-logo img{height:54px}
+  .wizard.wizard-collection-builder .wiz-sidebar{width:136px}
+  .wizard.wizard-collection-builder .sdot{height:26px;padding:0 var(--sp-2);font-size:10px}
+  .wizard.wizard-collection-builder .sline{height:32px}
+  .wizard.wizard-collection-builder .wiz-bd{padding:var(--sp-3) var(--sp-3) var(--sp-3)}
 }
 
 .gen-log{border:1.5px solid var(--border);border-radius:0.7em;overflow:hidden;margin-bottom:var(--sp-7);text-align:left}

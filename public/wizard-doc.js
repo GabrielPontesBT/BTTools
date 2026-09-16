@@ -2026,11 +2026,40 @@ function panelId(step) {
   return 'p' + step;
 }
 
+// El chrome compacto del builder de Collections (header chico, sidebar
+// angosta, .wiz-bd casi sin padding) dependia de selectores
+// `.wizard:has(#p4c.active .collection-shell-studio-builder) ...`: subir de
+// .sdot/.wiz-sidebar hasta .wizard y volver a bajar a una clase que vive 5
+// niveles adentro de OTRO hijo (#p4c). Confirmado a mano en el navegador que
+// ese :has() de dos saltos no siempre invalida el estilo del lado del
+// sidebar cuando la clase interna cambia -- el selector "matcheaba"
+// (Element.matches() daba true) pero el motor de estilos no lo aplicaba, ni
+// insertando la misma regla de nuevo con !important. Sintoma: al entrar al
+// canvas de Collections, a veces el sidebar se achicaba bien y a veces se
+// quedaba en su tamano normal contra un canvas que si se hizo mas ancho --
+// un "reescala" que aparecia y desaparecia sin patron claro.
+//
+// La corrige de raiz: en vez de que el CSS intente detectar las dos
+// condiciones solo (:has()), esta funcion las evalua en JS (donde no hay
+// ambiguedad de invalidacion posible) y pone/saca una clase directo en
+// .wizard. La llaman los dos puntos donde cambia alguna de las condiciones:
+// show() (cambia el panel activo) y CollectionStudioManager.renderStage()
+// (cambia el stage del studio).
+function syncCollectionBuilderShrinkClass() {
+  var wizardEl = document.querySelector('.wizard');
+  var p4c = document.getElementById('p4c');
+  if (!wizardEl || !p4c) return;
+  var isBuilderActive = p4c.classList.contains('active') &&
+    !!(window.collectionState && window.collectionState.studioStage === 'builder');
+  wizardEl.classList.toggle('wizard-collection-builder', isBuilderActive);
+}
+
 function show(step) {
   document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
   var pid = panelId(step);
   var panel = document.getElementById(pid);
   if (panel) panel.classList.add('active');
+  syncCollectionBuilderShrinkClass();
   S.step = step;
   saveWizPosition();
   dots(step);
